@@ -1,0 +1,734 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7fa;
+  --surface: #ffffff;
+  --surface-strong: #f9fafc;
+  --text: #17202c;
+  --muted: #5c6878;
+  --border: #cdd5df;
+  --border-strong: #9daabc;
+  --accent: #0b5cad;
+  --accent-dark: #073e78;
+  --agentic: #0f766e;
+  --assisted: #b7791f;
+  --manual: #53687f;
+  --warning-bg: #fff4d6;
+  --warning-border: #b7791f;
+  --danger: #a33a32;
+  --locked: #46566b;
+  --focus: #0b5cad;
+  --shadow: 0 12px 30px rgba(23, 32, 44, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* The horizontal-overflow clamp lives here rather than on <body>: setting
+     `overflow-x` on body makes body a scroll container, which is a known way
+     to break `scrollIntoView` on descendants. Wide content (the task table,
+     diagram source) scrolls inside its own box, so this is only a backstop. */
+  overflow-x: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+:focus-visible {
+  outline: 4px solid rgba(11, 92, 173, 0.35);
+  outline-offset: 3px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 26px clamp(20px, 4vw, 56px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3.1rem);
+  line-height: 1.05;
+}
+
+h2 {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.4vw, 2.4rem);
+  line-height: 1.15;
+}
+
+h3 {
+  margin: 0;
+  font-size: 1.22rem;
+}
+
+h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.header-status {
+  max-width: 360px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  color: var(--muted);
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.header-status.is-offline {
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+  color: #5f3b00;
+}
+
+.stage-rail {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  background: #e8edf3;
+  border-bottom: 1px solid var(--border);
+}
+
+.stage-rail button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 66px;
+  padding: 10px 8px;
+  border: 0;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.stage-rail button:last-child {
+  border-right: 0;
+}
+
+.stage-rail button.is-complete {
+  background: #eef7f6;
+  color: #105a55;
+}
+
+.stage-rail button.is-current {
+  box-shadow: inset 0 -5px 0 var(--accent);
+  color: var(--accent-dark);
+}
+
+.stage-rail button.is-locked {
+  background: #eef1f5;
+  color: var(--locked);
+}
+
+.stage-number {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.95rem;
+}
+
+.console-shell {
+  width: min(1280px, calc(100% - 40px));
+  margin: 34px auto 56px;
+}
+
+.stage-section,
+.empty-state,
+.offline-panel {
+  /* Keeps the section heading clear of the sticky stage rail when the rail
+     scrolls a stage into view. Without it the heading lands underneath. */
+  scroll-margin-top: 92px;
+  margin: 0 0 28px;
+  padding: clamp(22px, 3vw, 34px);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+
+.section-kicker {
+  margin: 0 0 8px;
+  color: var(--accent-dark);
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lead {
+  max-width: 960px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.artifact-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.provenance-badge,
+.status-badge,
+.coverage-pill,
+.stream-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--text);
+  background: #eef2f6;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.provenance-badge.provenance-live_ai,
+.provenance-badge.provenance-replayed_ai {
+  border-color: #7aa8d8;
+  background: #e8f2fd;
+  color: #064981;
+}
+
+.provenance-badge.provenance-staged {
+  border: 3px solid #6b3f00;
+  background: #ffd86b;
+  color: #261800;
+  box-shadow: 0 0 0 3px rgba(183, 121, 31, 0.22);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin: 18px 0 22px;
+}
+
+.meta-item,
+.summary-card,
+.open-questions,
+.integration-note,
+.locked-panel,
+.decision-panel,
+.assumption-note {
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.meta-label {
+  margin: 0 0 3px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.meta-value {
+  margin: 0;
+  font-weight: 800;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.content-card {
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.content-card p,
+.summary-card p,
+.open-questions p,
+.integration-note p,
+.locked-panel p,
+.decision-panel p,
+.assumption-note p {
+  margin: 8px 0 0;
+}
+
+.open-questions {
+  margin-top: 18px;
+  border-color: var(--warning-border);
+  background: #fff9ea;
+}
+
+.open-question-list,
+.criteria-list,
+.assumption-list {
+  margin: 12px 0 0;
+  padding-left: 1.25rem;
+}
+
+.open-question-list li,
+.criteria-list li,
+.assumption-list li {
+  margin: 8px 0;
+}
+
+/* Stacked, not side by side. The task table carries five columns and needs the
+   full width — squeezed into a 1.4fr column its estimate column was clipped and
+   its horizontal scroller swallowed the page's vertical scroll. The coverage
+   bars are short and read fine at full width, so nothing is lost. */
+.prose-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+}
+
+.prose-list li {
+  margin-bottom: 6px;
+  line-height: 1.55;
+}
+
+.prose-list li:last-child {
+  margin-bottom: 0;
+}
+
+.assessment-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.coverage-panel,
+.tasks-panel,
+.design-artifact,
+.story-card,
+.gate-panel {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.coverage-subtitle {
+  margin: 4px 0 18px;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.coverage-list {
+  display: grid;
+  gap: 18px;
+}
+
+.coverage-row {
+  display: grid;
+  gap: 8px;
+}
+
+.coverage-row-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-weight: 900;
+}
+
+.bar-track {
+  width: 100%;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: #eef1f5;
+}
+
+.bar-fill {
+  height: 100%;
+  min-width: 3px;
+  border-radius: inherit;
+  transition: width 180ms ease-out;
+}
+
+.coverage-agentic .bar-fill,
+.coverage-pill.coverage-agentic {
+  background: var(--agentic);
+  border-color: var(--agentic);
+  color: #fff;
+}
+
+.coverage-ai_assisted_external .bar-fill,
+.coverage-pill.coverage-ai_assisted_external {
+  background: var(--assisted);
+  border-color: var(--assisted);
+  color: #fff;
+}
+
+.coverage-manual .bar-fill,
+.coverage-pill.coverage-manual {
+  background: var(--manual);
+  border-color: var(--manual);
+  color: #fff;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 13px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #eef2f6;
+  color: #344052;
+  font-size: 0.82rem;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+tr.is-blocked td {
+  background: #fff7e3;
+}
+
+.blocked-note {
+  display: block;
+  margin-top: 8px;
+  color: #6b3f00;
+  font-weight: 900;
+}
+
+.integration-note {
+  margin-top: 16px;
+  border-color: #86a8c9;
+  background: #edf5fc;
+}
+
+.design-list,
+.stories-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.artifact-source {
+  margin: 14px 0 0;
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #101820;
+  color: #ecf2f8;
+  font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  font-size: 0.9rem;
+  white-space: pre;
+}
+
+.diagram-note {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.diagram-rendered {
+  margin-top: 14px;
+  padding: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.diagram-rendered svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.gate-form {
+  display: grid;
+  gap: 16px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.form-field {
+  display: grid;
+  gap: 7px;
+}
+
+label {
+  font-weight: 900;
+}
+
+input,
+textarea {
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 12px;
+  background: #fff;
+  color: var(--text);
+}
+
+textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.action-button {
+  min-height: 48px;
+  border: 1px solid var(--accent-dark);
+  border-radius: 6px;
+  padding: 10px 18px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 900;
+}
+
+.action-button.secondary {
+  border-color: var(--border-strong);
+  background: #fff;
+  color: var(--text);
+}
+
+.action-button.reject {
+  border-color: #6f241f;
+  background: var(--danger);
+}
+
+.action-button:disabled {
+  opacity: 0.45;
+}
+
+.form-hint,
+.error-text {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.form-hint {
+  color: var(--muted);
+}
+
+.error-text {
+  color: #7a211b;
+}
+
+.decision-panel {
+  margin-top: 18px;
+}
+
+.decision-panel.approved {
+  border-color: var(--agentic);
+  background: #eef7f6;
+}
+
+.decision-panel.rejected {
+  border-color: var(--danger);
+  background: #fff0ee;
+}
+
+.locked-panel {
+  border-color: var(--border-strong);
+  background: #eef1f5;
+}
+
+.story-card h3 {
+  max-width: 900px;
+}
+
+.story-narrative {
+  color: var(--muted);
+  font-size: 1.04rem;
+}
+
+.story-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+}
+
+.assumption-note {
+  margin-top: 16px;
+  border-color: var(--warning-border);
+  background: var(--warning-bg);
+}
+
+.offline-panel {
+  border-color: var(--warning-border);
+  background: #fff9ea;
+}
+
+.offline-panel h2 {
+  color: #4d3200;
+}
+
+code {
+  padding: 0.12em 0.3em;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #eef2f6;
+  font-size: 0.92em;
+}
+
+@media (max-width: 980px) {
+  body {
+    font-size: 17px;
+  }
+
+  .app-header,
+  .section-heading,
+  .assessment-grid,
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .app-header,
+  .section-heading {
+    display: grid;
+  }
+
+  .header-status {
+    max-width: none;
+    text-align: left;
+  }
+
+  .meta-grid,
+  .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-rail {
+    overflow-x: auto;
+    grid-template-columns: repeat(5, minmax(132px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .console-shell {
+    width: min(100% - 24px, 1280px);
+    margin-top: 18px;
+  }
+
+  .stage-rail button {
+    min-height: 58px;
+    font-size: 0.82rem;
+  }
+
+  .stage-number {
+    width: 28px;
+    height: 28px;
+    flex-basis: 28px;
+  }
+
+  .artifact-header {
+    display: grid;
+  }
+}
