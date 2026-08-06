@@ -14,7 +14,9 @@ committed recordings; nothing else in this module or above it changes.
 
 from __future__ import annotations
 
+import os
 import re
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,6 +30,7 @@ from s7_delivery.models import (
     GateDecision,
     Provenance,
     ReviewGate,
+    Task,
     UserStory,
 )
 
@@ -161,6 +164,29 @@ def initial_gate(epic_id: str) -> ReviewGate:
     return ReviewGate(epic_id=epic_id, decision=GateDecision.PENDING)
 
 
+def _ai_artifacts_enabled() -> bool:
+    """True when S7_ARTIFACTS=ai selects the recorded model-generated stages."""
+    return os.environ.get("S7_ARTIFACTS", "staged").lower() == "ai"
+
+
+def _ai_stage(name: str, produce, fallback):
+    """Run a generated stage, falling back to its staged twin on any failure.
+
+    A replay miss, malformed JSON, or invalid diagram must degrade to a badged
+    STAGED artifact rather than a dead demo — loudly, so a silent fallback
+    never masquerades as a recording.
+    """
+    try:
+        return produce()
+    except Exception as exc:  # noqa: BLE001 — any stage failure means fall back
+        print(
+            f"[s7] AI-generated {name} unavailable ({type(exc).__name__}: {exc}); "
+            "falling back to STAGED artifact",
+            file=sys.stderr,
+        )
+        return fallback()
+
+
 def build_state(gate: ReviewGate | None = None, *, epic_path: Path | None = None) -> PipelineState:
     """Assemble the full pipeline state for a given gate decision.
 
@@ -169,11 +195,28 @@ def build_state(gate: ReviewGate | None = None, *, epic_path: Path | None = None
     """
     document = load_epic(epic_path)
     current = gate or initial_gate(document.epic.id)
-    stories = staged.stories() if current.may_proceed else ()
+
+    if _ai_artifacts_enabled():
+        from s7_delivery import generate
+
+        epic = document.epic
+        assessment = _ai_stage("assessment", lambda: generate.assessment(epic), staged.assessment)
+        design = _ai_stage("design", lambda: generate.design(epic, assessment), staged.design)
+        if current.may_proceed:
+            stories = _ai_stage(
+                "stories", lambda: generate.stories(epic, assessment), staged.stories
+            )
+        else:
+            stories = ()
+    else:
+        assessment = staged.assessment()
+        design = staged.design()
+        stories = staged.stories() if current.may_proceed else ()
+
     return PipelineState(
         document=document,
-        assessment=staged.assessment(),
-        design=staged.design(),
+        assessment=assessment,
+        design=design,
         gate=current,
         stories=stories,
     )
@@ -393,4 +436,25 @@ def _story_payload(story: UserStory) -> dict[str, Any]:
         "provenance": story.provenance.value,
         "epic_id": story.epic_id,
         "assumptions": list(story.assumptions),
+        "tasks": [_task_payload(t) for t in story.tasks],
+        "unsatisfied": list(story.unsatisfied()),
+        "task_coverage": {
+            c.value: share for c, share in story.coverage_breakdown().items()
+        },
+    }
+
+
+def _task_payload(task: Task) -> dict[str, Any]:
+    return {
+        "id": task.id,
+        "story_id": task.story_id,
+        "summary": task.summary,
+        "stream": task.stream.value,
+        "coverage": task.coverage.value,
+        "estimate_days": task.estimate_days,
+        "provenance": task.provenance.value,
+        "satisfies": list(task.satisfies),
+        "depends_on": list(task.depends_on),
+        "owning_team": task.owning_team,
+        "runs_in_downstream_lane": task.runs_in_downstream_lane,
     }
