@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -26,7 +27,7 @@ except ImportError:
 if load_dotenv is not None:
     load_dotenv()
 
-_PROVIDER_NAMES = "'openai', 'anthropic', 'bedrock', 'ollama', or 'custom'"
+_PROVIDER_NAMES = "'openai', 'anthropic', 'bedrock', 'ollama', 'custom', or 'claude_cli'"
 _JSON_INSTRUCTION = "\n\nRespond with valid JSON only, no surrounding prose."
 
 
@@ -130,6 +131,8 @@ def _model_for(provider: str) -> str:
         return os.environ.get("OLLAMA_MODEL", "llama3.1")
     if provider == "custom":
         return os.environ.get("CUSTOM_LLM_MODEL", "custom")
+    if provider == "claude_cli":
+        return os.environ.get("CLAUDE_CLI_MODEL", "claude-cli")
     return os.environ.get("OPENAI_MODEL", "gpt-5")
 
 
@@ -405,6 +408,70 @@ def _call_ollama(prompt: str, system: str | None, json_mode: bool) -> tuple[str,
     return response.choices[0].message.content or "", _openai_usage(response.usage)
 
 
+def _claude_cli_usage(raw: dict[str, Any]) -> Usage:
+    """Read the usage block from a `claude -p --output-format json` result.
+
+    Field names match the Anthropic API's; absent fields stay `None` per the
+    same discipline as `_anthropic_usage`.
+    """
+    u = raw.get("usage") or {}
+    return Usage(
+        input_tokens=_int_or_none(u.get("input_tokens")),
+        output_tokens=_int_or_none(u.get("output_tokens")),
+        cache_read_tokens=_int_or_none(u.get("cache_read_input_tokens")),
+        cache_write_tokens=_int_or_none(u.get("cache_creation_input_tokens")),
+    )
+
+
+def _call_claude_cli(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+    """Record-time provider: shells out to the local `claude` CLI, headless.
+
+    Uses the CLI's own login, so no API key is involved. Demo-time never
+    reaches this function — the demo runs in replay mode — so the dependency
+    on Claude Code exists only on the machine that records (hard rule 4).
+    """
+    cmd = ["claude", "-p", "--output-format", "json"]
+    model = os.environ.get("CLAUDE_CLI_MODEL")
+    if model:
+        cmd += ["--model", model]
+    if system:
+        cmd += ["--append-system-prompt", system]
+    if json_mode:
+        prompt = f"{prompt}{_JSON_INSTRUCTION}"
+    try:
+        proc = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=900)
+    except FileNotFoundError as exc:
+        raise LLMError(
+            "claude CLI not found on PATH; LLM_PROVIDER=claude_cli is record-time only"
+        ) from exc
+    if proc.returncode != 0:
+        raise LLMError(f"claude CLI exited {proc.returncode}: {proc.stderr[-500:]}")
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise LLMError(f"claude CLI returned non-JSON output: {proc.stdout[:300]}") from exc
+    if payload.get("is_error"):
+        raise LLMError(f"claude CLI error result: {str(payload.get('result'))[:300]}")
+    return str(payload.get("result", "")), _claude_cli_usage(payload)
+
+
+def _stream_claude_cli(
+    prompt: str,
+    system: str | None,
+    json_mode: bool,
+    *,
+    usage_out: dict[str, int],
+) -> Iterator[str]:
+    """One-shot streamer: the CLI's print mode has no token stream worth
+    plumbing, and record-time calls do not need one."""
+    text, usage = _call_claude_cli(prompt, system, json_mode)
+    if usage.input_tokens is not None:
+        usage_out["input_tokens"] = usage.input_tokens
+    if usage.output_tokens is not None:
+        usage_out["output_tokens"] = usage.output_tokens
+    yield text
+
+
 def _stream_anthropic(
     prompt: str,
     system: str | None,
@@ -566,6 +633,7 @@ _PROVIDER_CALLERS = {
     "openai": _call_openai,
     "ollama": _call_ollama,
     "custom": _call_custom,
+    "claude_cli": _call_claude_cli,
 }
 
 _PROVIDER_STREAMERS = {
@@ -574,6 +642,7 @@ _PROVIDER_STREAMERS = {
     "openai": _stream_openai,
     "ollama": _stream_ollama,
     "custom": _stream_custom,
+    "claude_cli": _stream_claude_cli,
 }
 
 
