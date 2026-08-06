@@ -18,6 +18,10 @@ venv/
 # per-run staging/diff artifacts — regenerated every run
 s7_delivery/out/
 
+# Control Centre run state — recreated from seed on demand; a presenter's
+# local runs are not demo material to commit
+artifacts/runs/
+
 # generated data — keep the directory, not its contents
 data/*
 !data/.gitkeep
