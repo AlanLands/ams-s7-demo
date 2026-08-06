@@ -2,13 +2,21 @@
 # Launch the S7 delivery console.
 #
 # Binds to 127.0.0.1 deliberately: this is a presenter's local demo, not a
-# service. Nothing here needs an API key — artifacts are staged (Sprint 0) and
-# will be replayed from committed recordings (Sprint 3), so it runs offline.
+# service. Nothing here needs an API key or network: artifacts replay from the
+# committed recordings under s7_delivery/cache/llm.
+#
+# The three variables below are one setting, not three: replay recordings are
+# keyed by provider+model, so replay only finds them under the same provider
+# that recorded them. Override S7_ARTIFACTS=staged to fall back to the staged
+# artifacts.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
 PORT="${PORT:-8700}"
+export S7_ARTIFACTS="${S7_ARTIFACTS:-ai}"
+export LLM_MODE="${LLM_MODE:-replay}"
+export LLM_PROVIDER="${LLM_PROVIDER:-claude_cli}"
 
 if [ -x .venv/bin/uvicorn ]; then
   PY=.venv/bin/uvicorn

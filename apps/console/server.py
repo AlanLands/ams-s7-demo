@@ -16,7 +16,9 @@ rehearsals.
 
 from __future__ import annotations
 
+import json
 import threading
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -36,6 +38,8 @@ from s7_delivery.pipeline import (
 )
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+DOWNSTREAM_DIR = REPO_ROOT / "artifacts" / "EPIC-S7-001" / "downstream"
 
 app = FastAPI(
     title="S7 Delivery Console",
@@ -75,6 +79,110 @@ class _GateState:
 _state = _GateState()
 
 
+class _ReleaseState:
+    """The second human gate — release approval. Same discipline as the
+    design gate: attributed, in-memory, reset between rehearsals."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self.reset()
+
+    def get(self) -> dict[str, Any]:
+        with self._lock:
+            return dict(self._value)
+
+    def approve(self, reviewer: str, comment: str = "") -> dict[str, Any]:
+        with self._lock:
+            self._value = {
+                "decision": "approved",
+                "reviewer": reviewer,
+                "decided_at": datetime.now(UTC).isoformat(),
+                "comment": comment,
+            }
+            return dict(self._value)
+
+    def reset(self) -> None:
+        with getattr(self, "_lock", threading.Lock()):
+            self._value = {
+                "decision": "pending",
+                "reviewer": None,
+                "decided_at": None,
+                "comment": "",
+            }
+
+
+_release = _ReleaseState()
+
+
+def _downstream_payload() -> dict[str, Any]:
+    """The recorded downstream lane, read from the artifact plane.
+
+    Absent files mean the lane has not been recorded — the console renders
+    that honestly rather than failing.
+    """
+    events_path = DOWNSTREAM_DIR / "events.jsonl"
+    review_path = DOWNSTREAM_DIR / "review.json"
+    app_index = DOWNSTREAM_DIR / "app" / "index.html"
+
+    events: list[dict[str, Any]] = []
+    if events_path.exists():
+        for line in events_path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                events.append(json.loads(line))
+
+    review: dict[str, Any] = {}
+    if review_path.exists():
+        review = json.loads(review_path.read_text(encoding="utf-8"))
+
+    lane_task_id = None
+    if events:
+        first = events[0].get("action", "")
+        if first.startswith("picked up ") and ":" in first:
+            lane_task_id = first.removeprefix("picked up ").split(":", 1)[0].strip()
+
+    ok = bool(events) and events[-1].get("status") == "done"
+    return {
+        "events": events,
+        "review": review,
+        "lane_task_id": lane_task_id,
+        "ok": ok,
+        "app_available": app_index.exists(),
+        "provenance": "replayed_ai" if events else "staged",
+    }
+
+
+def _gates_payload(run: dict[str, Any], downstream: dict[str, Any]) -> list[dict[str, Any]]:
+    """The five-gate strip the overview renders. Computed, never asserted."""
+    design_gate = run.get("gate") or {}
+    stories = run.get("stories") or []
+    release = _release.get()
+
+    g1 = design_gate.get("decision", "pending")
+
+    if stories:
+        g2 = "approved" if all(not s.get("unsatisfied") for s in stories) else "pending"
+    else:
+        g2 = "pending"
+
+    verdict = downstream["review"].get("verdict")
+    g3 = {"pass": "approved", "fail": "rejected"}.get(verdict, "pending")
+
+    g4 = release["decision"] if g3 == "approved" else "pending"
+
+    return [
+        {"id": "G0", "label": "Intake complete", "status": "approved",
+         "detail": "Epic parsed and loaded", "target": "stage-epic"},
+        {"id": "G1", "label": "Design sign-off", "status": g1,
+         "detail": "Human review of assessment and design", "target": "stage-gate"},
+        {"id": "G2", "label": "AC coverage", "status": g2,
+         "detail": "Every acceptance criterion claimed by a task", "target": "stage-stories"},
+        {"id": "G3", "label": "Independent review", "status": g3,
+         "detail": "Second model verifies the build against the criteria", "target": "stage-downstream"},
+        {"id": "G4", "label": "Release", "status": g4,
+         "detail": "Human approves the release", "target": "stage-downstream"},
+    ]
+
+
 class GateRequest(BaseModel):
     decision: str = Field(description="'approved' or 'rejected'")
     reviewer: str = Field(
@@ -84,7 +192,11 @@ class GateRequest(BaseModel):
 
 
 def _payload() -> dict[str, Any]:
-    return to_payload(build_state(_state.get()))
+    run = to_payload(build_state(_state.get()))
+    downstream = _downstream_payload()
+    run["release_gate"] = _release.get()
+    run["gates"] = _gates_payload(run, downstream)
+    return run
 
 
 @app.exception_handler(PipelineError)
@@ -118,12 +230,52 @@ def post_gate(request: GateRequest) -> dict[str, Any]:
     return _payload()
 
 
-@app.post("/api/reset")
-def post_reset() -> dict[str, Any]:
-    """Return the gate to pending — the between-rehearsals reset."""
-    _state.reset()
+@app.get("/api/downstream")
+def get_downstream() -> dict[str, Any]:
+    """The recorded downstream lane — events feed, review verdict, app."""
+    return _downstream_payload()
+
+
+class ReleaseRequest(BaseModel):
+    reviewer: str = Field(description="Who approved the release. Required.")
+    comment: str = ""
+
+
+@app.post("/api/release")
+def post_release(request: ReleaseRequest) -> dict[str, Any]:
+    """Record release approval — the second human gate.
+
+    Refused while the independent review has not passed: a human approving a
+    release nobody verified is exactly what the gate order exists to prevent.
+    """
+    if not request.reviewer.strip():
+        raise HTTPException(status_code=400, detail="A reviewer name is required")
+    downstream = _downstream_payload()
+    if downstream["review"].get("verdict") != "pass":
+        raise HTTPException(
+            status_code=400,
+            detail="Release is locked until the independent review (G3) passes",
+        )
+    _release.approve(request.reviewer.strip(), request.comment.strip())
     return _payload()
 
+
+@app.post("/api/reset")
+def post_reset() -> dict[str, Any]:
+    """Return both gates to pending — the between-rehearsals reset."""
+    _state.reset()
+    _release.reset()
+    return _payload()
+
+
+# The generated application — the downstream lane's real output, served so
+# the demo's last click opens it. Mounted before "/" so its path wins.
+if (DOWNSTREAM_DIR / "app").is_dir():
+    app.mount(
+        "/generated-app",
+        StaticFiles(directory=DOWNSTREAM_DIR / "app", html=True),
+        name="generated-app",
+    )
 
 # Mounted last so the API routes above win. `html=True` serves index.html at /.
 if STATIC_DIR.is_dir():

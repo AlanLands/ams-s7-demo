@@ -7,6 +7,23 @@
   let currentState = null;
   let mermaidLoadAttempted = false;
   let mermaidReady = false;
+  let sectionObserver = null;
+
+  // The recorded downstream lane: artifacts are static per run, so this is
+  // fetched once. `played`/`lanesDone` survive re-renders (gate decisions
+  // re-draw every section) so the animation never replays by accident.
+  let downstreamData = null;
+  const downstreamView = { played: false, playing: false, lanesDone: false };
+
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+  function scrollToSection(target) {
+    target.scrollIntoView({
+      behavior: reducedMotion.matches ? "auto" : "smooth",
+      block: "start"
+    });
+    target.focus({ preventScroll: true });
+  }
 
   const stageConfig = [
     { id: "stage-epic", key: "epic", label: "EPIC" },
@@ -449,7 +466,16 @@
           }
           const rendered = el("div", { className: "diagram-rendered" });
           rendered.appendChild(document.importNode(svg, true));
-          wrapper.replaceChildren(rendered);
+          // The source stays reachable behind a toggle rather than vanishing:
+          // in the room, "show me what generated that diagram" is a likely ask.
+          const sourceToggle = el("details", {
+            className: "diagram-source-toggle",
+            children: [
+              el("summary", { text: "View diagram source" }),
+              el("pre", { className: "artifact-source", text: source })
+            ]
+          });
+          wrapper.replaceChildren(rendered, sourceToggle);
         }).catch(() => {
           const note = wrapper.querySelector(".diagram-note");
           if (note) {
@@ -564,9 +590,31 @@
       event.preventDefault();
       const submitter = event.submitter;
       const decision = submitter ? submitter.value : "";
-      submitGateDecision(decision, reviewer.value, comment.value, error);
+      submitGateDecision(decision, reviewer.value, comment.value, error, {
+        submitter,
+        buttons: [approve, reject, reset]
+      });
     });
-    reset.addEventListener("click", () => resetRun(error));
+
+    // Reset is the one button that throws work away, so it asks twice — but
+    // inline, on the button itself. A browser confirm() would block the page.
+    let resetConfirmTimer = null;
+    reset.addEventListener("click", () => {
+      if (!reset.classList.contains("is-confirming")) {
+        reset.classList.add("is-confirming");
+        reset.textContent = "Confirm reset";
+        resetConfirmTimer = setTimeout(() => {
+          reset.classList.remove("is-confirming");
+          reset.textContent = "Reset";
+        }, 4000);
+        return;
+      }
+      clearTimeout(resetConfirmTimer);
+      reset.classList.remove("is-confirming");
+      reset.disabled = true;
+      reset.textContent = "Resetting…";
+      resetRun(error, reset);
+    });
     return form;
   }
 
@@ -613,6 +661,7 @@
         el("p", { className: "story-narrative", text: story.narrative || "" }),
         renderStoryMeta(story),
         renderAcceptance(story.acceptance || []),
+        renderTasks(story),
         renderAssumptions(story.assumptions || [])
       ]);
       grid.appendChild(article);
@@ -642,6 +691,47 @@
     return block;
   }
 
+  function renderTasks(story) {
+    const block = el("div", { className: "content-card" });
+    block.appendChild(el("h4", { text: "Tasks — the executable units below this story" }));
+    const list = el("ul", { className: "task-list" });
+    const tasks = Array.isArray(story.tasks) ? story.tasks : [];
+    tasks.forEach((task) => {
+      list.appendChild(el("li", {
+        className: "task-item",
+        children: [
+          el("span", { className: "criterion-id", text: task.id }),
+          el("span", { className: "task-summary", text: task.summary }),
+          badge("stream", task.stream),
+          badge("coverage", task.coverage),
+          task.satisfies && task.satisfies.length
+            ? el("span", { className: "task-satisfies", text: `satisfies ${task.satisfies.join(", ")}` })
+            : null,
+          task.owning_team
+            ? el("span", { className: "task-satisfies", text: `owned by ${task.owning_team}` })
+            : null,
+          task.runs_in_downstream_lane
+            ? el("span", { className: "lane-state-done", text: "enters build lane" })
+            : null
+        ]
+      }));
+    });
+    if (!tasks.length) {
+      list.appendChild(el("li", { className: "task-item", text: "Not yet decomposed into tasks." }));
+    }
+    const unsatisfied = Array.isArray(story.unsatisfied) ? story.unsatisfied : [];
+    block.appendChild(list);
+    if (tasks.length) {
+      block.appendChild(el("p", {
+        className: unsatisfied.length ? "error-text" : "form-hint",
+        text: unsatisfied.length
+          ? `Unclaimed acceptance criteria: ${unsatisfied.join(", ")}`
+          : "Every acceptance criterion is claimed by a task (G2)."
+      }));
+    }
+    return block;
+  }
+
   function renderAssumptions(items) {
     const block = el("aside", {
       className: "assumption-note",
@@ -658,32 +748,417 @@
     return block;
   }
 
+  // --- five-gate overview --------------------------------------------------
+
+  const gateStatusLabels = {
+    pending: "Pending",
+    approved: "Passed",
+    rejected: "Rejected"
+  };
+
+  function renderOverview(state) {
+    const section = sectionShell(
+      "stage-overview",
+      "⌂",
+      "GOVERNANCE",
+      "Five gates between intake and release"
+    );
+    section.appendChild(el("p", {
+      className: "overview-tagline",
+      text: "Nothing advances without passing a gate. Automated checks run before "
+        + "any human reviews; a human decides at design sign-off and at release."
+    }));
+
+    const strip = el("div", { className: "gate-strip" });
+    // G3/G4 read from the recorded run's artifacts, which exist before the
+    // lane is played on screen. Hold them at pending until the feed has run,
+    // so the overview tells the story in the order the room sees it.
+    const gates = (state.gates || []).map((gate) => {
+      if ((gate.id === "G3" && !downstreamView.played)
+          || (gate.id === "G4" && !downstreamView.lanesDone)) {
+        return Object.assign({}, gate, { status: "pending" });
+      }
+      return gate;
+    });
+    gates.forEach((gate, index) => {
+      if (index > 0) {
+        strip.appendChild(el("span", { className: "gate-connector", attrs: { "aria-hidden": "true" } }));
+      }
+      const chip = el("button", {
+        className: `gate-chip gate-${gate.status}`,
+        attrs: { type: "button", title: gate.detail }
+      });
+      append(chip, [
+        el("span", { className: "gate-light", attrs: { "aria-hidden": "true" } }),
+        el("span", { className: "gate-id", text: gate.id }),
+        el("span", { className: "gate-label", text: gate.label }),
+        el("span", { className: "gate-status", text: gateStatusLabels[gate.status] || gate.status })
+      ]);
+      chip.addEventListener("click", () => {
+        const target = document.getElementById(gate.target);
+        if (target) {
+          setCurrentRailButton(gate.target);
+          scrollToSection(target);
+        }
+      });
+      strip.appendChild(chip);
+    });
+    section.appendChild(strip);
+    return section;
+  }
+
+  // --- downstream lane -----------------------------------------------------
+
+  function agenticTasks(state) {
+    const stories = Array.isArray(state.stories) ? state.stories : [];
+    const tasks = [];
+    stories.forEach((story) => {
+      (story.tasks || []).forEach((task) => {
+        if (task.runs_in_downstream_lane) {
+          tasks.push(task);
+        }
+      });
+    });
+    return tasks;
+  }
+
+  function feedRow(event) {
+    const status = text(event.status) || "done";
+    const row = el("div", { className: `feed-row feed-${status} feed-agent-${text(event.agent)}` });
+    append(row, [
+      el("span", { className: "feed-dot", attrs: { "aria-hidden": "true" } }),
+      el("span", { className: "feed-agent", text: event.agent }),
+      el("span", { className: "feed-action", text: event.action }),
+      event.artifact ? el("span", { className: "feed-artifact", text: event.artifact }) : null
+    ]);
+    return row;
+  }
+
+  function playLaneFeed(feedNode, events, onDone) {
+    downstreamView.playing = true;
+    let index = 0;
+    const step = reducedMotion.matches ? 60 : 1100;
+    const timer = window.setInterval(() => {
+      if (index >= events.length) {
+        window.clearInterval(timer);
+        downstreamView.playing = false;
+        downstreamView.played = true;
+        onDone();
+        return;
+      }
+      feedNode.appendChild(feedRow(events[index]));
+      feedNode.scrollTop = feedNode.scrollHeight;
+      index += 1;
+    }, step);
+  }
+
+  function renderReviewPanel(review) {
+    const panel = el("div", { className: "review-panel" });
+    const verdict = text(review.verdict) || "pending";
+    append(panel, [
+      el("div", {
+        className: "review-heading",
+        children: [
+          el("h3", { text: "G3 · Independent review" }),
+          el("span", { className: `verdict-pill verdict-${verdict}`, text: verdict.toUpperCase() })
+        ]
+      }),
+      el("p", {
+        className: "review-note",
+        text: "A second model — not the one that wrote the code — verifies the build "
+          + "against the story's acceptance criteria. No phase approves its own work."
+      })
+    ]);
+    const list = el("ul", { className: "review-criteria" });
+    (review.criteria || []).forEach((criterion) => {
+      list.appendChild(el("li", {
+        className: criterion.met ? "criterion-met" : "criterion-unmet",
+        children: [
+          el("span", { className: "criterion-id", text: criterion.id }),
+          el("span", { className: "criterion-state", text: criterion.met ? "met" : "NOT MET" }),
+          el("span", { className: "criterion-note", text: criterion.note || "" })
+        ]
+      }));
+    });
+    if ((review.criteria || []).length) {
+      panel.appendChild(list);
+    }
+    return panel;
+  }
+
+  function renderReleasePanel(state) {
+    const release = state.release_gate || {};
+    const panel = el("div", { className: "release-panel" });
+    panel.appendChild(el("h3", { text: "G4 · Release approval" }));
+
+    if (release.decision === "approved") {
+      append(panel, [
+        el("p", {
+          className: "release-approved",
+          text: `Release approved by ${text(release.reviewer)}.`
+        }),
+        el("a", {
+          className: "open-app-button",
+          text: "Open the application →",
+          attrs: { href: "/generated-app/", target: "_blank", rel: "noopener" }
+        }),
+        el("p", {
+          className: "release-footnote",
+          text: "The page that opens was written by the developer agent in this run — "
+            + "generated, tested, and independently reviewed."
+        })
+      ]);
+      return panel;
+    }
+
+    panel.appendChild(el("p", {
+      className: "release-note",
+      text: "A human approves the release. The pipeline cannot run past this point on its own."
+    }));
+    const error = el("p", { className: "error-text", attrs: { role: "alert" } });
+    const reviewerInput = el("input", {
+      className: "release-input",
+      attrs: { type: "text", placeholder: "Reviewer name", "aria-label": "Release reviewer name" }
+    });
+    const approve = el("button", {
+      className: "action-button",
+      text: "Approve release",
+      attrs: { type: "button" }
+    });
+    approve.addEventListener("click", () => {
+      if (!reviewerInput.value.trim()) {
+        error.textContent = "Reviewer name is required.";
+        return;
+      }
+      approve.disabled = true;
+      approve.textContent = "Approving…";
+      fetch("/api/release", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewer: reviewerInput.value.trim(), comment: "" })
+      }).then((response) => {
+        if (!response.ok) {
+          return response.json().catch(() => ({})).then((body) => {
+            throw new Error(body.detail || `POST /api/release returned ${response.status}`);
+          });
+        }
+        return response.json();
+      }).then((nextState) => {
+        renderState(nextState);
+        scrollToSection(document.getElementById("stage-downstream"));
+      }).catch((err) => {
+        error.textContent = err.message || "Release approval failed.";
+        approve.disabled = false;
+        approve.textContent = "Approve release";
+      });
+    });
+    append(panel, [
+      el("div", { className: "release-form", children: [reviewerInput, approve] }),
+      error
+    ]);
+    return panel;
+  }
+
+  function renderDownstream(state) {
+    const section = sectionShell(
+      "stage-downstream",
+      "6",
+      "BUILD & RELEASE",
+      "Agents execute the work",
+      downstreamData && downstreamData.events.length ? downstreamData.provenance : null
+    );
+
+    const storiesReady = Array.isArray(state.stories) && state.stories.length > 0;
+    if (!storiesReady) {
+      section.appendChild(el("div", {
+        className: "locked-panel",
+        children: [
+          el("h3", { text: "Locked" }),
+          el("p", {
+            text: "The build lane opens once the design is signed off and the epic "
+              + "is broken into stories. Approve the review gate to continue."
+          })
+        ]
+      }));
+      return section;
+    }
+
+    if (!downstreamData || !downstreamData.events.length) {
+      section.appendChild(el("div", {
+        className: "locked-panel",
+        children: [
+          el("h3", { text: "No recorded lane" }),
+          el("p", { text: "artifacts/…/downstream is empty — run demo/record_downstream.py." })
+        ]
+      }));
+      return section;
+    }
+
+    section.appendChild(el("p", {
+      className: "overview-tagline",
+      text: "Only tasks classified agentic enter this lane — the rest are routed to "
+        + "their owning teams and counted honestly as hand-work. One lane is shown "
+        + "in full; the others run the same recorded lane."
+    }));
+
+    const tasks = agenticTasks(state);
+    const laneTaskId = downstreamData.lane_task_id;
+    const laneTask = tasks.find((task) => task.id === laneTaskId) || tasks[0] || null;
+    const others = tasks.filter((task) => laneTask && task.id !== laneTask.id);
+    const half = Math.ceil(others.length / 2);
+    const laneGroups = [others.slice(0, half), others.slice(half)];
+
+    const lanes = el("div", { className: "lane-grid" });
+
+    // Lane 1 — the recorded run, played event by event.
+    const lane1 = el("div", { className: "lane lane-live" });
+    append(lane1, [
+      el("div", {
+        className: "lane-heading",
+        children: [
+          el("h3", { text: "Developer agent 1" }),
+          laneTask ? badge("stream", laneTask.stream) : null
+        ]
+      }),
+      laneTask ? el("p", { className: "lane-task", text: `${laneTask.id} — ${laneTask.summary}` }) : null
+    ]);
+    const feed = el("div", { className: "lane-feed", attrs: { "aria-live": "polite" } });
+    const runButton = el("button", {
+      className: "action-button",
+      text: "Run lane",
+      attrs: { type: "button" }
+    });
+    if (downstreamView.played) {
+      downstreamData.events.forEach((event) => feed.appendChild(feedRow(event)));
+      runButton.hidden = true;
+    } else if (downstreamView.playing) {
+      runButton.hidden = true;
+    }
+    runButton.addEventListener("click", () => {
+      runButton.hidden = true;
+      playLaneFeed(feed, downstreamData.events, () => renderState(currentState));
+    });
+    append(lane1, [feed, runButton]);
+    lanes.appendChild(lane1);
+
+    // Lanes 2 and 3 — same recorded lane, completed on demand.
+    laneGroups.forEach((group, index) => {
+      const lane = el("div", { className: "lane lane-queued" });
+      lane.appendChild(el("div", {
+        className: "lane-heading",
+        children: [el("h3", { text: `Developer agent ${index + 2}` })]
+      }));
+      if (!group.length) {
+        lane.appendChild(el("p", { className: "lane-task", text: "No further agentic tasks in this run." }));
+      }
+      group.forEach((task) => {
+        const done = downstreamView.lanesDone;
+        lane.appendChild(el("p", {
+          className: `lane-task ${done ? "lane-task-done" : ""}`,
+          children: [
+            el("span", { className: "feed-dot", attrs: { "aria-hidden": "true" } }),
+            el("span", { text: `${task.id} — ${task.summary}` }),
+            el("span", {
+              className: done ? "lane-state-done" : "lane-state-queued",
+              text: done ? "completed — same recorded lane" : "queued"
+            })
+          ]
+        }));
+      });
+      lanes.appendChild(lane);
+    });
+    section.appendChild(lanes);
+
+    if (downstreamView.played && !downstreamView.lanesDone) {
+      const completeButton = el("button", {
+        className: "action-button secondary",
+        text: "Run remaining lanes",
+        attrs: { type: "button" }
+      });
+      completeButton.addEventListener("click", () => {
+        downstreamView.lanesDone = true;
+        renderState(currentState);
+        scrollToSection(document.getElementById("stage-downstream"));
+      });
+      section.appendChild(completeButton);
+    }
+
+    if (downstreamView.played && downstreamView.lanesDone) {
+      section.appendChild(el("div", {
+        className: "integration-node",
+        children: [
+          el("h3", { text: "Integration point" }),
+          el("p", {
+            text: (currentState && currentState.assessment && currentState.assessment.integration_note)
+              || "Parallel streams merge here before integrated test."
+          })
+        ]
+      }));
+      section.appendChild(renderReviewPanel(downstreamData.review || {}));
+      if ((downstreamData.review || {}).verdict === "pass") {
+        section.appendChild(renderReleasePanel(state));
+      }
+    }
+
+    return section;
+  }
+
   function renderState(state) {
     currentState = state;
     app.replaceChildren();
     append(app, [
+      renderOverview(state),
       renderEpic(state.epic || {}),
       renderAssessment(state.assessment || {}),
       renderDesign(state.design || []),
       renderGate(state.gate || {}),
-      renderStories(state.stories || [], state.stories_locked_reason)
+      renderStories(state.stories || [], state.stories_locked_reason),
+      renderDownstream(state)
     ]);
     updateStageRail(state);
+    observeSections();
     enhanceMermaid();
   }
 
   function updateStageRail(state) {
     const mayProceed = Boolean(state.gate && state.gate.may_proceed);
-    stageButtons.forEach((button, index) => {
-      button.classList.remove("is-complete", "is-current", "is-locked");
-      if (index < 3 || (index === 3 && mayProceed)) {
+    const storiesReady = Array.isArray(state.stories) && state.stories.length > 0;
+    const released = Boolean(state.release_gate && state.release_gate.decision === "approved");
+    const completion = {
+      "stage-overview": false,
+      "stage-epic": true,
+      "stage-assess": true,
+      "stage-design": true,
+      "stage-gate": mayProceed,
+      "stage-stories": storiesReady,
+      "stage-downstream": released
+    };
+    const locks = {
+      "stage-stories": !mayProceed ? "Locked until gate approval" : null,
+      "stage-downstream": !storiesReady ? "Locked until stories are approved" : null
+    };
+    stageButtons.forEach((button) => {
+      const target = button.dataset.stageTarget;
+      const numberNode = button.querySelector(".stage-number");
+      if (numberNode && !numberNode.dataset.number) {
+        numberNode.dataset.number = numberNode.textContent;
+      }
+      button.classList.remove("is-complete", "is-locked");
+      const complete = Boolean(completion[target]);
+      if (complete) {
         button.classList.add("is-complete");
       }
-      if (index === 4 && !mayProceed) {
+      if (numberNode) {
+        numberNode.textContent = complete ? "✓" : numberNode.dataset.number;
+      }
+      const lockLabel = locks[target];
+      if (lockLabel) {
         button.classList.add("is-locked");
-        button.setAttribute("aria-label", "STORIES locked until gate approval");
+        button.setAttribute("aria-label", lockLabel);
+        button.setAttribute("title", lockLabel);
       } else {
         button.removeAttribute("aria-label");
+        button.removeAttribute("title");
       }
     });
   }
@@ -716,12 +1191,27 @@
       });
   }
 
-  function submitGateDecision(decision, reviewer, comment, errorNode) {
+  function fetchDownstream() {
+    // Artifacts are static for a given run; failure renders as "no recorded
+    // lane" rather than blocking the rest of the console.
+    return fetch("/api/downstream", { headers: { Accept: "application/json" } })
+      .then((response) => (response.ok ? response.json() : null))
+      .catch(() => null);
+  }
+
+  function submitGateDecision(decision, reviewer, comment, errorNode, controls) {
     if (!reviewer.trim()) {
       errorNode.textContent = "Reviewer name is required.";
       return;
     }
     errorNode.textContent = "";
+    const buttons = (controls && controls.buttons) || [];
+    const submitter = controls && controls.submitter;
+    const submitterLabel = submitter ? submitter.textContent : "";
+    buttons.forEach((button) => { button.disabled = true; });
+    if (submitter) {
+      submitter.textContent = decision === "approved" ? "Approving…" : "Rejecting…";
+    }
     fetch("/api/gate", {
       method: "POST",
       headers: {
@@ -739,13 +1229,20 @@
     }).then((state) => {
       setOnlineStatus();
       renderState(state);
-      document.getElementById("stage-gate").focus();
+      // Approval's payoff is the stories unlocking — take the reviewer there
+      // so the consequence of the click is on screen, not below the fold.
+      const unlocked = decision === "approved" && state.stories && state.stories.length;
+      scrollToSection(document.getElementById(unlocked ? "stage-stories" : "stage-gate"));
     }).catch((error) => {
       errorNode.textContent = error.message || "Gate decision failed.";
+      buttons.forEach((button) => { button.disabled = false; });
+      if (submitter) {
+        submitter.textContent = submitterLabel;
+      }
     });
   }
 
-  function resetRun(errorNode) {
+  function resetRun(errorNode, resetButton) {
     if (errorNode) {
       errorNode.textContent = "";
     }
@@ -758,10 +1255,17 @@
       }
       return response.json();
     }).then((state) => {
+      downstreamView.played = false;
+      downstreamView.playing = false;
+      downstreamView.lanesDone = false;
       setOnlineStatus();
       renderState(state);
-      document.getElementById("stage-gate").focus();
+      scrollToSection(document.getElementById("stage-gate"));
     }).catch((error) => {
+      if (resetButton) {
+        resetButton.disabled = false;
+        resetButton.textContent = "Reset";
+      }
       if (errorNode) {
         errorNode.textContent = error.message || "Reset failed.";
       } else {
@@ -770,25 +1274,59 @@
     });
   }
 
+  function setCurrentRailButton(sectionId) {
+    stageButtons.forEach((button) => {
+      const isCurrent = button.dataset.stageTarget === sectionId;
+      button.classList.toggle("is-current", isCurrent);
+      if (isCurrent) {
+        button.setAttribute("aria-current", "true");
+      } else {
+        button.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  // Scroll spy: the rail highlights whichever stage crosses mid-viewport, so
+  // it tracks free scrolling too — not only clicks on the rail itself.
+  function observeSections() {
+    if (!("IntersectionObserver" in window)) {
+      return;
+    }
+    if (!sectionObserver) {
+      sectionObserver = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setCurrentRailButton(entry.target.id);
+          }
+        });
+      }, { rootMargin: "-45% 0px -45% 0px" });
+    } else {
+      sectionObserver.disconnect();
+    }
+    document.querySelectorAll(".stage-section").forEach((section) => {
+      sectionObserver.observe(section);
+    });
+  }
+
   function bindStageRail() {
     stageButtons.forEach((button) => {
       button.addEventListener("click", () => {
         const target = document.getElementById(button.dataset.stageTarget);
         if (target) {
-          stageButtons.forEach((item) => item.classList.remove("is-current"));
-          button.classList.add("is-current");
-          target.scrollIntoView({ behavior: "smooth", block: "start" });
-          target.focus({ preventScroll: true });
+          setCurrentRailButton(target.id);
+          scrollToSection(target);
         }
       });
     });
   }
 
   bindStageRail();
-  fetchRun().then((state) => {
+  Promise.all([fetchRun(), fetchDownstream()]).then(([state, downstream]) => {
+    downstreamData = downstream;
     setOnlineStatus();
     renderState(state);
-  }).catch(() => {
+  }).catch((error) => {
+    console.error("console boot failed:", error);
     showOffline("The console could not load GET /api/run. Start the FastAPI backend and refresh this page.");
   });
 }());
