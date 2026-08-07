@@ -16,6 +16,10 @@ convention, because both are rules that get forgotten under demo pressure:
 - `Coverage` — an honest 40-70% AI coverage that is articulated beats a claimed
   100% that does not survive a question. Coverage is therefore recorded per
   task, not asserted once at the end.
+
+The hierarchy is `Epic → Assessment → UserStory → Task`. `UserStory` is the
+planning artifact a human reads and signs off; `Task` is the executable unit an
+agent is handed, and the unit the downstream lane consumes one at a time.
 """
 
 from __future__ import annotations
@@ -181,12 +185,63 @@ class AcceptanceCriterion:
 
 
 @dataclass(frozen=True)
+class Task:
+    """The executable unit below a story — what the downstream lane picks up.
+
+    Settled 2026-08-04, after the design review made explicit that the S3-style
+    lane consumes *a task at a time*, not a whole story, and that the breakdown
+    is driven by technology, by owning team, and by who has access to which
+    repository. `UserStory` remains the planning artifact and the thing a human
+    reads; `Task` is the thing an agent is handed.
+
+    Two rules from the review are encoded here rather than left to convention:
+
+    - `satisfies` names the acceptance criteria this task delivers. Traceability
+      is a field, not a paragraph — a task that satisfies nothing is either
+      mis-decomposed or scope nobody asked for, and `UserStory.unsatisfied()`
+      makes the gap visible instead of leaving it to be noticed.
+    - `coverage` is where the two scopes stitch together. Only `AGENTIC` tasks
+      go down the automated lane; the rest follow the normal development cycle
+      and are labelled as such. This is the same honesty `Assessment` applies to
+      an epic, applied one level down.
+    """
+
+    id: str
+    story_id: str
+    summary: str
+    stream: Stream
+    coverage: Coverage
+    estimate_days: float
+    provenance: Provenance
+    satisfies: tuple[str, ...] = ()
+    """Ids of the `AcceptanceCriterion` entries this task delivers."""
+    depends_on: tuple[str, ...] = ()
+    owning_team: str | None = None
+    """Set when the change is owned outside this pipeline. Names who is waited
+    on, so a blocked task reads as a queue rather than as a failure."""
+
+    @property
+    def runs_in_downstream_lane(self) -> bool:
+        """True when build → test → docs → release may pick this task up.
+
+        Anything else is a change someone makes by hand, and claiming otherwise
+        is the overclaim this repo exists to avoid.
+        """
+        return self.coverage is Coverage.AGENTIC
+
+
+@dataclass(frozen=True)
 class UserStory:
     """The convergence point of the two modes.
 
     Project mode reaches this shape by way of epic → design → gate. Enhancement
     mode (S3-style) starts here. Everything downstream consumes this and does
     not care which mode produced it.
+
+    A story is not itself executable — it decomposes into `tasks`, and those are
+    what the downstream lane consumes. `tasks` defaults to empty because
+    decomposition is a later stage than breakdown: a story that has passed the
+    gate but not yet been decomposed is a real state, not an incomplete object.
     """
 
     id: str
@@ -200,6 +255,33 @@ class UserStory:
     assumptions: tuple[str, ...] = ()
     """Anything resting on an unvalidated SME question. Carried, not buried —
     EPIC-S7-001 §10 lists questions that must not be silently invented."""
+    tasks: tuple[Task, ...] = ()
+
+    def unsatisfied(self) -> tuple[str, ...]:
+        """Acceptance criterion ids no task claims to deliver.
+
+        Empty is the only good answer once decomposition has run. Reported
+        rather than raised: an undecomposed story returns every criterion, which
+        is correct and not an error.
+        """
+        claimed = {ac_id for task in self.tasks for ac_id in task.satisfies}
+        return tuple(ac.id for ac in self.acceptance if ac.id not in claimed)
+
+    def coverage_breakdown(self) -> dict[Coverage, float]:
+        """Share of this story's estimated effort by coverage class.
+
+        Same effort weighting as `Assessment.coverage_breakdown`, and same
+        reason — counting tasks instead of days is how a coverage claim goes
+        wrong. Returns `{}` for an undecomposed story: nothing measured, so
+        nothing reported.
+        """
+        total = sum(t.estimate_days for t in self.tasks)
+        if total <= 0:
+            return {}
+        totals: dict[Coverage, float] = {}
+        for task in self.tasks:
+            totals[task.coverage] = totals.get(task.coverage, 0.0) + task.estimate_days
+        return {c: round(d / total, 4) for c, d in totals.items()}
 
 
 @dataclass

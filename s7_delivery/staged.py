@@ -28,10 +28,38 @@ from s7_delivery.models import (
     DesignArtifact,
     Provenance,
     Stream,
+    Task,
     UserStory,
 )
 
 EPIC_ID = "EPIC-S7-001"
+
+
+def _task(
+    task_id: str,
+    story_id: str,
+    summary: str,
+    stream: Stream,
+    coverage: Coverage,
+    days: float,
+    satisfies: tuple[str, ...],
+    *,
+    owning_team: str | None = None,
+    depends_on: tuple[str, ...] = (),
+) -> Task:
+    """One decomposed task. Staged like everything else in this module."""
+    return Task(
+        id=task_id,
+        story_id=story_id,
+        summary=summary,
+        stream=stream,
+        coverage=coverage,
+        estimate_days=days,
+        provenance=Provenance.STAGED,
+        satisfies=satisfies,
+        depends_on=depends_on,
+        owning_team=owning_team,
+    )
 
 
 def assessment() -> Assessment:
@@ -242,6 +270,46 @@ def stories() -> tuple[UserStory, ...]:
                 "Assumes the T5 system-of-record field addition lands; until it does, "
                 "this story is verifiable only against a stubbed lookup.",
             ),
+            tasks=(
+                _task(
+                    "S7-001-1-T1",
+                    "S7-001-1",
+                    "Member lookup form and confirmation screen",
+                    Stream.FRONTEND,
+                    Coverage.AGENTIC,
+                    2.0,
+                    ("AC1", "AC3"),
+                ),
+                _task(
+                    "S7-001-1-T2",
+                    "S7-001-1",
+                    "Member lookup endpoint keyed on policy number and member id",
+                    Stream.API,
+                    Coverage.AGENTIC,
+                    1.5,
+                    ("AC1",),
+                ),
+                _task(
+                    "S7-001-1-T3",
+                    "S7-001-1",
+                    "Sponsor-scope authorization: refuse members outside the caller's "
+                    "organization without disclosing whether they exist",
+                    Stream.API,
+                    Coverage.AGENTIC,
+                    1.0,
+                    ("AC2",),
+                ),
+                _task(
+                    "S7-001-1-T4",
+                    "S7-001-1",
+                    "Expose the member detail fields on the policy record",
+                    Stream.SYSTEM_OF_RECORD,
+                    Coverage.AI_ASSISTED_EXTERNAL,
+                    6.0,
+                    ("AC1",),
+                    owning_team="system-of-record platform team",
+                ),
+            ),
         ),
         UserStory(
             id="S7-001-2",
@@ -283,6 +351,56 @@ def stories() -> tuple[UserStory, ...]:
                 "Whether a partial submission may be saved and completed later is "
                 "unvalidated; AC4 assumes it may.",
             ),
+            tasks=(
+                _task(
+                    "S7-001-2-T1",
+                    "S7-001-2",
+                    "Claim detail capture form against the confirmed member",
+                    Stream.FRONTEND,
+                    Coverage.AGENTIC,
+                    2.0,
+                    ("AC1",),
+                ),
+                _task(
+                    "S7-001-2-T2",
+                    "S7-001-2",
+                    "Multi-document upload, held associated with one submission",
+                    Stream.FRONTEND,
+                    Coverage.AGENTIC,
+                    3.0,
+                    ("AC2",),
+                ),
+                _task(
+                    "S7-001-2-T3",
+                    "S7-001-2",
+                    "Enforce the existing file type and size policy, with a rejection "
+                    "message that says which rule was hit",
+                    Stream.API,
+                    Coverage.AGENTIC,
+                    1.0,
+                    ("AC3",),
+                ),
+                _task(
+                    "S7-001-2-T4",
+                    "S7-001-2",
+                    "Persist an in-progress submission so a dropped session resumes",
+                    Stream.DATABASE,
+                    Coverage.AGENTIC,
+                    2.0,
+                    ("AC4",),
+                ),
+                _task(
+                    "S7-001-2-T5",
+                    "S7-001-2",
+                    "Confirm the retention schedule for uploaded claim documents and "
+                    "record the decision",
+                    Stream.DOCUMENT_INTAKE,
+                    Coverage.MANUAL,
+                    1.0,
+                    ("AC3",),
+                    owning_team="records management",
+                ),
+            ),
         ),
         UserStory(
             id="S7-001-3",
@@ -319,6 +437,55 @@ def stories() -> tuple[UserStory, ...]:
             assumptions=(
                 "The authoritative status values, and who may see each one, are "
                 "unvalidated — EPIC-S7-001 §10.",
+            ),
+            tasks=(
+                _task(
+                    "S7-001-3-T1",
+                    "S7-001-3",
+                    "Submission confirmation carrying a quotable reference",
+                    Stream.FRONTEND,
+                    Coverage.AGENTIC,
+                    1.0,
+                    ("AC1",),
+                ),
+                _task(
+                    "S7-001-3-T2",
+                    "S7-001-3",
+                    "Assemble the packet — claim detail plus attachments — as one unit",
+                    Stream.API,
+                    Coverage.AGENTIC,
+                    1.5,
+                    ("AC2",),
+                ),
+                _task(
+                    "S7-001-3-T3",
+                    "S7-001-3",
+                    "Status list scoped to the caller's organization only",
+                    Stream.FRONTEND,
+                    Coverage.AGENTIC,
+                    2.0,
+                    ("AC3",),
+                ),
+                _task(
+                    "S7-001-3-T4",
+                    "S7-001-3",
+                    "Audit record: who submitted, when, and what was attached",
+                    Stream.DATABASE,
+                    Coverage.AGENTIC,
+                    1.0,
+                    ("AC4",),
+                ),
+                _task(
+                    "S7-001-3-T5",
+                    "S7-001-3",
+                    "Hand the packet to the intake indexing queue",
+                    Stream.DOCUMENT_INTAKE,
+                    Coverage.AI_ASSISTED_EXTERNAL,
+                    3.0,
+                    ("AC2",),
+                    owning_team="document intake platform",
+                    depends_on=("S7-001-3-T2",),
+                ),
             ),
         ),
     )

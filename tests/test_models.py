@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from s7_delivery.models import (
+    AcceptanceCriterion,
     AssessedTask,
     Assessment,
     Coverage,
@@ -17,6 +18,8 @@ from s7_delivery.models import (
     Provenance,
     ReviewGate,
     Stream,
+    Task,
+    UserStory,
 )
 
 
@@ -98,3 +101,96 @@ def test_external_blocker_is_representable() -> None:
     )
     assert task.blocked_by_external
     assert task.coverage is Coverage.MANUAL
+
+
+# --- Task: the executable unit below a story (settled 2026-08-04) -------------
+
+
+def _story(*tasks: Task, criteria: tuple[str, ...] = ("AC1", "AC2")) -> UserStory:
+    return UserStory(
+        id="S7-001-1",
+        title="test story",
+        narrative="as a tester, I want a fixture",
+        acceptance=tuple(AcceptanceCriterion(c, f"criterion {c}") for c in criteria),
+        streams=(Stream.API,),
+        estimate_points=8,
+        provenance=Provenance.STAGED,
+        tasks=tasks,
+    )
+
+
+def _subtask(
+    task_id: str,
+    coverage: Coverage,
+    days: float,
+    satisfies: tuple[str, ...] = (),
+) -> Task:
+    return Task(
+        id=task_id,
+        story_id="S7-001-1",
+        summary=f"task {task_id}",
+        stream=Stream.API,
+        coverage=coverage,
+        estimate_days=days,
+        provenance=Provenance.STAGED,
+        satisfies=satisfies,
+    )
+
+
+def test_only_agentic_tasks_enter_the_downstream_lane() -> None:
+    """The seam between the two scopes: everything else is done by hand."""
+    agentic = _subtask("T1", Coverage.AGENTIC, 1.0)
+    external = _subtask("T2", Coverage.AI_ASSISTED_EXTERNAL, 1.0)
+    manual = _subtask("T3", Coverage.MANUAL, 1.0)
+
+    assert agentic.runs_in_downstream_lane
+    assert not external.runs_in_downstream_lane
+    assert not manual.runs_in_downstream_lane
+
+
+def test_unsatisfied_criteria_are_reported_not_hidden() -> None:
+    story = _story(_subtask("T1", Coverage.AGENTIC, 1.0, satisfies=("AC1",)))
+    assert story.unsatisfied() == ("AC2",)
+
+
+def test_a_fully_decomposed_story_leaves_nothing_unsatisfied() -> None:
+    story = _story(
+        _subtask("T1", Coverage.AGENTIC, 1.0, satisfies=("AC1",)),
+        _subtask("T2", Coverage.MANUAL, 2.0, satisfies=("AC2",)),
+    )
+    assert story.unsatisfied() == ()
+
+
+def test_an_undecomposed_story_reports_every_criterion_rather_than_erroring() -> None:
+    """A story past the gate but not yet broken down is a real state."""
+    story = _story()
+    assert story.unsatisfied() == ("AC1", "AC2")
+    assert story.coverage_breakdown() == {}
+
+
+def test_story_task_coverage_is_weighted_by_effort() -> None:
+    """Same trap as the epic-level breakdown, one level down."""
+    story = _story(
+        _subtask("T1", Coverage.AGENTIC, 1.0, satisfies=("AC1",)),
+        _subtask("T2", Coverage.AGENTIC, 1.0, satisfies=("AC1",)),
+        _subtask("T3", Coverage.MANUAL, 6.0, satisfies=("AC2",)),
+    )
+    breakdown = story.coverage_breakdown()
+
+    assert breakdown[Coverage.AGENTIC] == 0.25
+    assert breakdown[Coverage.MANUAL] == 0.75
+
+
+def test_a_task_owned_by_another_team_names_who_is_waited_on() -> None:
+    task = Task(
+        id="T-SOR-1",
+        story_id="S7-001-1",
+        summary="add field to member record",
+        stream=Stream.SYSTEM_OF_RECORD,
+        coverage=Coverage.AI_ASSISTED_EXTERNAL,
+        estimate_days=10.0,
+        provenance=Provenance.STAGED,
+        owning_team="system-of-record platform team",
+    )
+    assert task.owning_team == "system-of-record platform team"
+    assert not task.runs_in_downstream_lane

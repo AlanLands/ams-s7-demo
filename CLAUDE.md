@@ -31,25 +31,39 @@ hardest sequencing constraint in the plan. Details in `docs/SPRINT-PLAN.md`.
 assessment with effort-weighted coverage → DFD/ER diagrams → human review gate →
 story breakdown. The gate genuinely blocks; rejection keeps stories locked.
 
+**A design review on 2026-08-04 confirmed the surface split and contested the
+scenario framing.** Read § Design review — 2026-08-04 before treating the S7
+scenario or the `UserStory` shape as settled. Two of its findings are Sprint 1
+blockers.
+
 **Sprint plan: `docs/SPRINT-PLAN.md`.** Six sprints, each with a named demo
 view — the rule is that **no sprint ends without a runnable demo beat**. Sprint
 naming was reconciled on 2026-08-03: the old *Sprint A* is now Sprint 0, and the
 old *Sprint B* is now **Sprint 3**.
 
+**Reordered 2026-08-04** — the downstream lane moved from fifth to second,
+because "business requirement through **build, test and production release**" is
+the S7 claim and the console stopped at story breakdown. Sprint numbers always
+equal execution order; the full mapping is in `docs/SPRINT-PLAN.md` § Naming.
+
 | Sprint | Goal | Demo beat |
 |---|---|---|
 | 0 · done | Foundation, staged artifacts | Five beats run; the gate blocks |
-| 1 | Surfaces + run ledger + freeze `UserStory` | Same beats, two surfaces; ledger says "0 of 12 AI-generated" |
-| 2 | Artifact plane, stage reuse, prompt prefix ordering | Re-run shows stages REUSED; an interrupted run resumes |
-| 3 | Real AI calls + committed recordings | Fresh clone, no API key, full run offline |
-| 4 | Downstream lane build → test → docs → release | One story traverses the whole lane; second gate blocks |
+| 1 | Contract (`UserStory`/`Task`, artifact plane, verification) + surfaces + ledger | Same beats, two surfaces; ledger says "0 of 12 AI-generated" |
+| 2 | Downstream lane build → test → docs → release | One task traverses the whole lane; second gate blocks |
+| 3 | Stage reuse and resume — **droppable** | Re-run shows stages REUSED; an interrupted run resumes |
+| 4 | Real AI calls + committed recordings | Fresh clone, no API key, full run offline |
 | 5 | Enhancement lane + KPI scorecard | Both entry modes side by side |
 
-Two orderings are **hard**: Sprint 2 before Sprint 3 (prefix reordering after
-recordings are committed invalidates all of them), and Sprint 1 before Sprint 4
-(`UserStory` is the interface the downstream consumes). **Sprint 4 does not
-depend on Sprint 3** — that decoupling is why everything routes through
-`models.py`, and it is what keeps the plan alive if LLM access never lands.
+Three orderings are **hard**: prefix ordering before any committed recording
+(discharged in Sprint 0); the contract before the downstream (`UserStory` and
+`Task` are the interface it consumes); and **anything the downstream will carry
+must be in the contract before Sprint 2 builds it** — retrofitting a field
+through a finished lane means touching every stage in it.
+
+**Sprint 2 does not depend on Sprint 4.** That decoupling is why everything
+routes through `models.py`, and the reorder spends it deliberately: if LLM
+access never lands, the demo is still complete end to end and honestly labelled.
 
 ## What this is
 
@@ -165,6 +179,187 @@ are Python — ours is `pytest` and `ruff` over plain subprocess; and it is
 description. Build/test/docs/release does not exist yet, and its shape stays
 blocked on the `UserStory` contract until Sprint 1.
 
+## Design review — 2026-08-04
+
+The S3 console was walked through end to end for a wider group, and S7 was
+presented as the open problem. Most of the session was S3's demo; the parts
+recorded here are the ones that change S7's plan. Read this section before
+treating anything above it as settled — it confirms one major decision,
+challenges the framing of the S7 scenario, and adds three items to § Open / TBD.
+
+### 1. The surface split was independently confirmed — and the line is the same
+
+The strongest challenge of the session was aimed at the standalone-UI approach:
+an AI-SDLC is a **developer-centric workflow**, and a separate web UI is a point
+of friction. The argument, as made:
+
+- Agent work needs steering mid-flight — clarifying questions, permission
+  prompts, "this tool isn't allowed yet". None of that surfaces in a UI that was
+  not built to carry it, and building it to carry it is re-implementing an IDE.
+- A good estimate needs the **codebase**, not just the ticket. Which library the
+  change touches, which tests it breaks — a Jira description alone cannot ground
+  that.
+- Switching UI → IDE **switches models, and therefore switches context**. What
+  the browser-side model knew does not carry over.
+
+The resolution reached was not "drop the UI". It was to keep the UI for the
+front half — connect to the tracker, extract the epic, produce user stories,
+assign them, do requirements and design, and show progress across stages — and
+move **development onward** into the developer's IDE or CLI, where the code,
+the compiler and the tests already live.
+
+**That is the line this repo already drew on 2026-08-03**, arrived at
+independently and for different reasons. § Surfaces says *app = where a human
+decides or reads, CLI = where an agent executes*, with the review gate as the
+hinge; the review put the hinge at the same place and called the downstream
+IDE-side rather than CLI-side. Treat the split as externally validated. The
+useful additions are the three frictions above, which are now the specific
+things the app must not pretend to handle.
+
+**The context-loss objection is the one we have an answer to, and it is worth
+rehearsing.** Context does not carry across a surface switch *if the handoff is
+conversational*. It carries fine if the handoff is a **file at a deterministic
+path, validated against a schema** — which is exactly the artifact plane in
+§ Cache-efficient agent architecture, decision 5, scheduled for Sprint 2. The
+objection is real for chat-based handoff and largely answered by ours. Say so
+plainly rather than claiming the problem does not exist.
+
+### 2. Grounding is a file in the repo, not a fine-tune
+
+Asked whether the models are grounded to the target application, the answer
+given was concrete: **each target repository carries an `architecture.md`** —
+architecture diagram, components, data model, behaviours, where data is stored
+and queried, and explicitly *what is not part of this application*. Any call
+from any surface reads it. No fine-tuning, because the repository carries the
+context.
+
+**Adopt this.** It is the `ref` layer of `common/prompt.py`'s
+`rules → role → memory → ref → task` ordering, made concrete, and it is stable
+enough to sit in the cached prefix. It also answers "how do you ground a demo
+in an application that does not exist yet" — we write the file.
+
+### 3. Estimates are hard-coded, and the honest answer is historical data
+
+The estimate figures in the S3 demo are hard-coded, effort-weighted mimics —
+confirmed on the call, unprompted. The agreed answer if the client asks: *this
+is not automatic today; the intent is to feed historical delivery data — past
+stories and the time they actually took — and derive estimates from it. Today
+it is a placeholder.*
+
+This is the same discipline as § Staged output, and this repo is already
+stricter: every artifact carries a visible `STAGED` badge and the ledger counts
+them. Estimation accuracy is already a delivery KPI (§ Metrics). The new part is
+the **forward answer** — historical delivery data is the named grounding source
+for estimation. Nothing to build now; it is the sentence to have ready.
+
+### 4. Independent model review before human review
+
+Raised strongly: generate with one model, review with a **different** one,
+before the artifact ever reaches a human. The rationale given was that
+fabrication risk is not proportional to task size — a one-paragraph user story
+or a small context diagram can be invented just as confidently as a large one —
+so an independent check should be the default and cost the only reason to skip
+it. Held to be **required for S7-scale work** even if S3 skips it.
+
+Not committed. What was agreed is to **show it as a concept** — a visible
+validation step in the flow, explained as a second model reviewing the first,
+without necessarily executing live in the room.
+
+⚠️ **If that lands, it lands labelled.** A validate button that does not
+validate, presented as though it does, is precisely the failure § Staged output
+exists to prevent — and it would be the worst possible place to make it, since
+the entire point of the feature is trustworthiness. Either it runs, or it is
+badged `STAGED` like everything else. There is no third option where it quietly
+looks live.
+
+Related, and the most reusable advice of the session: **governance and
+validation are the confidence story, not feature breadth.** What convinces a
+room is how fabrication is stopped and how many stop gates exist. This repo's
+gate already blocks for real — that is a stronger asset than it looks, and the
+demo should lead with it.
+
+### 5. S7 assumes an existing application, and there is a level below the story
+
+Stated as the working assumption: **development from scratch is remote.** The
+application already exists, is possibly several iterations in, and S7 is a major
+business enhancement *on that same application* — the same premise as S3. The
+decomposition described was:
+
+```
+epic → sprints → user stories → tasks
+                                  └── S3 picks up one task at a time
+```
+
+with the breakdown driven by technology, by team, and by **who has access to
+which repository**. Tasks small enough go down the S3 lane; larger chunks of
+development do not, and are categorised as **manual** — that is the seam where
+the two scopes stitch together, and it is a direct answer for § The coverage
+model.
+
+Two consequences, neither of them resolved here:
+
+- ⚠️ **This is in tension with § Demo scenarios.** That section frames S7 as a
+  disability submission workflow replacing a paper/PDF process, and instructs
+  that the two lanes *not* share a fictional application. The review assumes the
+  opposite on both counts: existing app, and the same app as the enhancement
+  lane. Do not silently rewrite either one. It is a scenario decision with a
+  demo-narrative cost on both sides — one app makes the "S7 breaks down, S3
+  executes" stitch showable in a single story; two apps keep the lanes clean and
+  is what the console is built around today.
+- ✅ **`Task` exists below `UserStory` — settled 2026-08-04.** The unit the
+  downstream picks up is a task, not a story, so that is what the contract says.
+  Landed before the lane was built, for the same reason the prompt-prefix
+  ordering landed before any recording existed. See § Open / TBD.
+
+### 6. Cross-application impact, and the boundary drawn around a developer
+
+Impact analysis already checks whether *other* applications are affected and
+raises a ticket against them for the owning team. The boundary currently drawn:
+a developer is only assigned tickets for repositories they have access to and
+knowledge of, and generation, compilation and test all happen on that
+developer's own machine.
+
+Pushback, accepted as valid: even a trivial change — adding one attribute to an
+API — lands in frontend *and* backend, so repositories should not be partitioned
+by developer. The boundary was held anyway, deliberately and provisionally, to
+stop the demo sprawling across mainframe and every other stream at once.
+
+For S7 this is confirmation rather than news: § The coverage model already
+routes tasks across streams and already names the integration point where
+parallel streams merge. The new detail is that **cross-stream work becomes a
+ticket against another team**, which is what "AI-assisted but externally owned"
+looks like concretely.
+
+### 7. Scope discipline for the week
+
+Two statements worth holding to, both of which the current plan already obeys:
+
+- **Not going agentic.** Rejected explicitly as too complex to control on this
+  timeline; keep it simple and show the concept. This repo's plain-Python,
+  no-framework, no-marketplace-skills position is the same call.
+- **One week does not cover every scenario.** Demonstrate the concept at a level
+  the room recognises, and say how it would be accomplished for the rest. That
+  is what § "No sprint ends without a runnable demo beat" buys — a smaller thing
+  that genuinely runs.
+
+The framing to carry into the room: **S3 is partial, S7 is end to end.** The S7
+claim is coverage of *every SDLC deliverable*, not depth in any one of them.
+
+### 8. Follow-ups offered
+
+Two external implementations were mentioned, both worth chasing and neither
+worth blocking on:
+
+- An implementation of something S7-shaped at another customer, done
+  **entirely through the IDE**. An architecture diagram was offered.
+- Another team's **CLI / skill / plugin-based** build of the same idea — this is
+  the material already covered by § Cache-efficient agent architecture and its
+  confidentiality rules.
+
+Both feed the existing open item in § Open / TBD: ask before building
+equivalents of something they already ship. The same rule applies to anything
+that arrives — **ideas are borrowable, their documents and numbers are not.**
+
 ## Demo scenarios — decided from the transcript
 
 Use two deliberately separate lanes:
@@ -181,6 +376,11 @@ Use two deliberately separate lanes:
 Do not force the two scenarios into the same fictional application. They can be
 shown side by side as two entry modes into the same AI-assisted SDLC operating
 model.
+
+⚠️ **Contested as of 2026-08-04.** The design review assumes the opposite — an
+existing application receiving a major enhancement, and the *same* application
+across both lanes. Neither framing has been retired; see § Design review, item 5
+before building anything that depends on one of them.
 
 For the S7 disability project, the business shape is:
 
@@ -330,6 +530,17 @@ hard rule 2 applies to client material:
   number presented as this system's result that is not this system's result.
   If we want a cost story, we measure our own or we do not have one.
 
+**Where it goes — an operational rule, added 2026-08-04.** All such material
+lands under **`reference-internal/`** and nowhere else, in a subdirectory named
+for *what it is* rather than for whose it is. This came up for real: a batch of
+screenshots arrived in a top-level directory named after their product, which
+was two rules broken at once — the product name appeared in the repo as a path,
+and the directory was untracked but **not ignored**, one `git add -A` from being
+committed. Moved and contained the same day; nothing reached history. Note the
+trap that makes this non-obvious: *ignoring* such a directory by name would
+write the product name into `.gitignore` permanently. The neutral path is the
+only version of this that works.
+
 ### The idea worth taking
 
 The prompt cache is the cheapest unit of memory in an agent pipeline: a cache
@@ -400,12 +611,178 @@ The reference architecture gets there via five properties. Our verdict on each:
 - **Role topology.** How S7's stages map onto a fixed role set collides with the
   downstream reuse question in § Open / TBD, which is explicitly blocked on the
   `UserStory` shape landing in Sprint 1. Deciding this earlier would be
-  guessing. Left open on purpose.
+  guessing. Left open on purpose. **Updated 2026-08-04:** a concrete candidate
+  topology now exists — see § Second review. Still open, and for the same
+  reason, but no longer a blank page.
 - **Persistent agent memory.** Deferred above. If it lands, the natural fit is
   the coverage model (§ "The coverage model is a deliverable") — accumulating
   which streams proved AI-addressable across runs is exactly the kind of thing
   worth remembering, and it is a client-facing answer rather than an internal
   optimization.
+
+### Second review — a working implementation, 2026-08-04
+
+A walkthrough of the running tool, rather than the paper. **The confidentiality
+rules above apply with more force here, not less**: this was a live screen share
+of a real modernization run against a real codebase, and permission to keep
+stills was informal and explicitly caveated by the person giving it. Two
+consequences, both absolute:
+
+- **The stills stay local.** They are under the gitignored neutral path with the
+  rest of this material. Nothing derived from them may name their product, their
+  files, their org, or their run.
+- ⚠️ **The stills contain third-party production identifiers** — real
+  organisation names in package paths and an internal service hostname. That is
+  hard rule 1 and hard rule 2 territory, not merely another team's confidence.
+  None of it is reproduced below, and none of it may be quoted, pasted, or used
+  as demo material. Everything recorded here is a *pattern*, restated in this
+  repo's own vocabulary.
+
+**What it actually is.** An end-to-end SDLC framework built around a fixed set
+of generic roles and a shared file plane. The demonstrated run was a legacy
+framework migration, not a greenfield build. Nothing in it depends on the domain.
+
+#### The role topology — this partly answers a question we left open
+
+Two loops, joined by a specification step:
+
+```
+  ┌─ requirements ⇄ analysis ⇄ architect ─┐   defines GOAL + SUCCESS
+  │                                        │
+  │            human feedback ─────────────┘   (a first-class node, not an edge)
+  ▼
+  specification  ──────────────────────────►  ACCEPTANCE CRITERIA
+  │                                                    │
+  ▼                                                    │ gates
+  ┌─ test ⇄ develop ⇄ verify ─┐ ◄─────────────────────┘
+```
+
+The upstream loop's *only* product is a statement of the goal and of what
+success means. The downstream loop is a TDD loop that runs until the acceptance
+criteria are met — and **before output reaches the human it is re-checked
+against the original goal and success**, not just against the tests. It is a
+closed loop, not a pipeline.
+
+A later variant of the same diagram adds a validation role and a persistent
+memory spine with an explicit `update memory` step at the end of the run.
+
+**This is a candidate answer to § Not decided, "role topology"** — six or seven
+generic roles, not a specialist per stage, which is the same conclusion § The
+idea worth taking reached from the paper. It stays a *candidate*: the mapping
+onto S7's stages still depends on the `UserStory`/`Task` question, so the reason
+that item was left open has not gone away.
+
+#### The strongest single idea: no phase self-approves
+
+Every artifact a phase produces is checked by a **separate adversarial verifier**
+before the next phase is allowed to consume it. Verification is a stage with its
+own output, not a review someone remembers to do.
+
+This is the same instinct as § Design review item 4 — but structural rather than
+decorative, and it is the better version. A "validate" button is a feature; *no
+phase self-approves* is an invariant, and an invariant is what a governance story
+needs. It also composes with the artifact plane: the verifier's verdict is a
+field on the artifact, so a downstream stage can refuse to run on unverified
+input rather than trusting that someone looked.
+
+#### The artifact plane, made concrete
+
+Stage outputs land at deterministic paths keyed by stage and subject — one
+directory per pipeline phase, one file per artifact — and every artifact carries
+a metadata header naming what produced it, when, **which upstream artifact it
+derives from**, and whether it passed adversarial verification.
+
+That upstream pointer is the part worth stealing. It makes the artifact plane a
+**provenance chain** rather than a pile of files: any artifact can be walked back
+to the request that caused it. `s7_delivery/models.py` already carries
+`Provenance`; this says the field should point *at its source artifact*, not just
+record a category. **Fold into Sprint 2.**
+
+#### The bounded loop, and what happens when it does not converge
+
+The downstream loop is `write test → generate code → validate`, repeating until
+compile and tests are green, with a **hard iteration cap**. The validator is the
+adversarial gate, and it **triages each failure back to the specific role that
+must fix it** rather than retrying the whole loop blindly.
+
+The part to copy exactly: when the cap is hit, the run **reports the remaining
+failures**. It does not quietly present partial output as success. The run record
+carries the verdict, the per-phase results, the failure list, and — the detail
+worth having — a list of **open questions with ids**, including ones the run
+initially deferred and later corrected. That is § Determinism's "`None` is an
+admission" discipline applied to a whole run. **Fold into Sprint 4.**
+
+#### Specification shape — relevant to the `UserStory` decision
+
+The specification artifact is a numbered feature list. Each feature carries an
+id, a title, the file it targets, an explicit **mutability flag**, and a list of
+acceptance criteria — each criterion itself having an id and a **`traces_to`
+pointer at the source it was derived from**.
+
+Traceability as a *field* rather than a paragraph is directly applicable to
+Sprint 1. Two things to weigh when freezing the contract: whether our story or
+task objects carry per-criterion ids and back-pointers, and whether an artifact
+declares itself closed to further change. See § Design review item 5 — this is
+the same open question approached from the implementation side.
+
+#### Fan-out by lens
+
+The analysis phase runs one agent per *lens* over the same subject — reference
+pattern, infrastructure, prior behaviour, structure — some parallel-safe and one
+dependent on another's output, each writing its own artifact. Dependency-ordered
+parallelism with a file per concern.
+
+Our ASSESS stage already fans an epic out across streams (§ The coverage model),
+so this is a shape we half have. The transferable part is *one artifact per lens*
+rather than one combined assessment blob.
+
+#### Traceability and logs — the advice given most emphatically
+
+Stated as the single thing to make sure we have: **log every decision and why it
+was taken.** The reasoning was a failure mode observed handing agents to
+developers — when something goes wrong, people skip the logs and go straight to
+editing the prompt, which is guessing. The log is what turns "the agent was
+wrong" into "it could not read this file".
+
+We are well placed here: `common/telemetry.py` logs per call and Sprint 1's run
+ledger is the client-facing face of it. What is missing is **decision-level**
+records, not just call-level ones. Worth a line in Sprint 1's ledger work.
+
+#### Progressive autonomy — the honest argument for our gate
+
+Their modes run from ask-on-every-question to fully automatic, and the guidance
+was to start with approval on and only drop the checkpoints after a workflow has
+proven itself over many runs.
+
+This is the best available answer to "why is there a human gate at all", and it
+is better than the one we have been giving. The gate is not a permanent
+concession to nervousness — it is where a workflow *starts*, and earning its
+removal is a measurable outcome. Use this framing in the room.
+
+#### Demo advice, and it is aimed straight at our audience
+
+For upper management: a high-level overview only — what it is, what it is good
+for, where work is AI-assisted versus autonomous, and the core principles.
+For developers: go deep on how the roles compose. **S7's audience is upper
+management**, which was raised explicitly as our problem: they need something to
+*see*. That is an argument for the console, and against leading with the CLI.
+
+Also said plainly, and worth repeating to ourselves: an AI-assisted SDLC can be
+built numerous ways, and theirs is one of them. It is evidence, not a template.
+
+#### What this confirms about the Reject decision
+
+§ The idea worth taking rejected their Claude-Code-native implementation on hard
+rule 4 grounds. Seeing it running sharpens that into a clean seam rather than a
+blanket refusal:
+
+| Layer | Verdict |
+|---|---|
+| The orchestration layer — agent/skill/hook/command definitions, settings, workflow files, all vendor-specific | **Reject.** Unchanged, and now concretely confirmed as deeply tool-native |
+| The **artifact plane** — plain structured files at deterministic paths, with provenance and verification metadata | **Adopt.** Portable, vendor-neutral, and reimplementable in plain Python in an afternoon |
+
+The lesson generalises: **the durable half of that architecture is the file
+format, not the framework.** That is the half hard rule 4 lets us keep.
 
 ## LLM access — open blocker
 
@@ -454,6 +831,28 @@ environment supplies its own model. See `.env.example`.
 - **LLM access** — local/open-source model, approved internal assistant, or
   personal API key are all possible interim paths, but approval and availability
   remain open.
+- **Is the app integrated with the IDE at all?** — **new, 2026-08-04.** Raised
+  in the design review and deliberately left unanswered: if the app hands off to
+  the IDE, does it *integrate* with it, or does it simply stop where the IDE
+  starts? The point made was that this must be settled first, because every
+  IDE-side question — which model, whose context, whose permissions — is only
+  answerable once the app's boundary and its limitations are stated. Our current
+  answer is the second one (the app stops at the gate and the CLI takes over),
+  and it needs to be said out loud rather than assumed.
+- **One application or two?** — **new, 2026-08-04.** § Demo scenarios and
+  § Design review item 5 disagree. See the ⚠️ note in § Demo scenarios.
+- ~~**Is there a `Task` below `UserStory`?**~~ — **settled 2026-08-04: yes.**
+  `Task` is in `s7_delivery/models.py` as the executable unit below the story —
+  the unit the automated lane picks up one at a time, split by stream, owning
+  team and access. `UserStory` stays the planning artifact a human signs off.
+  `Task.satisfies` carries acceptance-criterion ids so traceability is a field;
+  `UserStory.unsatisfied()` reports criteria no task claims;
+  `Task.runs_in_downstream_lane` is the seam between the scopes — only `AGENTIC`
+  tasks enter the lane, and the rest are labelled hand-work rather than quietly
+  counted as coverage.
+- **Independent model review** — **new, 2026-08-04.** Recommended as a default
+  and held to be required at S7 scale; agreed only as a concept to show. If it
+  ships as a button, it ships badged. See § Design review item 4.
 - Demo date and presentation format — TBD.
 
 ## Agent instructions
