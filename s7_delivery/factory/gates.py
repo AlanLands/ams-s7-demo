@@ -134,7 +134,11 @@ def quality_gate(report: dict | None, staleness: list[dict]) -> list[dict]:
            checks.get("QC-07", {}).get("evidence", "")),
         _c("No required artifact is stale", not stale_required,
            f"stale: {', '.join(stale_required)}" if stale_required else ""),
-        _c("Operational-readiness artifacts exist", check_ok("QC-08"),
+        # not_applicable satisfies the condition but its evidence — stating
+        # plainly that the plan carries no such story — travels to the gate.
+        _c("Operational-readiness artifacts exist",
+           check_ok("QC-08")
+           or checks.get("QC-08", {}).get("status") == "not_applicable",
            checks.get("QC-08", {}).get("evidence", "")),
     ]
 

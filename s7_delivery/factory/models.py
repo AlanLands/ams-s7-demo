@@ -43,6 +43,7 @@ class Status(StrEnum):
     """Statuses for stages, tasks, checks and artifacts (spec §3)."""
 
     NOT_STARTED = "not_started"
+    PLANNED = "planned"
     READY = "ready"
     IN_PROGRESS = "in_progress"
     WAITING_INPUT = "waiting_for_input"
@@ -117,6 +118,11 @@ class IntakeAnalysis(BaseModel):
     risks: list[str]
     clarification_questions: list[str]
     assumptions: list[str]
+    # Extracted business rules and a severity-rated risk register (customer
+    # wireframe sheet, panels 1 and 5). Simulated like the rest of the analysis.
+    business_rules: list[dict] = []
+    risk_register: list[dict] = []
+    confidence: int | None = None
     provenance: Provenance = Provenance.SIMULATED
     generated_at: str = Field(default_factory=now_iso)
 
@@ -237,6 +243,13 @@ class ReviewFinding(BaseModel):
     ac_id: str
     summary: str
     detail: str
+    # Structured breakdown (wireframe panel 9). Optional — the flat detail
+    # remains authoritative when these are empty.
+    expected: str = ""
+    observed: str = ""
+    impact: str = ""
+    recommendation: str = ""
+    evidence: list[str] = []
 
 
 class ReviewReport(BaseModel):

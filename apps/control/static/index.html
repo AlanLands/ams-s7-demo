@@ -12,19 +12,42 @@
   <div class="brand">
     <span class="brand-mark" aria-hidden="true">MS</span>
     <div>
-      <div class="brand-kicker">MapleSure Insurance · S7 Control Centre</div>
+      <div class="brand-kicker">MapleSure Insurance</div>
       <h1>S7 Delivery Control Centre</h1>
     </div>
   </div>
-  <div class="top-controls">
-    <span class="pill safe" title="No IDE, terminal, prompts, credentials or raw logs are exposed on this surface">Customer-safe view</span>
-    <span class="pill" id="modePill">mode: —</span>
-    <span class="pill" id="runPill">run: —</span>
-    <label class="role-select">Acting as
-      <select id="roleSelect"></select>
+  <div class="hdr-fields">
+    <label class="hdr-field">
+      <span class="hdr-label">Scenario</span>
+      <select id="scenarioSelect"></select>
     </label>
-    <button id="refreshBtn" class="ghost" title="Re-fetch run state">Refresh</button>
-    <button id="resetBtn" class="ghost danger-ghost" title="Restore the seeded demo state">Reset demo</button>
+    <div class="hdr-field">
+      <span class="hdr-label">Run ID</span>
+      <span class="run-id-wrap">
+        <select id="runSelect" class="mono"></select>
+        <button id="copyRunBtn" class="icon-btn" title="Copy run id" aria-label="Copy run id">⧉</button>
+      </span>
+    </div>
+    <label class="hdr-field">
+      <span class="hdr-label">Environment</span>
+      <select id="envSelect">
+        <option value="simulation">Demo</option>
+        <option value="replay">Replay</option>
+      </select>
+    </label>
+  </div>
+  <div class="top-controls">
+    <span class="pill safe" title="No IDE, terminal, prompts, credentials or raw logs are exposed on this surface">✓ Customer-safe view</span>
+    <div class="hdr-clock">
+      <span id="clock">—</span>
+      <button id="refreshBtn" class="icon-btn" title="Re-fetch run state" aria-label="Refresh">⟳</button>
+    </div>
+    <div class="hdr-user">
+      <span id="roleAvatar" class="role-avatar" aria-hidden="true">—</span>
+      <label class="role-select">
+        <select id="roleSelect" aria-label="Acting role"></select>
+      </label>
+    </div>
   </div>
 </header>
 
@@ -48,10 +71,28 @@
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <footer class="foot">
-  MapleSure Insurance is a fictional insurer. All data on this surface is
-  demonstration data. Artifacts are labelled with their provenance —
-  <span class="prov prov-simulated">SIMULATED</span> evidence is produced by the
-  deterministic demo engine, never presented as live output.
+  <div class="foot-row">
+    <span class="foot-brand">S7 Delivery Control Centre&ensp;·&ensp;v2.1.0&ensp;·&ensp;🛡 Secure</span>
+    <span class="foot-badges">
+      <span class="foot-badge">👥 Governed</span>
+      <span class="foot-badge">⛓ Traceable</span>
+      <span class="foot-badge">✍ Human-approved</span>
+      <span class="foot-badge">▤ Audit-ready</span>
+      <span class="foot-badge">✓ Release-safe</span>
+    </span>
+    <span class="foot-right">Demo Environment
+      <button id="resetBtn" class="ghost danger-ghost" title="Restore the seeded demo state">Reset demo</button>
+    </span>
+  </div>
+  <div class="foot-row small">
+    <span class="foot-ai">AI generated · Rules validated · Human governed · Evidence recorded</span>
+    <span class="foot-center">
+      MapleSure Insurance is fictional; all data on this surface is demonstration data. Artifacts are
+      labelled with their provenance — <span class="prov prov-simulated">SIMULATED</span> evidence is
+      produced by the deterministic demo engine, <span class="prov prov-human">HUMAN</span> marks a
+      person's own input. All times in local time.
+    </span>
+  </div>
 </footer>
 
 <script src="app.js"></script>

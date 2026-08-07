@@ -115,6 +115,20 @@ class RunStore:
             raise
         return target
 
+    def write_bytes(self, data: bytes, *segments: str) -> Path:
+        target = self.path(*segments)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "wb") as f:
+                f.write(data)
+            os.replace(tmp, target)
+        except BaseException:
+            if os.path.exists(tmp):
+                os.unlink(tmp)
+            raise
+        return target
+
     # --- ledgers (append-only) ---------------------------------------------
 
     def append(self, record: Any, ledger: str) -> None:

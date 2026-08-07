@@ -12,22 +12,28 @@ phase by phase behind the same discipline.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from s7_delivery.factory import gates, roles, seed
 from s7_delivery.factory.models import (
     STAGE_ORDER,
+    AcceptanceCriterion,
     ActivityEvent,
     Approval,
     DeliveryRun,
     DemoMode,
     GateId,
     GateRecord,
+    Provenance,
     ProvenanceRecord,
+    Requirement,
     Role,
+    RollbackPlan,
     Stage,
     StageState,
     Status,
+    Story,
     now_iso,
 )
 from s7_delivery.factory.store import RunStore, next_run_id, sha256_of
@@ -274,6 +280,8 @@ class Engine:
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
                 "plan": self.store.read_json_or(None, "planning", "plan.json"),
+                "confidence": self.store.read_json_or(None, "planning", "confidence.json"),
+                "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
             },
             "build": {
                 "tasks": self.store.read_json_or([], "build", "tasks.json"),
@@ -393,6 +401,33 @@ class Engine:
             outcome="created",
         )
 
+    def intake_upload_document(self, role: Role, filename: str, content: bytes) -> str:
+        """Attach a source document to the requirement. Demo evidence only —
+        the content is stored under the run's own artifact directory
+        (gitignored, spec §19), never inspected or parsed."""
+        roles.require("upload_intake_document", role)
+        safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", filename).lstrip(".") or "document"
+        req_data = self.store.read_json_or(None, "intake", "requirement.json")
+        if req_data is None:
+            raise EngineError("Upload a requirement before attaching a document")
+        req = Requirement.model_validate(req_data)
+        if safe_name not in req.source_documents:
+            req.source_documents = [*req.source_documents, safe_name]
+        self.store.write_bytes(content, "intake", "documents", safe_name)
+        self.store.write_json(req, "intake", "requirement.json")
+        self._record(
+            artifact_id=safe_name, artifact_type="source_document",
+            payload={"filename": safe_name, "bytes": len(content)},
+            author=role.value, stage=Stage.INTAKE, action="upload-document",
+            outcome="created", inputs=[req.request_id],
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="upload-document", artifact=safe_name,
+            outcome="uploaded", details=f"{len(content)} bytes",
+        )
+        return safe_name
+
     def intake_pass_gate(self, role: Role) -> None:
         roles.require("pass_intake_gate", role)
         conditions = gates.intake_gate(
@@ -474,6 +509,8 @@ class Engine:
 
         stories = [s.model_dump(mode="json") for s in seed.build_stories()]
         self.store.write_json(stories, "planning", "stories.json")
+        self.store.write_json(dict(seed.PLAN_CONFIDENCE), "planning", "confidence.json")
+        self.store.write_json(dict(seed.PLAN_RATIONALE), "planning", "rationale.json")
         for s in stories:
             self._record(
                 artifact_id=s["story_id"], artifact_type="story", payload=s,
@@ -516,6 +553,160 @@ class Engine:
             workflow="story-edit", artifact=story_id,
             outcome="amended", details=", ".join(sorted(patch)),
         )
+
+    def _planning_open_for_change(self) -> None:
+        if self.gate(GateId.INTAKE).status != Status.PASSED:
+            raise EngineError("Planning opens after the intake gate (G0) passes")
+        if self.run().plan_locked:
+            raise EngineError("The signed plan is locked; changes require an amendment")
+
+    def _build_manual_story(
+        self, fields: dict, existing: list[dict], provenance: Provenance
+    ) -> Story:
+        """Validate user-supplied story fields into a complete Story.
+
+        Manual and imported stories carry HUMAN provenance — they are a
+        person's plan input, not the simulation's, and the surface shows the
+        difference rather than blending them.
+        """
+        title = str(fields.get("title", "")).strip()
+        if not title:
+            raise EngineError("A story needs a title")
+        label = f"Story '{title}'"
+        team = str(fields.get("accountable_team", "")).strip()
+        component = str(fields.get("target_component", "")).strip()
+        repository = str(fields.get("target_repository", "")).strip()
+        if not team:
+            raise EngineError(f"{label}: an accountable team is required")
+        if not component:
+            raise EngineError(f"{label}: a target component is required")
+        if not repository:
+            raise EngineError(f"{label}: a target repository is required")
+
+        texts: list[str] = []
+        for ac in fields.get("acceptance_criteria") or []:
+            text = str(ac.get("text", "") if isinstance(ac, dict) else ac).strip()
+            if text:
+                texts.append(text)
+        if not texts:
+            raise EngineError(
+                f"{label}: at least one testable acceptance criterion is required"
+            )
+
+        known = {s["story_id"] for s in existing}
+        dependencies = [str(dep).strip() for dep in fields.get("dependencies") or []]
+        dependencies = [dep for dep in dependencies if dep]
+        unknown = [dep for dep in dependencies if dep not in known]
+        if unknown:
+            raise EngineError(
+                f"{label}: unknown dependencies {', '.join(sorted(unknown))} — "
+                "dependencies must reference stories already in the plan"
+            )
+
+        numbers = [
+            int(s["story_id"].rsplit("-", 1)[1])
+            for s in existing
+            if s["story_id"].rsplit("-", 1)[-1].isdigit()
+        ]
+        story_id = f"US-{max(numbers, default=0) + 1:03d}"
+
+        rollback = fields.get("rollback_plan")
+        if isinstance(rollback, str) and rollback.strip():
+            rollback = RollbackPlan(method=rollback.strip())
+        elif isinstance(rollback, dict):
+            rollback = RollbackPlan(**rollback)
+        else:
+            rollback = RollbackPlan(
+                method="Disable the feature flag and revert the release; "
+                "no destructive migration in this story."
+            )
+
+        sprint = int(fields.get("sprint") or 1)
+        return Story(
+            story_id=story_id,
+            epic_id=seed.EPIC.epic_id,
+            title=title,
+            purpose=str(fields.get("purpose") or title).strip(),
+            accountable_team=team,
+            contributing_teams=[
+                str(t).strip() for t in fields.get("contributing_teams") or [] if str(t).strip()
+            ],
+            target_application=str(
+                fields.get("target_application") or "MapleSure SponsorConnect"
+            ),
+            target_component=component,
+            target_repository=repository,
+            acceptance_criteria=[
+                AcceptanceCriterion(ac_id=f"{story_id}-AC{i + 1}", text=t)
+                for i, t in enumerate(texts)
+            ],
+            dependencies=dependencies,
+            rollback_plan=rollback,
+            task_type=str(fields.get("task_type") or "feature"),
+            estimate=int(fields.get("estimate") or 3),
+            sprint=sprint,
+            status=Status.READY if sprint <= 1 else Status.PLANNED,
+            risk=str(fields.get("risk") or "low"),
+            # A story added to this epic derives from the run's requirement by
+            # construction — without this, QC-01 rightly flags it as unmapped.
+            traces_to=[str(t) for t in fields.get("traces_to") or []]
+            or [seed.REQUIREMENT.request_id],
+            provenance=provenance,
+        )
+
+    def planning_add_story(self, role: Role, fields: dict) -> None:
+        roles.require("edit_story", role)
+        self._planning_open_for_change()
+        stories = self._stories()
+        story = self._build_manual_story(fields, stories, Provenance.HUMAN)
+        payload = story.model_dump(mode="json")
+        stories.append(payload)
+        self.store.write_json(stories, "planning", "stories.json")
+        self._record(
+            artifact_id=story.story_id, artifact_type="story", payload=payload,
+            author=role.value, stage=Stage.PLANNING, action="add",
+            outcome="created", inputs=[story.epic_id],
+        )
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="story-add", artifact=story.story_id,
+            outcome="created", details=story.title[:120],
+        )
+
+    def planning_import_stories(self, role: Role, items: list[dict]) -> int:
+        """Import a batch of stories. All-or-nothing: any invalid item aborts
+        the whole import before anything is written."""
+        roles.require("edit_story", role)
+        self._planning_open_for_change()
+        if not items:
+            raise EngineError("The import contains no stories")
+        stories = self._stories()
+        added: list[Story] = []
+        for index, item in enumerate(items, start=1):
+            if not isinstance(item, dict):
+                raise EngineError(f"Import aborted at item {index}: not a story object")
+            try:
+                combined = stories + [s.model_dump(mode="json") for s in added]
+                added.append(
+                    self._build_manual_story(item, combined, Provenance.HUMAN)
+                )
+            except EngineError as exc:
+                raise EngineError(f"Import aborted at item {index}: {exc}") from exc
+        for story in added:
+            payload = story.model_dump(mode="json")
+            stories.append(payload)
+            self._record(
+                artifact_id=story.story_id, artifact_type="story", payload=payload,
+                author=role.value, stage=Stage.PLANNING, action="import",
+                outcome="created", inputs=[story.epic_id],
+            )
+        self.store.write_json(stories, "planning", "stories.json")
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="story-import", outcome="created",
+            details=f"{len(added)} stories imported",
+        )
+        return len(added)
 
     def planning_revise(self, role: Role, feedback: str) -> None:
         roles.require("request_plan_revision", role)
@@ -715,7 +906,8 @@ class Engine:
                 "(test-first is the demonstrated workflow)"
             )
         corrected = self._was_blocked(task_id)
-        ev = simulate.dev_evidence(task["story_id"])
+        prov = self._story(task["story_id"]).get("provenance", "simulated")
+        ev = simulate.dev_evidence(task["story_id"], prov)
         previous = task["version"]
         task["files_changed"] = len(ev["files"])
         task["changed_files"] = ev["files"]
@@ -723,7 +915,7 @@ class Engine:
         task["lines_removed"] = ev["lines_removed"]
         task["coverage_pct"] = ev["coverage"]
         task["change_summary"] = simulate.change_summary(
-            task["story_id"], corrected=corrected
+            task["story_id"], corrected=corrected, provenance=prov
         )
         task["commit_ref"] = f"c{abs(hash((task_id, corrected))) % 10**7:07d}"
         task["pr_ref"] = f"PR-{int(task_id[-3:]) + 20}"
@@ -825,9 +1017,12 @@ class Engine:
         if task["status"] != Status.WAITING_APPROVAL.value:
             raise EngineError(f"{task_id} has not been submitted for review")
         corrected = self._was_blocked(task_id)
-        verdict = simulate.review_findings(task["story_id"], corrected=corrected)
-        reviews = self._reviews()
         story = self._story(task["story_id"])
+        verdict = simulate.review_findings(
+            task["story_id"], corrected=corrected,
+            provenance=story.get("provenance", "simulated"),
+        )
+        reviews = self._reviews()
         report = {
             "review_id": f"REV-{len(reviews) + 1:03d}",
             "task_id": task_id,
@@ -1016,8 +1211,10 @@ class Engine:
         }
         tests = [t for task in tasks for t in task.get("tests", [])]
         green = [t for t in tests if t["current_result"] == "passed"]
+        by_type = {s["story_id"]: s.get("task_type", "feature") for s in stories}
         code_cov = [t["coverage_pct"] for t in tasks
-                    if t["story_id"] != "US-007" and t.get("coverage_pct")]
+                    if by_type.get(t["story_id"]) != "operational"
+                    and t.get("coverage_pct")]
         majors = sum(r["major_gaps"] for r in latest.values()
                      if r["result"] != "passed")
 
@@ -1058,14 +1255,36 @@ class Engine:
             row("QC-07", "Independent-review gaps", majors == 0,
                 "0 unresolved major gaps" if majors == 0
                 else f"{majors} major gaps open"),
-            row("QC-11", "Regression & integration", "US-006" in done,
-                "US-006 regression and integration scenarios complete"
-                if "US-006" in done else "US-006 not complete"),
+            self._typed_story_check(
+                "QC-11", "Regression & integration", "test", stories, done, row,
+                done_msg="regression and integration scenarios complete",
+                missing_msg="the plan contains no dedicated regression story — "
+                "verification is the per-task targeted tests (QC-03/QC-04)"),
             row("QC-12", "Performance check", True, "", status="not_applicable"),
-            row("QC-08", "Operational readiness", "US-007" in done,
-                "US-007 deployment, monitoring, runbook and handover prepared"
-                if "US-007" in done else "US-007 not complete"),
+            self._typed_story_check(
+                "QC-08", "Operational readiness", "operational", stories, done, row,
+                done_msg="deployment, monitoring, runbook and handover prepared",
+                missing_msg="the plan contains no dedicated operational-readiness "
+                "story — release checklist artifacts are generated at deployment"),
         ]
+
+    @staticmethod
+    def _typed_story_check(check_id, name, task_type, stories, done, row, *,
+                           done_msg, missing_msg):
+        """A check keyed to whether the plan *planned* this kind of story.
+
+        The seeded plan carries dedicated test/operational stories, so the
+        check evaluates them. A smaller plan that never planned one gets an
+        honest not_applicable stating so — not a failure against a story that
+        was never in the plan, and not a silent pass."""
+        typed = [s["story_id"] for s in stories
+                 if s.get("task_type", "feature") == task_type]
+        if not typed:
+            return row(check_id, name, True, missing_msg, status="not_applicable")
+        incomplete = [sid for sid in typed if sid not in done]
+        return row(check_id, name, not incomplete,
+                   f"{', '.join(typed)} {done_msg}" if not incomplete
+                   else f"{', '.join(incomplete)} not complete")
 
     def quality_decide(self, role: Role) -> None:
         roles.require("decide_quality_gate", role)

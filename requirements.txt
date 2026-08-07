@@ -19,6 +19,9 @@ httpx==0.28.1
 # --- API layer ---
 fastapi==0.139.2
 uvicorn==0.51.0
+# Required by FastAPI/Starlette to parse multipart form uploads (the intake
+# document-upload endpoint) — not bundled by default.
+python-multipart==0.0.32
 
 # --- tooling ---
 ruff==0.14.4

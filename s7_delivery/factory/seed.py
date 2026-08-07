@@ -114,6 +114,27 @@ ANALYSIS = IntakeAnalysis(
         "Existing file type and size policy governs uploads",
         "Provisional status set used until SME confirmation",
     ],
+    business_rules=[
+        {"rule_id": "BR-01", "text": "A submission must identify a member "
+         "covered by the requesting sponsor's own policy; a lookup outside "
+         "the sponsor organization returns no member or plan data."},
+        {"rule_id": "BR-02", "text": "First day absent must be after the last "
+         "day worked; a submission dated on or before the last day worked is "
+         "rejected."},
+        {"rule_id": "BR-03", "text": "The employer statement is mandatory at "
+         "submission; employee and physician statements may follow "
+         "(provisional pending SME confirmation)."},
+    ],
+    risk_register=[
+        {"text": "System-of-record change is externally owned and not "
+         "modifiable on this timeline — other streams queue behind it",
+         "severity": "high"},
+        {"text": "Status vocabulary unconfirmed — SME validation outstanding",
+         "severity": "medium"},
+        {"text": "Portal and API share the absence-validation rules — "
+         "cross-service regression risk on change", "severity": "medium"},
+    ],
+    confidence=94,
     provenance=Provenance.SIMULATED,
 )
 
@@ -144,7 +165,40 @@ def _story(**kw) -> Story:
     return Story(**defaults)
 
 
+# The planning model's self-assessment of its own draft. In simulation mode
+# this is a deterministic seed value like every other simulated figure on the
+# surface; in live mode it would come from the model. Rendered with that
+# caveat, never as a measured outcome.
+PLAN_CONFIDENCE = {
+    "value": 96,
+    "basis": "Planning model self-assessment of the draft decomposition. "
+    "Simulated and deterministic in demo mode — not a measured outcome.",
+    "provenance": Provenance.SIMULATED,
+}
+
+# The planning model's stated reasoning for the decomposition (wireframe
+# panel 2). Simulated narrative, same discipline as PLAN_CONFIDENCE.
+PLAN_RATIONALE = {
+    "text": "Stories follow the epic's capability order and the design "
+    "decisions: the submission data model lands first, then the "
+    "sponsor-scoped lookup it feeds, then the claim journey, document upload "
+    "and intake handoff that consume both. Teams are assigned by component "
+    "ownership and repository access; dependencies and sprints follow the "
+    "build order; every story carries a feature flag and a rollback path.",
+    "provenance": Provenance.SIMULATED,
+}
+
+
 def build_stories() -> list[Story]:
+    stories = _build_stories()
+    # Sprint-1 work is ready to pull; later sprints are planned, not ready.
+    return [
+        s if s.sprint == 1 else s.model_copy(update={"status": Status.PLANNED})
+        for s in stories
+    ]
+
+
+def _build_stories() -> list[Story]:
     return [
         _story(
             story_id="US-001",

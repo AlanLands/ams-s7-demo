@@ -140,3 +140,97 @@ def test_demo_release_rejected(client):
     rejection = [a for a in state["approvals"]
                  if a["subject"] == "release" and a["decision"] == "rejected"]
     assert rejection and "sponsor communications" in rejection[0]["note"]
+
+
+# --- manual stories: add and import (planning wireframe) ---------------------
+
+
+@pytest.fixture()
+def planned_run(client, run_id):
+    for step in ("analyse", "create-epic", "pass-gate"):
+        client.post(f"/api/runs/{run_id}/intake/{step}", json={"role": "delivery_lead"})
+    client.post(f"/api/runs/{run_id}/planning/generate", json={"role": "delivery_lead"})
+    return run_id
+
+
+def _story(**overrides):
+    story = {
+        "title": "Notify the sponsor when intake opens the file",
+        "accountable_team": "Services Team",
+        "target_component": "notification service",
+        "target_repository": "sponsorconnect-api",
+        "acceptance_criteria": ["A notification is sent within one hour of intake opening the file"],
+    }
+    story.update(overrides)
+    return story
+
+
+def test_add_story_appends_with_human_provenance(client, planned_run):
+    res = client.post(
+        f"/api/runs/{planned_run}/stories",
+        json={"role": "delivery_lead", "story": _story()},
+    )
+    assert res.status_code == 200
+    stories = res.json()["planning"]["stories"]
+    added = stories[-1]
+    assert added["story_id"] == "US-008"
+    assert added["provenance"] == "human"
+    assert added["acceptance_criteria"][0]["ac_id"] == "US-008-AC1"
+    assert added["rollback_plan"] is not None
+
+
+def test_add_story_validation_errors_are_409(client, planned_run):
+    res = client.post(
+        f"/api/runs/{planned_run}/stories",
+        json={"role": "delivery_lead", "story": _story(acceptance_criteria=[])},
+    )
+    assert res.status_code == 409
+    assert "acceptance criterion" in res.json()["detail"]
+    res = client.post(
+        f"/api/runs/{planned_run}/stories",
+        json={"role": "delivery_lead", "story": _story(dependencies=["US-999"])},
+    )
+    assert res.status_code == 409
+    assert "US-999" in res.json()["detail"]
+
+
+def test_import_stories_is_atomic(client, planned_run):
+    bad_batch = [_story(), _story(title="")]
+    res = client.post(
+        f"/api/runs/{planned_run}/stories/import",
+        json={"role": "delivery_lead", "stories": bad_batch},
+    )
+    assert res.status_code == 409
+    assert "item 2" in res.json()["detail"]
+    state = client.get(f"/api/runs/{planned_run}").json()
+    assert len(state["planning"]["stories"]) == 7  # nothing written
+
+    good_batch = [_story(), _story(title="Second imported story", dependencies=["US-001"])]
+    res = client.post(
+        f"/api/runs/{planned_run}/stories/import",
+        json={"role": "delivery_lead", "stories": good_batch},
+    )
+    assert res.status_code == 200
+    stories = res.json()["planning"]["stories"]
+    assert [s["story_id"] for s in stories[-2:]] == ["US-008", "US-009"]
+    assert all(s["provenance"] == "human" for s in stories[-2:])
+
+
+def test_add_story_blocked_after_signoff(client, planned_run):
+    client.post(
+        f"/api/runs/{planned_run}/planning/sign-off",
+        json={"role": "business_owner", "approver": "P. Moreau"},
+    )
+    res = client.post(
+        f"/api/runs/{planned_run}/stories",
+        json={"role": "delivery_lead", "story": _story()},
+    )
+    assert res.status_code == 409
+    assert "locked" in res.json()["detail"]
+
+
+def test_plan_confidence_in_state(client, planned_run):
+    state = client.get(f"/api/runs/{planned_run}").json()
+    conf = state["planning"]["confidence"]
+    assert conf["value"] == 96
+    assert conf["provenance"] == "simulated"

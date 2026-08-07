@@ -18,8 +18,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -148,6 +148,30 @@ def post_intake_gate(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10MB — demo evidence, not a document store
+
+
+@app.post("/api/runs/{run_id}/intake/upload-document")
+async def post_intake_upload_document(
+    run_id: str, role: str = Form(...), file: UploadFile = File(...)
+) -> dict:
+    eng = _engine(run_id)
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File exceeds the 10MB demo limit")
+    eng.intake_upload_document(_role(role), file.filename or "document", content)
+    return eng.state()
+
+
+@app.get("/api/runs/{run_id}/intake/documents/{name}")
+def get_intake_document(run_id: str, name: str) -> FileResponse:
+    eng = _engine(run_id)
+    path = eng.store.path("intake", "documents", name)  # store.path rejects traversal
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"No document {name!r}")
+    return FileResponse(path, filename=name)
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 
@@ -168,6 +192,63 @@ def patch_story(run_id: str, story_id: str, body: StoryPatch) -> dict:
     eng = _engine(run_id)
     eng.edit_story(_role(body.role), story_id, body.patch)
     return eng.state()
+
+
+class AddStoryBody(BaseModel):
+    role: str
+    story: dict
+
+
+@app.post("/api/runs/{run_id}/stories")
+def post_story_add(run_id: str, body: AddStoryBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_add_story(_role(body.role), body.story)
+    return eng.state()
+
+
+class ImportStoriesBody(BaseModel):
+    role: str
+    stories: list[dict]
+
+
+@app.post("/api/runs/{run_id}/stories/import")
+def post_stories_import(run_id: str, body: ImportStoriesBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_import_stories(_role(body.role), body.stories)
+    return eng.state()
+
+
+_FILE_STAGES = {"planning", "build", "quality", "release"}
+
+
+def _stage_dir(stage: str) -> str:
+    if stage not in _FILE_STAGES:
+        raise HTTPException(status_code=404, detail=f"Unknown artifact stage {stage!r}")
+    return stage
+
+
+@app.get("/api/runs/{run_id}/{stage}/files")
+def get_stage_files(run_id: str, stage: str) -> list[dict]:
+    """A stage's artifacts as they exist on disk — real names, real sizes."""
+    eng = _engine(run_id)
+    root = eng.store.path(_stage_dir(stage))
+    if not root.is_dir():
+        return []
+    return [
+        {"name": p.name, "bytes": p.stat().st_size}
+        for p in sorted(root.iterdir())
+        if p.is_file()
+    ]
+
+
+@app.get("/api/runs/{run_id}/{stage}/files/{name}")
+def get_stage_file(run_id: str, stage: str, name: str) -> FileResponse:
+    eng = _engine(run_id)
+    path = eng.store.path(_stage_dir(stage), name)  # store.path rejects traversal
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"No {stage} artifact {name!r}")
+    media = "text/markdown" if name.endswith(".md") else "application/json"
+    return FileResponse(path, media_type=media, filename=name)
 
 
 class ReviseBody(BaseModel):

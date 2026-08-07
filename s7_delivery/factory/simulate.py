@@ -75,8 +75,27 @@ _DEV: dict[str, dict] = {
 }
 
 
-def dev_evidence(story_id: str) -> dict:
-    return _DEV[story_id]
+def dev_evidence(story_id: str, provenance: str = "simulated") -> dict:
+    # Scripted evidence belongs to the engine's own seeded (SIMULATED) stories.
+    # A HUMAN story that happens to reuse a seeded id must not inherit the
+    # seeded narrative — or the deliberate US-003 defect.
+    if provenance == "simulated" and story_id in _DEV:
+        return _DEV[story_id]
+    # Stories added by hand or import have no scripted evidence. Synthesize a
+    # deterministic simulated equivalent, seeded from the story id, so a small
+    # or amended plan can travel the whole lane with stable, repeatable numbers.
+    n = sum(ord(c) for c in story_id)
+    slug = story_id.lower().replace("-", "_")
+    return {
+        "files": [f"src/{slug}_change.py", f"tests/test_{slug}.py"],
+        "lines_added": 40 + n % 90,
+        "lines_removed": n % 20,
+        "coverage": 84 + n % 12,
+        "summary": (
+            f"Simulated implementation for {story_id}: change and targeted "
+            "tests generated from the story's acceptance criteria."
+        ),
+    }
 
 
 def tests_for(story: dict, *, corrected: bool = False) -> list[TestCaseRecord]:
@@ -87,9 +106,10 @@ def tests_for(story: dict, *, corrected: bool = False) -> list[TestCaseRecord]:
     its assertion mirrors the developer's `<` misreading, which is why it
     goes green over a defective build.
     """
+    scripted = story.get("provenance", "simulated") == "simulated"
     records: list[TestCaseRecord] = []
     for i, ac in enumerate(story["acceptance_criteria"], start=1):
-        name = _test_name(story["story_id"], ac["ac_id"], ac["text"])
+        name = _test_name(story["story_id"], ac["ac_id"], ac["text"], scripted=scripted)
         records.append(
             TestCaseRecord(
                 test_id=f"TEST-{story['story_id'][-3:]}-{i:02d}",
@@ -100,17 +120,17 @@ def tests_for(story: dict, *, corrected: bool = False) -> list[TestCaseRecord]:
                 evidence_ref=f"build/test-baselines/{story['story_id']}.json",
             )
         )
-    if story["story_id"] == "US-003" and corrected:
+    if scripted and story["story_id"] == "US-003" and corrected:
         for r in records:
             if r.ac_id == "US-003-AC3":
                 r.name = "test_rejects_first_day_absent_on_or_before_last_day_worked"
     return records
 
 
-def _test_name(story_id: str, ac_id: str, text: str) -> str:
-    if ac_id == "US-003-AC2":
+def _test_name(story_id: str, ac_id: str, text: str, *, scripted: bool = True) -> str:
+    if scripted and ac_id == "US-003-AC2":
         return "test_accepts_first_day_absent_after_last_day_worked"
-    if ac_id == "US-003-AC3":
+    if scripted and ac_id == "US-003-AC3":
         # The defective first version only checks strictly-before — the name
         # honestly reflects what it asserts, which is how the reviewer spots it.
         return "test_rejects_first_day_absent_before_last_day_worked"
@@ -120,9 +140,9 @@ def _test_name(story_id: str, ac_id: str, text: str) -> str:
     return f"test_{slug}"
 
 
-def change_summary(story_id: str, *, corrected: bool = False) -> str:
-    base = _DEV[story_id]["summary"]
-    if story_id != "US-003":
+def change_summary(story_id: str, *, corrected: bool = False, provenance: str = "simulated") -> str:
+    base = dev_evidence(story_id, provenance)["summary"]
+    if provenance != "simulated" or story_id != "US-003":
         return base
     if corrected:
         return (
@@ -136,9 +156,9 @@ def change_summary(story_id: str, *, corrected: bool = False) -> str:
     )
 
 
-def review_findings(story_id: str, *, corrected: bool) -> dict:
+def review_findings(story_id: str, *, corrected: bool, provenance: str = "simulated") -> dict:
     """The independent reviewer's verdict, verified against the criteria."""
-    if story_id == "US-003" and not corrected:
+    if provenance == "simulated" and story_id == "US-003" and not corrected:
         return {
             "result": "blocked",
             "critical_gaps": 0,
@@ -158,6 +178,27 @@ def review_findings(story_id: str, *, corrected: bool) -> dict:
                         "submission dated equal to the last day worked is "
                         "accepted. Criterion not fully implemented."
                     ),
+                    "expected": (
+                        "A submission with first day absent on or before the "
+                        "last day worked is rejected."
+                    ),
+                    "observed": (
+                        "Validation rejects only the strictly-before case; "
+                        "the boundary test asserts the same misreading, so "
+                        "the suite is green over the defect."
+                    ),
+                    "impact": (
+                        "A submission dated equal to the last day worked is "
+                        "accepted into intake."
+                    ),
+                    "recommendation": (
+                        "Correct the comparison to include equality and "
+                        "re-baseline the boundary test to assert it."
+                    ),
+                    "evidence": [
+                        "services/absence_validation.py",
+                        "tests/test_absence_boundary.py",
+                    ],
                 },
             ],
         }
