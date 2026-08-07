@@ -248,6 +248,61 @@ def post_review_return(run_id: str, task_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+# --- quality (spec §10) -----------------------------------------------------
+
+
+@app.post("/api/runs/{run_id}/quality/run")
+def post_quality_run(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.quality_run(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/quality/decide")
+def post_quality_decide(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.quality_decide(_role(body.role))
+    return eng.state()
+
+
+# --- release (spec §11) -----------------------------------------------------
+
+
+@app.post("/api/runs/{run_id}/release/request-approval")
+def post_release_request(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.release_request_approval(_role(body.role))
+    return eng.state()
+
+
+class ReleaseApproveBody(BaseModel):
+    role: str
+    approver: str
+    note: str = ""
+    decision: str = "approved"
+
+
+@app.post("/api/runs/{run_id}/release/approve")
+def post_release_approve(run_id: str, body: ReleaseApproveBody) -> dict:
+    eng = _engine(run_id)
+    eng.release_approve(_role(body.role), body.approver, body.note, body.decision)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/release/deploy")
+def post_release_deploy(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.release_deploy(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/release/handover")
+def post_release_handover(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.release_handover(_role(body.role))
+    return eng.state()
+
+
 # --- static shell -----------------------------------------------------------
 
 if STATIC_DIR.is_dir():

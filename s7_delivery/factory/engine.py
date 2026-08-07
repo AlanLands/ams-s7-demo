@@ -46,6 +46,39 @@ GATE_LABELS = {
 }
 
 
+_DEPLOY_CHECKLIST = """# Deployment checklist — REL-2026R4-001 (demonstration)
+
+- [x] All gates G0–G3 passed
+- [x] Required approvals recorded (business owner, engineering, QA, release)
+- [x] Feature flag `sponsor_claim_submission` off at deploy
+- [x] Blue-green targets healthy pre-deploy
+- [x] Rollback validated in staging
+- [x] Monitoring alerts configured
+- [x] Support handover prepared
+"""
+
+_ROLLBACK_PLAN = """# Rollback plan — REL-2026R4-001 (demonstration)
+
+Method: disable the `sponsor_claim_submission` feature flag, restoring the
+previous journey entry point. Database changes are additive; reverse
+migration validated in staging. RTO 15 minutes, RPO 0 (no destructive change).
+"""
+
+_RUNBOOK = """# Runbook — sponsor claim submission (demonstration)
+
+Alerts: submission error rate, intake-handoff retry depth, lookup latency p95.
+First response: check flag state, then the retry queue; escalate to Platform
+Team on-call if handoff failures persist beyond one retry cycle.
+"""
+
+_HANDOVER_DOC = """# Support handover — REL-2026R4-001 (demonstration)
+
+Support team: MapleSure Application Support (S1–S6 scope).
+Hypercare: 7 days. Known limitations: provisional status vocabulary and
+partial-submission retention pending SME confirmation.
+"""
+
+
 class Engine:
     """All operations on one run. Stateless between calls — disk is truth."""
 
@@ -844,6 +877,367 @@ class Engine:
             ):
                 t["status"] = Status.READY.value
                 t["last_activity"] = now_iso()
+
+    # --- quality (spec §10) -------------------------------------------------
+
+    COVERAGE_THRESHOLD = 80
+
+    def quality_run(self, role: Role) -> None:
+        roles.require("run_quality_checks", role)
+        if self.gate(GateId.INDEPENDENT_REVIEW).status != Status.PASSED:
+            raise EngineError(
+                "Quality aggregation opens after the independent-review gate "
+                "(G2) passes for every task"
+            )
+        self._stage_in_progress(Stage.QUALITY)
+        stories = self._stories()
+        tasks = self._tasks()
+        latest = self._latest_reviews()
+        checks = self._compute_checks(stories, tasks, latest)
+        passed = sum(1 for c in checks if c["status"] == "passed")
+        applicable = sum(1 for c in checks if c["status"] != "not_applicable")
+        report = {
+            "checks": checks,
+            "risks": [
+                {
+                    "risk_id": "RSK-001", "severity": "medium",
+                    "description": (
+                        "Status vocabulary and packet-completeness rules rest "
+                        "on unresolved SME questions; implemented against "
+                        "provisional definitions."
+                    ),
+                    "status": "open",
+                },
+            ],
+            "exceptions": [
+                {
+                    "exception_id": "EXC-001",
+                    "description": (
+                        "US-007 (deployment/operations) carries no code "
+                        "coverage; excluded from the coverage threshold as an "
+                        "operational task."
+                    ),
+                    "approved_by": role.value,
+                    "approved_at": now_iso(),
+                },
+            ],
+            "quality_score": round(100 * passed / applicable) if applicable else 0,
+            "score_note": (
+                "Informational only. The gate is the explicit conditions "
+                "below, never this number."
+            ),
+            "recommendation": "",
+            "generated_at": now_iso(),
+            "provenance": "simulated",
+        }
+        stale = self.store.read_json_or([], "staleness.json")
+        conditions = gates.quality_gate(report, stale)
+        report["recommendation"] = (
+            "Ready for release" if gates.all_met(conditions)
+            else "Not ready — unmet conditions listed on the gate"
+        )
+        self.store.write_json(report, "quality", "quality-report.json")
+        self._record(
+            artifact_id="QRPT-001", artifact_type="quality_report",
+            payload=report, author="quality-aggregation (simulated)",
+            stage=Stage.QUALITY, action="aggregate", outcome="created",
+            inputs=[t["task_id"] for t in tasks] + list(
+                {r["review_id"] for r in latest.values()}
+            ),
+        )
+        self._activity(
+            stage=Stage.QUALITY, actor="quality-aggregation",
+            actor_type="simulation", workflow="quality-checks",
+            duration_s=15.0, outcome="created",
+            details=f"{passed}/{applicable} checks passed",
+        )
+
+    def _compute_checks(
+        self, stories: list[dict], tasks: list[dict], latest: dict[str, dict]
+    ) -> list[dict]:
+        """Each row computed from run evidence, never asserted."""
+        done = {t["story_id"]: t for t in tasks
+                if t["status"] == Status.COMPLETED.value}
+        all_acs = [(s, ac) for s in stories for ac in s["acceptance_criteria"]]
+        tested_acs = {
+            t["ac_id"] for task in tasks for t in task.get("tests", [])
+        }
+        tests = [t for task in tasks for t in task.get("tests", [])]
+        green = [t for t in tests if t["current_result"] == "passed"]
+        code_cov = [t["coverage_pct"] for t in tasks
+                    if t["story_id"] != "US-007" and t.get("coverage_pct")]
+        majors = sum(r["major_gaps"] for r in latest.values()
+                     if r["result"] != "passed")
+
+        def row(check_id, name, ok, evidence, owner="quality-aggregation",
+                status=None):
+            return {
+                "check_id": check_id, "name": name,
+                "status": status or ("passed" if ok else "failed"),
+                "evidence": evidence, "owner": owner,
+                "completed_at": now_iso(), "exception": "",
+            }
+
+        unmapped = [s["story_id"] for s in stories if not s.get("traces_to")]
+        uncoded = [ac["ac_id"] for s, ac in all_acs if s["story_id"] not in done]
+        untested = [ac["ac_id"] for _s, ac in all_acs if ac["ac_id"] not in tested_acs]
+        return [
+            row("QC-01", "Requirement-to-story mapping", not unmapped,
+                f"{len(stories)} stories trace to REQ-2026-114"
+                if not unmapped else f"unmapped: {', '.join(unmapped)}"),
+            row("QC-02", "AC-to-code mapping", not uncoded,
+                f"{len(all_acs)} criteria covered by completed tasks"
+                if not uncoded else f"uncovered: {', '.join(uncoded)}"),
+            row("QC-03", "AC-to-test mapping", not untested,
+                f"{len(all_acs)} criteria each carry a test"
+                if not untested else f"untested: {', '.join(untested)}"),
+            row("QC-04", "Test execution", len(green) == len(tests) and tests,
+                f"{len(green)}/{len(tests)} tests passing"),
+            row("QC-05", "Code coverage",
+                bool(code_cov) and min(code_cov) >= self.COVERAGE_THRESHOLD,
+                f"minimum {min(code_cov)}% across implementation tasks "
+                f"(threshold {self.COVERAGE_THRESHOLD}%)" if code_cov else "no data"),
+            row("QC-06", "Security scan", True,
+                "0 critical, 1 medium (tracked) — simulated scan"),
+            row("QC-09", "Dependency scan", True,
+                "no known-vulnerable dependencies — simulated scan"),
+            row("QC-10", "Standards check", True,
+                "27/27 engineering standards checks — simulated"),
+            row("QC-07", "Independent-review gaps", majors == 0,
+                "0 unresolved major gaps" if majors == 0
+                else f"{majors} major gaps open"),
+            row("QC-11", "Regression & integration", "US-006" in done,
+                "US-006 regression and integration scenarios complete"
+                if "US-006" in done else "US-006 not complete"),
+            row("QC-12", "Performance check", True, "", status="not_applicable"),
+            row("QC-08", "Operational readiness", "US-007" in done,
+                "US-007 deployment, monitoring, runbook and handover prepared"
+                if "US-007" in done else "US-007 not complete"),
+        ]
+
+    def quality_decide(self, role: Role) -> None:
+        roles.require("decide_quality_gate", role)
+        report = self.store.read_json_or(None, "quality", "quality-report.json")
+        stale = self.store.read_json_or([], "staleness.json")
+        conditions = gates.quality_gate(report, stale)
+        gate = self.gate(GateId.QUALITY)
+        gate.conditions = conditions
+        if not gates.all_met(conditions):
+            gate.status = Status.BLOCKED
+            self._save_gate(gate)
+            unmet = "; ".join(c["condition"] for c in conditions if not c["met"])
+            self._activity(
+                stage=Stage.QUALITY, actor=role.value, actor_type="human",
+                workflow="quality-gate", outcome="failed", details=unmet,
+            )
+            raise EngineError(f"Quality gate blocked — unmet: {unmet}")
+        gate.status = Status.PASSED
+        gate.decided_by = role.value
+        gate.decided_at = now_iso()
+        self._save_gate(gate)
+        run = self.run()
+        self._advance_stage(run, Stage.QUALITY)
+        self._activity(
+            stage=Stage.QUALITY, actor=role.value, actor_type="human",
+            workflow="quality-gate", outcome="passed",
+        )
+
+    # --- release (spec §11) -------------------------------------------------
+
+    RELEASE_APPROVER_ROLES = (
+        "business_owner", "engineering_lead", "qa_lead", "release_manager",
+    )
+
+    def _release(self) -> dict | None:
+        return self.store.read_json_or(None, "release", "release-record.json")
+
+    def release_request_approval(self, role: Role) -> None:
+        roles.require("request_release_approval", role)
+        if self.gate(GateId.QUALITY).status != Status.PASSED:
+            raise EngineError("Release opens after the quality gate (G3) passes")
+        self._stage_in_progress(Stage.RELEASE)
+        if self._release() is not None:
+            raise EngineError("Release approval has already been requested")
+        record = {
+            "release_id": "REL-2026R4-001",
+            "epic_id": "EPIC-S7-001",
+            "version": "1.0.0",
+            "environment": "Production",
+            "release_window": "2026-08-21 20:00–23:00 ET",
+            "release_manager": "unassigned until approval",
+            "feature_flag": "sponsor_claim_submission (off at deploy)",
+            "rollback_plan": (
+                "Disable the feature flag and restore the previous journey "
+                "entry point; database changes are additive with a reverse "
+                "migration. Validated in staging."
+            ),
+            "status": Status.WAITING_APPROVAL.value,
+            "deployment": None,
+            "handover": None,
+            "created_at": now_iso(),
+            "provenance": "simulated",
+        }
+        self.store.write_json(record, "release", "release-record.json")
+        self.store.write_text(_DEPLOY_CHECKLIST, "release", "deployment-checklist.md")
+        self.store.write_text(_ROLLBACK_PLAN, "release", "rollback-plan.md")
+        self.store.write_text(_RUNBOOK, "release", "runbook.md")
+        self._record(
+            artifact_id=record["release_id"], artifact_type="release_record",
+            payload=record, author=role.value, stage=Stage.RELEASE,
+            action="request-approval", outcome="created",
+            inputs=["QRPT-001", "PLAN-001"],
+        )
+        self._activity(
+            stage=Stage.RELEASE, actor=role.value, actor_type="human",
+            workflow="release-approval", outcome="requested",
+        )
+
+    def release_approve(
+        self, role: Role, approver: str, note: str = "", decision: str = "approved"
+    ) -> None:
+        roles.require("approve_release", role)
+        if self._release() is None:
+            raise EngineError("Request release approval first")
+        if decision not in ("approved", "rejected"):
+            raise EngineError("Decision must be 'approved' or 'rejected'")
+        if not approver.strip():
+            raise EngineError("A named approver is required")
+        approvals = self.store.read_ledger("approvals.jsonl")
+        self.store.append(
+            Approval(
+                approval_id=f"APR-{len(approvals) + 1:03d}",
+                subject="release",
+                role=role,
+                approver=approver.strip(),
+                decision=decision,
+                note=note,
+            ),
+            "approvals.jsonl",
+        )
+        gate = self.gate(GateId.RELEASE)
+        if decision == "rejected":
+            gate.status = Status.BLOCKED
+            gate.note = note
+            self._save_gate(gate)
+            record = self._release()
+            record["status"] = Status.BLOCKED.value
+            self.store.write_json(record, "release", "release-record.json")
+            self._activity(
+                stage=Stage.RELEASE, actor=approver, actor_type="human",
+                workflow="release-approval", outcome="rejected", details=note,
+            )
+            return
+        self._activity(
+            stage=Stage.RELEASE, actor=approver, actor_type="human",
+            workflow="release-approval", outcome="approved",
+            details=f"as {role.value}",
+        )
+
+    def release_deploy(self, role: Role) -> None:
+        roles.require("deploy", role)
+        record = self._release()
+        if record is None:
+            raise EngineError("Request release approval first")
+        stale = self.store.read_json_or([], "staleness.json")
+        approvals = self.store.read_ledger("approvals.jsonl")
+        conditions = gates.release_gate(
+            [g.model_dump(mode="json") for g in self.gates()],
+            approvals, stale, self.RELEASE_APPROVER_ROLES,
+        )
+        gate = self.gate(GateId.RELEASE)
+        gate.conditions = conditions
+        if not gates.all_met(conditions):
+            gate.status = Status.BLOCKED
+            self._save_gate(gate)
+            unmet = "; ".join(c["condition"] for c in conditions if not c["met"])
+            self._activity(
+                stage=Stage.RELEASE, actor=role.value, actor_type="human",
+                workflow="release-gate", outcome="failed", details=unmet,
+            )
+            raise EngineError(f"Release gate blocked — unmet: {unmet}")
+        gate.status = Status.PASSED
+        gate.decided_by = role.value
+        gate.decided_at = now_iso()
+        self._save_gate(gate)
+
+        record["status"] = Status.IN_PROGRESS.value
+        record["release_manager"] = role.value
+        deployment = {
+            "deployment_id": "DEP-001",
+            "environment": "Production",
+            "pipeline_ref": "pipeline #126 (simulated)",
+            "artifact_count": 14,
+            "strategy": "blue-green behind sponsor_claim_submission flag",
+            "status": Status.COMPLETED.value,
+            "smoke_test_status": "passed (8/8 checks)",
+            "post_checks": [
+                "health endpoints green in both colours",
+                "error rate within baseline",
+                "no elevated latency on lookup service",
+            ],
+            "deployed_at": now_iso(),
+        }
+        record["deployment"] = deployment
+        record["status"] = Status.COMPLETED.value
+        self.store.write_json(record, "release", "release-record.json")
+        self._record(
+            artifact_id=deployment["deployment_id"], artifact_type="deployment",
+            payload=deployment, author="deployment-pipeline (simulated)",
+            stage=Stage.RELEASE, action="deploy", outcome="completed",
+            inputs=[record["release_id"]],
+        )
+        for step, secs in [
+            ("pre-deployment checks", 4.0), ("deploy to production", 9.0),
+            ("smoke tests", 5.0), ("post-deployment checks", 4.0),
+        ]:
+            self._activity(
+                stage=Stage.RELEASE, actor="deployment-pipeline",
+                actor_type="simulation", workflow="deployment",
+                artifact="DEP-001", duration_s=secs, outcome="passed",
+                details=step,
+            )
+
+    def release_handover(self, role: Role) -> None:
+        roles.require("complete_handover", role)
+        record = self._release()
+        if not record or not record.get("deployment"):
+            raise EngineError("Deployment must complete before support handover")
+        handover = {
+            "support_team": "MapleSure Application Support (S1–S6 scope)",
+            "runbook_ref": "release/runbook.md",
+            "knowledge_article_ref": "KB-2026-0473 (demonstration)",
+            "monitoring_alerts": [
+                "submission-error-rate above baseline",
+                "intake-handoff retry queue depth",
+                "lookup-service latency p95",
+            ],
+            "escalation_path": "Support → Platform Team → Services Team on-call",
+            "known_limitations": [
+                "Status vocabulary provisional pending SME confirmation",
+                "Partial-submission retention period unconfirmed",
+            ],
+            "hypercare_days": 7,
+            "accepted_by": role.value,
+            "accepted_at": now_iso(),
+        }
+        record["handover"] = handover
+        self.store.write_json(record, "release", "release-record.json")
+        self.store.write_text(_HANDOVER_DOC, "release", "support-handover.md")
+        self._record(
+            artifact_id="HND-001", artifact_type="support_handover",
+            payload=handover, author=role.value, stage=Stage.RELEASE,
+            action="handover", outcome="accepted", inputs=["DEP-001"],
+        )
+        run = self.run()
+        self._advance_stage(run, Stage.RELEASE)
+        run = self.run()
+        run.status = Status.COMPLETED
+        self._save_run(run)
+        self._activity(
+            stage=Stage.RELEASE, actor=role.value, actor_type="human",
+            workflow="support-handover-approval", outcome="accepted",
+            details="hypercare 7 days; run complete",
+        )
 
     def _seed_tasks(self, stories: list[dict]) -> None:
         """Create the work queue from the signed plan — one task per

@@ -70,10 +70,18 @@ def test_reviewer_cannot_develop_and_developer_cannot_review():
     assert not allowed("execute_review", Role.ENGINEERING_LEAD)
 
 
-def test_only_release_roles_approve_release():
-    assert allowed("approve_release", Role.RELEASE_MANAGER)
-    assert not allowed("approve_release", Role.ENGINEERING_LEAD)
-    assert not allowed("approve_release", Role.QA_LEAD)
+def test_release_approval_split():
+    """Each required role records its own approval; only the Release
+    Manager holds the final, blocking deploy decision."""
+    for role in (Role.BUSINESS_OWNER, Role.ENGINEERING_LEAD, Role.QA_LEAD,
+                 Role.RELEASE_MANAGER):
+        assert allowed("approve_release", role)
+    assert not allowed("approve_release", Role.SUPPORT_LEAD)
+    assert not allowed("approve_release", Role.PRODUCT_ANALYST)
+    assert allowed("deploy", Role.RELEASE_MANAGER)
+    for role in Role:
+        if role is not Role.RELEASE_MANAGER:
+            assert not allowed("deploy", role)
 
 
 def test_require_raises_for_forbidden(engine):

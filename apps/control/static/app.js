@@ -339,8 +339,8 @@
     intake: renderIntake,
     planning: renderPlanning,
     build_review: renderBuildReview,
-    quality: () => notBuilt("Quality", "Phase 4"),
-    release: () => notBuilt("Release", "Phase 4"),
+    quality: renderQuality,
+    release: renderRelease,
     stories: renderStories,
     work: renderWorkQueue,
     traceability: () => notBuilt("Traceability", "Phase 5"),
@@ -348,7 +348,7 @@
     approvals: renderApprovals,
     activity: renderActivity,
     provenance: renderProvenance,
-    risks: () => notBuilt("Risks & Alerts", "Phase 4"),
+    risks: renderRisks,
     reports: () => notBuilt("Reports", "Phase 6"),
     settings: renderSettings,
   };
@@ -661,6 +661,217 @@
             el("li", {}, el("span", { class: "mono", text: ac.ac_id + " " }), ac.text)),
           ),
         ))),
+    );
+  }
+
+  function gatePanel(gateId, title, hint) {
+    const gate = (state.data.gates ?? []).find((g) => g.gate_id === gateId);
+    return el("div", { class: `card ${gate?.status === "passed" ? "ok" : "highlight"}`, style: "margin-top:14px" },
+      el("div", { class: "section-title" }, el("h3", { text: title }), badge(gate?.status ?? "not_started")),
+      (gate?.conditions ?? []).length
+        ? el("ul", { class: "plain" }, gate.conditions.map((c) =>
+          el("li", {}, `${c.met ? "✓" : "✗"} ${c.condition}`,
+            c.detail ? el("span", { class: "hint", text: ` — ${c.detail}` }) : null)))
+        : el("p", { class: "hint", text: hint }),
+      gate?.decided_by ? el("p", { class: "hint", text: `Decided by ${gate.decided_by} at ${gate.decided_at}` }) : null,
+    );
+  }
+
+  function renderQuality() {
+    const d = state.data;
+    const report = d.quality;
+    const parts = [sectionTitle("Stage 4 — Quality",
+      "Evidence aggregated across every story. The gate is explicit conditions, never the score.")];
+
+    if (!report) {
+      parts.push(el("div", { class: "card" },
+        el("p", { text: "Quality aggregation opens once the independent-review gate (G2) has passed for every task." }),
+        el("div", { class: "actions-row" },
+          el("button", { class: "primary", text: "Run quality checks",
+            onclick: () => act("/quality/run", {}, "Quality checks aggregated") })),
+      ));
+      return el("section", {}, parts);
+    }
+
+    const checks = report.checks ?? [];
+    const passed = checks.filter((c) => c.status === "passed").length;
+    parts.push(el("div", { class: "grid cols-4" },
+      el("div", { class: "card metric" }, el("div", { class: "v", text: `${passed}/${checks.filter((c) => c.status !== "not_applicable").length}` }), el("div", { class: "l", text: "Checks passed" })),
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(report.risks?.length ?? 0) }), el("div", { class: "l", text: "Open risks" })),
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(report.exceptions?.length ?? 0) }), el("div", { class: "l", text: "Approved exceptions" })),
+      el("div", { class: "card metric" },
+        el("div", { class: "v", text: `${report.quality_score}` }),
+        el("div", { class: "l", text: "Score (informational)" })),
+    ));
+    parts.push(el("p", { class: "hint", style: "margin-top:6px", text: report.score_note }));
+
+    parts.push(sectionTitle("Quality evidence"));
+    parts.push(el("div", { class: "table-wrap" },
+      el("table", {},
+        el("thead", {}, el("tr", {}, ["Check", "Name", "Status", "Evidence", "Owner"].map((h) => el("th", { text: h })))),
+        el("tbody", {}, checks.map((c) => el("tr", {},
+          el("td", { class: "mono", text: c.check_id }),
+          el("td", { text: c.name }),
+          el("td", {}, badge(c.status === "not_applicable" ? "not_started" : c.status)),
+          el("td", { text: c.evidence || "—" }),
+          el("td", { text: c.owner }),
+        ))),
+      ),
+    ));
+
+    parts.push(el("div", { class: "grid cols-2", style: "margin-top:14px" },
+      el("div", { class: "card warn" },
+        el("h3", { text: "Risks" }),
+        el("ul", { class: "plain" }, (report.risks ?? []).map((r) =>
+          el("li", {}, el("b", { text: `${r.risk_id} (${r.severity}): ` }), r.description))),
+      ),
+      el("div", { class: "card" },
+        el("h3", { text: "Approved exceptions" }),
+        el("ul", { class: "plain" }, (report.exceptions ?? []).map((x) =>
+          el("li", {}, el("b", { text: `${x.exception_id}: ` }), x.description,
+            el("span", { class: "hint", text: ` — approved by ${x.approved_by}` })))),
+      ),
+    ));
+
+    parts.push(el("div", { class: "card", style: "margin-top:14px" },
+      el("h3", { text: "Release recommendation" }),
+      el("p", { text: report.recommendation }),
+      el("div", { class: "actions-row" },
+        el("button", { class: "ghost", text: "Re-run checks", onclick: () => act("/quality/run", {}, "Quality checks re-aggregated") }),
+        el("button", { class: "primary approve", text: "Decide quality gate (QA Lead)",
+          onclick: () => act("/quality/decide", {}, "Quality gate decided") })),
+    ));
+    parts.push(gatePanel("G3", "Gate 3 — Quality",
+      "Conditions evaluate when the QA Lead decides the gate."));
+    return el("section", {}, parts);
+  }
+
+  function renderRelease() {
+    const d = state.data;
+    const rec = d.release;
+    const parts = [sectionTitle("Stage 5 — Release",
+      "A genuine blocking human gate: named approvals, then deployment, then handover")];
+
+    if (!rec) {
+      parts.push(el("div", { class: "card" },
+        el("p", { text: "Release opens after the quality gate (G3) passes." }),
+        el("div", { class: "actions-row" },
+          el("button", { class: "primary", text: "Request release approval",
+            onclick: () => act("/release/request-approval", {}, "Release approval requested") })),
+      ));
+      return el("section", {}, parts);
+    }
+
+    parts.push(el("div", { class: "grid cols-2" },
+      el("div", { class: "card highlight" },
+        el("h3", { text: "Release summary" }),
+        el("div", { class: "kv", style: "margin-top:8px" },
+          el("b", { text: "Release" }), el("span", { class: "mono", text: rec.release_id }),
+          el("b", { text: "Epic" }), el("span", { class: "mono", text: rec.epic_id }),
+          el("b", { text: "Version" }), el("span", { text: rec.version }),
+          el("b", { text: "Environment" }), el("span", { text: rec.environment }),
+          el("b", { text: "Window" }), el("span", { text: rec.release_window }),
+          el("b", { text: "Feature flag" }), el("code", { text: rec.feature_flag }),
+          el("b", { text: "Rollback" }), el("span", { text: rec.rollback_plan }),
+          el("b", { text: "Status" }), el("span", {}, badge(rec.status)),
+        ),
+      ),
+      el("div", { class: "card" },
+        el("h3", { text: "Required approvals" }),
+        el("p", { class: "hint", text: "Business Owner, Engineering Lead, QA Lead and Release Manager must each approve under their own role. Switch the acting role in the header to record each one." }),
+        renderApprovalMatrix(),
+        renderApprovalForm(),
+      ),
+    ));
+
+    if (rec.deployment) {
+      const dep = rec.deployment;
+      parts.push(el("div", { class: "card ok", style: "margin-top:14px" },
+        el("div", { class: "section-title" }, el("h3", { text: "Deployment" }), badge(dep.status)),
+        el("div", { class: "kv", style: "margin-top:8px" },
+          el("b", { text: "Deployment" }), el("span", { class: "mono", text: dep.deployment_id }),
+          el("b", { text: "Pipeline" }), el("span", { text: dep.pipeline_ref }),
+          el("b", { text: "Strategy" }), el("span", { text: dep.strategy }),
+          el("b", { text: "Artifacts" }), el("span", { text: String(dep.artifact_count) }),
+          el("b", { text: "Smoke tests" }), el("span", { text: dep.smoke_test_status }),
+          el("b", { text: "Post-deployment" }),
+          el("span", {}, el("ul", { class: "plain" }, dep.post_checks.map((p) => el("li", { text: p })))),
+          el("b", { text: "Deployed at" }), el("span", { class: "mono", text: dep.deployed_at }),
+        ),
+      ));
+    }
+
+    if (rec.handover) {
+      const h = rec.handover;
+      parts.push(el("div", { class: "card ok", style: "margin-top:14px" },
+        el("h3", { text: "Support handover" }),
+        el("div", { class: "kv", style: "margin-top:8px" },
+          el("b", { text: "Support team" }), el("span", { text: h.support_team }),
+          el("b", { text: "Runbook" }), el("code", { text: h.runbook_ref }),
+          el("b", { text: "Knowledge article" }), el("span", { text: h.knowledge_article_ref }),
+          el("b", { text: "Monitoring alerts" }),
+          el("span", {}, el("ul", { class: "plain" }, h.monitoring_alerts.map((a) => el("li", { text: a })))),
+          el("b", { text: "Escalation" }), el("span", { text: h.escalation_path }),
+          el("b", { text: "Known limitations" }),
+          el("span", {}, el("ul", { class: "plain" }, h.known_limitations.map((a) => el("li", { text: a })))),
+          el("b", { text: "Hypercare" }), el("span", { text: `${h.hypercare_days} days` }),
+          el("b", { text: "Accepted by" }), el("span", { text: `${h.accepted_by} at ${h.accepted_at}` }),
+        ),
+      ));
+    }
+
+    parts.push(el("div", { class: "actions-row", style: "margin-top:14px" },
+      el("button", { class: "primary", text: "Deploy to production (Release Manager)",
+        onclick: () => act("/release/deploy", {}, "Deployment complete") }),
+      el("button", { class: "primary approve", text: "Complete support handover",
+        onclick: () => act("/release/handover", {}, "Handover accepted — run complete") }),
+    ));
+    parts.push(gatePanel("G4", "Gate 4 — Release",
+      "Conditions evaluate at deployment: all gates green, all approvals present, nothing stale."));
+    return el("section", {}, parts);
+  }
+
+  function renderApprovalMatrix() {
+    const releaseApprovals = (state.data.approvals ?? []).filter((a) => a.subject === "release");
+    const required = ["business_owner", "engineering_lead", "qa_lead", "release_manager"];
+    return el("ul", { class: "plain" }, required.map((r) => {
+      const got = releaseApprovals.filter((a) => a.role === r).pop();
+      return el("li", {},
+        el("b", { text: r.replaceAll("_", " ") + ": " }),
+        got ? el("span", {}, badge(got.decision === "approved" ? "passed" : "failed"),
+          ` ${got.approver} — ${got.decided_at}`) : badge("waiting_for_approval"));
+    }));
+  }
+
+  function renderApprovalForm() {
+    const name = el("input", { type: "text", placeholder: "Approver name (required)" });
+    const note = el("input", { type: "text", placeholder: "Note (optional)" });
+    return el("div", { style: "margin-top:10px" },
+      el("label", { class: "fld", text: "Approver" }), name,
+      el("label", { class: "fld", text: "Note" }), note,
+      el("div", { class: "actions-row" },
+        el("button", { class: "primary approve", text: "Approve as current role",
+          onclick: () => act("/release/approve", { approver: name.value, note: note.value, decision: "approved" }, "Approval recorded") }),
+        el("button", { class: "ghost danger-ghost", text: "Reject release",
+          onclick: () => act("/release/approve", { approver: name.value, note: note.value, decision: "rejected" }, "Rejection recorded") }),
+      ),
+    );
+  }
+
+  function renderRisks() {
+    const report = state.data.quality;
+    const risks = report?.risks ?? [];
+    const stale = state.data.staleness ?? [];
+    return el("section", {},
+      sectionTitle("Risks & Alerts"),
+      risks.length === 0 && stale.length === 0
+        ? el("div", { class: "card" }, el("p", { text: "No open risks or staleness alerts recorded in this run yet. Risks aggregate when quality checks run." }))
+        : el("div", {},
+          risks.map((r) => el("div", { class: "card warn", style: "margin-bottom:10px" },
+            el("h3", { text: `${r.risk_id} — ${r.severity}` }), el("p", { text: r.description }))),
+          stale.map((s) => el("div", { class: "card bad", style: "margin-bottom:10px" },
+            el("h3", { text: `${s.artifact_id} is ${s.status}` }), el("p", { text: s.reason }))),
+        ),
     );
   }
 
