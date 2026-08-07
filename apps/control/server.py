@@ -124,6 +124,77 @@ def post_reset(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+# --- intake (spec §7) -------------------------------------------------------
+
+
+@app.post("/api/runs/{run_id}/intake/analyse")
+def post_intake_analyse(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_analyse(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/create-epic")
+def post_intake_epic(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_create_epic(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/pass-gate")
+def post_intake_gate(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_pass_gate(_role(body.role))
+    return eng.state()
+
+
+# --- planning (spec §8) -----------------------------------------------------
+
+
+@app.post("/api/runs/{run_id}/planning/generate")
+def post_planning_generate(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_generate(_role(body.role))
+    return eng.state()
+
+
+class StoryPatch(BaseModel):
+    role: str
+    patch: dict
+
+
+@app.patch("/api/runs/{run_id}/stories/{story_id}")
+def patch_story(run_id: str, story_id: str, body: StoryPatch) -> dict:
+    eng = _engine(run_id)
+    eng.edit_story(_role(body.role), story_id, body.patch)
+    return eng.state()
+
+
+class ReviseBody(BaseModel):
+    role: str
+    feedback: str
+
+
+@app.post("/api/runs/{run_id}/planning/revise")
+def post_planning_revise(run_id: str, body: ReviseBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_revise(_role(body.role), body.feedback)
+    return eng.state()
+
+
+class SignOffBody(BaseModel):
+    role: str
+    approver: str
+    note: str = ""
+
+
+@app.post("/api/runs/{run_id}/planning/sign-off")
+def post_planning_signoff(run_id: str, body: SignOffBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_sign_off(_role(body.role), body.approver, body.note)
+    return eng.state()
+
+
 # --- static shell -----------------------------------------------------------
 
 if STATIC_DIR.is_dir():

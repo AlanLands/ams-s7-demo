@@ -92,10 +92,10 @@
     }
   }
 
-  async function act(path, body = {}, okMessage = "Done") {
+  async function act(path, body = {}, okMessage = "Done", method = "POST") {
     try {
       state.data = await api(`/api/runs/${state.runId}${path}`, {
-        method: "POST",
+        method,
         body: JSON.stringify({ role: state.role, ...body }),
       });
       render();
@@ -337,11 +337,11 @@
   const RENDERERS = {
     overview: renderOverview,
     intake: renderIntake,
-    planning: () => notBuilt("Planning", "Phase 2"),
+    planning: renderPlanning,
     build_review: () => notBuilt("Build & Independent Review", "Phase 3"),
     quality: () => notBuilt("Quality", "Phase 4"),
     release: () => notBuilt("Release", "Phase 4"),
-    stories: () => notBuilt("Epics & Stories", "Phase 2"),
+    stories: renderStories,
     work: () => notBuilt("Work Queue", "Phase 3"),
     traceability: () => notBuilt("Traceability", "Phase 5"),
     artifacts: renderArtifacts,
@@ -352,6 +352,170 @@
     reports: () => notBuilt("Reports", "Phase 6"),
     settings: renderSettings,
   };
+
+  const TEAMS = ["Portal Team", "Services Team", "Data Team",
+    "Intake Integration Team", "QA Automation", "Platform Team", "Support Team"];
+
+  function renderPlanning() {
+    const d = state.data;
+    const stories = d.planning?.stories ?? [];
+    const plan = d.planning?.plan;
+    const locked = d.run.plan_locked;
+    const gate = (d.gates ?? []).find((g) => g.gate_id === "G1");
+
+    const parts = [sectionTitle("Stage 2 — Planning",
+      "Epic decomposed into testable stories, each with one accountable team")];
+
+    if (stories.length === 0) {
+      parts.push(el("div", { class: "card" },
+        el("p", { text: "No plan yet. Decomposition opens once the intake gate (G0) has passed." }),
+        el("div", { class: "actions-row" },
+          el("button", { class: "primary", text: "Generate draft plan",
+            onclick: () => act("/planning/generate", {}, "Draft plan generated") })),
+      ));
+      return el("section", {}, parts);
+    }
+
+    const acs = stories.flatMap((s) => s.acceptance_criteria);
+    const deps = stories.flatMap((s) => s.dependencies);
+    const teams = [...new Set(stories.map((s) => s.accountable_team))];
+    const sprints = [...new Set(stories.map((s) => s.sprint))];
+
+    parts.push(el("div", { class: "grid cols-4" },
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(stories.length) }), el("div", { class: "l", text: "Stories" })),
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(teams.length) }), el("div", { class: "l", text: "Teams" })),
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(acs.length) }), el("div", { class: "l", text: "Acceptance criteria" })),
+      el("div", { class: "card metric" }, el("div", { class: "v", text: String(sprints.length) }), el("div", { class: "l", text: "Sprints" })),
+    ));
+
+    // routing table with inline reviewer controls (spec §8B/§8F)
+    const editable = !locked;
+    parts.push(sectionTitle("Story routing",
+      locked ? "Plan locked at sign-off — edits require an amendment" : "Editable until Gate 1 sign-off locks the plan"));
+    parts.push(el("div", { class: "table-wrap" },
+      el("table", {},
+        el("thead", {}, el("tr", {},
+          ["Story", "Title", "Accountable team", "Component", "Depends on", "Est", "Sprint", "Risk", "Quality"].map((h) => el("th", { text: h })))),
+        el("tbody", {}, stories.map((s) => {
+          const gaps = storyGaps(s);
+          return el("tr", {},
+            el("td", { class: "mono", text: s.story_id }),
+            el("td", { text: s.title }),
+            el("td", {}, editable
+              ? el("select", { onchange: (e) => act(`/stories/${s.story_id}`, { patch: { accountable_team: e.target.value } }, `${s.story_id} reassigned`, "PATCH") },
+                TEAMS.map((t) => Object.assign(el("option", { value: t, text: t }), { selected: t === s.accountable_team })))
+              : el("span", { text: s.accountable_team })),
+            el("td", { text: s.target_component }),
+            el("td", { class: "mono", text: s.dependencies.join(", ") || "—" }),
+            el("td", {}, editable
+              ? el("select", { onchange: (e) => act(`/stories/${s.story_id}`, { patch: { estimate: Number(e.target.value) } }, `${s.story_id} re-estimated`, "PATCH") },
+                [3, 5, 8, 13].map((n) => Object.assign(el("option", { value: String(n), text: `${n} pts` }), { selected: n === s.estimate })))
+              : el("span", { text: `${s.estimate} pts` })),
+            el("td", {}, editable
+              ? el("select", { onchange: (e) => act(`/stories/${s.story_id}`, { patch: { sprint: Number(e.target.value) } }, `${s.story_id} moved`, "PATCH") },
+                [1, 2, 3].map((n) => Object.assign(el("option", { value: String(n), text: `S${n}` }), { selected: n === s.sprint })))
+              : el("span", { text: `S${s.sprint}` })),
+            el("td", { text: s.risk }),
+            el("td", {}, gaps.length === 0 ? badge("passed") : el("span", { class: "badge st-blocked", title: gaps.join("; "), text: `${gaps.length} gaps` })),
+          );
+        })),
+      ),
+    ));
+
+    // dependency chain + routing by team
+    parts.push(el("div", { class: "grid cols-2", style: "margin-top:14px" },
+      el("div", { class: "card" },
+        el("h3", { text: "Dependency chain" }),
+        el("ul", { class: "plain" }, stories.map((s) =>
+          el("li", {}, el("span", { class: "mono", text: s.story_id }),
+            s.dependencies.length ? ` ← depends on ${s.dependencies.join(", ")}` : " — no upstream dependency"))),
+      ),
+      el("div", { class: "card" },
+        el("h3", { text: "Routing by team" }),
+        el("ul", { class: "plain" }, teams.map((t) => {
+          const n = stories.filter((s) => s.accountable_team === t).length;
+          return el("li", {}, `${t}: ${n} ${n === 1 ? "story" : "stories"}`);
+        })),
+      ),
+    ));
+
+    // revision + gate 1
+    if (!locked) {
+      const fb = el("textarea", { rows: "2", placeholder: "What should change? e.g. 'US-004 is underestimated; move status visibility into Sprint 1'" });
+      parts.push(el("div", { class: "card", style: "margin-top:14px" },
+        el("h3", { text: "Request AI revision" }),
+        el("p", { class: "hint", text: "Records the revision request in the activity log. In simulation mode the draft is revised deterministically." }),
+        fb,
+        el("div", { class: "actions-row" },
+          el("button", { class: "primary", text: "Request revision",
+            onclick: () => act("/planning/revise", { feedback: fb.value }, "Revision requested") })),
+      ));
+    }
+
+    const approver = el("input", { type: "text", placeholder: "Approver name (required)" });
+    const note = el("input", { type: "text", placeholder: "Sign-off note (optional)" });
+    parts.push(el("div", { class: `card ${gate?.status === "passed" ? "ok" : "highlight"}`, style: "margin-top:14px" },
+      el("div", { class: "section-title" },
+        el("h3", { text: "Gate 1 — Plan sign-off" }), badge(gate?.status ?? "not_started")),
+      (gate?.conditions ?? []).length
+        ? el("ul", { class: "plain" }, gate.conditions.map((c) =>
+          el("li", {}, `${c.met ? "✓" : "✗"} ${c.condition}`,
+            c.detail ? el("span", { class: "hint", text: ` — ${c.detail}` }) : null)))
+        : el("p", { class: "hint", text: "Conditions evaluate at sign-off. Only the Business Owner role may sign." }),
+      plan
+        ? el("div", { class: "kv", style: "margin-top:10px" },
+          el("b", { text: "Signed by" }), el("span", { text: plan.signed_by }),
+          el("b", { text: "At" }), el("span", { class: "mono", text: plan.signed_at }),
+          el("b", { text: "Plan version" }), el("span", { text: `v${plan.plan_version}` }),
+          el("b", { text: "Contract" }), el("code", { text: "planning/plan.json · planning/plan.md" }))
+        : el("div", {},
+          el("label", { class: "fld", text: "Approver" }), approver,
+          el("label", { class: "fld", text: "Note" }), note,
+          el("div", { class: "actions-row" },
+            el("button", { class: "primary approve", text: "Approve & lock plan",
+              onclick: () => act("/planning/sign-off", { approver: approver.value, note: note.value }, "Plan signed and locked") }))),
+    ));
+
+    return el("section", {}, parts);
+  }
+
+  function storyGaps(s) {
+    const gaps = [];
+    if (!s.purpose) gaps.push("purpose missing");
+    if (!s.acceptance_criteria?.length) gaps.push("no acceptance criteria");
+    if (!s.accountable_team) gaps.push("no accountable team");
+    if (!s.target_component) gaps.push("no target component");
+    if (!s.rollback_plan) gaps.push("no rollback plan");
+    if (!s.task_type) gaps.push("no task type");
+    return gaps;
+  }
+
+  function renderStories() {
+    const stories = state.data.planning?.stories ?? [];
+    if (stories.length === 0) return notBuilt("Epics & Stories", "the Planning stage — generate the draft plan first");
+    return el("section", {},
+      sectionTitle("Epics & Stories", "EPIC-S7-001 decomposition — demonstration data"),
+      el("div", { class: "grid cols-2" }, stories.map((s) =>
+        el("div", { class: "card" },
+          el("div", { class: "section-title" },
+            el("h3", {}, el("span", { class: "mono", text: s.story_id + " " }), s.title),
+            prov(s.provenance)),
+          el("p", { class: "hint", text: s.purpose }),
+          el("div", { class: "kv", style: "margin-top:10px" },
+            el("b", { text: "Team" }), el("span", { text: s.accountable_team + (s.contributing_teams.length ? ` (+ ${s.contributing_teams.join(", ")})` : "") }),
+            el("b", { text: "Component" }), el("span", { text: s.target_component }),
+            el("b", { text: "Repository" }), el("code", { text: s.target_repository }),
+            el("b", { text: "Feature flag" }), el("span", {}, s.feature_flag ? el("code", { text: s.feature_flag.name }) : "—"),
+            el("b", { text: "Rollback" }), el("span", { text: s.rollback_plan?.method ?? "—" }),
+            el("b", { text: "Version" }), el("span", { text: `v${s.version}` }),
+          ),
+          el("h3", { style: "margin-top:12px", text: "Acceptance criteria" }),
+          el("ul", { class: "plain" }, s.acceptance_criteria.map((ac) =>
+            el("li", {}, el("span", { class: "mono", text: ac.ac_id + " " }), ac.text)),
+          ),
+        ))),
+    );
+  }
 
   function renderArtifacts() {
     const rows = state.data.provenance ?? [];
