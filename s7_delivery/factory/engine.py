@@ -520,6 +520,331 @@ class Engine:
             details=f"plan v{plan['plan_version']} locked; downstream work opened",
         )
 
+    # --- build & independent review (spec §9) ------------------------------
+
+    def _tasks(self) -> list[dict]:
+        return self.store.read_json_or([], "build", "tasks.json")
+
+    def _save_tasks(self, tasks: list[dict]) -> None:
+        self.store.write_json(tasks, "build", "tasks.json")
+
+    def _task(self, tasks: list[dict], task_id: str) -> dict:
+        target = next((t for t in tasks if t["task_id"] == task_id), None)
+        if target is None:
+            raise EngineError(f"Unknown task {task_id}")
+        return target
+
+    def _story(self, story_id: str) -> dict:
+        story = next(
+            (s for s in self._stories() if s["story_id"] == story_id), None
+        )
+        if story is None:
+            raise EngineError(f"Unknown story {story_id}")
+        return story
+
+    def _reviews(self) -> list[dict]:
+        return self.store.read_json_or([], "review", "reviews.json")
+
+    def _latest_reviews(self) -> dict[str, dict]:
+        latest: dict[str, dict] = {}
+        for r in self._reviews():
+            latest[r["task_id"]] = r
+        return latest
+
+    def _was_blocked(self, task_id: str) -> bool:
+        return any(
+            r["task_id"] == task_id and r["result"] == "blocked"
+            for r in self._reviews()
+        )
+
+    def task_start(self, role: Role, task_id: str) -> None:
+        roles.require("start_task", role)
+        if not self.run().plan_locked:
+            raise EngineError("Build opens after the plan is signed (G1)")
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task["status"] not in (Status.READY, "ready", Status.IN_PROGRESS, "in_progress"):
+            raise EngineError(
+                f"{task_id} is {task['status']}; only a ready task can start "
+                "(dependencies must be complete)"
+            )
+        task["status"] = Status.IN_PROGRESS.value
+        task["progress_pct"] = 10
+        task["owner"] = "delivery-worker (simulated)"
+        task["current_activity"] = (
+            "Workspace created; signed plan validated; upstream artifacts "
+            "checked for staleness"
+        )
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self._stage_in_progress(Stage.BUILD_REVIEW)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="delivery-worker",
+            actor_type="simulation", workflow="task-start", artifact=task_id,
+            duration_s=2.0, outcome="started", details=task["summary"],
+        )
+
+    def task_generate_tests(self, role: Role, task_id: str) -> None:
+        roles.require("run_development", role)
+        from s7_delivery.factory import simulate
+
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task["status"] != Status.IN_PROGRESS.value:
+            raise EngineError(f"{task_id} is not in progress")
+        story = self._story(task["story_id"])
+        corrected = self._was_blocked(task_id)
+        tests = [t.model_dump(mode="json")
+                 for t in simulate.tests_for(story, corrected=corrected)]
+        task["tests"] = tests
+        task["progress_pct"] = 35
+        task["current_activity"] = (
+            "Test scenarios generated from acceptance criteria; red baseline "
+            "recorded — every test fails before implementation"
+        )
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self.store.write_json(
+            {"task_id": task_id, "baseline": "red", "tests": tests},
+            "build", "test-baselines", f"{task['story_id']}.json",
+        )
+        self._record(
+            artifact_id=f"TSTB-{task_id[-3:]}", artifact_type="test_baseline",
+            payload=tests, author="delivery-worker (simulated)",
+            stage=Stage.BUILD_REVIEW, action="generate-tests",
+            outcome="created (red baseline)", inputs=[task["story_id"]],
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="delivery-worker",
+            actor_type="simulation", workflow="test-first", artifact=task_id,
+            duration_s=8.0, outcome="created",
+            details=f"{len(tests)} tests, all initially failing",
+        )
+
+    def task_develop(self, role: Role, task_id: str) -> None:
+        roles.require("run_development", role)
+        from s7_delivery.factory import simulate
+
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if not task.get("tests"):
+            raise EngineError(
+                f"{task_id} has no red test baseline; generate tests first "
+                "(test-first is the demonstrated workflow)"
+            )
+        corrected = self._was_blocked(task_id)
+        ev = simulate.dev_evidence(task["story_id"])
+        previous = task["version"]
+        task["files_changed"] = len(ev["files"])
+        task["changed_files"] = ev["files"]
+        task["lines_added"] = ev["lines_added"]
+        task["lines_removed"] = ev["lines_removed"]
+        task["coverage_pct"] = ev["coverage"]
+        task["change_summary"] = simulate.change_summary(
+            task["story_id"], corrected=corrected
+        )
+        task["commit_ref"] = f"c{abs(hash((task_id, corrected))) % 10**7:07d}"
+        task["pr_ref"] = f"PR-{int(task_id[-3:]) + 20}"
+        if corrected:
+            task["version"] = previous + 1
+            task["tests"] = [
+                t.model_dump(mode="json")
+                for t in simulate.tests_for(self._story(task["story_id"]), corrected=True)
+            ]
+        for t in task["tests"]:
+            t["current_result"] = "passed"
+        task["progress_pct"] = 80
+        task["current_activity"] = (
+            "Correction applied per independent review; targeted tests green"
+            if corrected
+            else "Smallest compliant change implemented; targeted tests green"
+        )
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self._record(
+            artifact_id=f"CHG-{task_id[-3:]}", artifact_type="code_change",
+            payload={"files": ev["files"], "summary": task["change_summary"]},
+            author="delivery-worker (simulated)", stage=Stage.BUILD_REVIEW,
+            action="correct" if corrected else "develop",
+            outcome="amended" if corrected else "created",
+            inputs=[task["story_id"], f"TSTB-{task_id[-3:]}"],
+            version=task["version"],
+            previous_version=previous if corrected else None,
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="delivery-worker",
+            actor_type="simulation", workflow="development", artifact=task_id,
+            duration_s=45.0, outcome="amended" if corrected else "created",
+            details=task["change_summary"][:160],
+        )
+
+    def task_verify(self, role: Role, task_id: str) -> None:
+        roles.require("run_development", role)
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if not task.get("files_changed"):
+            raise EngineError(f"{task_id} has no implementation to verify")
+        task["progress_pct"] = 90
+        task["current_activity"] = (
+            "Developer verification complete: build valid, targeted tests "
+            "green, change summary produced"
+        )
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="delivery-worker",
+            actor_type="simulation", workflow="developer-verification",
+            artifact=task_id, duration_s=6.0, outcome="passed",
+        )
+
+    def task_submit_review(self, role: Role, task_id: str) -> None:
+        roles.require("submit_for_review", role)
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task.get("progress_pct", 0) < 90:
+            raise EngineError(
+                f"{task_id} has not completed developer verification"
+            )
+        task["status"] = Status.WAITING_APPROVAL.value
+        task["current_activity"] = "Evidence submitted for independent review"
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="submit-review", artifact=task_id, outcome="submitted",
+        )
+
+    def task_run_to_review(self, role: Role, task_id: str) -> None:
+        """Convenience for the demo: start → tests → develop → verify →
+        submit, each step logged individually. The reviewer is still a
+        separate role and a separate action — this never reviews."""
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task["status"] in (Status.READY.value, Status.BLOCKED.value):
+            if task["status"] == Status.BLOCKED.value:
+                raise EngineError(
+                    f"{task_id} is blocked by review; return it to "
+                    "development first"
+                )
+            self.task_start(role, task_id)
+        self.task_generate_tests(role, task_id)
+        self.task_develop(role, task_id)
+        self.task_verify(role, task_id)
+        self.task_submit_review(role, task_id)
+
+    # --- independent review -------------------------------------------------
+
+    def review_execute(self, role: Role, task_id: str) -> dict:
+        roles.require("execute_review", role)
+        from s7_delivery.factory import simulate
+
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task["status"] != Status.WAITING_APPROVAL.value:
+            raise EngineError(f"{task_id} has not been submitted for review")
+        corrected = self._was_blocked(task_id)
+        verdict = simulate.review_findings(task["story_id"], corrected=corrected)
+        reviews = self._reviews()
+        story = self._story(task["story_id"])
+        report = {
+            "review_id": f"REV-{len(reviews) + 1:03d}",
+            "task_id": task_id,
+            "reviewer": "independent-reviewer (simulated, isolated from development)",
+            "result": verdict["result"],
+            "critical_gaps": verdict["critical_gaps"],
+            "major_gaps": verdict["major_gaps"],
+            "minor_gaps": verdict["minor_gaps"],
+            "findings": verdict["findings"],
+            "verified_against": [
+                "signed plan v" + str(self.run().plan_version),
+                task["story_id"],
+                *[ac["ac_id"] for ac in story["acceptance_criteria"]],
+                "change summary", "test evidence",
+            ],
+            "created_at": now_iso(),
+            "version": sum(1 for r in reviews if r["task_id"] == task_id) + 1,
+            "provenance": "simulated",
+        }
+        reviews.append(report)
+        self.store.write_json(reviews, "review", "reviews.json")
+        self._record(
+            artifact_id=report["review_id"], artifact_type="review_report",
+            payload=report, author=report["reviewer"],
+            stage=Stage.BUILD_REVIEW, action="independent-review",
+            outcome=report["result"],
+            inputs=[task["story_id"], f"CHG-{task_id[-3:]}", f"TSTB-{task_id[-3:]}"],
+            version=report["version"],
+        )
+
+        gate = self.gate(GateId.INDEPENDENT_REVIEW)
+        if report["result"] == "blocked":
+            task["status"] = Status.BLOCKED.value
+            task["current_activity"] = (
+                f"Blocked by independent review — {report['major_gaps']} major "
+                "gap(s); return to development"
+            )
+            gate.status = Status.BLOCKED
+            outcome = "failed"
+        else:
+            task["status"] = Status.COMPLETED.value
+            task["progress_pct"] = 100
+            task["current_activity"] = "Independent review passed"
+            self._unlock_dependents(tasks, task)
+            outcome = "passed"
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+
+        gate.conditions = gates.independent_review_gate(
+            list(self._latest_reviews().values()), tasks
+        )
+        all_done = all(t["status"] == Status.COMPLETED.value for t in tasks)
+        if all_done and gates.all_met(gate.conditions):
+            gate.status = Status.PASSED
+            gate.decided_by = report["reviewer"]
+            gate.decided_at = now_iso()
+            run = self.run()
+            self._advance_stage(run, Stage.BUILD_REVIEW)
+        self._save_gate(gate)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="independent-reviewer",
+            actor_type="simulation", workflow="independent-review-gate",
+            artifact=task_id, duration_s=20.0, outcome=outcome,
+            details="; ".join(f["summary"] for f in report["findings"]) or
+            "verified against acceptance criteria — no gaps",
+        )
+        return report
+
+    def review_return_to_development(self, role: Role, task_id: str) -> None:
+        roles.require("return_to_development", role)
+        tasks = self._tasks()
+        task = self._task(tasks, task_id)
+        if task["status"] != Status.BLOCKED.value:
+            raise EngineError(f"{task_id} is not blocked by review")
+        task["status"] = Status.IN_PROGRESS.value
+        task["progress_pct"] = 40
+        task["current_activity"] = (
+            "Returned to development with review findings attached"
+        )
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="return-to-development", artifact=task_id,
+            outcome="returned",
+        )
+
+    def _unlock_dependents(self, tasks: list[dict], completed: dict) -> None:
+        done_stories = {
+            t["story_id"] for t in tasks
+            if t["status"] == Status.COMPLETED.value
+        }
+        for t in tasks:
+            if t["status"] == Status.NOT_STARTED.value and all(
+                dep in done_stories for dep in t.get("dependencies", [])
+            ):
+                t["status"] = Status.READY.value
+                t["last_activity"] = now_iso()
+
     def _seed_tasks(self, stories: list[dict]) -> None:
         """Create the work queue from the signed plan — one task per
         implementation story, dependency order preserved. The demo processes

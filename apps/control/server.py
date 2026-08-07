@@ -195,6 +195,59 @@ def post_planning_signoff(run_id: str, body: SignOffBody) -> dict:
     return eng.state()
 
 
+# --- build & independent review (spec §9) -----------------------------------
+
+
+def _task_action(run_id: str, body: RoleBody, method_name: str, task_id: str) -> dict:
+    eng = _engine(run_id)
+    getattr(eng, method_name)(_role(body.role), task_id)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/start")
+def post_task_start(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_start", task_id)
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/generate-tests")
+def post_task_tests(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_generate_tests", task_id)
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/develop")
+def post_task_develop(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_develop", task_id)
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/verify")
+def post_task_verify(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_verify", task_id)
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/submit-review")
+def post_task_submit(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_submit_review", task_id)
+
+
+@app.post("/api/runs/{run_id}/tasks/{task_id}/run-to-review")
+def post_task_run(run_id: str, task_id: str, body: RoleBody) -> dict:
+    return _task_action(run_id, body, "task_run_to_review", task_id)
+
+
+@app.post("/api/runs/{run_id}/reviews/{task_id}/execute")
+def post_review_execute(run_id: str, task_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.review_execute(_role(body.role), task_id)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/reviews/{task_id}/return-to-development")
+def post_review_return(run_id: str, task_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.review_return_to_development(_role(body.role), task_id)
+    return eng.state()
+
+
 # --- static shell -----------------------------------------------------------
 
 if STATIC_DIR.is_dir():
