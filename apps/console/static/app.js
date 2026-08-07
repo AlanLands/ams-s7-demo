@@ -422,7 +422,20 @@
       script.onload = () => {
         mermaidReady = Boolean(window.mermaid);
         if (mermaidReady && window.mermaid.initialize) {
-          window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict" });
+          window.mermaid.initialize({
+            startOnLoad: false,
+            securityLevel: "strict",
+            theme: "base",
+            themeVariables: {
+              fontFamily: "-apple-system, 'Segoe UI', ui-sans-serif, system-ui, Helvetica, Arial, sans-serif",
+              primaryColor: "#fbeef0",
+              primaryBorderColor: "#b0243a",
+              primaryTextColor: "#23272b",
+              lineColor: "#64707a",
+              secondaryColor: "#f2f0ed",
+              tertiaryColor: "#ffffff"
+            }
+          });
         }
         resolve(mermaidReady);
       };
