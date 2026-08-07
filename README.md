@@ -75,9 +75,25 @@ Two conventions carried from S3 that are worth keeping:
 
 ## Running
 
+Three surfaces, one machinery:
+
 ```bash
-demo/run_console.sh          # → http://127.0.0.1:8700
+demo/run_console.sh          # → http://127.0.0.1:8700  five-gate console
+demo/run_intake.sh           # → http://127.0.0.1:8710  epic intake (clarify → plan)
+demo/run_control.sh          # → http://127.0.0.1:8720  S7 Delivery Control Centre
 ```
+
+**The Control Centre** is the customer-safe, end-to-end governed journey:
+intake → planning (Gate 1 locks the signed plan) → build & independent review
+(test-first, a deliberate boundary defect caught by an isolated reviewer) →
+quality (explicit gate conditions) → release (four named approvals, deploy,
+support handover), with an append-only hashed provenance ledger, staleness
+detection with self-correction, and full traceability. All engine-produced
+evidence is deterministic simulation, badged `SIMULATED` — nothing simulated
+presents as live. Docs: `docs/S7_ARCHITECTURE.md`, `docs/S7_GATE_RULES.md`,
+`docs/S7_DEMO_SCRIPT.md` (the 15-minute walkthrough),
+`docs/S7_DATA_MODEL.md`, `docs/S7_TEST_STRATEGY.md`,
+`docs/S7_SECURITY_NOTES.md`.
 
 No API key required — artifacts are staged, so it runs fully offline. The console
 walks the five upstream stages; the review gate genuinely blocks, and rejecting it

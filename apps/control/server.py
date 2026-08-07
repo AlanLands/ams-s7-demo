@@ -325,6 +325,26 @@ def get_traceability(run_id: str) -> list[dict]:
     return _engine(run_id).traceability()
 
 
+# --- scripted demo scenarios (spec §20) -------------------------------------
+
+
+@app.get("/api/demo-scenarios")
+def get_demo_scenarios() -> list[str]:
+    from s7_delivery.factory.demo import SCENARIOS
+
+    return sorted(SCENARIOS)
+
+
+@app.post("/api/demo/{action}")
+def post_demo(action: str) -> dict:
+    """Create a fresh run driven to the named scenario's known state.
+    Every step goes through the engine — gates, roles and ledgers all run."""
+    from s7_delivery.factory import demo
+
+    eng = demo.load(action)
+    return eng.state()
+
+
 # --- static shell -----------------------------------------------------------
 
 if STATIC_DIR.is_dir():

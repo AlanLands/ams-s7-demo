@@ -142,4 +142,18 @@ pytest tests/                  # all green offline
 
 ## Phase log
 
-- 2026-08-07 — Phase 1 started.
+- 2026-08-07 — Phase 1: factory models, store (atomic + append-only),
+  roles, engine lifecycle, seed, app shell. 26 tests.
+- 2026-08-07 — Phase 2: intake + planning actions, explicit gates G0/G1,
+  plan lock + contract artifacts, work-queue seeding. 14 tests.
+- 2026-08-07 — Phase 3: test-first build simulation, isolated independent
+  review, US-003 deliberate defect → block → correction → v2 pass. 12 tests.
+- 2026-08-07 — Phase 4: quality evidence aggregation + G3, release
+  approvals/rejection, Release-Manager-only deploy, handover. 13 tests.
+- 2026-08-07 — Phase 5: ledger-derived staleness, SME-ruling upstream
+  change, self-correction with versioned re-validation, amendments,
+  traceability matrix. 15 tests.
+- 2026-08-07 — Phase 6: scripted demo scenarios, reports view, API tests
+  (15), docs (architecture, gates, data model, demo script, test strategy,
+  security notes), README. Browser-verified end to end. **Complete** —
+  195 tests green across the repo.

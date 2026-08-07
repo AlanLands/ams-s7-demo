@@ -349,7 +349,7 @@
     activity: renderActivity,
     provenance: renderProvenance,
     risks: renderRisks,
-    reports: () => notBuilt("Reports", "Phase 6"),
+    reports: renderReports,
     settings: renderSettings,
   };
 
@@ -1065,6 +1065,44 @@
     );
   }
 
+  function renderReports() {
+    const s = state.data.activity_summary ?? {};
+    const run = state.data.run;
+    const stageTime = s.stage_time_s ?? {};
+    const total = Object.values(stageTime).reduce((a, b) => a + b, 0);
+    const stageLabel = (k) => (STAGES.find(([key]) => key === k)?.[1]) ?? k;
+    return el("section", {},
+      sectionTitle("Reports", "Computed from the activity ledger — durations are simulated workflow durations"),
+      el("div", { class: "grid cols-4" },
+        el("div", { class: "card metric" }, el("div", { class: "v", text: `${Math.round(total)}s` }), el("div", { class: "l", text: "Total workflow time" })),
+        el("div", { class: "card metric" }, el("div", { class: "v", text: String(s.counters?.ai_workflows ?? 0) }), el("div", { class: "l", text: "Automated workflows" })),
+        el("div", { class: "card metric" }, el("div", { class: "v", text: String(s.counters?.human_approvals ?? 0) }), el("div", { class: "l", text: "Human decisions" })),
+        el("div", { class: "card metric" }, el("div", { class: "v", text: run.status.replaceAll("_", " ") }), el("div", { class: "l", text: "Run outcome" })),
+      ),
+      sectionTitle("Bottleneck insights", "Where workflow time accrued, by stage"),
+      el("div", { class: "card" },
+        el("ul", { class: "plain" },
+          Object.entries(stageTime).map(([k, v]) => el("li", {},
+            el("b", { text: stageLabel(k) + ": " }),
+            `${Math.round(v)}s`,
+            el("span", { class: "hint", text: total ? ` — ${Math.round((100 * v) / total)}%` : "" }))))),
+      sectionTitle("Ledger counters"),
+      el("div", { class: "grid cols-3" },
+        Object.entries(s.counters ?? {}).map(([k, v]) =>
+          el("div", { class: "card metric" },
+            el("div", { class: "v", text: String(v) }),
+            el("div", { class: "l", text: k.replaceAll("_", " ") })))),
+    );
+  }
+
+  const DEMO_SCENARIOS = [
+    ["happy-path", "Happy path — full successful run to handover"],
+    ["review-failure", "Independent review failure — US-003 blocked"],
+    ["missing-test-coverage", "Missing test coverage — quality gate blocks"],
+    ["staleness", "Upstream change — downstream stale, release blocked"],
+    ["release-rejected", "Release approval rejected by Business Owner"],
+  ];
+
   function renderSettings() {
     const run = state.data.run;
     return el("section", {},
@@ -1081,7 +1119,27 @@
           el("button", { class: "ghost danger-ghost", text: "Reset this run", onclick: resetRun }),
         ),
       ),
+      sectionTitle("Load demo scenario", "Each creates a fresh run driven to a known state through the real engine — gates, roles and ledgers all execute"),
+      el("div", { class: "grid cols-2" },
+        DEMO_SCENARIOS.map(([key, label]) =>
+          el("div", { class: "card" },
+            el("h3", { text: label }),
+            el("div", { class: "actions-row" },
+              el("button", { class: "primary", text: "Load", onclick: () => loadDemo(key) })))),
+      ),
     );
+  }
+
+  async function loadDemo(action) {
+    try {
+      const created = await api(`/api/demo/${action}`, { method: "POST", body: "{}" });
+      state.runId = created.run.run_id;
+      localStorage.setItem("s7cc.runId", state.runId);
+      state.data = created;
+      state.section = "overview";
+      render();
+      toast(`Scenario '${action}' loaded as ${state.runId}`);
+    } catch (err) { toast(err.message, true); }
   }
 
   async function newRun() {

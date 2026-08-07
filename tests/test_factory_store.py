@@ -1,6 +1,5 @@
 """Store discipline: atomic writes, append-only ledgers, path safety."""
 
-import json
 
 import pytest
 

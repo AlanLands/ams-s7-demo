@@ -158,13 +158,30 @@ def build_stories() -> list[Story]:
             target_component="submission data model",
             target_repository="sponsorconnect-db",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-001-AC1", text="A submission record persists across a dropped sponsor session."),
-                AcceptanceCriterion(ac_id="US-001-AC2", text="Every submission carries an append-only audit trail of actor, action and time."),
-                AcceptanceCriterion(ac_id="US-001-AC3", text="Documents are associated to the submission record, never stored loose."),
+                AcceptanceCriterion(
+                    ac_id="US-001-AC1",
+                    text="A submission record persists across a dropped sponsor session.",
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-001-AC2",
+                    text=(
+                        "Every submission carries an append-only audit trail of actor, action and "
+                        "time."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-001-AC3",
+                    text="Documents are associated to the submission record, never stored loose.",
+                ),
             ],
             impacts=["Database schema", "Records retention"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Feature flag off; schema change is additive and reversible by migration rollback."),
+            rollback_plan=RollbackPlan(
+                method=(
+                    "Feature flag off; schema change is additive and reversible by migration "
+                    "rollback."
+                )
+            ),
             estimate=5,
             sprint=1,
             traces_to=["REQ-2026-114"],
@@ -182,14 +199,33 @@ def build_stories() -> list[Story]:
             target_component="lookup service",
             target_repository="sponsorconnect-api",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-002-AC1", text="Lookup returns member and plan details for a member the sponsor sponsors."),
-                AcceptanceCriterion(ac_id="US-002-AC2", text="Lookup for a member outside the sponsor organization returns no data and is audited."),
-                AcceptanceCriterion(ac_id="US-002-AC3", text="Pre-populated fields are shown for confirmation and attested before submission."),
+                AcceptanceCriterion(
+                    ac_id="US-002-AC1",
+                    text=(
+                        "Lookup returns member and plan details for a member the sponsor sponsors."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-002-AC2",
+                    text=(
+                        "Lookup for a member outside the sponsor organization returns no data and "
+                        "is audited."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-002-AC3",
+                    text=(
+                        "Pre-populated fields are shown for confirmation and attested before "
+                        "submission."
+                    ),
+                ),
             ],
             dependencies=["US-001"],
             impacts=["API services", "System of record (read path, externally owned)"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Feature flag off; read-only integration, no data mutation to reverse."),
+            rollback_plan=RollbackPlan(
+                method="Feature flag off; read-only integration, no data mutation to reverse."
+            ),
             estimate=8,
             sprint=1,
             risk="medium",
@@ -208,15 +244,37 @@ def build_stories() -> list[Story]:
             target_component="claim journey UI + validation service",
             target_repository="sponsorconnect-portal",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-003-AC1", text="The journey collects last day worked, first day absent, nature of absence and details."),
-                AcceptanceCriterion(ac_id="US-003-AC2", text="A submission with first day absent after last day worked is accepted."),
-                AcceptanceCriterion(ac_id="US-003-AC3", text="A submission where first day absent is on or before the last day worked is rejected."),
-                AcceptanceCriterion(ac_id="US-003-AC4", text="Existing SponsorConnect session and authorization behaviour is unchanged."),
+                AcceptanceCriterion(
+                    ac_id="US-003-AC1",
+                    text=(
+                        "The journey collects last day worked, first day absent, nature of absence"
+                        " and details."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-003-AC2",
+                    text="A submission with first day absent after last day worked is accepted.",
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-003-AC3",
+                    text=(
+                        "A submission where first day absent is on or before the last day worked "
+                        "is rejected."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-003-AC4",
+                    text=(
+                        "Existing SponsorConnect session and authorization behaviour is unchanged."
+                    ),
+                ),
             ],
             dependencies=["US-002"],
             impacts=["Portal UI", "Validation logic", "Tests"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Feature flag off restores the previous journey entry point."),
+            rollback_plan=RollbackPlan(
+                method="Feature flag off restores the previous journey entry point."
+            ),
             estimate=8,
             sprint=2,
             risk="medium",
@@ -234,13 +292,26 @@ def build_stories() -> list[Story]:
             target_component="document upload",
             target_repository="sponsorconnect-portal",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-004-AC1", text="Multiple documents can be uploaded and are listed against the submission."),
-                AcceptanceCriterion(ac_id="US-004-AC2", text="Files outside the existing type and size policy are refused with a clear reason."),
+                AcceptanceCriterion(
+                    ac_id="US-004-AC1",
+                    text=(
+                        "Multiple documents can be uploaded and are listed against the submission."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-004-AC2",
+                    text=(
+                        "Files outside the existing type and size policy are refused with a clear "
+                        "reason."
+                    ),
+                ),
             ],
             dependencies=["US-003"],
             impacts=["Portal UI", "Document storage"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Feature flag off; uploaded demo documents purged by retention job."),
+            rollback_plan=RollbackPlan(
+                method="Feature flag off; uploaded demo documents purged by retention job."
+            ),
             estimate=5,
             sprint=2,
             traces_to=["REQ-2026-114"],
@@ -258,13 +329,24 @@ def build_stories() -> list[Story]:
             target_component="intake handoff",
             target_repository="sponsorconnect-api",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-005-AC1", text="A completed submission reaches intake as a single associated packet."),
-                AcceptanceCriterion(ac_id="US-005-AC2", text="Handoff failures are retried and surfaced; a submission is never silently dropped."),
+                AcceptanceCriterion(
+                    ac_id="US-005-AC1",
+                    text="A completed submission reaches intake as a single associated packet.",
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-005-AC2",
+                    text=(
+                        "Handoff failures are retried and surfaced; a submission is never silently"
+                        " dropped."
+                    ),
+                ),
             ],
             dependencies=["US-001"],
             impacts=["Intake/indexing system (externally owned contract)"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Feature flag off; packets already handed off remain valid intake items."),
+            rollback_plan=RollbackPlan(
+                method="Feature flag off; packets already handed off remain valid intake items."
+            ),
             estimate=8,
             sprint=2,
             risk="medium",
@@ -283,12 +365,26 @@ def build_stories() -> list[Story]:
             target_repository="sponsorconnect-tests",
             task_type="test",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-006-AC1", text="Regression suite covers sponsor isolation and both absence-date boundaries."),
-                AcceptanceCriterion(ac_id="US-006-AC2", text="Integration scenario submits end to end and verifies the packet at intake."),
+                AcceptanceCriterion(
+                    ac_id="US-006-AC1",
+                    text=(
+                        "Regression suite covers sponsor isolation and both absence-date "
+                        "boundaries."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-006-AC2",
+                    text=(
+                        "Integration scenario submits end to end and verifies the packet at "
+                        "intake."
+                    ),
+                ),
             ],
             dependencies=["US-002", "US-003", "US-004"],
             impacts=["CI pipeline"],
-            rollback_plan=RollbackPlan(method="Test-only change; revert commit."),
+            rollback_plan=RollbackPlan(
+                method="Test-only change; revert commit."
+            ),
             estimate=5,
             sprint=2,
             traces_to=["REQ-2026-114"],
@@ -306,13 +402,29 @@ def build_stories() -> list[Story]:
             target_repository="sponsorconnect-platform",
             task_type="operational",
             acceptance_criteria=[
-                AcceptanceCriterion(ac_id="US-007-AC1", text="Deployment runs behind the sponsor_claim_submission flag with a validated rollback."),
-                AcceptanceCriterion(ac_id="US-007-AC2", text="Monitoring alerts, runbook and support handover are updated and accepted by Support."),
+                AcceptanceCriterion(
+                    ac_id="US-007-AC1",
+                    text=(
+                        "Deployment runs behind the sponsor_claim_submission flag with a validated"
+                        " rollback."
+                    ),
+                ),
+                AcceptanceCriterion(
+                    ac_id="US-007-AC2",
+                    text=(
+                        "Monitoring alerts, runbook and support handover are updated and accepted "
+                        "by Support."
+                    ),
+                ),
             ],
             dependencies=["US-001", "US-002", "US-003", "US-004", "US-005", "US-006"],
             impacts=["Monitoring", "Runbook", "Support"],
             feature_flag=FeatureFlag(name="sponsor_claim_submission"),
-            rollback_plan=RollbackPlan(method="Disable flag and restore previous validation route; deployment is blue-green."),
+            rollback_plan=RollbackPlan(
+                method=(
+                    "Disable flag and restore previous validation route; deployment is blue-green."
+                )
+            ),
             estimate=5,
             sprint=2,
             traces_to=["REQ-2026-114"],

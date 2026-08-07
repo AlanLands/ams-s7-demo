@@ -16,8 +16,9 @@ from typing import Any
 
 from s7_delivery.factory import gates, roles, seed
 from s7_delivery.factory.models import (
-    Approval,
+    STAGE_ORDER,
     ActivityEvent,
+    Approval,
     DeliveryRun,
     DemoMode,
     GateId,
@@ -25,12 +26,11 @@ from s7_delivery.factory.models import (
     ProvenanceRecord,
     Role,
     Stage,
-    STAGE_ORDER,
     StageState,
     Status,
     now_iso,
 )
-from s7_delivery.factory.store import RunStore, StoreError, next_run_id, sha256_of
+from s7_delivery.factory.store import RunStore, next_run_id, sha256_of
 
 
 class EngineError(Exception):
@@ -89,7 +89,7 @@ class Engine:
     # --- lifecycle ----------------------------------------------------------
 
     @classmethod
-    def create(cls, mode: DemoMode = DemoMode.SIMULATION, root=None) -> "Engine":
+    def create(cls, mode: DemoMode = DemoMode.SIMULATION, root=None) -> Engine:
         run_id = next_run_id(root)
         eng = cls(run_id, root=root)
         run = DeliveryRun(
@@ -1467,7 +1467,8 @@ class Engine:
                     "story": s["story_id"],
                     "ac": ac["ac_id"],
                     "task": task["task_id"] if task else None,
-                    "change": f"CHG-{task['task_id'][-3:]}" if task and task.get("files_changed") else None,
+                    "change": f"CHG-{task['task_id'][-3:]}"
+                    if task and task.get("files_changed") else None,
                     "pr": task.get("pr_ref") if task else None,
                     "tests": tests,
                     "review": review["review_id"] if review else None,
