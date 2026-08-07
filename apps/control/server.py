@@ -303,6 +303,28 @@ def post_release_handover(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+# --- governance: staleness & self-correction (spec §15, §16) ----------------
+
+
+@app.post("/api/runs/{run_id}/change/upstream")
+def post_upstream_change(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.trigger_upstream_change(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/change/self-correct")
+def post_self_correct(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.run_self_correction(_role(body.role))
+    return eng.state()
+
+
+@app.get("/api/runs/{run_id}/traceability")
+def get_traceability(run_id: str) -> list[dict]:
+    return _engine(run_id).traceability()
+
+
 # --- static shell -----------------------------------------------------------
 
 if STATIC_DIR.is_dir():

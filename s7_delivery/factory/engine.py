@@ -210,6 +210,15 @@ class Engine:
             outcome=outcome,
         )
         self.store.append(rec, "provenance.jsonl")
+        # Staleness is recomputed on every ledger append: a new version of an
+        # upstream artifact marks its downstream stale immediately, and a
+        # correction (new downstream version) clears itself the same way.
+        from s7_delivery.factory import staleness as _staleness
+
+        self.store.write_json(
+            _staleness.detect(self.store.read_ledger("provenance.jsonl")),
+            "staleness.json",
+        )
         return rec
 
     def _activity(
@@ -275,6 +284,8 @@ class Engine:
             "staleness": stale,
             "amendments": self.store.read_ledger("amendments.jsonl"),
             "approvals": self.store.read_ledger("approvals.jsonl"),
+            "design": self.store.read_json_or(None, "planning", "design.json"),
+            "traceability": self.traceability(),
             "provenance": current,
             "provenance_ledger": provenance,
             "activity": activity,
@@ -428,6 +439,39 @@ class Engine:
         if self.run().plan_locked:
             raise EngineError("The plan is locked; use an amendment to change it")
         self._stage_in_progress(Stage.PLANNING)
+
+        # The design artifact the stories derive from — the upstream pointer
+        # the staleness demonstration flips (spec §15). Its rules quote the
+        # epic's provisional answers to the open SME questions.
+        design = {
+            "design_id": "DES-001",
+            "title": "Sponsor submission — design decisions",
+            "rules": {
+                "absence_dates": (
+                    "First day absent must be after the last day worked; a "
+                    "submission dated on or before the last day worked is "
+                    "rejected (US-003)."
+                ),
+                "draft_retention": (
+                    "PROVISIONAL pending SME: an in-progress submission is "
+                    "retained for 30 days before expiry."
+                ),
+                "packet": (
+                    "PROVISIONAL pending SME: employer statement mandatory at "
+                    "submission; employee and physician statements may follow."
+                ),
+            },
+            "provenance": "simulated",
+            "version": 1,
+        }
+        self.store.write_json(design, "planning", "design.json")
+        self._record(
+            artifact_id="DES-001", artifact_type="design", payload=design,
+            author="planning (simulated)", stage=Stage.PLANNING,
+            action="design", outcome="created",
+            inputs=["EPIC-S7-001", "ANL-001"],
+        )
+
         stories = [s.model_dump(mode="json") for s in seed.build_stories()]
         self.store.write_json(stories, "planning", "stories.json")
         for s in stories:
@@ -435,7 +479,7 @@ class Engine:
                 artifact_id=s["story_id"], artifact_type="story", payload=s,
                 author="planning (simulated)", stage=Stage.PLANNING,
                 action="decompose", outcome="created",
-                inputs=[s["epic_id"], seed.REQUIREMENT.request_id],
+                inputs=[s["epic_id"], seed.REQUIREMENT.request_id, "DES-001"],
             )
         self._activity(
             stage=Stage.PLANNING, actor="planning", actor_type="simulation",
@@ -641,11 +685,16 @@ class Engine:
             {"task_id": task_id, "baseline": "red", "tests": tests},
             "build", "test-baselines", f"{task['story_id']}.json",
         )
+        baseline_version = 2 if corrected else 1
         self._record(
             artifact_id=f"TSTB-{task_id[-3:]}", artifact_type="test_baseline",
             payload=tests, author="delivery-worker (simulated)",
             stage=Stage.BUILD_REVIEW, action="generate-tests",
-            outcome="created (red baseline)", inputs=[task["story_id"]],
+            outcome="amended (corrected baseline)" if corrected
+            else "created (red baseline)",
+            inputs=[task["story_id"]],
+            version=baseline_version,
+            previous_version=1 if corrected else None,
         )
         self._activity(
             stage=Stage.BUILD_REVIEW, actor="delivery-worker",
@@ -800,13 +849,17 @@ class Engine:
         }
         reviews.append(report)
         self.store.write_json(reviews, "review", "reviews.json")
+        # The ledger tracks one review artifact per task (stable id), so a
+        # re-review is a new *version* of the same artifact — the display id
+        # REV-00N stays unique per execution.
         self._record(
-            artifact_id=report["review_id"], artifact_type="review_report",
+            artifact_id=f"REV-{task_id[-3:]}", artifact_type="review_report",
             payload=report, author=report["reviewer"],
             stage=Stage.BUILD_REVIEW, action="independent-review",
             outcome=report["result"],
             inputs=[task["story_id"], f"CHG-{task_id[-3:]}", f"TSTB-{task_id[-3:]}"],
             version=report["version"],
+            previous_version=report["version"] - 1 if report["version"] > 1 else None,
         )
 
         gate = self.gate(GateId.INDEPENDENT_REVIEW)
@@ -941,9 +994,8 @@ class Engine:
             artifact_id="QRPT-001", artifact_type="quality_report",
             payload=report, author="quality-aggregation (simulated)",
             stage=Stage.QUALITY, action="aggregate", outcome="created",
-            inputs=[t["task_id"] for t in tasks] + list(
-                {r["review_id"] for r in latest.values()}
-            ),
+            inputs=sorted({f"REV-{t['task_id'][-3:]}" for t in tasks}
+                          | {f"CHG-{t['task_id'][-3:]}" for t in tasks}),
         )
         self._activity(
             stage=Stage.QUALITY, actor="quality-aggregation",
@@ -1238,6 +1290,195 @@ class Engine:
             workflow="support-handover-approval", outcome="accepted",
             details="hypercare 7 days; run complete",
         )
+
+    # --- staleness & self-correction (spec §15, §16) ------------------------
+
+    def trigger_upstream_change(self, role: Role) -> None:
+        """The demonstration's upstream change: an SME ruling amends the
+        design after downstream work exists. Nothing downstream is touched —
+        the ledger marks it stale, and the release gate blocks on it."""
+        roles.require("trigger_upstream_change", role)
+        design = self.store.read_json_or(None, "planning", "design.json")
+        if design is None:
+            raise EngineError("No design artifact yet; generate the plan first")
+        if design["version"] > 1:
+            raise EngineError("The upstream change has already been applied")
+        design["version"] = 2
+        design["rules"]["draft_retention"] = (
+            "SME CONFIRMED: an in-progress submission is retained for 14 days "
+            "before expiry, and the sponsor is notified at day 10."
+        )
+        self.store.write_json(design, "planning", "design.json")
+        self._record(
+            artifact_id="DES-001", artifact_type="design", payload=design,
+            author=f"{role.value} (SME ruling)", stage=Stage.PLANNING,
+            action="sme-ruling", outcome="amended", version=2,
+            previous_version=1, inputs=["EPIC-S7-001", "ANL-001"],
+        )
+        stale = self.store.read_json_or([], "staleness.json")
+        amendments = self.store.read_ledger("amendments.jsonl")
+        self.store.append(
+            {
+                "amendment_id": f"AMD-{len(amendments) + 1:03d}",
+                "reason": (
+                    "SME ruling: draft retention is 14 days with a day-10 "
+                    "notification — the provisional 30-day assumption in "
+                    "DES-001 v1 is wrong."
+                ),
+                "initiator": role.value,
+                "affected_artifacts": [s["artifact_id"] for s in stale],
+                "impact_assessment": (
+                    f"{len(stale)} downstream artifacts derive from DES-001 "
+                    "and must be re-validated; release is blocked until they "
+                    "are corrected."
+                ),
+                "required_changes": [
+                    "Amend affected stories against DES-001 v2",
+                    "Update implementation and test evidence",
+                    "Re-run independent review",
+                    "Re-evaluate quality and release gates",
+                ],
+                "implementation_status": "not_started",
+                "verification_status": "not_started",
+                "review_status": "not_started",
+                "approval": None,
+                "created_at": now_iso(),
+            },
+            "amendments.jsonl",
+        )
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="upstream-change", artifact="DES-001",
+            outcome="amended",
+            details=f"SME ruling on draft retention; {len(stale)} artifacts stale",
+        )
+
+    def run_self_correction(self, role: Role) -> None:
+        """Controlled amendment execution: every stale artifact gets a **new
+        version** re-validated against the changed upstream — never a silent
+        update. Corrections land in original creation order so the ledger
+        clears the staleness chain naturally."""
+        roles.require("run_self_correction", role)
+        stale = self.store.read_json_or([], "staleness.json")
+        if not stale:
+            raise EngineError("Nothing is stale; no correction to run")
+        ledger = self.store.read_ledger("provenance.jsonl")
+        order = {rec["artifact_id"]: i for i, rec in enumerate(ledger)}
+        latest: dict[str, dict] = {}
+        for rec in ledger:
+            latest[rec["artifact_id"]] = rec
+
+        self._activity(
+            stage=Stage.QUALITY, actor=role.value, actor_type="human",
+            workflow="self-correction", outcome="started",
+            details=f"impact assessment: {len(stale)} artifacts to re-validate",
+        )
+        for item in sorted(stale, key=lambda s: order.get(s["artifact_id"], 0)):
+            rec = latest[item["artifact_id"]]
+            payload = {
+                "artifact_id": rec["artifact_id"],
+                "revalidated_against": "DES-001 v2 (14-day draft retention)",
+                "previous_sha256": rec["sha256"],
+            }
+            if rec["artifact_type"] == "story":
+                stories = self._stories()
+                target = next(
+                    (s for s in stories if s["story_id"] == rec["artifact_id"]), None
+                )
+                if target is not None:
+                    target["version"] += 1
+                    self.store.write_json(stories, "planning", "stories.json")
+            if rec["artifact_type"] == "review_report":
+                # Stable ledger id REV-<suffix> maps to the task's reviews.
+                suffix = rec["artifact_id"].split("-")[-1]
+                reviews = self._reviews()
+                base = [r for r in reviews
+                        if r["task_id"].endswith(suffix)][-1]
+                reviews.append({
+                    **base,
+                    "review_id": f"REV-{len(reviews) + 1:03d}",
+                    "result": "passed",
+                    "version": base["version"] + 1,
+                    "created_at": now_iso(),
+                })
+                self.store.write_json(reviews, "review", "reviews.json")
+            self._record(
+                artifact_id=rec["artifact_id"],
+                artifact_type=rec["artifact_type"],
+                payload=payload,
+                author="self-correction (simulated)",
+                stage=Stage.QUALITY,
+                action="re-validate",
+                outcome="amended",
+                inputs=rec.get("inputs", []),
+                version=rec["version"] + 1,
+                previous_version=rec["version"],
+            )
+            self._activity(
+                stage=Stage.QUALITY, actor="self-correction",
+                actor_type="simulation", workflow="self-correction",
+                artifact=rec["artifact_id"], duration_s=8.0,
+                outcome="amended",
+                details=f"re-validated against DES-001 v2 as v{rec['version'] + 1}",
+            )
+
+        remaining = self.store.read_json_or([], "staleness.json")
+        amendments = self.store.read_ledger("amendments.jsonl")
+        if amendments:
+            done = dict(amendments[-1])
+            done.update(
+                implementation_status="completed",
+                verification_status="completed" if not remaining else "failed",
+                review_status="completed",
+                completed_at=now_iso(),
+            )
+            self.store.append(done, "amendments.jsonl")
+        self._activity(
+            stage=Stage.QUALITY, actor="self-correction",
+            actor_type="simulation", workflow="self-correction",
+            outcome="completed" if not remaining else "failed",
+            details="all stale artifacts re-validated" if not remaining
+            else f"{len(remaining)} artifacts still stale",
+        )
+
+    # --- traceability (spec §12) --------------------------------------------
+
+    def traceability(self) -> list[dict]:
+        """One row per acceptance criterion: the full chain from requirement
+        to handover, from model fields — never descriptive text."""
+        stories = self._stories()
+        tasks = {t["story_id"]: t for t in self._tasks()}
+        latest_reviews = self._latest_reviews()
+        quality = self.store.read_json_or(None, "quality", "quality-report.json")
+        release = self._release()
+        rows: list[dict] = []
+        for s in stories:
+            task = tasks.get(s["story_id"])
+            review = latest_reviews.get(task["task_id"]) if task else None
+            for ac in s["acceptance_criteria"]:
+                tests = [
+                    t["test_id"] for t in (task or {}).get("tests", [])
+                    if t["ac_id"] == ac["ac_id"]
+                ]
+                rows.append({
+                    "requirement": seed.REQUIREMENT.request_id,
+                    "design": "DES-001",
+                    "epic": s["epic_id"],
+                    "story": s["story_id"],
+                    "ac": ac["ac_id"],
+                    "task": task["task_id"] if task else None,
+                    "change": f"CHG-{task['task_id'][-3:]}" if task and task.get("files_changed") else None,
+                    "pr": task.get("pr_ref") if task else None,
+                    "tests": tests,
+                    "review": review["review_id"] if review else None,
+                    "review_result": review["result"] if review else None,
+                    "quality": "QRPT-001" if quality else None,
+                    "deployment": release["deployment"]["deployment_id"]
+                    if release and release.get("deployment") else None,
+                    "handover": "HND-001"
+                    if release and release.get("handover") else None,
+                })
+        return rows
 
     def _seed_tasks(self, stories: list[dict]) -> None:
         """Create the work queue from the signed plan — one task per

@@ -343,7 +343,7 @@
     release: renderRelease,
     stories: renderStories,
     work: renderWorkQueue,
-    traceability: () => notBuilt("Traceability", "Phase 5"),
+    traceability: renderTraceability,
     artifacts: renderArtifacts,
     approvals: renderApprovals,
     activity: renderActivity,
@@ -862,16 +862,103 @@
     const report = state.data.quality;
     const risks = report?.risks ?? [];
     const stale = state.data.staleness ?? [];
+    const amendments = state.data.amendments ?? [];
+    const design = state.data.design;
+    const parts = [sectionTitle("Risks & Alerts",
+      "Staleness is detected from upstream pointers and hashes in the provenance ledger")];
+
+    if (risks.length === 0 && stale.length === 0 && amendments.length === 0) {
+      parts.push(el("div", { class: "card" },
+        el("p", { text: "No open risks, staleness alerts or amendments in this run yet." })));
+    }
+
+    if (stale.length) {
+      parts.push(el("div", { class: "card bad" },
+        el("h3", { text: `Release gate blocked — ${stale.length} stale artifact(s)` }),
+        el("p", { class: "hint", text: "An upstream artifact changed after these were produced. Each must be re-validated as a new version before release; nothing is silently updated." })));
+      parts.push(el("div", { class: "table-wrap", style: "margin-top:10px" },
+        el("table", {},
+          el("thead", {}, el("tr", {}, ["Artifact", "Type", "Version", "Status", "Reason"].map((h) => el("th", { text: h })))),
+          el("tbody", {}, stale.map((s) => el("tr", {},
+            el("td", { class: "mono", text: s.artifact_id }),
+            el("td", { text: s.artifact_type }),
+            el("td", { text: `v${s.version}` }),
+            el("td", {}, badge("stale")),
+            el("td", { text: s.reason }),
+          ))))));
+    }
+
+    risks.forEach((r) => parts.push(el("div", { class: "card warn", style: "margin-top:10px" },
+      el("h3", { text: `${r.risk_id} — ${r.severity}` }), el("p", { text: r.description }))));
+
+    if (amendments.length) {
+      parts.push(sectionTitle("Amendments", "Controlled change management — append-only"));
+      const seen = new Set();
+      [...amendments].reverse().forEach((a) => {
+        if (seen.has(a.amendment_id)) return;
+        seen.add(a.amendment_id);
+        parts.push(el("div", { class: `card ${a.implementation_status === "completed" ? "ok" : "warn"}` },
+          el("div", { class: "section-title" },
+            el("h3", { text: `${a.amendment_id} — ${a.reason}` }),
+            badge(a.implementation_status === "completed" ? "completed" : "in_progress")),
+          el("div", { class: "kv", style: "margin-top:8px" },
+            el("b", { text: "Initiator" }), el("span", { text: a.initiator }),
+            el("b", { text: "Impact" }), el("span", { text: a.impact_assessment }),
+            el("b", { text: "Affected" }), el("span", { class: "mono", text: (a.affected_artifacts ?? []).join(", ") || "—" }),
+            el("b", { text: "Required changes" }),
+            el("span", {}, el("ul", { class: "plain" }, (a.required_changes ?? []).map((c) => el("li", { text: c })))),
+            el("b", { text: "Verification" }), el("span", {}, badge(a.verification_status === "completed" ? "passed" : a.verification_status)),
+          )));
+      });
+    }
+
+    parts.push(el("div", { class: "card", style: "margin-top:14px" },
+      el("h3", { text: "Demonstration controls" }),
+      el("p", { class: "hint", text: design?.version > 1
+        ? "Upstream change applied: DES-001 is at v2 (SME ruling on draft retention)."
+        : "Simulate the SME ruling that changes DES-001 after downstream work exists — downstream artifacts go stale and release blocks." }),
+      el("div", { class: "actions-row" },
+        el("button", { class: "primary", text: "Apply upstream SME ruling",
+          onclick: () => act("/change/upstream", {}, "DES-001 amended — downstream marked stale") }),
+        el("button", { class: "primary approve", text: "Run self-correction workflow",
+          onclick: () => act("/change/self-correct", {}, "Self-correction complete") }),
+      )));
+    return el("section", {}, parts);
+  }
+
+  function renderTraceability() {
+    const rows = state.data.traceability ?? [];
+    if (!rows.length) return notBuilt("Traceability", "the Planning stage — the chain builds as artifacts exist");
+    const sel = state.traceSel;
+    const selected = rows.find((r) => r.ac === sel);
     return el("section", {},
-      sectionTitle("Risks & Alerts"),
-      risks.length === 0 && stale.length === 0
-        ? el("div", { class: "card" }, el("p", { text: "No open risks or staleness alerts recorded in this run yet. Risks aggregate when quality checks run." }))
-        : el("div", {},
-          risks.map((r) => el("div", { class: "card warn", style: "margin-bottom:10px" },
-            el("h3", { text: `${r.risk_id} — ${r.severity}` }), el("p", { text: r.description }))),
-          stale.map((s) => el("div", { class: "card bad", style: "margin-bottom:10px" },
-            el("h3", { text: `${s.artifact_id} is ${s.status}` }), el("p", { text: s.reason }))),
+      sectionTitle("Traceability matrix",
+        "Requirement → design → story → criterion → task → change → test → review → quality → deployment → handover"),
+      selected ? el("div", { class: "card highlight", style: "margin-bottom:14px" },
+        el("h3", { text: `Chain for ${selected.ac}` }),
+        el("p", { class: "mono", style: "margin-top:8px", text: [
+          selected.requirement, selected.design, selected.story, selected.ac,
+          selected.task, selected.pr, ...(selected.tests ?? []), selected.review,
+          selected.quality, selected.deployment, selected.handover,
+        ].filter(Boolean).join(" → ") })) : null,
+      el("div", { class: "table-wrap" },
+        el("table", {},
+          el("thead", {}, el("tr", {},
+            ["Story", "Criterion", "Task", "Change", "Tests", "Review", "Quality", "Deploy", "Handover"].map((h) => el("th", { text: h })))),
+          el("tbody", {}, rows.map((r) => el("tr", { style: "cursor:pointer", onclick: () => { state.traceSel = r.ac; render(); } },
+            el("td", { class: "mono", text: r.story }),
+            el("td", { class: "mono", text: r.ac }),
+            el("td", { class: "mono", text: r.task ?? "—" }),
+            el("td", { class: "mono", text: r.pr ?? "—" }),
+            el("td", { class: "mono", text: (r.tests ?? []).join(", ") || "—" }),
+            el("td", {}, r.review ? el("span", {}, el("span", { class: "mono", text: r.review + " " }),
+              badge(r.review_result === "passed" ? "passed" : "blocked")) : "—"),
+            el("td", { class: "mono", text: r.quality ?? "—" }),
+            el("td", { class: "mono", text: r.deployment ?? "—" }),
+            el("td", { class: "mono", text: r.handover ?? "—" }),
+          ))),
         ),
+      ),
     );
   }
 
