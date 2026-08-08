@@ -204,3 +204,69 @@ def release_gate(
 
 def all_met(conditions: list[dict]) -> bool:
     return bool(conditions) and all(c["met"] for c in conditions)
+
+
+def quality_handoff_rows(
+    stories: list[dict],
+    tasks: list[dict],
+    latest_reviews: dict[str, dict],
+    stale_ids: set[str],
+) -> list[dict]:
+    """Per-story Quality handoff rule (spec §21) — a story moves to Quality
+    only when every named condition holds. Conditions, never a score."""
+    tasks_by_story = {t["story_id"]: t for t in tasks}
+    rows: list[dict] = []
+    for s in stories:
+        task = tasks_by_story.get(s["story_id"])
+        review = latest_reviews.get(task["task_id"]) if task else None
+        tests = (task or {}).get("tests", [])
+        tested_acs = {t["ac_id"] for t in tests}
+        acs = [ac["ac_id"] for ac in s.get("acceptance_criteria", [])]
+        missing_ev = [a for a in acs if a not in tested_acs]
+        failing = [t["test_id"] for t in tests if t.get("current_result") != "passed"]
+        open_major = (
+            review is not None
+            and review.get("result") != "passed"
+            and (review.get("major_gaps", 0) + review.get("critical_gaps", 0)) > 0
+        )
+        related = {s["story_id"], f"WS-{s['story_id']}"}
+        if task:
+            suffix = task["task_id"][-3:]
+            related |= {f"CHG-{suffix}", f"TSTB-{suffix}", f"REV-{suffix}"}
+        pack_stale = bool(related & stale_ids)
+        checks = [
+            _c("Artifact context is current", not pack_stale,
+               "refresh delivery context" if pack_stale else ""),
+            _c("Required build checks pass",
+               task is not None and bool(task.get("files_changed")),
+               "" if task and task.get("files_changed") else "no build evidence"),
+            _c("Required tests pass", bool(tests) and not failing,
+               f"failing: {', '.join(failing)}" if failing else
+               ("no tests recorded" if not tests else f"{len(tests)} tests green")),
+            _c("Every acceptance criterion has test evidence",
+               bool(acs) and not missing_ev,
+               f"unevidenced: {', '.join(missing_ev)}" if missing_ev else ""),
+            _c("Independent review passed",
+               review is not None and review.get("result") == "passed",
+               "" if review and review.get("result") == "passed"
+               else "no passing review on file"),
+            _c("No unresolved major or critical finding", not open_major,
+               f"{review.get('major_gaps', 0)} major / "
+               f"{review.get('critical_gaps', 0)} critical open"
+               if open_major else ""),
+            _c("PR and CI evidence exists",
+               task is not None and bool(task.get("pr_ref"))
+               and task.get("ci_status") == "passed",
+               "" if task and task.get("pr_ref") and task.get("ci_status") == "passed"
+               else "missing PR or CI signal"),
+        ]
+        rows.append(
+            {
+                "story_id": s["story_id"],
+                "title": s.get("title", ""),
+                "team": s.get("accountable_team", ""),
+                "checks": checks,
+                "ready": all_met(checks),
+            }
+        )
+    return rows

@@ -330,15 +330,128 @@ class Engine:
         records and developer-execution evidence. Extended per implementation
         phase; sections read as None/[] until their capability has run."""
         phase = build_phases.read_phase(self.store, plan_locked=run.plan_locked)
+        stories = self._stories()
+        tasks = self.store.read_json_or([], "build", "tasks.json")
+        latest_reviews = self._latest_reviews()
+        stale_ids = {
+            s["artifact_id"]
+            for s in self.store.read_json_or([], "staleness.json")
+        }
+        handoff = gates.quality_handoff_rows(stories, tasks, latest_reviews, stale_ids)
         return {
             "phase": phase.value if phase else None,
             "phase_history": build_phases.history(self.store),
-            "tasks": self.store.read_json_or([], "build", "tasks.json"),
+            "tasks": tasks,
             "reviews": self.store.read_json_or([], "review", "reviews.json"),
             "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
             "delivery_packs": self.store.read_json_or([], "build", "packs", "meta.json"),
             "workspaces": self._workspaces_view(),
             "publications": self.store.read_ledger("publications.jsonl"),
+            "summary": self._build_summary(
+                stories, tasks, latest_reviews, stale_ids, handoff
+            ),
+            "quality_handoff": handoff,
+        }
+
+    def _build_summary(
+        self,
+        stories: list[dict],
+        tasks: list[dict],
+        latest_reviews: dict[str, dict],
+        stale_ids: set[str],
+        handoff: list[dict],
+    ) -> dict[str, Any]:
+        """Consolidated Build & Review outcome (spec §20): per-story rollup,
+        totals, blockers and Quality-ready stories — assembled, never stored."""
+        tasks_by_story = {t["story_id"]: t for t in tasks}
+        ready_ids = {h["story_id"] for h in handoff if h["ready"]}
+        workspaces = {w["story_id"]: w for w in self._workspaces()}
+        rows: list[dict] = []
+        blockers: list[dict] = []
+        for s in stories:
+            sid = s["story_id"]
+            task = tasks_by_story.get(sid)
+            status = (task or {}).get("status", "not_started")
+            review = latest_reviews.get((task or {}).get("task_id", ""))
+            tests = (task or {}).get("tests", [])
+            passed = sum(1 for t in tests if t.get("current_result") == "passed")
+            if not tests:
+                testing = "waiting"
+            elif passed == len(tests):
+                testing = "passed"
+            else:
+                testing = "failing"
+            if review is None:
+                review_status = "pending"
+            elif review.get("result") == "passed":
+                review_status = "passed"
+            else:
+                review_status = "blocked"
+            if sid in ready_ids:
+                overall = "ready_for_quality"
+            elif status == "blocked" or review_status == "blocked":
+                overall = "blocked"
+            elif status in ("not_started", "ready"):
+                overall = "not_started"
+            elif status == "completed":
+                overall = "complete"
+            else:
+                overall = "in_development"
+            rows.append(
+                {
+                    "story_id": sid,
+                    "title": s.get("title", ""),
+                    "team": s.get("accountable_team", ""),
+                    "developer": workspaces.get(sid, {}).get("developer", ""),
+                    "development": self._DEV_STATUS.get(status, status),
+                    "testing": testing,
+                    "tests_passed": passed,
+                    "tests_total": len(tests),
+                    "review": review_status,
+                    "overall": overall,
+                    "stale": sid in stale_ids or f"WS-{sid}" in stale_ids,
+                    "last_updated": (task or {}).get("last_activity", ""),
+                }
+            )
+            if overall == "blocked" and review is not None:
+                finding = next(iter(review.get("findings", [])), None)
+                blockers.append(
+                    {
+                        "story_id": sid,
+                        "team": s.get("accountable_team", ""),
+                        "reason": (finding or {}).get("summary", "blocked in review"),
+                    }
+                )
+        total_tests = sum(r["tests_total"] for r in rows)
+        total_passed = sum(r["tests_passed"] for r in rows)
+        reviewed = [r for r in rows if r["review"] != "pending"]
+        return {
+            "stories": rows,
+            "totals": {
+                "total": len(rows),
+                "complete": sum(1 for r in rows if r["overall"]
+                                in ("complete", "ready_for_quality")),
+                "in_progress": sum(
+                    1 for r in rows if r["overall"] == "in_development"
+                ),
+                "blocked": sum(1 for r in rows if r["overall"] == "blocked"),
+                "not_started": sum(
+                    1 for r in rows if r["overall"] == "not_started"
+                ),
+                "ready_for_quality": len(ready_ids),
+                "tests_passed": total_passed,
+                "tests_total": total_tests,
+                "review_pass_rate": (
+                    round(
+                        100
+                        * sum(1 for r in reviewed if r["review"] == "passed")
+                        / len(reviewed)
+                    )
+                    if reviewed else None
+                ),
+            },
+            "blockers": blockers,
+            "ready_story_ids": sorted(ready_ids),
         }
 
     @staticmethod
@@ -2129,6 +2242,12 @@ class Engine:
         task["last_activity"] = now_iso()
         self._save_tasks(tasks)
         self._stage_in_progress(Stage.BUILD_REVIEW)
+        phase = self._build_phase()
+        if phase is BuildReviewPhase.WORKSPACES_READY:
+            build_phases.advance(
+                self.store, phase, BuildReviewPhase.DEVELOPER_EXECUTION,
+                actor=role.value,
+            )
         self._activity(
             stage=Stage.BUILD_REVIEW, actor="delivery-worker",
             actor_type="simulation", workflow="task-start", artifact=task_id,
@@ -2211,6 +2330,7 @@ class Engine:
         )
         task["commit_ref"] = f"c{abs(hash((task_id, corrected))) % 10**7:07d}"
         task["pr_ref"] = f"PR-{int(task_id[-3:]) + 20}"
+        task["ci_status"] = "running"
         if corrected:
             task["version"] = previous + 1
             task["tests"] = [
@@ -2317,6 +2437,7 @@ class Engine:
         if not task.get("files_changed"):
             raise EngineError(f"{task_id} has no implementation to verify")
         task["progress_pct"] = 90
+        task["ci_status"] = "passed"
         task["current_activity"] = (
             "Developer verification complete: build valid, targeted tests "
             "green, change summary produced"
@@ -2478,6 +2599,12 @@ class Engine:
             gate.decided_at = now_iso()
             run = self.run()
             self._advance_stage(run, Stage.BUILD_REVIEW)
+            phase = self._build_phase()
+            if phase is BuildReviewPhase.DEVELOPER_EXECUTION:
+                build_phases.advance(
+                    self.store, phase, BuildReviewPhase.BUILD_COMPLETE,
+                    actor=report["reviewer"],
+                )
         self._save_gate(gate)
         self._activity(
             stage=Stage.BUILD_REVIEW, actor="independent-reviewer",

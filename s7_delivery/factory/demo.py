@@ -9,6 +9,17 @@ from __future__ import annotations
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 
+# Fictional MapleSure developers — one per seeded team. Workspaces are
+# simulated evidence; the names are personas, badged like everything else.
+_DEVELOPERS = {
+    "Portal Team": "Priya Raman",
+    "Services Team": "Marcus Chen",
+    "Data Team": "Elena Kovacs",
+    "Intake Integration Team": "Dev Patel",
+    "QA Automation": "Sofia Marino",
+    "Platform Team": "Liam O'Rourke",
+}
+
 
 def _intake_and_plan(eng: Engine) -> None:
     eng.intake_analyse(Role.PRODUCT_ANALYST)
@@ -16,6 +27,18 @@ def _intake_and_plan(eng: Engine) -> None:
     eng.intake_pass_gate(Role.DELIVERY_LEAD)
     eng.planning_generate(Role.DELIVERY_LEAD)
     eng.planning_sign_off(Role.BUSINESS_OWNER, "P. Moreau", "Plan approved for build")
+    # Gate 1 opens governed-context generation, not AI development: blueprint
+    # → human acceptance → team packs → publication → workspaces.
+    eng.architecture_generate(Role.ENGINEERING_LEAD)
+    eng.architecture_accept(Role.ENGINEERING_LEAD, "A. Osei")
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
+    for ws in eng.state()["build"]["workspaces"]:
+        developer = _DEVELOPERS.get(ws["team"])
+        if developer:
+            eng.workspace_assign_developer(
+                Role.DELIVERY_LEAD, ws["workspace_id"], developer
+            )
 
 
 def _task_id(eng: Engine, story_id: str) -> str:
