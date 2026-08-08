@@ -365,3 +365,55 @@ def test_run_new_app_setup_model_asking_past_final_round_is_a_prompt_bug(monkeyp
     transcript = [{"role": "assistant", "text": "q1"}, {"role": "user", "text": "a1"}]
     with pytest.raises(LLMError, match="prompt bug"):
         live_intake.run_new_app_setup(REQUIREMENT, transcript)
+
+
+# --- extraction tests -----------------------------------------------------
+
+GOOD_EXTRACTION = {
+    "epic_title": "Claims Deductible Handling",
+    "business_objective": "Apply policy deductible during claim intake.",
+    "requirement_summary": "Add a per-policy deductible and apply it during intake.",
+    "extracted_requirements": [
+        {"rule_id": "REQ-01", "text": "Policy record must contain a deductible amount."},
+        {"rule_id": "REQ-02", "text": "Reject claim if claim amount is at or below the deductible."},
+    ],
+}
+
+SOURCE_TEXT = "Apply a per-policy deductible during claim intake and reject claims at or below it."
+
+
+def test_run_extraction_validates_and_badges(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_EXTRACTION))
+    monkeypatch.setenv("LLM_MODE", "live")
+    result, usage = live_intake.run_extraction(SOURCE_TEXT)
+    assert result["epic_title"] == "Claims Deductible Handling"
+    assert len(result["extracted_requirements"]) == 2
+    assert usage["input_tokens"] == 1200
+
+
+def test_run_extraction_rejects_missing_title(monkeypatch):
+    bad = dict(GOOD_EXTRACTION, epic_title="")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="epic_title"):
+        live_intake.run_extraction(SOURCE_TEXT)
+
+
+def test_run_extraction_rejects_malformed_requirement_entries(monkeypatch):
+    bad = dict(GOOD_EXTRACTION, extracted_requirements=[{"text": "no id"}])
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="rule_id"):
+        live_intake.run_extraction(SOURCE_TEXT)
+
+
+def test_run_extraction_rejects_empty_source_text():
+    with pytest.raises(LLMError, match="[Ee]mpty|non-empty"):
+        live_intake.run_extraction("   ")
+
+
+def test_run_extraction_needs_no_connected_repos(monkeypatch):
+    """Unlike run_analysis/route_requirement, extraction reads the source
+    text itself, not a target codebase — it must work before any repo is
+    connected."""
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_EXTRACTION))
+    result, _ = live_intake.run_extraction(SOURCE_TEXT)
+    assert result["epic_title"]

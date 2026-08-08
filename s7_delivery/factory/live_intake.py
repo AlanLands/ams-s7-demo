@@ -274,6 +274,70 @@ change the delivery plan. Return JSON exactly matching:
     return questions, usage
 
 
+EXTRACTION_ROLE = (
+    "Your role is requirement extraction: read raw, unstructured source "
+    "text — an uploaded document or pasted text — and pull out a short "
+    "epic title, a one-paragraph business objective, a short requirement "
+    "summary, and the discrete, testable requirements it states. Extract "
+    "only what the text actually says; never invent a requirement the "
+    "source does not support."
+)
+
+_EXTRACTION_SHAPE = """{
+  "epic_title": "<short title>",
+  "business_objective": "<one paragraph>",
+  "requirement_summary": "<short paragraph>",
+  "extracted_requirements": [
+    {"rule_id": "REQ-<n>", "text": "<requirement, in the source's own words>"}
+  ]
+}"""
+
+
+def run_extraction(text: str) -> tuple[dict, dict]:
+    if not text or not text.strip():
+        raise LLMError("Live extraction needs non-empty source text.")
+    task = f"""The source text, verbatim:
+
+{text}
+
+Extract the requirement from this text. Return JSON exactly matching:
+{_EXTRACTION_SHAPE}"""
+    data, usage = _call(
+        role=EXTRACTION_ROLE,
+        ref="",
+        task=task,
+        beat="extract",
+        key_material=text,
+    )
+    return _validate_extraction(data), usage
+
+
+def _validate_extraction(data: dict) -> dict:
+    title = str(data.get("epic_title", "")).strip()
+    if not title:
+        raise LLMError("extraction has no epic_title")
+    objective = str(data.get("business_objective", "")).strip()
+    if not objective:
+        raise LLMError("extraction has no business_objective")
+    summary = str(data.get("requirement_summary", "")).strip()
+    if not summary:
+        raise LLMError("extraction has no requirement_summary")
+    reqs = data.get("extracted_requirements")
+    if not isinstance(reqs, list) or not reqs:
+        raise LLMError("extraction has no extracted_requirements")
+    cleaned = []
+    for r in reqs:
+        if not (isinstance(r, dict) and r.get("rule_id") and r.get("text")):
+            raise LLMError(f"extracted_requirements entry missing rule_id/text: {r!r}")
+        cleaned.append({"rule_id": str(r["rule_id"]), "text": str(r["text"])})
+    return {
+        "epic_title": title,
+        "business_objective": objective,
+        "requirement_summary": summary,
+        "extracted_requirements": cleaned,
+    }
+
+
 def run_new_app_setup(
     requirement: dict, transcript: list[dict]
 ) -> tuple[dict, dict]:
