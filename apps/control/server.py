@@ -372,6 +372,18 @@ def post_write_to_clone(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+class PushDeliveryBody(BaseModel):
+    role: str
+    repo_name: str
+
+
+@app.post("/api/runs/{run_id}/planning/push-delivery-branch")
+def post_push_delivery_branch(run_id: str, body: PushDeliveryBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_push_delivery_branch(_role(body.role), body.repo_name)
+    return eng.state()
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 

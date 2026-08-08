@@ -1030,6 +1030,49 @@ class Engine:
             details=f"{len(by_repo)} repositories committed locally",
         )
 
+    def planning_push_delivery_branch(self, role: Role, repo_name: str) -> None:
+        """§D2: push this run's committed delivery branch to the real
+        remote. Never the default branch — the ref is always
+        refs/heads/delivery/<run_id>, asserted below, not just implied by
+        the f-string. Merging it into a developer's own working branch is
+        never automated by this system."""
+        roles.require("push_delivery_branch", role)
+        import subprocess
+
+        marker = self.store.read_json_or(None, "planning", "delivery", f"{repo_name}.json")
+        if marker is None or not marker.get("committed"):
+            raise EngineError(
+                f"No local delivery commit for {repo_name!r} — write to the clone first"
+            )
+        clone_dir = self.store.path("repos", repo_name)
+        branch = f"delivery/{self.run_id}"
+        assert branch.startswith("delivery/"), "delivery branch must never be a bare/default branch name"
+        try:
+            subprocess.run(
+                ["git", "-C", str(clone_dir), "push", "origin", f"HEAD:refs/heads/{branch}"],
+                check=True, capture_output=True, text=True, timeout=120,
+            )
+        except subprocess.CalledProcessError as exc:
+            raise EngineError(
+                f"Push to {repo_name} failed: {(exc.stderr or str(exc)).strip()}"
+            ) from exc
+        except subprocess.TimeoutExpired as exc:
+            raise EngineError(f"Push to {repo_name} timed out") from exc
+        self.store.write_json(
+            {**marker, "pushed": True, "branch": branch, "pushed_at": now_iso()},
+            "planning", "delivery", f"{repo_name}.json",
+        )
+        self._record(
+            artifact_id=f"DELIVERY-PUSH-{repo_name}", artifact_type="delivery_push",
+            payload={"repo": repo_name, "branch": branch}, author=role.value,
+            stage=Stage.PLANNING, action="push", outcome="created",
+        )
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="delivery-push", outcome="created",
+            details=f"pushed {branch} to {repo_name}",
+        )
+
     def _planning_generate_live(self) -> None:
         import time
 

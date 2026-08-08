@@ -39,6 +39,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "sign_off_plan": {Role.BUSINESS_OWNER},
     "export_artifacts": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST, Role.ENGINEERING_LEAD},
     "write_delivery_clone": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
+    "push_delivery_branch": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     # build & review
     "start_task": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "run_development": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},

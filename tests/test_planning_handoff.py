@@ -111,3 +111,53 @@ def test_write_to_clone_git_failure_is_an_engine_error(tmp_path, monkeypatch):
     shutil.rmtree(clone_dir / ".git")
     with pytest.raises(EngineError, match="git"):
         eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+
+
+def test_push_delivery_branch_creates_new_branch_never_default(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+    eng.planning_push_delivery_branch(Role.DELIVERY_LEAD, "maplesure-claims-api")
+
+    src = tmp_path / "src" / "maplesure-claims-api"
+    branch = f"delivery/{eng.run_id}"
+    branches = subprocess.run(
+        ["git", "-C", str(src), "branch", "--list", branch],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert branch in branches
+
+    # The default branch's own log is untouched — the push never landed there.
+    default_log = subprocess.run(
+        ["git", "-C", str(src), "log", "--oneline", "-1"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert "Delivery artifacts" not in default_log
+
+    marker = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
+    assert marker["pushed"] is True
+    assert marker["branch"] == branch
+
+
+def test_push_delivery_branch_without_local_commit_is_an_error(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    with pytest.raises(EngineError, match="write to the clone"):
+        eng.planning_push_delivery_branch(Role.DELIVERY_LEAD, "maplesure-claims-api")
+
+
+def test_push_delivery_branch_failure_is_reported_and_retry_safe(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+    # Break the remote to force a push failure.
+    clone_dir = eng.store.path("repos", "maplesure-claims-api")
+    subprocess.run(
+        ["git", "-C", str(clone_dir), "remote", "set-url", "origin", "/no/such/path"],
+        check=True,
+    )
+    with pytest.raises(EngineError, match="[Pp]ush"):
+        eng.planning_push_delivery_branch(Role.DELIVERY_LEAD, "maplesure-claims-api")
+    # The local commit from write-to-clone is untouched — retry-safe.
+    marker = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
+    assert marker["committed"] is True
+    assert "pushed" not in marker
