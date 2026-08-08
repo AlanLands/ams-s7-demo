@@ -11,13 +11,13 @@ What exists as of 2026-08-03 (Sprint 0, reworked):
 
 | Built | Not built |
 |---|---|
-| `common/llm.py` — 5 providers, replay/record/live, loud replay misses, `Usage` with cache counters | **real AI output** — every pipeline artifact is still `STAGED` |
+| `common/llm.py` — 5 providers, replay/record/live, loud replay misses, `Usage` with cache counters | **real AI output for the downstream lane** — build/test/docs/release artifacts are still `STAGED`. Upstream is no longer in this column: the Control Centre's **live mode** runs intake analysis, the capped clarification chat, and epic-to-stories planning as real calls through `common/llm.py`, grounded in the two `maplesure-*` GitHub repos (`s7_delivery/factory/live_intake.py`). Simulation stays the demo default (hard rule 5); live mode is the option, rehearsed with `LLM_MODE=record` and replayed on demo day |
 | `common/prompt.py` — `PromptLayers`, the fixed cache-stable prefix order | committed replay recordings (blocked on LLM access) |
 | `common/telemetry.py` — per-call logging, cache read/write counters, cost and cache left unset not invented | build → test → docs → release (the whole downstream) |
 | `s7_delivery/models.py` — the stage-to-stage contract | the S3-style enhancement lane / mode selector |
 | `s7_delivery/pipeline.py` — stage orchestration, gate enforcement, epic parsing | delivery KPI scorecard |
 | `s7_delivery/staged.py` — staged assessment, DFD, stories for EPIC-S7-001 | the run ledger + CLI surface (Sprint 1) |
-| `apps/console/` — the S7 delivery console, runs via `demo/run_console.sh` | the artifact plane / stage reuse (Sprint 2) |
+| ~~`apps/console/`~~ — removed 2026-08-07, superseded by the Control Centre (`apps/control/`, `demo/run_control.sh`) as the app surface | the artifact plane / stage reuse (Sprint 2) |
 | `crs/EPIC-S7-001.md` — the S7 disability epic | the SponsorConnect target app itself |
 | `tests/` — 60 tests, green offline with no API key | |
 
@@ -178,6 +178,19 @@ are Python — ours is `pytest` and `ruff` over plain subprocess; and it is
 **Caveat, stated plainly:** the CLI-led half of the table is a *target*, not a
 description. Build/test/docs/release does not exist yet, and its shape stays
 blocked on the `UserStory` contract until Sprint 1.
+
+**Live mode, added to the Control Centre.** The app now has a live entry point
+alongside simulation: intake analysis, the capped clarification chat, and
+epic-to-stories planning run as real `common/llm.py` calls instead of staged
+output, and every live run is grounded by connecting it to a target
+repository first — a shallow clone plus a context pack under
+`intake/context/`, the concrete form of § Design review item 2's
+"grounding is a file in the repo, not a fine-tune." `demo/create_target_repos.py
+--push` provisions the two synthetic repos this grounds against,
+`maplesure-sponsor-portal` and `maplesure-claims-api`. This does not change the
+surface split above — live mode is still app-led intake and planning, CLI-led
+downstream stays staged — and it does not change the demo default either:
+simulation remains what a fresh clone runs, per hard rule 5.
 
 ## Design review — 2026-08-04
 

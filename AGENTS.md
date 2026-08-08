@@ -15,8 +15,10 @@ replay/record/live, loud replay misses, `Usage` carrying cache counters),
 `common/telemetry.py` (per-call logging + cache read/write counters),
 `s7_delivery/models.py` (the stage-to-stage contract), `s7_delivery/pipeline.py`
 (stage orchestration + gate enforcement), `s7_delivery/staged.py`,
-`apps/console/` (the delivery console — run `demo/run_console.sh`),
 `crs/EPIC-S7-001.md`, and `tests/` (60 tests, green offline with no API key).
+`apps/console/` (the delivery console — run `demo/run_console.sh`) was also
+built here but was removed 2026-08-07, superseded by the Control Centre
+(`apps/control/`, `demo/run_control.sh`) as the app surface.
 
 **Sprint 0 rework, 2026-08-03.** Prompt assembly and cache telemetry moved into
 the foundation from Sprint 2, because both live in `common/` and the repo had
@@ -42,9 +44,15 @@ demo as AI-generated until Sprint 3 lands.
 the S7 scenario framing and the `UserStory` shape were contested. See § Design
 review — 2026-08-04 below before treating either as settled.
 
-Not built: real AI output and committed recordings (blocked on LLM access), the
-whole build/test/docs/release downstream, the S3-style enhancement lane, the
-delivery KPI scorecard, and the SponsorConnect target app.
+Not built: real AI output for the downstream lane and its committed recordings
+(blocked on LLM access), the whole build/test/docs/release downstream, the
+S3-style enhancement lane, the delivery KPI scorecard, and the SponsorConnect
+target app. Upstream is no longer in this list: the Control Centre's **live
+mode** runs intake analysis, the capped clarification chat, and epic-to-stories
+planning as real `common/llm.py` calls, grounded in the two `maplesure-*`
+GitHub repos (`s7_delivery/factory/live_intake.py`). Simulation stays the demo
+default (hard rule 5); live mode is rehearsed with `LLM_MODE=record` and
+replayed on demo day.
 
 **Sprint plan: `docs/SPRINT-PLAN.md`.** The rule is **no sprint ends without a
 runnable demo beat** — if it cannot be shown, it was scoped wrong. **Reordered
@@ -170,6 +178,15 @@ The reference architecture's tool layer does not port: it is Java-stack specific
 
 **Caveat:** the CLI-led half is a target. Build/test/docs/release does not exist
 and stays blocked on the `UserStory` contract until Sprint 1.
+
+**Live mode, added to the Control Centre.** Intake analysis, the capped
+clarification chat, and epic-to-stories planning now run as real `common/llm.py`
+calls in live mode, each run grounded by connecting it to a target repo first
+(shallow clone + context pack under `intake/context/`).
+`demo/create_target_repos.py --push` provisions the two synthetic target repos,
+`maplesure-sponsor-portal` and `maplesure-claims-api`. Simulation stays the demo
+default (hard rule 5); this does not move the surface split above — live mode
+is still app-led intake/planning, downstream stays staged and CLI-led.
 
 ## Design review — 2026-08-04
 

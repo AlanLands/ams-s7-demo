@@ -1,7 +1,7 @@
 # Live Control Centre with GitHub repo grounding — design
 
 **Date:** 2026-08-08
-**Status:** approved in conversation, pending spec review
+**Status:** implemented
 **Depends on:** the factory engine (`s7_delivery/factory/`), `common/llm.py`,
 the live-bridge pattern set by `s7_delivery/factory/live.py`
 

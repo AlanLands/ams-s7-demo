@@ -75,10 +75,9 @@ Two conventions carried from S3 that are worth keeping:
 
 ## Running
 
-Three surfaces, one machinery:
+Two surfaces, one machinery:
 
 ```bash
-demo/run_console.sh          # → http://127.0.0.1:8700  five-gate console
 demo/run_intake.sh           # → http://127.0.0.1:8710  epic intake (clarify → plan)
 demo/run_control.sh          # → http://127.0.0.1:8720  S7 Delivery Control Centre
 ```
@@ -95,9 +94,35 @@ presents as live. Docs: `docs/S7_ARCHITECTURE.md`, `docs/S7_GATE_RULES.md`,
 `docs/S7_DATA_MODEL.md`, `docs/S7_TEST_STRATEGY.md`,
 `docs/S7_SECURITY_NOTES.md`.
 
-No API key required — artifacts are staged, so it runs fully offline. The console
-walks the five upstream stages; the review gate genuinely blocks, and rejecting it
-keeps story breakdown locked.
+No API key required — artifacts are staged, so it runs fully offline. The Control
+Centre's Planning stage walks the five upstream stages; the review gate genuinely
+blocks, and rejecting it keeps story breakdown locked.
+
+### Live mode
+
+Simulation is the demo default (hard rule 5), but the Control Centre also has
+a **live** mode: create a run with the Environment selector (or
+`POST /api/runs {"mode": "live"}`), connect it to one or two target
+repositories from the intake screen, then run analysis, clarification and
+planning as real LLM calls grounded in those repos instead of staged output.
+Downstream (build/test/review/release) stays simulated in every mode.
+
+To use it:
+
+```bash
+cp .env.example .env
+# set LLM_PROVIDER and its API key (e.g. LLM_PROVIDER=openai, OPENAI_API_KEY=...)
+python -m demo.create_target_repos --push   # once, provisions the two target repos
+```
+
+- `LLM_MODE=record` while rehearsing — makes real calls and writes recordings
+  under `s7_delivery/cache/llm/` (committed; see § Determinism in `CLAUDE.md`).
+- `LLM_MODE=replay` on demo day — reproduces the rehearsed recordings offline,
+  no key needed, no live-call risk during the room.
+
+The two target repos, `maplesure-sponsor-portal` and `maplesure-claims-api`,
+are synthetic MapleSure applications on GitHub used only as grounding context
+(shallow-cloned into the run's artifact tree; nothing is pushed back to them).
 
 The intended end state is a mode selector with two entry points converging on one
 downstream lane. The right-hand lane and everything below the join are **not built
