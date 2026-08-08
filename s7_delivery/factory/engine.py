@@ -24,11 +24,13 @@ from s7_delivery.factory.models import (
     Approval,
     DeliveryRun,
     DemoMode,
+    EpicRecord,
     GateId,
     GateRecord,
     Provenance,
     ProvenanceRecord,
     Requirement,
+    RequirementExtraction,
     Role,
     RollbackPlan,
     Stage,
@@ -51,6 +53,10 @@ GATE_LABELS = {
     GateId.QUALITY: "Quality",
     GateId.RELEASE: "Release",
 }
+
+MAX_SOURCE_CHARS = 20_000  # long enough for any realistic epic doc, short
+                            # enough to keep both the parser and the LLM
+                            # prompt bounded (CLAUDE.md § intake extraction)
 
 
 _DEPLOY_CHECKLIST = """# Deployment checklist — REL-2026R4-001 (demonstration)
@@ -280,6 +286,8 @@ class Engine:
             "gates": [g.model_dump(mode="json") for g in self.gates()],
             "intake": {
                 "requirement": self.store.read_json_or(None, "intake", "requirement.json"),
+                "source": self.store.read_json_or(None, "intake", "source.json"),
+                "extraction": self.store.read_json_or(None, "intake", "extraction.json"),
                 "analysis": self.store.read_json_or(None, "intake", "analysis.json"),
                 "epic": self.store.read_json_or(None, "intake", "epic.json"),
                 "repos": self.store.read_json_or([], "intake", "repos.json"),
@@ -488,6 +496,100 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="clarification", outcome="answered",
             details=f"{len(answers)} answers recorded",
+        )
+
+    def intake_set_source(
+        self, role: Role, text: str, filename: str | None = None,
+        source_kind: str = "paste", raw_content: bytes | None = None,
+    ) -> None:
+        """The upload/paste front door: replaces the requirement's own text
+        with real source content. Presence of intake/source.json is the
+        single signal `intake_extract` and `intake_create_epic` use to know
+        a real source was provided — the mechanism that keeps the default
+        seeded demo path completely untouched (CLAUDE.md § intake extraction)."""
+        roles.require("upload_intake_document", role)
+        stripped = text.strip()
+        if not stripped:
+            raise EngineError("Source text is empty")
+        if len(stripped) > MAX_SOURCE_CHARS:
+            raise EngineError(
+                f"Source text exceeds the {MAX_SOURCE_CHARS:,}-character limit "
+                f"({len(stripped):,} chars) — trim it and try again"
+            )
+        safe_name = None
+        if filename:
+            safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", filename).lstrip(".") or "document"
+            if raw_content is not None:
+                self.store.write_bytes(raw_content, "intake", "documents", safe_name)
+        req = Requirement.model_validate(self.store.read_json("intake", "requirement.json"))
+        req.description = text
+        req.source_type = "Uploaded document" if source_kind == "upload" else "Pasted text"
+        req.source_documents = [safe_name] if safe_name else ["pasted-text"]
+        self.store.write_json(req, "intake", "requirement.json")
+        source = {
+            "text": text, "filename": safe_name, "source_kind": source_kind,
+            "set_at": now_iso(),
+        }
+        self.store.write_json(source, "intake", "source.json")
+        self._record(
+            artifact_id=req.request_id, artifact_type="requirement", payload=req,
+            author=role.value, stage=Stage.INTAKE, action="set-source",
+            outcome="amended",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="set-source", outcome="set",
+            details=f"{source_kind}: {safe_name or '(pasted text)'}, {len(text)} chars",
+        )
+
+    def intake_extract(self, role: Role) -> None:
+        roles.require("run_intake_analysis", role)
+        source = self.store.read_json_or(None, "intake", "source.json")
+        if source is None:
+            raise EngineError("Provide a source document or pasted text before extracting")
+
+        if self.run().mode is DemoMode.LIVE:
+            import time
+
+            from s7_delivery.factory import live_intake
+
+            t0 = time.monotonic()
+            result, usage = live_intake.run_extraction(source["text"])
+            method, provenance, actor_type = "live_llm", live_intake.provenance_now(), "live_ai"
+            duration = round(time.monotonic() - t0, 2)
+            details = f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens"
+        else:
+            from s7_delivery.factory import extraction
+
+            result = extraction.extract_requirement(source["text"])
+            method, provenance, actor_type = "rule_based", Provenance.RULE_BASED, "simulation"
+            duration = 0.0
+            details = f"{len(result['extracted_requirements'])} requirements found"
+
+        record = RequirementExtraction(
+            epic_title=result["epic_title"],
+            business_objective=result["business_objective"],
+            requirement_summary=result["requirement_summary"],
+            extracted_requirements=result["extracted_requirements"],
+            method=method,
+            provenance=provenance,
+        )
+        self.store.write_json(record, "intake", "extraction.json")
+
+        req = Requirement.model_validate(self.store.read_json("intake", "requirement.json"))
+        req.title = record.epic_title
+        self.store.write_json(req, "intake", "requirement.json")
+
+        self._record(
+            artifact_id="EXT-001", artifact_type="requirement_extraction",
+            payload=record, author=f"intake-extraction ({method})",
+            stage=Stage.INTAKE, action="extract", outcome="created",
+            inputs=[req.request_id],
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor="intake-extraction", actor_type=actor_type,
+            workflow="intake-extraction", artifact="EXT-001",
+            duration_s=duration, outcome="created", details=details,
         )
 
     def intake_create_epic(self, role: Role) -> None:
