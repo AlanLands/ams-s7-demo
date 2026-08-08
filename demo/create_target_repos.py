@@ -26,7 +26,7 @@ The plan-sponsor web portal for MapleSure Insurance (fictional; all data
 synthetic). Flask, server-rendered templates, no SPA framework.
 
 ## Components
-- `app.py` — routes: dashboard, member directory, coverage summary.
+- `app.py` — routes: dashboard (`/`), member directory (`/members`), member detail (`/members/<id>`).
 - `portal/members.py` — member lookup against the claims API.
 - `templates/` — Jinja pages; `static/portal.js` progressive enhancement.
 
@@ -100,8 +100,8 @@ The claims intake API for MapleSure Insurance (fictional; all data
 synthetic). FastAPI over SQLite.
 
 ## Components
-- `main.py` — app factory and routes: member lookup, plan lookup, claim list.
-- `claims/models.py` — Pydantic models: Member, Plan, Claim.
+- `main.py` — app factory and routes: member list (`/members`), member detail (`/members/{id}`), claims by member (`/members/{id}/claims`).
+- `claims/models.py` — Pydantic models: Member, Claim.
 - `claims/db.py` — SQLite persistence (`claims.db`), schema created on start.
 
 ## Data
@@ -151,12 +151,6 @@ class Member(BaseModel):
     member_id: str
     name: str
     plan_id: str
-    sponsor_org: str
-
-
-class Plan(BaseModel):
-    plan_id: str
-    name: str
     sponsor_org: str
 
 
