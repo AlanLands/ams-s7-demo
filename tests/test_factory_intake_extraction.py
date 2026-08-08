@@ -2,6 +2,7 @@
 
 import pytest
 
+from s7_delivery.factory import seed
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 
@@ -95,3 +96,80 @@ def test_state_exposes_source_and_extraction_as_none_by_default(eng):
     intake = eng.state()["intake"]
     assert intake["source"] is None
     assert intake["extraction"] is None
+
+
+def _seeded_epic_only(eng):
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    return eng.state()["intake"]["epic"]
+
+
+def test_create_epic_without_extraction_matches_seed_exactly(eng):
+    """The regression test that protects the rehearsed demo path: a run
+    where nobody ever uploads or pastes anything must keep producing the
+    exact seeded epic, unchanged."""
+    epic = _seeded_epic_only(eng)
+    assert epic["epic_id"] == "EPIC-S7-001"
+    assert epic["title"] == seed.EPIC.title
+    assert epic["business_outcome"] == seed.EPIC.business_outcome
+    assert epic["estimated_stories"] == seed.EPIC.estimated_stories
+
+
+def test_create_epic_still_requires_analysis_first(eng):
+    """test_epic_requires_analysis in test_factory_planning.py already
+    covers this for the untouched path; this re-confirms it here too so a
+    future edit to this file can't silently regress it."""
+    with pytest.raises(EngineError):
+        eng.intake_create_epic(Role.PRODUCT_ANALYST)
+
+
+def test_create_epic_from_extraction_uses_extracted_content(eng):
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    epic = eng.state()["intake"]["epic"]
+    assert epic["epic_id"] != "EPIC-S7-001"
+    assert epic["epic_id"] == f"EPIC-{eng.run_id}"
+    assert epic["title"] == "Claims Deductible Handling"
+    assert epic["provenance"] == "rule_based"
+
+
+def test_edit_extraction_updates_fields_and_stamps_editor(eng):
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": "Corrected Title"})
+    ext = eng.state()["intake"]["extraction"]
+    assert ext["epic_title"] == "Corrected Title"
+    assert ext["edited_by"] == "business_owner"
+    assert ext["edited_at"]
+
+
+def test_edit_extraction_rejects_unknown_fields(eng):
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    with pytest.raises(EngineError, match="not editable"):
+        eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"method": "live_llm"})
+
+
+def test_edit_extraction_requires_extraction_first(eng):
+    with pytest.raises(EngineError, match="No extraction"):
+        eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": "x"})
+
+
+def test_finalize_runs_analysis_when_missing_then_creates_epic(eng):
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_finalize(Role.PRODUCT_ANALYST)
+    state = eng.state()
+    assert state["intake"]["analysis"] is not None
+    assert state["intake"]["epic"]["title"] == "Claims Deductible Handling"
+
+
+def test_finalize_does_not_rerun_existing_analysis(eng):
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    first_generated_at = eng.state()["intake"]["analysis"]["generated_at"]
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_finalize(Role.PRODUCT_ANALYST)
+    assert eng.state()["intake"]["analysis"]["generated_at"] == first_generated_at

@@ -596,18 +596,75 @@ class Engine:
         roles.require("create_epic", role)
         if not self.store.exists("intake", "analysis.json"):
             raise EngineError("Run intake analysis before creating the epic")
-        epic = seed.EPIC.model_copy(update={"created_at": now_iso()})
+        extraction = self.store.read_json_or(None, "intake", "extraction.json")
+        if extraction is not None:
+            req = self.store.read_json("intake", "requirement.json")
+            req_count = len(extraction.get("extracted_requirements", []))
+            epic = EpicRecord(
+                epic_id=f"EPIC-{self.run_id}",
+                title=extraction["epic_title"],
+                business_outcome=extraction["business_objective"],
+                estimated_stories=max(2, min(8, (req_count + 1) // 2)),
+                status=Status.READY,
+                created_by=f"intake-extraction ({extraction['method']})",
+                provenance=Provenance(extraction["provenance"]),
+            )
+            epic_inputs = [req["request_id"], "EXT-001", "ANL-001"]
+        else:
+            epic = seed.EPIC.model_copy(update={"created_at": now_iso()})
+            epic_inputs = [seed.REQUIREMENT.request_id, "ANL-001"]
         self.store.write_json(epic, "intake", "epic.json")
         self._record(
             artifact_id=epic.epic_id, artifact_type="epic", payload=epic,
             author=epic.created_by, stage=Stage.INTAKE, action="create-epic",
-            outcome="created", inputs=[seed.REQUIREMENT.request_id, "ANL-001"],
+            outcome="created", inputs=epic_inputs,
         )
         self._activity(
             stage=Stage.INTAKE, actor="intake-analysis", actor_type="simulation",
             workflow="epic-creation", artifact=epic.epic_id, duration_s=3.0,
             outcome="created",
         )
+
+    EDITABLE_EXTRACTION_FIELDS = {
+        "epic_title", "business_objective", "requirement_summary",
+        "extracted_requirements",
+    }
+
+    def intake_edit_extraction(self, role: Role, patch: dict) -> None:
+        roles.require("edit_requirement", role)
+        data = self.store.read_json_or(None, "intake", "extraction.json")
+        if data is None:
+            raise EngineError("No extraction to edit — run extraction first")
+        illegal = set(patch) - self.EDITABLE_EXTRACTION_FIELDS
+        if illegal:
+            raise EngineError(f"Fields not editable: {', '.join(sorted(illegal))}")
+        data.update(patch)
+        data["edited_by"] = role.value
+        data["edited_at"] = now_iso()
+        record = RequirementExtraction.model_validate(data)
+        self.store.write_json(record, "intake", "extraction.json")
+        self._record(
+            artifact_id="EXT-001", artifact_type="requirement_extraction",
+            payload=record, author=role.value, stage=Stage.INTAKE, action="edit",
+            outcome=f"amended ({', '.join(sorted(patch))})",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="extraction-edit", artifact="EXT-001",
+            outcome="amended", details=", ".join(sorted(patch)),
+        )
+
+    def intake_finalize(self, role: Role) -> None:
+        """One-shot action for the upload/paste panel's "Create Epic &
+        Proceed to Planning" button: runs analysis first only if it hasn't
+        run yet, then creates the epic. `run_intake_analysis` and
+        `create_epic` are permitted to the identical pair of roles in
+        roles.py, so this is a plain sequencing wrapper over the two
+        existing, unmodified public methods — no new permission surface,
+        and intake_create_epic's own precondition stays exactly as it was."""
+        if not self.store.exists("intake", "analysis.json"):
+            self.intake_analyse(role)
+        self.intake_create_epic(role)
 
     def intake_upload_document(self, role: Role, filename: str, content: bytes) -> str:
         """Attach a source document to the requirement. Demo evidence only —
