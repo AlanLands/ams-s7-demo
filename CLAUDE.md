@@ -223,6 +223,23 @@ clone/push steps ever ran. Merging the delivery branch into a developer's own
 working branch stays a manual, human action this system never automates —
 the same discipline as every other gate in this app.
 
+**Intake upload/paste requirement extraction, added 2026-08-08.** The
+Intake stage now opens with a genuine extraction front door: upload a file
+(`.txt`/`.md`/`.pdf`/`.docx`) or paste text, and the requirement's title,
+business objective, summary and numbered requirement bullets are extracted
+from what was actually given — not canned output. Simulation mode uses a
+real, deterministic, non-AI parser (`s7_delivery/factory/extraction.py`),
+badged `RULE_BASED` and labelled "Extraction (Rule-Based)" rather than "AI
+Extraction" — presenting a heuristic as AI output is exactly the
+mislabelling § Staged output forbids. Live mode calls the model for real
+(`live_intake.run_extraction`), labelled "AI Extraction" and badged
+`LIVE_AI`/`REPLAYED_AI` like every other live call. A run where nobody
+uploads or pastes anything is completely unaffected — `intake_create_epic`
+still produces the exact seeded `EPIC-S7-001` content it always has;
+extraction-driven epic creation is additive, gated behind an explicit
+`intake/source.json` marker that only exists once a human provides real
+source content.
+
 ## Design review — 2026-08-04
 
 The S3 console was walked through end to end for a wider group, and S7 was
