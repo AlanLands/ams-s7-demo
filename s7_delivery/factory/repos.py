@@ -7,6 +7,7 @@ content (hard rule 5).
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -47,7 +48,11 @@ def clone_repo(url: str, dest_root: Path) -> RepoRecord:
     if dest.exists():
         raise RepoConnectError(f"{name} is already connected")
     dest_root.mkdir(parents=True, exist_ok=True)
-    _git(None, "clone", "--depth", "1", url, str(dest))
+    try:
+        _git(None, "clone", "--depth", "1", url, str(dest))
+    except RepoConnectError:
+        shutil.rmtree(dest, ignore_errors=True)
+        raise
     return RepoRecord(
         url=url,
         name=name,

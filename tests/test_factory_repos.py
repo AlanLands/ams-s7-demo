@@ -46,3 +46,13 @@ def test_context_pack_respects_cap(tmp_path: Path):
     pack = build_context_pack(tmp_path / "dest" / rec.name, rec.name, cap_bytes=2000)
     assert len(pack.encode("utf-8")) <= 4000  # cap governs excerpts; header+tree small
     assert "[truncated" in pack
+
+
+def test_failed_clone_leaves_no_stale_dir_and_retry_works(tmp_path: Path):
+    src = make_fixture_repo(tmp_path)
+    bad = tmp_path / "src" / "maplesure-sponsor-portal-missing"
+    with pytest.raises(RepoConnectError):
+        clone_repo(str(bad), tmp_path / "dest")
+    assert not (tmp_path / "dest" / "maplesure-sponsor-portal-missing").exists()
+    rec = clone_repo(str(src), tmp_path / "dest")
+    assert rec.name == "maplesure-sponsor-portal"
