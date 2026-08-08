@@ -1,58 +1,45 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useRun } from '../../state/RunContext'
-import { Badge, Prov } from '../../components/Badge'
+import { Prov } from '../../components/Badge'
 import { Modal } from '../../components/Modal'
 
 export function AdvancedAnalysisSection() {
-  const { data, act, uploadAct, runId, notify } = useRun()
+  const { data, act, runId } = useRun()
   const [open, setOpen] = useState(false)
   const [clarAnswers, setClarAnswers] = useState<string[]>([])
   const [newAppAnswers, setNewAppAnswers] = useState<string[]>([])
   const [routeOverride, setRouteOverride] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
   const [showReqModal, setShowReqModal] = useState(false)
-  const docFileRef = useRef<HTMLInputElement>(null)
 
   if (!data) return null
   const isLive = data.run?.mode === 'live'
+  const unlocked = Boolean(data.intake?.source)
   const req = data.intake?.requirement
   const analysis = data.intake?.analysis
   const epic = data.intake?.epic
-  const gate = (data.gates ?? []).find((g) => g.gate_id === 'G0')
   const clar = data.intake?.clarifications
   const repos = data.intake?.repos ?? []
   const routing = data.intake?.routing
   const newApp = data.intake?.new_app
   const scaffold = data.intake?.scaffold
 
-  const gateConditions = gate?.conditions ?? []
-  const gateSummaryLine = gateConditions.length
-    ? `${gateConditions.filter((c) => c.met).length} / ${gateConditions.length} conditions met`
-    : 'Conditions appear once analysis has run.'
-  const gateChecklistItems = gateConditions.length
-    ? gateConditions.map((c) => ({ met: c.met, label: c.condition }))
-    : [
-        { met: Boolean(req), label: 'Requirement captured' },
-        { met: Boolean(req?.description), label: 'Source available' },
-        { met: Boolean(analysis), label: 'Initial analysis completed' },
-        { met: Boolean(analysis?.affected_applications?.length), label: 'Scope identifiable' },
-        { met: Boolean(req?.business_owner), label: 'Business owner identified' },
-        { met: Boolean(analysis), label: 'No critical blockers' },
-      ]
-
-  const handleDocUpload = () => {
-    const file = docFileRef.current?.files?.[0]
-    if (!file) { notify('Choose a file first', true); return }
-    const form = new FormData()
-    form.append('file', file)
-    uploadAct('/intake/upload-document', form, `${file.name} attached to the requirement`).then((ok) => {
-      if (ok && docFileRef.current) docFileRef.current.value = ''
-    })
-  }
-
   return (
-    <details className="card advanced-section" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
-      <summary>Advanced: Live Analysis &amp; Governance</summary>
+    <details
+      className={`card advanced-section${unlocked ? '' : ' locked'}`}
+      open={unlocked && open}
+      onToggle={(e) => {
+        if (e.target === e.currentTarget) setOpen((e.target as HTMLDetailsElement).open)
+      }}
+    >
+      <summary
+        aria-disabled={!unlocked}
+        title={unlocked ? undefined : 'Upload or paste a requirement to unlock this section'}
+        onClick={(e) => { if (!unlocked) e.preventDefault() }}
+      >
+        Advanced: Live Analysis &amp; Governance
+        {!unlocked && <span className="lock-hint">Unlocks after a requirement is uploaded</span>}
+      </summary>
       <div style={{ marginTop: 14 }}>
 
         {req && (
@@ -78,10 +65,6 @@ export function AdvancedAnalysisSection() {
                 ))}
               </ul>
             ) : <p className="hint">No documents attached yet.</p>}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
-              <input type="file" ref={docFileRef} />
-              <button type="button" className="outline" onClick={handleDocUpload}>⬆ Upload</button>
-            </div>
             <button type="button" className="outline block" style={{ marginTop: 12 }} onClick={() => setShowReqModal(true)}>
               ⤢ View full requirement
             </button>
@@ -104,10 +87,13 @@ export function AdvancedAnalysisSection() {
           </Modal>
         )}
 
-        <div className="card" style={{ marginBottom: 12 }}>
+        <details className="card sub-fold" style={{ marginBottom: 12 }}>
+          <summary>
+            <h3>AI Analysis{analysis ? ' (Completed)' : ''}</h3>
+            {analysis && <Prov provenance={analysis.provenance} />}
+          </summary>
           {analysis ? (
-            <>
-              <div className="section-title"><h3>AI Analysis (Completed)</h3><Prov provenance={analysis.provenance} /></div>
+            <div className="fold-body">
               <ul className="checklist">
                 <li><span className={`tick ${analysis.problem_understood ? 'ok' : 'no'}`}>{analysis.problem_understood ? '✓' : '·'}</span>Problem understood</li>
                 <li><span className={`tick ${analysis.business_impact ? 'ok' : 'no'}`}>{analysis.business_impact ? '✓' : '·'}</span>Business impact identified</li>
@@ -121,9 +107,9 @@ export function AdvancedAnalysisSection() {
               {analysis.confidence != null && (
                 <div className="conf-row"><b>AI Confidence</b><span className="info conf-v">{analysis.confidence}% ⓘ</span></div>
               )}
-            </>
-          ) : <p>No analysis yet — run the intake analysis.</p>}
-        </div>
+            </div>
+          ) : <p className="fold-body">No analysis yet — run the intake analysis.</p>}
+        </details>
 
         {clar?.pending?.length ? (
           <div className="card" style={{ marginBottom: 12 }}>
@@ -146,14 +132,18 @@ export function AdvancedAnalysisSection() {
         ) : null}
 
         {analysis?.business_rules?.length ? (
-          <div className="card" style={{ marginBottom: 12 }}>
-            <div className="section-title"><h3>AI Extracted Business Rules</h3><Prov provenance={analysis.provenance} /></div>
-            <ul className="plain">
+          <details className="card sub-fold" style={{ marginBottom: 12 }}>
+            <summary>
+              <h3>AI Extracted Business Rules</h3>
+              <span className="chip tag">{analysis.business_rules.length}</span>
+              <Prov provenance={analysis.provenance} />
+            </summary>
+            <ul className="plain fold-body">
               {analysis.business_rules.map((r) => (
                 <li key={r.rule_id}><span className="chip priority-high" style={{ marginRight: 8 }}>{r.rule_id}</span>{r.text}</li>
               ))}
             </ul>
-          </div>
+          </details>
         ) : null}
 
         {isLive && (
@@ -257,32 +247,27 @@ export function AdvancedAnalysisSection() {
         )}
 
         {epic && (
-          <div className="card ok" style={{ marginBottom: 12 }}>
-            <div className="section-title"><h3>Created Epic</h3><Prov provenance={epic.provenance} /></div>
-            <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
+          <details className="card ok sub-fold" style={{ marginBottom: 12 }}>
+            <summary>
+              <h3>Created Epic</h3>
+              <span className="mono hint">{epic.epic_id}</span>
+              <Prov provenance={epic.provenance} />
+            </summary>
+            <div className="kv fold-body" style={{ gridTemplateColumns: '130px 1fr' }}>
               <b>Epic ID</b><span className="mono">{epic.epic_id}</span>
               <b>Epic Title</b><span>{epic.title}</span>
               <b>Business Outcome</b><span>{epic.business_outcome}</span>
               <b>Estimated Stories</b><span>{epic.estimated_stories}</span>
               <b>Created By</b><span>{epic.created_by}</span>
             </div>
-          </div>
+          </details>
         )}
 
-        <div className="card">
-          <div className="section-title"><h3>Intake Gate (G0)</h3><Badge status={gate?.status} /></div>
-          <p className="hint">{gateSummaryLine}</p>
-          <ul className="checklist">
-            {gateChecklistItems.map((c) => (
-              <li key={c.label}><span className={`tick ${c.met ? 'ok' : 'no'}`}>{c.met ? '✓' : '·'}</span>{c.label}</li>
-            ))}
-          </ul>
-          <div className="actions-row" style={{ marginTop: 10 }}>
-            {isLive && <button type="button" className="outline" onClick={() => act('/intake/clarify', {}, 'Clarifying questions requested')}>Ask AI Clarification</button>}
-            <button type="button" className="outline" onClick={() => act('/intake/analyse', {}, isLive ? 'Live analysis regenerated' : 'Intake analysis regenerated')}>⟳ Regenerate Analysis</button>
-            <button type="button" className="outline" onClick={() => act('/intake/create-epic', {}, 'Epic created')}>Generate Epic</button>
-            <button type="button" className="outline approve" onClick={() => act('/intake/pass-gate', {}, 'Intake gate passed')}>✓ Pass Intake Gate</button>
-          </div>
+        <div className="actions-row">
+          {isLive && <button type="button" className="outline" onClick={() => act('/intake/clarify', {}, 'Clarifying questions requested')}>Ask AI Clarification</button>}
+          <button type="button" className="outline" onClick={() => act('/intake/analyse', {}, isLive ? 'Live analysis regenerated' : 'Intake analysis regenerated')}>⟳ Regenerate Analysis</button>
+          <button type="button" className="outline" onClick={() => act('/intake/create-epic', {}, 'Epic created')}>Generate Epic</button>
+          <button type="button" className="outline approve" onClick={() => act('/intake/pass-gate', {}, 'Intake gate passed')}>✓ Pass Intake Gate</button>
         </div>
       </div>
     </details>

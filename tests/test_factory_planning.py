@@ -83,6 +83,37 @@ def test_edit_story_rejects_non_editable_fields(eng):
     run_planning(eng)
     with pytest.raises(EngineError, match="not editable"):
         eng.edit_story(Role.ENGINEERING_LEAD, "US-004", {"story_id": "US-999"})
+    # Routing targets ground the artifact export against real repo clones —
+    # they stay non-editable even though story content is now editable.
+    with pytest.raises(EngineError, match="not editable"):
+        eng.edit_story(Role.ENGINEERING_LEAD, "US-004", {"target_repository": "elsewhere"})
+
+
+def test_original_stories_snapshot_survives_edits(eng):
+    run_planning(eng)
+    original_title = next(
+        s for s in eng.state()["planning"]["original_stories"] if s["story_id"] == "US-004"
+    )["title"]
+    eng.edit_story(Role.ENGINEERING_LEAD, "US-004", {"title": "Renamed by a human"})
+    state = eng.state()
+    edited = next(s for s in state["planning"]["stories"] if s["story_id"] == "US-004")
+    snapshot = next(s for s in state["planning"]["original_stories"] if s["story_id"] == "US-004")
+    assert edited["title"] == "Renamed by a human"
+    assert snapshot["title"] == original_title
+
+
+def test_edit_story_content_fields_are_editable(eng):
+    run_planning(eng)
+    eng.edit_story(
+        Role.ENGINEERING_LEAD,
+        "US-004",
+        {"title": "Multi-document upload", "purpose": "Rewritten", "status": "ready", "task_type": "feature"},
+    )
+    story = next(s for s in eng.state()["planning"]["stories"] if s["story_id"] == "US-004")
+    assert story["title"] == "Multi-document upload"
+    assert story["purpose"] == "Rewritten"
+    assert story["status"] == "ready"
+    assert story["version"] == 2
 
 
 def test_sign_off_requires_business_owner(eng):

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useRun } from '../../state/RunContext'
 import { SourceRequirementCard } from './SourceRequirementCard'
 import { ExtractionCard } from './ExtractionCard'
-import { AiActivityPanel } from './AiActivityPanel'
 import { AdvancedAnalysisSection } from './AdvancedAnalysisSection'
 
 export function IntakePage() {
@@ -21,7 +20,7 @@ export function IntakePage() {
   }
 
   return (
-    <section className="page-with-rail intake-page">
+    <section className="intake-page">
       <div>
         <div className="page-head intake-head">
           <div>
@@ -50,7 +49,6 @@ export function IntakePage() {
           <p>The extracted epic will be used by AI Planner to create stories, acceptance criteria, dependencies and route work to teams.</p>
         </div>
       </div>
-      <AiActivityPanel />
     </section>
   )
 }

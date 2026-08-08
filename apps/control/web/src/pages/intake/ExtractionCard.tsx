@@ -18,18 +18,20 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
   const ext = data?.intake?.extraction
   const isLive = data?.run?.mode === 'live'
 
-  const title = !source
-    ? '2. AI Extraction'
-    : ext
-      ? (ext.method === 'live_llm' ? '2. AI Extraction (Completed)' : '2. Extraction (Rule-Based) (Completed)')
-      : '2. AI Extraction'
+  const done = Boolean(source && ext)
+  const title = done
+    ? (ext!.method === 'live_llm' ? '2. AI Extraction' : '2. Extraction (Rule-Based)')
+    : '2. AI Extraction'
 
   return (
     <div className="card">
       <div className="section-title">
-        <h3>{title}</h3>
+        <h3>
+          {title}
+          {done && !extracting && <span className="title-status"> (Completed)</span>}
+        </h3>
         {ext && !extracting && (
-          <span className="chip priority-low">✓ Extraction Complete</span>
+          <span className="chip success">✓ Extraction Complete</span>
         )}
       </div>
 
@@ -55,10 +57,10 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
       {ext && !extracting && (
         <div>
           <p className="hint">AI has extracted and structured the requirement.</p>
-          <div className="kv" style={{ gridTemplateColumns: '160px 1fr', marginTop: 10 }}>
+          <div className="ext-kv" style={{ marginTop: 10 }}>
             <b>Epic Title</b><span>{ext.epic_title}</span>
-            <b>Business Objective</b><span>{ext.business_objective}</span>
-            <b>Requirement Summary</b><span>{ext.requirement_summary}</span>
+            <b>Business Objective</b><span><span className={expanded ? undefined : 'clamp-3'}>{ext.business_objective}</span></span>
+            <b>Requirement Summary</b><span><span className={expanded ? undefined : 'clamp-3'}>{ext.requirement_summary}</span></span>
           </div>
 
           <h4 style={{ marginTop: 14, fontSize: 12.5, color: 'var(--muted)' }}>Extracted Requirements</h4>
@@ -70,9 +72,11 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
               </li>
             ))}
           </ul>
-          {ext.extracted_requirements.length > 3 && (
+          {(ext.extracted_requirements.length > 3
+            || ext.business_objective.length > 220
+            || ext.requirement_summary.length > 220) && (
             <button type="button" className="link-btn" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? 'Show fewer requirements ↑' : 'View Full Extracted Content ↓'}
+              {expanded ? 'Show less ↑' : 'View Full Extracted Content ↓'}
             </button>
           )}
 
@@ -82,10 +86,10 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
               by {ext.edited_by} at {ext.edited_at}
             </p>
           ) : (
-            <Prov provenance={ext.provenance} />
+            <p style={{ marginTop: 8 }}><Prov provenance={ext.provenance} /></p>
           )}
 
-          <div className="actions-row" style={{ marginTop: 14 }}>
+          <div className="actions-row split" style={{ marginTop: 14 }}>
             <button type="button" className="outline" onClick={() => setDrawerOpen(true)}>✎ Edit Extracted Epic</button>
             <button
               type="button"

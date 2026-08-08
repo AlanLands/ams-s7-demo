@@ -42,6 +42,9 @@ export interface PlanConfidence {
 
 export interface PlanningSection {
   stories?: PlanStory[]
+  /** Immutable snapshot of the AI draft as generated — what the drawer's
+   *  "Reset to AI Suggestion" restores from. */
+  original_stories?: PlanStory[]
   plan?: SignedPlan
   confidence?: PlanConfidence
 }

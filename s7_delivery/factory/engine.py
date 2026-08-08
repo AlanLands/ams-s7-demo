@@ -298,6 +298,7 @@ class Engine:
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
+                "original_stories": self.store.read_json_or([], "planning", "stories.original.json"),
                 "plan": self.store.read_json_or(None, "planning", "plan.json"),
                 "confidence": self.store.read_json_or(None, "planning", "confidence.json"),
                 "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
@@ -997,6 +998,11 @@ class Engine:
     EDITABLE_STORY_FIELDS = {
         "accountable_team", "owner", "estimate", "sprint", "dependencies",
         "acceptance_criteria", "contributing_teams", "risk",
+        # Human review of AI-drafted content (spec §8D): the story's own text
+        # and workflow fields are editable before sign-off. Identity
+        # (story_id, epic_id), provenance, and the routing targets the export
+        # machinery grounds against (target_*) stay non-editable.
+        "title", "purpose", "status", "task_type",
     }
 
     def _stories(self) -> list[dict]:
@@ -1048,6 +1054,9 @@ class Engine:
 
         stories = [s.model_dump(mode="json") for s in seed.build_stories()]
         self.store.write_json(stories, "planning", "stories.json")
+        # Immutable snapshot of the AI draft as generated — what the drawer's
+        # "Reset to AI Suggestion" restores from. Never touched by edits.
+        self.store.write_json(stories, "planning", "stories.original.json")
         self.store.write_json(dict(seed.PLAN_CONFIDENCE), "planning", "confidence.json")
         self.store.write_json(dict(seed.PLAN_RATIONALE), "planning", "rationale.json")
         for s in stories:
@@ -1271,6 +1280,7 @@ class Engine:
         )
         payloads = [s.model_dump(mode="json") for s in stories]
         self.store.write_json(payloads, "planning", "stories.json")
+        self.store.write_json(payloads, "planning", "stories.original.json")
         self.store.write_json(confidence, "planning", "confidence.json")
         self.store.write_json(rationale, "planning", "rationale.json")
         for s in payloads:

@@ -64,17 +64,23 @@ export function SourceRequirementCard({ extracting, onExtractStart, onExtractEnd
       </div>
 
       {tab === 'upload' ? (
-        <div>
+        <div className="tab-body">
           <div
             className={`dropzone${dragOver ? ' drag-over' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFiles(e.dataTransfer.files) }}
           >
-            <div className="dropzone-icon" aria-hidden="true">⬆</div>
+            <div className="dropzone-icon" aria-hidden="true">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6.6 16A4.3 4.3 0 0 1 6 7.5a6 6 0 0 1 11.7 1.3A3.7 3.7 0 0 1 17.4 16" />
+                <path d="M12 12v8" />
+                <path d="m8.6 15.4 3.4-3.4 3.4 3.4" />
+              </svg>
+            </div>
             <p>Drag &amp; drop your file here</p>
             <p className="hint">or</p>
-            <button type="button" className="outline" onClick={() => inputRef.current?.click()}>Browse File</button>
+            <button type="button" className="primary sq" onClick={() => inputRef.current?.click()}>Browse File</button>
             <input
               ref={inputRef}
               type="file"
@@ -100,9 +106,14 @@ export function SourceRequirementCard({ extracting, onExtractStart, onExtractEnd
               <span className="chip tag">{source.text.length.toLocaleString()} chars</span>
             </div>
           )}
+
+          <div className="note-box">
+            <span aria-hidden="true">ⓘ</span>
+            <p>Make sure your document contains the business requirement or epic with the scope and key details.</p>
+          </div>
         </div>
       ) : (
-        <div>
+        <div className="tab-body">
           <label className="fld" htmlFor="intake-paste">Paste epic / requirement</label>
           <textarea
             id="intake-paste"
