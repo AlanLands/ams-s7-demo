@@ -199,6 +199,22 @@ name/description/stack, generates a reviewable scaffold (`architecture.md` +
 repo connected by URL — after which it grounds analysis/planning like any
 connected repo, no special-casing.
 
+**Artifact export and delivery handoff, added 2026-08-08.** Once a plan is
+signed off, `planning_export_artifacts` renders each story into a portable,
+per-team, per-story markdown package — `AGENTS.md` (context), `acceptance-
+criteria.md` (checklist), `context.md` (the target repo's own
+`architecture.md`) — in this repo's own `AGENTS.md` convention, no
+`.claude/`-specific tooling, held deliberately per hard rule 4.
+`planning_write_to_clone` copies those packages into the target repository's
+real clone under `delivery/<story-folder>/` and commits locally (idempotent,
+reversible, no push). `planning_push_delivery_branch` pushes that commit for
+real as a fresh, disposable `delivery/<run_id>` branch — verified in code to
+never match the repo's actual recorded default branch — to the connected
+GitHub remote. `GET .../planning/export.zip` offers the same packages as a
+no-side-effects download, independent of whether the clone/push steps ever
+ran. Merging the delivery branch into a working branch stays a manual, human
+action this system never automates.
+
 ## Design review — 2026-08-04
 
 The S3 console was walked through for a wider group and S7 was presented as the

@@ -122,7 +122,34 @@ python -m demo.create_target_repos --push   # once, provisions the two target re
 
 The two target repos, `maplesure-sponsor-portal` and `maplesure-claims-api`,
 are synthetic MapleSure applications on GitHub used only as grounding context
-(shallow-cloned into the run's artifact tree; nothing is pushed back to them).
+(shallow-cloned into the run's artifact tree; nothing is pushed back to them
+by analysis or planning itself — see below for the one place that does push).
+
+**Artifact export and delivery handoff.** Once a plan is signed off, the
+Plan Sign-off page can walk each story out of the run and into a real
+developer clone:
+
+- **Export artifacts** (`POST .../planning/export-artifacts`) renders every
+  story into a portable, per-team, per-story markdown package —
+  `AGENTS.md` (context), `acceptance-criteria.md` (checklist), `context.md`
+  (the target repo's own `architecture.md`) — written into the run's own
+  artifact tree under `planning/export/<team>/<story-folder>/`.
+- **Write to clone** (`POST .../planning/write-to-clone`) copies those
+  packages into the target repository's actual clone under
+  `delivery/<story-folder>/` and commits locally. This step is idempotent and
+  fully reversible — no push yet.
+- **Push delivery branch** (`POST .../planning/push-delivery-branch`) pushes
+  that local commit for real, as a fresh, disposable `delivery/<run_id>`
+  branch, to the connected GitHub remote. The push target is verified in code
+  to never be the repository's actual recorded default branch. This is the
+  one step in the whole app that pushes to a real remote outside the
+  provisioning script above.
+- **Export as zip** (`GET .../planning/export.zip`) downloads the same
+  per-team, per-story packages with no git side effects at all, whether or
+  not the clone/push steps ever ran.
+
+Merging the delivery branch into a developer's own working branch is a
+manual, human action — this system never automates it.
 
 **Replay on demo day**, run through this checklist before the room:
 

@@ -1,14 +1,13 @@
 """Export → write-to-clone → push, offline. Fixtures are local git repos."""
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
 
 from demo.create_target_repos import API_FILES, write_repo
+from s7_delivery.factory import live_intake
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, IntakeAnalysis, Provenance, Role
-from s7_delivery.factory import live_intake
 
 
 def _fake_analysis(repo_name: str) -> IntakeAnalysis:

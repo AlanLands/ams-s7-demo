@@ -15,8 +15,14 @@ STORY = {
     "target_repository": "maplesure-claims-api",
     "target_component": "main.py",
     "acceptance_criteria": [
-        {"ac_id": "US-1-AC1", "text": "Given an authenticated sponsor, when they submit a claim, then it is stored."},
-        {"ac_id": "US-1-AC2", "text": "Given a duplicate submission, when resubmitted, then it is rejected."},
+        {
+            "ac_id": "US-1-AC1",
+            "text": "Given an authenticated sponsor, when they submit a claim, then it is stored.",
+        },
+        {
+            "ac_id": "US-1-AC2",
+            "text": "Given a duplicate submission, when resubmitted, then it is rejected.",
+        },
     ],
     "dependencies": [],
     "feature_flag": {"name": "enable_claim_submission"},

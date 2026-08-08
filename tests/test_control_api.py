@@ -159,7 +159,9 @@ def _story(**overrides):
         "accountable_team": "Services Team",
         "target_component": "notification service",
         "target_repository": "sponsorconnect-api",
-        "acceptance_criteria": ["A notification is sent within one hour of intake opening the file"],
+        "acceptance_criteria": [
+            "A notification is sent within one hour of intake opening the file"
+        ],
     }
     story.update(overrides)
     return story

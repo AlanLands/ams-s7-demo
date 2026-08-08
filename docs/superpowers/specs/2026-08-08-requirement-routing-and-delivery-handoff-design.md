@@ -8,8 +8,11 @@ context packs, `live_intake.py`), `s7_delivery/factory/engine.py`, `demo/create_
 **Implementation status (2026-08-08):** §A (requirement routing) and §B
 (new-application epic/story generation) are **implemented** and rehearsed end
 to end in both `LLM_MODE=record` and `LLM_MODE=replay` — see Task 8's report.
-§C (artifact plane export) and §D (live workspace materialization) are a
-separate, not-yet-built plan; their status in this document is unchanged.
+§C (artifact plane export) and §D (live workspace materialization) are also
+**implemented** and rehearsed against a real, already-connected GitHub repo —
+one real `delivery/<run_id>` branch pushed to `maplesure-claims-api`, verified
+against the repo's actual default branch — see Task 7's report. All four
+sections of this design are now built.
 
 ## Goal
 
