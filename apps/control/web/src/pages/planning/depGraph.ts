@@ -1,21 +1,22 @@
 import type { Provenance } from '../../types'
 
 // --- planning story shape ----------------------------------------------------
-// Ported from the story objects produced by `planningStories()` in
-// apps/control/static/app.js (see storyDetailModal/storyRow for the full
-// field list). Defined locally for now because RunState's `planning` section
-// in ../../types.ts (StoryRecord/PlanningState) is a thinner shape added by a
-// concurrent port and doesn't carry `dependencies`, `estimate`, `sprint`,
-// `status`, `risk`, `provenance`, etc. that this page needs.
+// Ported from the story objects originally produced by `planningStories()` in
+// the now-removed vanilla-JS Control Centre (see storyDetailModal/storyRow for
+// the full field list). Defined locally rather than imported from
+// ../../types.ts, even though RunState's `planning` section there (`PlanStory`
+// / `PlanningState`) already carries `dependencies`, `estimate`, `sprint`,
+// `status`, `risk`, `provenance`, etc. — confirmed field-for-field identical
+// to the local shape below.
 //
-// NOTE: apps/control/web/src/pages/planning/RoutingByTeam.tsx (a concurrent
-// port of a sibling page) independently arrived at the same fuller shape,
-// under the same name `PlanStory`. The two are field-for-field identical on
-// purpose — kept as separate local copies rather than one importing from the
-// other, so each page stays self-contained while both are still in flux. See
-// the port report for the verbatim types.ts addition that should replace
-// StoryRecord/PlanningState and let every planning page (including this one)
-// drop its local copy in favor of the shared one.
+// NOTE: apps/control/web/src/pages/planning/RoutingByTeam.tsx (a sibling page)
+// independently keeps the same fuller shape, also under the name `PlanStory`.
+// The two are field-for-field identical on purpose — kept as separate local
+// copies rather than one importing from the other, so each page stays
+// self-contained. Centralizing every planning page on the shared
+// ../../types.ts `PlanStory` / `PlanningState` and letting each page drop its
+// local copy is a deliberate, still-open cleanup deferred to a follow-up, not
+// a blocker.
 
 export interface PlanAcceptanceCriterion {
   ac_id: string

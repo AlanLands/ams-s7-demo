@@ -98,7 +98,7 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
                 setFinalizing(false)
               }}
             >
-              Create Epic &amp; Proceed to Planning →
+              Create Epic &amp; Pass Intake Gate →
             </button>
           </div>
 

@@ -116,7 +116,9 @@ real client in code, data, commits, generated UI, screenshots, or docs.
    committed-lockfile build step, matching `../ams-s3-demo/apps/console/web/`.
    The old vanilla-JS app (`apps/control/static/`) is retired. Node is a
    build-time tool; the sandbox runs the committed `dist/` output, not `npm`.
-   Full rationale in `CLAUDE.md` hard rule 4.
+   Any edit under `apps/control/web/src/` must be followed by `npm run build`
+   and the updated `apps/control/web/dist/` committed in the same commit, or
+   the demo serves stale UI. Full rationale in `CLAUDE.md` hard rule 4.
 5. Demo reliability beats cleverness. Once a beat is rehearsed, prefer
    deterministic replay over a live call.
 

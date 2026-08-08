@@ -18,10 +18,12 @@ export function DependencyMap() {
   const [showLegend, setShowLegend] = useState(true) // vanilla default: state.depLegend ?? true
   const graphRef = useRef<HTMLDivElement>(null)
 
-  // Double cast: RunState.planning is already typed in ../../types.ts (via a
-  // concurrent port) as a thinner PlanningState/StoryRecord shape that lacks
-  // fields this page needs (dependencies, estimate, sprint, provenance, ...).
-  // See depGraph.ts's PlanStory doc comment and the port report.
+  // Double cast: RunState.planning is already typed in ../../types.ts as
+  // PlanningState/PlanStory with every field this page needs (dependencies,
+  // estimate, sprint, provenance, ...) — identical to the local PlanStory
+  // this page imports from depGraph.ts. Casting through the local type
+  // instead of the shared one is a deliberate, still-open cleanup deferred to
+  // a follow-up. See depGraph.ts's PlanStory doc comment.
   const all = ((data?.planning as unknown) as { stories: PlanStory[] } | undefined)?.stories ?? []
   const stories = filter ? all.filter((s) => s.accountable_team === filter) : all
   const { depth, edges } = depGraph(stories)

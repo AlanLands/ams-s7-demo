@@ -19,10 +19,12 @@ export function storyGaps(s: PlanStory): string[] {
 }
 
 // --- planning section (plan sign-off / confidence) --------------------------
-// RunState has no typed `planning.plan` / `planning.confidence` yet — see the
-// Plan Sign-off port report for the exact types.ts addition needed to promote
-// these centrally. Defined here, next to `PlanStory`, so every planning page
-// casts through the same shape instead of inventing its own.
+// `types.ts` now has typed `planning.plan` (`SignedPlan`) and
+// `planning.confidence` (`PlanConfidence`) sections, identical to the shapes
+// below. Defined here too, next to `PlanStory`, so every planning page casts
+// through the same local shape instead of inventing its own — centralizing on
+// the shared types.ts versions is a deliberate, still-open cleanup deferred to
+// a follow-up.
 
 export interface SignedPlan {
   plan_version: number

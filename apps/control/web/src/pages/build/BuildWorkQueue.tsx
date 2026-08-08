@@ -5,18 +5,18 @@ import { useRun } from '../../state/RunContext'
 import type { ActivityEvent, RunState } from '../../types'
 
 // --- local shapes -----------------------------------------------------------
-// Mirrors the task / story / review objects produced by `buildTasks()`,
-// `planningStories()` and `reviewsFor()` in apps/control/static/app.js (see
-// renderBuildWorkQueue, ~line 1936-2080), which in turn mirror
-// `s7_delivery/factory/models.py` (TaskRecord, Story, ReviewReport).
-// `RunState` has no typed `build` / `planning` section yet — `data.build` and
-// `data.planning` fall through its index signature as `unknown`, so these are
-// applied with a local cast, the same pattern every other Phase-3 page under
-// concurrent construction uses (TestEvidence.tsx, DevProgress.tsx,
-// RoutingByTeam.tsx, IndependentReview.tsx all define their own local
-// shapes rather than share one, because the shared shape has been rewritten
-// several times mid-flight). See the port report for the exact types.ts
-// additions this page needs once that churn settles.
+// Mirrors the task / story / review objects originally produced by
+// `buildTasks()`, `planningStories()` and `reviewsFor()` in the now-removed
+// vanilla-JS Control Centre, which in turn mirror `s7_delivery/factory/models.py`
+// (TaskRecord, Story, ReviewReport). `RunState` in ../../types.ts now has
+// typed `build` (`BuildState`) and `planning` (`PlanningState`) sections with
+// identical shapes to these local ones — this page still defines its own
+// copies rather than importing from types.ts, the same pattern every other
+// build/planning page uses (TestEvidence.tsx, DevProgress.tsx,
+// RoutingByTeam.tsx, IndependentReview.tsx all define their own local shapes
+// rather than share one). Centralizing on the shared types is a deliberate,
+// still-open cleanup deferred to a follow-up, not a blocker — the port itself
+// is finished.
 
 export interface TestCaseRecord {
   test_id: string
@@ -78,8 +78,9 @@ interface PlanningStateLocal {
   plan?: { story_ids?: string[] } | null
 }
 
-// ActivityEvent in types.ts already carries `artifact`; kept as a local alias
-// since nothing else here needs a full import-and-rename.
+// ActivityEvent in types.ts already carries everything this page reads
+// (including `artifact`); kept as a local alias since nothing here needs a
+// full import-and-rename.
 type TaskActivityEvent = ActivityEvent
 
 const WORKFLOW_LABELS: Record<string, string> = {

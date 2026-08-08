@@ -28,7 +28,7 @@ components:
 |---|---|
 | `IntakePage.tsx` | Page frame — 42/58 two-column grid, Epic ID chip, bottom info bar, orchestrates the shared `extracting`/`extractError` state between the two panels |
 | `SourceRequirementCard.tsx` | Upload File / Paste Text tabs, drag-and-drop dropzone, file chip |
-| `ExtractionCard.tsx` | The six AI-extraction states (empty / extracting / failed / complete / edited), structured fields, requirement rows, the bundled `finalize-epic` → `pass-gate` primary CTA |
+| `ExtractionCard.tsx` | The five AI-extraction states (empty / extracting / failed / complete / edited), structured fields, requirement rows, the bundled `finalize-epic` → `pass-gate` primary CTA |
 | `EditExtractionDrawer.tsx` | Right-side drawer for correcting AI-extracted fields, "AI-generated — Editable" |
 | `AiActivityPanel.tsx` | Four customer-safe execution ticks (document read / content extracted / requirements structured / epic created) |
 | `AdvancedAnalysisSection.tsx` | Collapsed-by-default `<details>` preserving every piece of functionality the screenshot's simple flow excludes from the default view — see § Design decision below |

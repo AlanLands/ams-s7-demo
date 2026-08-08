@@ -50,6 +50,13 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   dev_progress: DevProgress,
   test_evidence: TestEvidence,
   independent_review: IndependentReview,
+  // Aliases for the vanilla app's old landing-group keys, which mapped to
+  // sub-pages rather than direct pages. Kept so a browser holding a stale
+  // localStorage section value from before the migration still lands
+  // somewhere real instead of NotYetPorted.
+  planning: EpicToStories,
+  build_review: BuildWorkQueue,
+  work: BuildWorkQueue,
 }
 
 function Shell() {

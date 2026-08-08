@@ -97,7 +97,7 @@ New files only — no existing file is modified except `README.md`,
 | `s7_delivery/factory/seed.py` | 1 | Scenario + 7-story decomposition |
 | `s7_delivery/factory/roles.py` | 1 | Role permissions |
 | `apps/control/server.py` | 1 | App shell + run CRUD endpoints |
-| `apps/control/static/*` | 1 | Theme, nav, stepper |
+| `apps/control/web/src/*` | 1 | Theme, nav, stepper |
 | `s7_delivery/factory/engine.py` | 2 | Stage actions, gate checks |
 | `s7_delivery/factory/gates.py` | 2 | Gate 0/1 conditions |
 | `s7_delivery/factory/simulate.py` | 3 | Test-first + review simulation |

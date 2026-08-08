@@ -3,8 +3,9 @@ export function NotYetPorted({ section }: { section: string }) {
     <section>
       <div className="section-title"><h2>{section}</h2></div>
       <div className="card warn">
-        <h3>Not yet ported to React</h3>
-        <p>This section still exists in the vanilla-JS Control Centre (`apps/control/static/app.js`) and has not been migrated to the new React app yet. It is not user-visible — production continues to serve the vanilla app until every section is ported (see the migration plan's Phase 4).</p>
+        <h3>Unknown section</h3>
+        <p>"{section}" isn't a recognized page. This usually means a stale value in your browser's saved
+          navigation state — try selecting a page from the sidebar.</p>
       </div>
     </section>
   )

@@ -6,18 +6,17 @@ import { useRun } from '../../state/RunContext'
 import type { ActivityEvent, Provenance } from '../../types'
 
 // --- build task / review / story shapes ------------------------------------
-// Ported from the task/review/story objects produced by `buildTasks()` /
-// `reviewsFor()` / `storyOf()` in apps/control/static/app.js (see
-// renderDevProgress, ~line 2184-2327, and openTechnicalDetailModal just
-// above it). Defined locally for now because RunState has no typed `build`
-// or `planning` section yet — see this page's port report for the exact
-// types.ts additions needed to promote these into the shared types module.
-// NOTE: the planning pages (depGraph.ts / planningHelpers.ts) are defining
-// their own local story shape concurrently (as `PlanStory` / `StoryRecord`,
-// mid-rename at the time this page was ported) — deliberately not importing
-// either here, since both are moving targets from a different in-flight
-// port. `PlanningStory` below carries only the fields this page reads and
-// should be reconciled with whichever shared Story type wins centrally.
+// Ported from the task/review/story objects originally produced by
+// `buildTasks()` / `reviewsFor()` / `storyOf()` in the now-removed vanilla-JS
+// Control Centre. `RunState` in ../../types.ts now has typed `build`
+// (`BuildState`) and `planning` (`PlanningState`) sections with shapes
+// identical to the local ones below. This page still defines its own copies
+// rather than importing from types.ts — the planning pages (depGraph.ts /
+// planningHelpers.ts) also keep their own local `PlanStory`, field-for-field
+// identical to this file's `PlanningStory`. Centralizing every page on the
+// shared types is a deliberate, still-open cleanup deferred to a follow-up,
+// not a blocker. `PlanningStory` below carries only the fields this page
+// reads.
 
 export interface AcceptanceCriterion {
   ac_id: string
@@ -103,11 +102,11 @@ export interface BuildReview {
   provenance?: Provenance
 }
 
-// ActivityEvent in types.ts does not yet carry `skill` / `duration_s`
+// ActivityEvent in types.ts does not carry `skill` / `duration_s`
 // (it already has `artifact`) — the shared server-side ActivityEvent model
-// has all three (s7_delivery/factory/models.py), but the React port of the
-// shared type hasn't picked up `skill`/`duration_s` yet. Extended locally;
-// see this page's port report.
+// has all three (s7_delivery/factory/models.py), but the React `ActivityEvent`
+// type hasn't picked up `skill`/`duration_s` yet. Extended locally here as a
+// still-open cleanup deferred to a follow-up.
 export interface TaskActivityEvent extends ActivityEvent {
   artifact?: string
   skill?: string

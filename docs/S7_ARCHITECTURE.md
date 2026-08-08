@@ -25,7 +25,7 @@ s7_delivery/factory/
   models.py                   Pydantic contracts for everything above
 ```
 
-Rules live in the engine. The frontend (`apps/control/static/`) renders one
+Rules live in the engine. The frontend (`apps/control/web/src/`) renders one
 state payload (`GET /api/runs/<id>`) and reflects permissions; it never
 enforces them — a disabled button is a hint, the 403/409 is the rule.
 

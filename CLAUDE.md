@@ -548,7 +548,11 @@ language. Rewrite to the MapleSure fiction first — see hard rule 2.
    a fresh clone with no `npm install` still runs. If the target sandbox
    cannot run `npm install`/`npm run build` at all, the build must happen
    before the port and the committed `dist/` output ships as-is — Node is then
-   a build-time tool, not a runtime dependency.
+   a build-time tool, not a runtime dependency. **This makes `dist/` a build
+   artifact that doubles as source of truth for what the server actually
+   serves:** any change under `apps/control/web/src/` must be followed by
+   `npm run build` and the regenerated `apps/control/web/dist/` committed in
+   the same commit, or the demo silently keeps serving the pre-change UI.
 5. **Demo reliability beats cleverness.** Once a beat is rehearsed, prefer a
    deterministic replay over a live call. A beat that is impressive four times
    in five is worse than a beat that is adequate five times in five.

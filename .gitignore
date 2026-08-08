@@ -30,11 +30,15 @@ data/*
 !data/.gitkeep
 
 # frontend build deps — the web console landed at apps/control/web/.
-# Portability rule 4 (amended 2026-08-08): dist/ is committed, not ignored —
-# the locked-down environment runs the built output directly; npm is a
-# build-time tool only. See CLAUDE.md hard rule 4.
+# Portability rule 4 (amended 2026-08-08): apps/control/web/dist/ is
+# committed, not ignored — the locked-down environment runs the built output
+# directly; npm is a build-time tool only. See CLAUDE.md hard rule 4.
+# Any OTHER dist/ directory in the repo stays ignored by default — the
+# exception below is scoped to that one path, not to the pattern generally.
 node_modules/
 .vite/
+dist/
+!apps/control/web/dist/
 
 # OS / editor noise
 .DS_Store

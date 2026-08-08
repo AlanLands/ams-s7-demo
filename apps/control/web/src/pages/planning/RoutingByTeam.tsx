@@ -6,18 +6,16 @@ import { useRun } from '../../state/RunContext'
 import type { Provenance, RunState } from '../../types'
 
 // --- planning story shape ---------------------------------------------------
-// NOT YET a shared type. `types.ts` currently has a `StoryRecord` (added by a
-// concurrently-ported sibling page) that is missing several fields this page
-// needs — target_application, target_repository, dependencies, sprint,
-// estimate, risk, status, provenance, impacts, feature_flag, and a structured
-// rollback_plan ({method, tested} rather than a bare string). Other planning
-// pages under concurrent construction (./depGraph.ts, ./planningHelpers.ts)
-// were also independently declaring their own shapes for the same concept
-// and changing them mid-flight. Defined locally here, matching the actual
-// backend schema (`s7_delivery/factory/models.py::Story`), so this file
-// compiles independently of that churn. See the port report for the
-// verbatim `PlanStory` this should become in types.ts once the several
-// planning-page ports are reconciled into one canonical shape centrally.
+// `types.ts` now has a `PlanStory` with every field this page needs —
+// target_application, target_repository, dependencies, sprint, estimate,
+// risk, status, provenance, impacts, feature_flag, and a structured
+// rollback_plan ({method, tested} rather than a bare string) — matching the
+// actual backend schema (`s7_delivery/factory/models.py::Story`). This page
+// still defines its own local copy rather than importing from types.ts, the
+// same pattern the other planning pages use (./depGraph.ts,
+// ./planningHelpers.ts each keep their own field-for-field-identical copy).
+// Centralizing on the shared `PlanStory` is a deliberate, still-open cleanup
+// deferred to a follow-up, not a blocker.
 
 export interface PlanAcceptanceCriterion {
   ac_id: string
