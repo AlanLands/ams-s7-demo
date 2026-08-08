@@ -45,23 +45,35 @@ def decode_source(filename: str, content: bytes) -> str:
         return content.decode("utf-8", errors="replace")
     if ext == "pdf":
         from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(content))
-        return "\n\n".join(page.extract_text() or "" for page in reader.pages)
+        try:
+            reader = PdfReader(io.BytesIO(content))
+            return "\n\n".join(page.extract_text() or "" for page in reader.pages)
+        except Exception as exc:
+            raise ExtractionError(
+                f"Could not read {filename!r} as a {ext} file: {exc}"
+            ) from exc
     if ext == "docx":
         from docx import Document
-        doc = Document(io.BytesIO(content))
-        lines = []
-        for para in doc.paragraphs:
-            text = para.text.strip()
-            if not text:
-                continue
-            style = (para.style.name if para.style else "") or ""
-            m = re.match(r"Heading\s*(\d)", style)
-            if m:
-                lines.append(f"{'#' * min(int(m.group(1)), 6)} {text}")
-            else:
-                lines.append(text)
-        return "\n\n".join(lines)
+        try:
+            doc = Document(io.BytesIO(content))
+            lines = []
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if not text:
+                    continue
+                style = (para.style.name if para.style else "") or ""
+                m = re.match(r"Heading\s*(\d)", style)
+                if m:
+                    lines.append(f"{'#' * min(int(m.group(1)), 6)} {text}")
+                elif style.startswith("List"):
+                    lines.append(f"- {text}")
+                else:
+                    lines.append(text)
+            return "\n\n".join(lines)
+        except Exception as exc:
+            raise ExtractionError(
+                f"Could not read {filename!r} as a {ext} file: {exc}"
+            ) from exc
     raise ExtractionError(
         f"Unsupported file type {filename!r} — supported: .txt, .md, .pdf, .docx"
     )
@@ -108,11 +120,9 @@ def _truncate(text: str, limit: int) -> str:
 
 
 def _title(text: str, blocks: list[str]) -> str:
-    if blocks:
-        first_line = blocks[0].splitlines()[0]
-        m = _HEADING_RE.match(first_line)
-        if m:
-            return _EPIC_PREFIX_RE.sub("", m.group(2).strip()).strip()
+    for block in blocks:
+        if _block_kind(block) == "heading":
+            return _EPIC_PREFIX_RE.sub("", _heading_text(block)).strip()
     first_line = text.strip().splitlines()[0].strip() if text.strip() else ""
     if first_line and len(first_line) <= 120:
         return _EPIC_PREFIX_RE.sub("", first_line).strip()

@@ -115,3 +115,51 @@ def test_decode_docx_real_roundtrip():
     assert "Apply the deductible during claim intake." in text
     result = extraction.extract_requirement(text)
     assert result["epic_title"] == "Claims Deductible Handling"
+
+
+def test_decode_pdf_wraps_parse_failure_as_extraction_error(monkeypatch):
+    class BoomReader:
+        def __init__(self, stream):
+            raise ValueError("not a valid PDF stream")
+
+    monkeypatch.setattr("pypdf.PdfReader", BoomReader)
+    with pytest.raises(extraction.ExtractionError, match="req.pdf"):
+        extraction.decode_source("req.pdf", b"not really a pdf")
+
+
+def test_decode_docx_wraps_bad_zip_as_extraction_error():
+    with pytest.raises(extraction.ExtractionError, match="req.docx"):
+        extraction.decode_source("req.docx", b"not a zip file")
+
+
+def test_decode_docx_bullet_list_recognized_as_requirement_items():
+    import docx
+
+    doc = docx.Document()
+    doc.add_heading("Claims Deductible Handling", level=1)
+    doc.add_paragraph("Apply the deductible during claim intake.")
+    doc.add_paragraph("Policy record contains a deductible amount.", style="List Bullet")
+    doc.add_paragraph(
+        "Reject a claim at or below the policy deductible.", style="List Bullet"
+    )
+    buf = io.BytesIO()
+    doc.save(buf)
+
+    text = extraction.decode_source("req.docx", buf.getvalue())
+    assert "- Policy record contains a deductible amount." in text
+    assert "- Reject a claim at or below the policy deductible." in text
+
+    result = extraction.extract_requirement(text)
+    texts = [r["text"] for r in result["extracted_requirements"]]
+    assert any("Policy record contains a deductible amount" in t for t in texts)
+    assert any("Reject a claim at or below the policy deductible" in t for t in texts)
+
+
+def test_title_scans_past_leading_preamble_for_first_heading():
+    text = (
+        "Confidential — Draft v2\n\n"
+        "# Online claim submission\n\n"
+        "Some body text.\n"
+    )
+    result = extraction.extract_requirement(text)
+    assert result["epic_title"] == "Online claim submission"
