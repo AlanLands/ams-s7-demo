@@ -22,6 +22,7 @@ from s7_delivery.factory.models import (
     AcceptanceCriterion,
     ActivityEvent,
     Approval,
+    ArchitectureMeta,
     BuildReviewPhase,
     DeliveryRun,
     DemoMode,
@@ -299,7 +300,9 @@ class Engine:
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
-                "original_stories": self.store.read_json_or([], "planning", "stories.original.json"),
+                "original_stories": self.store.read_json_or(
+                    [], "planning", "stories.original.json"
+                ),
                 "plan": self.store.read_json_or(None, "planning", "plan.json"),
                 "confidence": self.store.read_json_or(None, "planning", "confidence.json"),
                 "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
@@ -1556,6 +1559,147 @@ class Engine:
             stage=Stage.PLANNING, actor=approver, actor_type="human",
             workflow="plan-signoff-approval", outcome="passed",
             details=f"plan v{plan['plan_version']} locked; architecture and "
+                    "delivery-pack generation enabled",
+        )
+
+    # --- architecture (Build & Review: engineering blueprint) ---------------
+
+    def _architecture_meta(self) -> dict | None:
+        return self.store.read_json_or(None, "architecture", "meta.json")
+
+    def _build_phase(self) -> BuildReviewPhase | None:
+        return build_phases.read_phase(
+            self.store, plan_locked=self.run().plan_locked
+        )
+
+    def _blueprint_provenance(self) -> Provenance:
+        """The architecture renderer is deterministic. In simulation/replay it
+        is simulated evidence; in live mode it is an honest non-AI derivation
+        of real inputs — RULE_BASED, never presented as an AI result."""
+        return (
+            Provenance.RULE_BASED
+            if self.run().mode is DemoMode.LIVE
+            else Provenance.SIMULATED
+        )
+
+    def _write_architecture_pack(
+        self, version: int, revision_note: str, actor: str, prov: Provenance
+    ) -> dict:
+        from s7_delivery.factory import architecture as arch
+
+        stories = self._stories()
+        files = arch.render_pack(
+            epic=self.store.read_json_or(None, "intake", "epic.json"),
+            requirement=self.store.read_json_or(None, "intake", "requirement.json"),
+            stories=stories,
+            analysis=self.store.read_json_or(None, "intake", "analysis.json"),
+            repos=self._connected_repos(),
+            version=version,
+            revision_note=revision_note,
+        )
+        vdir = f"v{version}"
+        for name, payload in files.items():
+            if isinstance(payload, str):
+                self.store.write_text(payload, "architecture", vdir, name)
+            else:
+                self.store.write_json(payload, "architecture", vdir, name)
+        meta = ArchitectureMeta(
+            version=version,
+            status="generated",
+            generated_by=actor,
+            revision_note=revision_note,
+            files=[f"{vdir}/{name}" for name in arch.FILES],
+            provenance=prov,
+        ).model_dump(mode="json")
+        self.store.write_json(meta, "architecture", "meta.json")
+        return meta
+
+    def architecture_generate(self, role: Role) -> None:
+        """Generate the engineering blueprint from the locked plan. Runs AFTER
+        Gate 1 — G1 never depends on this existing."""
+        roles.require("generate_architecture", role)
+        phase = self._build_phase()
+        build_phases.require_at_least(
+            phase, BuildReviewPhase.GATE1_APPROVED, "Architecture generation"
+        )
+        if self._architecture_meta() is not None:
+            raise EngineError(
+                "Architecture already generated — use revise to produce a new version"
+            )
+        prov = self._blueprint_provenance()
+        meta = self._write_architecture_pack(1, "", "architecture-service", prov)
+        build_phases.advance(
+            self.store, phase, BuildReviewPhase.ARCHITECTURE_READY, actor=role.value
+        )
+        self._record(
+            artifact_id="ARCH-001", artifact_type="architecture", payload=meta,
+            author="architecture-service", stage=Stage.BUILD_REVIEW,
+            action="generate", outcome="created", inputs=["PLAN-001"], version=1,
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="architecture-service",
+            actor_type="simulation" if prov is Provenance.SIMULATED else "service",
+            workflow="architecture-generation", artifact="ARCH-001",
+            duration_s=6.0, outcome="created",
+            details="Engineering blueprint generated from the approved plan",
+        )
+
+    def architecture_revise(self, role: Role, feedback: str) -> None:
+        """New immutable version; prior version directories are retained so
+        any pack referencing v1 stays resolvable."""
+        roles.require("revise_architecture", role)
+        meta = self._architecture_meta()
+        if meta is None:
+            raise EngineError("No architecture to revise — generate it first")
+        if not feedback.strip():
+            raise EngineError("A revision needs a reason — feedback is empty")
+        phase = self._build_phase()
+        version = meta["version"] + 1
+        prov = self._blueprint_provenance()
+        new_meta = self._write_architecture_pack(
+            version, feedback.strip(), "architecture-service", prov
+        )
+        build_phases.advance(
+            self.store, phase, BuildReviewPhase.ARCHITECTURE_READY, actor=role.value
+        )
+        self._record(
+            artifact_id="ARCH-001", artifact_type="architecture",
+            payload=new_meta, author="architecture-service",
+            stage=Stage.BUILD_REVIEW, action="revise", outcome="amended",
+            inputs=["PLAN-001"], version=version,
+            previous_version=meta["version"],
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="architecture-service",
+            actor_type="simulation" if prov is Provenance.SIMULATED else "service",
+            workflow="architecture-revision", artifact="ARCH-001",
+            duration_s=4.0, outcome="amended",
+            details=f"v{version}: {feedback.strip()}",
+        )
+
+    def architecture_accept(self, role: Role, approver: str = "") -> None:
+        """Human checkpoint: the generator (the service) never accepts its own
+        blueprint. Lightweight by design — not a numbered gate."""
+        roles.require("accept_architecture", role)
+        meta = self._architecture_meta()
+        if meta is None:
+            raise EngineError("No architecture to accept — generate it first")
+        if meta["status"] == "accepted":
+            raise EngineError(f"Architecture v{meta['version']} is already accepted")
+        phase = self._build_phase()
+        who = approver.strip() or role.value
+        meta["status"] = "accepted"
+        meta["accepted_by"] = who
+        meta["accepted_at"] = now_iso()
+        self.store.write_json(meta, "architecture", "meta.json")
+        build_phases.advance(
+            self.store, phase, BuildReviewPhase.ARCHITECTURE_ACCEPTED, actor=who
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=who, actor_type="human",
+            workflow="architecture-approval", artifact="ARCH-001",
+            outcome="passed",
+            details=f"Architecture v{meta['version']} accepted; "
                     "delivery-pack generation enabled",
         )
 

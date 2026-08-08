@@ -477,6 +477,81 @@ def get_export_zip(run_id: str) -> StreamingResponse:
     )
 
 
+# --- architecture (Build & Review: engineering blueprint) --------------------
+
+
+def _zip_of(root: Path, run_id: str, filename: str) -> StreamingResponse:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if root.is_dir():
+            for path in sorted(root.rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(root))
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.post("/api/runs/{run_id}/architecture/generate")
+def post_architecture_generate(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.architecture_generate(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/architecture/revise")
+def post_architecture_revise(run_id: str, body: ReviseBody) -> dict:
+    eng = _engine(run_id)
+    eng.architecture_revise(_role(body.role), body.feedback)
+    return eng.state()
+
+
+class AcceptBody(BaseModel):
+    role: str
+    approver: str = ""
+
+
+@app.post("/api/runs/{run_id}/architecture/accept")
+def post_architecture_accept(run_id: str, body: AcceptBody) -> dict:
+    eng = _engine(run_id)
+    eng.architecture_accept(_role(body.role), body.approver)
+    return eng.state()
+
+
+@app.get("/api/runs/{run_id}/architecture/download.zip")
+def get_architecture_zip(run_id: str) -> StreamingResponse:
+    """The current architecture pack as a portable download — no side effects,
+    canonical files stay in the artifact store."""
+    eng = _engine(run_id)
+    meta = eng.store.read_json_or(None, "architecture", "meta.json")
+    if meta is None:
+        raise HTTPException(status_code=404, detail="No architecture generated yet")
+    root = eng.store.path("architecture", f"v{meta['version']}")
+    return _zip_of(root, run_id, f"{run_id}-architecture-v{meta['version']}.zip")
+
+
+@app.get("/api/runs/{run_id}/artifact-file/{rel_path:path}")
+def get_artifact_file(run_id: str, rel_path: str) -> FileResponse:
+    """Read-only preview of any file in the run's artifact tree. Every path
+    segment passes the store's safe-segment validation — no traversal."""
+    eng = _engine(run_id)
+    segments = [s for s in rel_path.split("/") if s]
+    if not segments:
+        raise HTTPException(status_code=404, detail="Empty artifact path")
+    path = eng.store.path(*segments)  # rejects unsafe segments + traversal
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail=f"No artifact at {rel_path!r}")
+    suffix = path.suffix.lower()
+    media = {
+        ".md": "text/markdown",
+        ".json": "application/json",
+        ".txt": "text/plain",
+    }.get(suffix, "application/octet-stream")
+    return FileResponse(path, media_type=media, filename=path.name)
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 
