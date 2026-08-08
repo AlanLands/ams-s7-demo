@@ -662,7 +662,7 @@ class Engine:
             outcome = "asked"
         self.store.write_json(setup, "intake", "new_app.json")
         self._activity(
-            stage=Stage.INTAKE, actor="requirement-routing", actor_type="live_ai",
+            stage=Stage.INTAKE, actor="new-app-setup", actor_type="live_ai",
             workflow="new-app-setup", duration_s=round(time.monotonic() - t0, 2),
             outcome=outcome,
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",

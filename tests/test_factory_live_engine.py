@@ -287,6 +287,9 @@ def test_new_app_setup_roundtrip(tmp_path, monkeypatch):
     eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
     setup = eng.state()["intake"]["new_app"]
     assert setup["pending"] == ["Name it?"]
+    # Regression: activity events use correct actor label
+    events = [e for e in eng.state()["activity"] if e["workflow"] == "new-app-setup"]
+    assert events[-1]["actor"] == "new-app-setup"
 
     monkeypatch.setattr(
         live_intake, "run_new_app_setup",
