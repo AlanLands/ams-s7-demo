@@ -344,3 +344,25 @@ def test_run_new_app_setup_enforces_round_cap(monkeypatch):
     ]
     with pytest.raises(LLMError, match="cap"):
         live_intake.run_new_app_setup(REQUIREMENT, transcript)
+
+
+def test_run_new_app_setup_forces_finalize_on_last_round(monkeypatch):
+    captured = {}
+
+    def capture(prompt, *, json_mode=False, cache_key=None, usage_out=None, **kw):
+        captured["task"] = prompt.task
+        if usage_out is not None:
+            usage_out.update({"input_tokens": 1, "output_tokens": 1})
+        return json.dumps(GOOD_NEW_APP_SETTLED)
+
+    monkeypatch.setattr(live_intake, "complete", capture)
+    transcript = [{"role": "assistant", "text": "q1"}, {"role": "user", "text": "a1"}]
+    live_intake.run_new_app_setup(REQUIREMENT, transcript)
+    assert "final round" in captured["task"]
+
+
+def test_run_new_app_setup_model_asking_past_final_round_is_a_prompt_bug(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_NEW_APP_QUESTIONS))
+    transcript = [{"role": "assistant", "text": "q1"}, {"role": "user", "text": "a1"}]
+    with pytest.raises(LLMError, match="prompt bug"):
+        live_intake.run_new_app_setup(REQUIREMENT, transcript)

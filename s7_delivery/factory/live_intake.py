@@ -287,9 +287,16 @@ def run_new_app_setup(
             f"New-application setup cap reached ({MAX_CLARIFICATION_ROUNDS} "
             "rounds) — name, description and stack must be settled by now."
         )
+    force = rounds_used == MAX_CLARIFICATION_ROUNDS - 1
+    force_note = (
+        "\nThis is the final round — you may NOT ask further questions. "
+        "Report name, description and stack now, making a reasonable "
+        "assumption for anything still unclear.\n"
+        if force else ""
+    )
     task = f"""Conversation so far:
 {_transcript_text(transcript)}
-
+{force_note}
 The requirement this new application would satisfy:
 {json.dumps(requirement, indent=2)}
 
@@ -307,6 +314,11 @@ exactly one of:
         + json.dumps(transcript, sort_keys=True),
     )
     if data.get("needs_more_info"):
+        if force:
+            raise LLMError(
+                "The model asked past the new-app setup cap — a prompt bug, "
+                "not a valid response."
+            )
         questions = [str(q).strip() for q in data.get("questions", []) if str(q).strip()]
         if not 1 <= len(questions) <= 3:
             raise LLMError(f"expected 1-3 setup questions, got {len(questions)}")
