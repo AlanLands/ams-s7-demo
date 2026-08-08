@@ -16,6 +16,7 @@ from s7_delivery.factory.models import (
     Provenance,
     Role,
     RollbackPlan,
+    RoutingVerdict,
     Story,
 )
 
@@ -195,3 +196,62 @@ def test_live_planning_generate(tmp_path, monkeypatch):
     eng.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Hale")
     state = eng.state()
     assert state["build"]["tasks"][0]["story_id"] == "US-001"
+
+
+# --- routing tests ----------------------------------------------------------
+
+
+def test_intake_route_calls_model_and_stores_verdict(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "route_requirement",
+        lambda req, packs: (
+            RoutingVerdict(
+                verdict="routable", reasoning="fits",
+                candidate_repos=["maplesure-sponsor-portal"],
+                confidence=80, provenance=Provenance.LIVE_AI,
+            ),
+            {"input_tokens": 5, "output_tokens": 2},
+        ),
+    )
+    eng.intake_route(Role.PRODUCT_ANALYST)
+    routing = eng.state()["intake"]["routing"]
+    assert routing["verdict"] == "routable"
+    assert routing["candidate_repos"] == ["maplesure-sponsor-portal"]
+
+
+def test_intake_route_zero_repos_needs_no_monkeypatch(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    eng.intake_route(Role.PRODUCT_ANALYST)
+    routing = eng.state()["intake"]["routing"]
+    assert routing["verdict"] == "new_application_needed"
+    assert routing["provenance"] == "human"
+
+
+def test_intake_override_route_records_who_and_when(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "route_requirement",
+        lambda req, packs: (
+            RoutingVerdict(verdict="new_application_needed", reasoning="r",
+                           provenance=Provenance.LIVE_AI), {},
+        ),
+    )
+    eng.intake_route(Role.PRODUCT_ANALYST)
+    eng.intake_override_route(Role.DELIVERY_LEAD, "routable")
+    routing = eng.state()["intake"]["routing"]
+    assert routing["verdict"] == "routable"
+    assert routing["overridden_by"] == "delivery_lead"
+    assert routing["overridden_at"]
+
+
+def test_intake_override_route_before_route_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="[Rr]out"):
+        eng.intake_override_route(Role.DELIVERY_LEAD, "routable")
+
+
+def test_intake_route_in_simulation_mode_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="live"):
+        eng.intake_route(Role.PRODUCT_ANALYST)

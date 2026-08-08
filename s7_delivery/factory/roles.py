@@ -28,6 +28,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "create_epic": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "connect_repository": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "ask_clarification": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
+    "route_requirement": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "pass_intake_gate": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST},
     # planning
     "generate_plan": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},

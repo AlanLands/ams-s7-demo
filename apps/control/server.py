@@ -202,6 +202,25 @@ def post_intake_clarify_answer(run_id: str, body: ClarifyAnswerBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/intake/route")
+def post_intake_route(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_route(_role(body.role))
+    return eng.state()
+
+
+class OverrideRouteBody(BaseModel):
+    role: str
+    verdict: str
+
+
+@app.post("/api/runs/{run_id}/intake/override-route")
+def post_intake_override_route(run_id: str, body: OverrideRouteBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_override_route(_role(body.role), body.verdict)
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 

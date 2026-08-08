@@ -279,6 +279,7 @@ class Engine:
                 "epic": self.store.read_json_or(None, "intake", "epic.json"),
                 "repos": self.store.read_json_or([], "intake", "repos.json"),
                 "clarifications": self.store.read_json_or(None, "intake", "clarifications.json"),
+                "routing": self.store.read_json_or(None, "intake", "routing.json"),
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
@@ -566,6 +567,56 @@ class Engine:
             .read_text(encoding="utf-8")
             for r in self._connected_repos()
         }
+
+    def _routing(self) -> dict | None:
+        return self.store.read_json_or(None, "intake", "routing.json")
+
+    def intake_route(self, role: Role) -> None:
+        """Live mode only: classify routable vs new_application_needed
+        before analysis runs."""
+        roles.require("route_requirement", role)
+        if self.run().mode is not DemoMode.LIVE:
+            raise EngineError("Requirement routing runs in live mode only")
+        import time
+
+        from s7_delivery.factory import live_intake
+
+        requirement = self.store.read_json("intake", "requirement.json")
+        packs = self._context_packs()
+        t0 = time.monotonic()
+        verdict, usage = live_intake.route_requirement(requirement, packs)
+        self.store.write_json(verdict, "intake", "routing.json")
+        self._record(
+            artifact_id="ROUTE-001", artifact_type="routing_verdict",
+            payload=verdict, author="requirement-routing",
+            stage=Stage.INTAKE, action="route", outcome="created",
+            inputs=[requirement["request_id"]],
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor="requirement-routing",
+            actor_type="live_ai" if packs else "system",
+            workflow="requirement-routing",
+            duration_s=round(time.monotonic() - t0, 2), outcome="created",
+            details=f"verdict={verdict.verdict}; "
+            f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
+        )
+
+    def intake_override_route(self, role: Role, verdict: str) -> None:
+        roles.require("route_requirement", role)
+        current = self._routing()
+        if current is None:
+            raise EngineError("Run requirement routing before overriding it")
+        if verdict not in {"routable", "new_application_needed"}:
+            raise EngineError(f"Unknown verdict {verdict!r}")
+        current["verdict"] = verdict
+        current["overridden_by"] = role.value
+        current["overridden_at"] = now_iso()
+        self.store.write_json(current, "intake", "routing.json")
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="requirement-routing", outcome="overridden",
+            details=f"verdict set to {verdict}",
+        )
 
     def intake_pass_gate(self, role: Role) -> None:
         roles.require("pass_intake_gate", role)
