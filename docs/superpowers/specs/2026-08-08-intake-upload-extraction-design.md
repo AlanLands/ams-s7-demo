@@ -139,14 +139,20 @@ so the engine treats both paths identically above this line.
   stamps `edited_by`/`edited_at`. Same "human review before it's load-bearing" pattern used
   throughout — nothing here self-approves, matching § Design review item 4 in `CLAUDE.md`.
 
+**New: `Engine.intake_finalize(role)`** — the one-shot action the new panel's button calls.
+Calls the two existing public methods in sequence: `intake_analyse(role)` first only if
+`analysis.json` doesn't exist yet, then `intake_create_epic(role)`. Both actions are already
+permitted to the identical pair of roles (`run_intake_analysis` and `create_epic` in
+`roles.py` — verified, not assumed), so this is a plain wrapper, not a permission-check
+change. **`intake_analyse` and `intake_create_epic` are otherwise untouched** — in particular,
+`intake_create_epic` keeps its existing "raise if `analysis.json` is missing" precondition
+exactly as today (a test already encodes this: `test_epic_requires_analysis`), so a direct
+call to `intake_create_epic` behaves exactly as it does now. The convenience lives only in the
+new wrapper.
+
 **Changed: `Engine.intake_create_epic(role)`**
-- If `analysis.json` doesn't exist yet, run the analysis first (mode-aware — canned in
-  simulation, live call in live mode), **exactly the existing `intake_analyse` behaviour**,
-  just no longer requiring a separate manual click. Implemented by extracting `intake_analyse`'s
-  body into an internal helper called both by the public, permission-checked `intake_analyse`
-  and, without a redundant permission check, from inside `intake_create_epic` (whose own
-  permission check already authorizes the whole operation).
-- Then: if `intake/extraction.json` exists, build the `EpicRecord` from
+- No change to its existing precondition or its analysis-related behaviour.
+- Only new behaviour: if `intake/extraction.json` exists, build the `EpicRecord` from
   `extraction.epic_title` / `extraction.business_objective` / `requirement.json`, with
   `epic_id = f"EPIC-{self.run_id}"` (run ids are already unique — `S7-00001` etc. — so this
   needs no separate sequence) and an `estimated_stories` heuristic from the requirement count (openly a rough
@@ -176,8 +182,11 @@ untouched default path (where it already did, correctly, in both modes today).
   stored source (useful after editing pasted text without re-uploading).
 - `PATCH /api/runs/{run_id}/intake/extraction` — body mirrors `patch_story`'s existing pattern;
   calls `intake_edit_extraction`.
-- `intake/create-epic` (existing endpoint) — no signature change; behaviour change only, as
-  above.
+- `POST /api/runs/{run_id}/intake/finalize-epic` — new endpoint, calls `intake_finalize`. This
+  is what the new panel's "Create Epic & Proceed to Planning" button calls.
+- `intake/create-epic` (existing endpoint, existing `intake_create_epic` action) — no signature
+  change; still requires `analysis.json` to exist first, exactly as today. The existing
+  "Generate Epic" rail button keeps calling this one, unchanged.
 
 ## Frontend (`apps/control/static/app.js`, `styles.css`)
 
@@ -196,8 +205,8 @@ New section at the top of `renderIntake()`, above the existing `reqCard`:
   Objective / Requirement Summary) and an "Extracted Requirements" list of `REQ-xx` chips,
   matching the mockup's layout via the existing `.chip` styling.
 - **Actions:** "Edit Extracted Epic" opens the existing modal pattern with editable fields,
-  saving via the new `PATCH` endpoint; "Create Epic & Proceed to Planning" calls the existing
-  `intake/create-epic` action and, on success, switches the active tab to Planning (safe to do
+  saving via the new `PATCH` endpoint; "Create Epic & Proceed to Planning" calls the new
+  `intake/finalize-epic` action and, on success, switches the active tab to Planning (safe to do
   immediately — `planning_generate` already independently enforces that gate G0 must be passed
   first, and the Planning page already tells the user so if they arrive early).
 - In simulation mode, a one-line note under the button: *"Simulation mode demonstrates
@@ -229,12 +238,14 @@ All offline, no network, no API key — the existing bar:
   and ≥1 extracted requirement) — plus small real `.pdf`/`.docx` fixtures for the decoders.
 - `run_extraction` validator: canned good/bad model JSON, mirroring `test_live_intake.py`'s
   existing pattern for `run_analysis`/`route_requirement`.
-- Engine tests: `intake_set_source` → `intake_extract` → `intake_create_epic` round-trip in
+- Engine tests: `intake_set_source` → `intake_extract` → `intake_finalize` round-trip in
   simulation mode produces an epic whose title matches the uploaded text, not `EPIC-S7-001`;
-  a run where no source is ever set still produces the exact current `seed.EPIC` output
-  (the regression test that protects the rehearsed demo path); the auto-run-analysis-if-missing
-  behaviour is covered by asserting `analysis.json` exists after `intake_create_epic` even when
-  `intake_analyse` was never called directly.
+  a run where no source is ever set and `intake_create_epic` is called directly still produces
+  the exact current `seed.EPIC` output, and still raises without prior analysis exactly as
+  `test_epic_requires_analysis` already asserts (the regression tests that protect both the
+  rehearsed demo path and the existing precondition); `intake_finalize` is covered by asserting
+  it succeeds and populates `analysis.json` even when `intake_analyse` was never called
+  directly, and that it does *not* re-run analysis when `analysis.json` already exists.
 - `intake_edit_extraction`: asserts partial updates apply and `edited_by`/`edited_at` are set.
 
 ## Out of scope (named so nobody trips on them)
