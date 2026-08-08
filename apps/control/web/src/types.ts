@@ -137,6 +137,7 @@ export interface RunRecord {
   mode: 'simulation' | 'replay' | 'live'
   created_at: string
   stages: StageState[]
+  status?: string
   plan_locked?: boolean
 }
 
@@ -155,13 +156,47 @@ export interface TraceRow {
   design?: string
 }
 
+export interface ProvenanceRecord {
+  artifact_id: string
+  artifact_type: string
+  version: number
+  author: string
+  timestamp: string
+  stale?: boolean
+}
+
+export interface ProvenanceLedgerEntry {
+  event_id: string
+  artifact_id: string
+  artifact_type: string
+  version: number
+  sha256: string
+  author: string
+  stage: string
+  action: string
+  outcome: string
+  inputs?: string[]
+}
+
+export interface ActivityEvent {
+  timestamp: string
+  stage: string
+  actor: string
+  actor_type: string
+  workflow?: string
+  outcome?: string
+  details?: string
+}
+
 export interface RunState {
   run: RunRecord
   scenario?: { title: string; description: string; epic_source: string }
   intake?: IntakeState
   gates?: Gate[]
-  provenance?: unknown[]
-  activity_summary?: { counters?: Record<string, number>; total_events?: number }
+  provenance?: ProvenanceRecord[]
+  provenance_ledger?: ProvenanceLedgerEntry[]
+  activity?: ActivityEvent[]
+  activity_summary?: { counters?: Record<string, number>; total_events?: number; stage_time_s?: Record<string, number> }
   traceability?: TraceRow[]
   [section: string]: unknown
 }

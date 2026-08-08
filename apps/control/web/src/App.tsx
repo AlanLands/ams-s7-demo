@@ -7,11 +7,19 @@ import { NotYetPorted } from './components/NotYetPorted'
 import { Overview } from './pages/Overview'
 import { IntakePage } from './pages/intake/IntakePage'
 import { Traceability } from './pages/Traceability'
+import { Artifacts } from './pages/Artifacts'
+import { Provenance } from './pages/Provenance'
+import { Activity } from './pages/Activity'
+import { Reports } from './pages/Reports'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
   intake: IntakePage,
   traceability: Traceability,
+  artifacts: Artifacts,
+  provenance: Provenance,
+  activity: Activity,
+  reports: Reports,
   // epic_to_stories: EpicToStories,   — wired in Phase 3
   // ...remaining Phase-3 pages wired as each is ported
 }
