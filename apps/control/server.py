@@ -358,6 +358,13 @@ def post_planning_signoff(run_id: str, body: SignOffBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/planning/export-artifacts")
+def post_export_artifacts(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_export_artifacts(_role(body.role))
+    return eng.state()
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 

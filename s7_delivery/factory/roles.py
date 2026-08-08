@@ -37,6 +37,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "edit_story": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD, Role.PRODUCT_ANALYST},
     "request_plan_revision": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST},
     "sign_off_plan": {Role.BUSINESS_OWNER},
+    "export_artifacts": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST, Role.ENGINEERING_LEAD},
     # build & review
     "start_task": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "run_development": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},

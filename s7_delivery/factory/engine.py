@@ -919,6 +919,46 @@ class Engine:
             outcome="amended", details=", ".join(sorted(patch)),
         )
 
+    def _story_target_architecture(self, story: dict) -> str:
+        """Read architecture.md straight from the story's target repo's own
+        clone — not parsed out of the merged context pack (spec §C1)."""
+        path = self.store.path("repos", story["target_repository"], "architecture.md")
+        if not path.is_file():
+            raise EngineError(
+                f"No architecture.md found for {story['target_repository']!r} — "
+                "is it connected?"
+            )
+        return path.read_text(encoding="utf-8")
+
+    def planning_export_artifacts(self, role: Role) -> None:
+        """§C2: write each signed-off story's portable package into the
+        run's own artifact tree. No external side effects."""
+        roles.require("export_artifacts", role)
+        if not self.run().plan_locked:
+            raise EngineError("Export artifacts after the plan is signed off")
+        from s7_delivery.factory.artifact_export import render_story_package, story_folder_name
+
+        exported = 0
+        for story in self._stories():
+            arch = self._story_target_architecture(story)
+            package = render_story_package(story, arch)
+            folder = story_folder_name(story)
+            team_dir = story["accountable_team"].replace(" ", "-")
+            for filename, content in package.items():
+                self.store.write_text(content, "planning", "export", team_dir, folder, filename)
+            self._record(
+                artifact_id=f"EXPORT-{story['story_id']}", artifact_type="export",
+                payload={"files": sorted(package)}, author=role.value,
+                stage=Stage.PLANNING, action="export", outcome="created",
+                inputs=[story["story_id"]],
+            )
+            exported += 1
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="artifact-export", outcome="created",
+            details=f"{exported} story packages exported",
+        )
+
     def _planning_generate_live(self) -> None:
         import time
 
