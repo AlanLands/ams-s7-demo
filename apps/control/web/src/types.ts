@@ -183,6 +183,7 @@ export interface ActivityEvent {
   stage: string
   actor: string
   actor_type: string
+  artifact?: string
   workflow?: string
   outcome?: string
   details?: string
@@ -226,10 +227,99 @@ export interface DesignRecord {
   version: number
 }
 
+export interface AcceptanceCriterion {
+  ac_id: string
+  text: string
+}
+
+export interface StoryRecord {
+  story_id: string
+  title: string
+  purpose?: string
+  acceptance_criteria: AcceptanceCriterion[]
+  accountable_team?: string
+  contributing_teams?: string[]
+  target_component?: string
+  rollback_plan?: string
+  task_type?: string
+}
+
+export interface PlanRecord {
+  plan_version: number
+  story_ids: string[]
+}
+
+export interface PlanningState {
+  plan?: PlanRecord
+  stories?: StoryRecord[]
+}
+
+export interface TaskTestResult {
+  ac_id: string
+  name: string
+  current_result: string
+}
+
+export interface BuildTask {
+  task_id: string
+  story_id: string
+  status: string
+  summary?: string
+  owner?: string
+  accountable_team?: string
+  dependencies?: string[]
+  progress_pct: number
+  files_changed: number
+  coverage_pct?: number | null
+  tests?: TaskTestResult[]
+  last_activity?: string
+  changed_files?: string[]
+  change_summary?: string
+  commit_ref?: string
+  pr_ref?: string
+  lines_added?: number
+  lines_removed?: number
+  provenance?: Provenance
+}
+
+export interface ReviewFinding {
+  finding_id?: string
+  severity: 'critical' | 'major' | 'minor' | 'info'
+  ac_id: string
+  summary?: string
+  expected?: string
+  observed?: string
+  impact?: string
+  recommendation?: string
+  evidence?: string[]
+  detail?: string
+}
+
+export interface ReviewRecord {
+  review_id: string
+  task_id: string
+  reviewer: string
+  created_at: string
+  verified_against?: string[]
+  result: string
+  critical_gaps: number
+  major_gaps: number
+  minor_gaps: number
+  findings?: ReviewFinding[]
+  version?: number
+}
+
+export interface BuildState {
+  tasks?: BuildTask[]
+  reviews?: ReviewRecord[]
+}
+
 export interface RunState {
   run: RunRecord
   scenario?: { title: string; description: string; epic_source: string }
   intake?: IntakeState
+  planning?: PlanningState
+  build?: BuildState
   gates?: Gate[]
   provenance?: ProvenanceRecord[]
   provenance_ledger?: ProvenanceLedgerEntry[]

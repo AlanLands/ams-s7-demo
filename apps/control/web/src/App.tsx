@@ -13,6 +13,7 @@ import { Activity } from './pages/Activity'
 import { Reports } from './pages/Reports'
 import { Approvals } from './pages/Approvals'
 import { Risks } from './pages/Risks'
+import { Settings } from './pages/Settings'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
@@ -24,6 +25,7 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   reports: Reports,
   approvals: Approvals,
   risks: Risks,
+  settings: Settings,
   // epic_to_stories: EpicToStories,   — wired in Phase 3
   // ...remaining Phase-3 pages wired as each is ported
 }
