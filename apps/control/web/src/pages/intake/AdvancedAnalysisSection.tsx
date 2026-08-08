@@ -45,8 +45,9 @@ export function AdvancedAnalysisSection() {
     if (!file) { notify('Choose a file first', true); return }
     const form = new FormData()
     form.append('file', file)
-    uploadAct('/intake/upload-document', form, `${file.name} attached to the requirement`)
-    if (docFileRef.current) docFileRef.current.value = ''
+    uploadAct('/intake/upload-document', form, `${file.name} attached to the requirement`).then((ok) => {
+      if (ok && docFileRef.current) docFileRef.current.value = ''
+    })
   }
 
   return (
