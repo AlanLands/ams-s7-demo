@@ -172,6 +172,18 @@ def get_intake_document(run_id: str, name: str) -> FileResponse:
     return FileResponse(path, filename=name)
 
 
+class ConnectRepoBody(BaseModel):
+    role: str
+    url: str
+
+
+@app.post("/api/runs/{run_id}/intake/connect-repo")
+def post_intake_connect_repo(run_id: str, body: ConnectRepoBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_connect_repo(_role(body.role), body.url)
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 

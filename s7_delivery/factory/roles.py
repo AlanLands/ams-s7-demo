@@ -26,6 +26,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "upload_intake_document": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "run_intake_analysis": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_epic": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
+    "connect_repository": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "pass_intake_gate": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST},
     # planning
     "generate_plan": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},

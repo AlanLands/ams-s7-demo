@@ -12,6 +12,7 @@ phase by phase behind the same discipline.
 
 from __future__ import annotations
 
+import os
 import re
 from typing import Any
 
@@ -276,6 +277,8 @@ class Engine:
                 "requirement": self.store.read_json_or(None, "intake", "requirement.json"),
                 "analysis": self.store.read_json_or(None, "intake", "analysis.json"),
                 "epic": self.store.read_json_or(None, "intake", "epic.json"),
+                "repos": self.store.read_json_or([], "intake", "repos.json"),
+                "clarifications": self.store.read_json_or(None, "intake", "clarifications.json"),
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
@@ -320,7 +323,7 @@ class Engine:
         }
         stage_time: dict[str, float] = {}
         for ev in activity:
-            if ev.get("actor_type") == "simulation":
+            if ev.get("actor_type") in ("simulation", "live_ai"):
                 by_outcome["ai_workflows"] += 1
             if "approval" in ev.get("workflow", ""):
                 by_outcome["human_approvals"] += 1
@@ -427,6 +430,47 @@ class Engine:
             outcome="uploaded", details=f"{len(content)} bytes",
         )
         return safe_name
+
+    def intake_connect_repo(self, role: Role, url: str) -> None:
+        """Connect a target repository: shallow clone under the run's own
+        artifact tree, record metadata, store the context pack that grounds
+        every live call (spec: live-control-centre §2)."""
+        roles.require("connect_repository", role)
+        from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
+
+        try:
+            rec = clone_repo(url, self.store.path("repos"))
+        except RepoConnectError as exc:
+            raise EngineError(f"Repository clone failed: {exc}") from exc
+
+        repos = self.store.read_json_or([], "intake", "repos.json")
+        repos.append(rec.model_dump(mode="json"))
+        self.store.write_json(repos, "intake", "repos.json")
+
+        pack = build_context_pack(self.store.path("repos", rec.name), rec.name)
+        self.store.write_text(pack, "intake", "context", f"{rec.name}.md")
+
+        self._record(
+            artifact_id=f"REPO-{rec.name}", artifact_type="repository",
+            payload=rec, author=role.value, stage=Stage.INTAKE,
+            action="connect-repo", outcome="created",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="connect-repository", artifact=rec.name,
+            outcome="connected",
+            details=f"{rec.url} @ {rec.head_sha[:10]}, {rec.file_count} files",
+        )
+
+    def _connected_repos(self) -> list[dict]:
+        return self.store.read_json_or([], "intake", "repos.json")
+
+    def _context_packs(self) -> dict[str, str]:
+        return {
+            r["name"]: self.store.path("intake", "context", f"{r['name']}.md")
+            .read_text(encoding="utf-8")
+            for r in self._connected_repos()
+        }
 
     def intake_pass_gate(self, role: Role) -> None:
         roles.require("pass_intake_gate", role)
@@ -906,7 +950,16 @@ class Engine:
                 "(test-first is the demonstrated workflow)"
             )
         corrected = self._was_blocked(task_id)
-        prov = self._story(task["story_id"]).get("provenance", "simulated")
+        story = self._story(task["story_id"])
+        prov = story.get("provenance", "simulated")
+
+        # Opt-in escape hatch: one story's build/test/review runs for real,
+        # over `common.llm`, instead of the fixed simulated evidence. See
+        # `s7_delivery/factory/live.py`. Everything else stays simulated.
+        if os.environ.get("S7_LIVE_STORY") == task["story_id"]:
+            self._task_develop_live(task, tasks, story, task_id)
+            return
+
         ev = simulate.dev_evidence(task["story_id"], prov)
         previous = task["version"]
         task["files_changed"] = len(ev["files"])
@@ -949,6 +1002,72 @@ class Engine:
             stage=Stage.BUILD_REVIEW, actor="delivery-worker",
             actor_type="simulation", workflow="development", artifact=task_id,
             duration_s=45.0, outcome="amended" if corrected else "created",
+            details=task["change_summary"][:160],
+        )
+
+    def _task_develop_live(
+        self, task: dict, tasks: list[dict], story: dict, task_id: str
+    ) -> None:
+        """The `S7_LIVE_STORY` path for `task_develop`: real Developer/Tester/
+        Reviewer calls over `common.llm` via `s7_delivery.factory.live`,
+        instead of `simulate.dev_evidence`. Coverage isn't measured for a
+        live run (the lane doesn't compute it), so it's left at 0 rather than
+        invented — the caveat is in `current_activity`, not hidden."""
+        from s7_delivery.factory import live
+
+        root = self.store.path("build", "live", task_id)
+        result = live.run(task, story, root)
+        files = sorted(
+            str(p.relative_to(result.app_dir))
+            for p in result.app_dir.rglob("*")
+            if p.is_file()
+            and "__pycache__" not in p.parts
+            and ".pytest_cache" not in p.parts
+        )
+        lines_added = sum(
+            len((result.app_dir / f).read_text(encoding="utf-8").splitlines())
+            for f in files
+        )
+        verdict = result.review.get("verdict", "unknown")
+        previous = task["version"]
+        task["files_changed"] = len(files)
+        task["changed_files"] = files
+        task["lines_added"] = lines_added
+        task["lines_removed"] = 0
+        task["coverage_pct"] = 0
+        task["change_summary"] = (
+            f"Live model run for {task['story_id']}: Developer wrote "
+            f"{len(files)} file(s), Tester wrote tests, independent Reviewer "
+            f"verdict '{verdict}'"
+            + (" after a bounded revision pass" if result.revised else "")
+            + "."
+        )
+        task["commit_ref"] = f"c{abs(hash((task_id, 'live'))) % 10**7:07d}"
+        task["pr_ref"] = f"PR-{int(task_id[-3:]) + 20}"
+        for t in task["tests"]:
+            t["current_result"] = "passed" if result.ok else "failed"
+        task["progress_pct"] = 80
+        task["current_activity"] = (
+            f"Live run complete: pytest {'green' if result.ok else 'red'}, "
+            f"reviewer verdict '{verdict}'. Coverage not measured for live "
+            "runs (0 shown, not invented)."
+        )
+        task["last_activity"] = now_iso()
+        task["version"] = previous + 1 if self._was_blocked(task_id) else previous
+        self._save_tasks(tasks)
+        self.store.write_json(result.review, "build", "live", task_id, "review.json")
+        self._record(
+            artifact_id=f"CHG-{task_id[-3:]}", artifact_type="code_change",
+            payload={"files": files, "summary": task["change_summary"]},
+            author="delivery-worker (live model)", stage=Stage.BUILD_REVIEW,
+            action="develop", outcome="created",
+            inputs=[task["story_id"], f"TSTB-{task_id[-3:]}"],
+            version=task["version"],
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="delivery-worker",
+            actor_type="live_ai", workflow="development", artifact=task_id,
+            duration_s=0.0, outcome="created",
             details=task["change_summary"][:160],
         )
 
@@ -1008,6 +1127,26 @@ class Engine:
 
     # --- independent review -------------------------------------------------
 
+    @staticmethod
+    def _findings_from_live_review(live_review: dict) -> list[dict]:
+        """Adapt `downstream.py`'s reviewer JSON
+        (`{"criteria": [{"id", "met", "note"}], "notes": [...]}`) into the
+        `ReviewFinding` shape the factory renders."""
+        findings = []
+        for i, c in enumerate(live_review.get("criteria", []), start=1):
+            if c.get("met"):
+                continue
+            findings.append({
+                "finding_id": f"FND-{i:03d}",
+                "severity": "major",
+                "ac_id": c.get("id", ""),
+                "summary": (c.get("note") or "Criterion not met")[:80],
+                "detail": c.get("note", ""),
+                "expected": "", "observed": "", "impact": "",
+                "recommendation": "", "evidence": [],
+            })
+        return findings
+
     def review_execute(self, role: Role, task_id: str) -> dict:
         roles.require("execute_review", role)
         from s7_delivery.factory import simulate
@@ -1018,15 +1157,30 @@ class Engine:
             raise EngineError(f"{task_id} has not been submitted for review")
         corrected = self._was_blocked(task_id)
         story = self._story(task["story_id"])
-        verdict = simulate.review_findings(
-            task["story_id"], corrected=corrected,
-            provenance=story.get("provenance", "simulated"),
-        )
+        live_review = self.store.read_json_or(None, "build", "live", task_id, "review.json")
+        if live_review is not None:
+            findings = self._findings_from_live_review(live_review)
+            verdict = {
+                "result": "passed" if live_review.get("verdict") == "pass" else "blocked",
+                "critical_gaps": 0,
+                "major_gaps": len(findings),
+                "minor_gaps": 0,
+                "findings": findings,
+            }
+            reviewer_label = "independent-reviewer (live model, isolated from development)"
+            provenance = "live_ai"
+        else:
+            verdict = simulate.review_findings(
+                task["story_id"], corrected=corrected,
+                provenance=story.get("provenance", "simulated"),
+            )
+            reviewer_label = "independent-reviewer (simulated, isolated from development)"
+            provenance = "simulated"
         reviews = self._reviews()
         report = {
             "review_id": f"REV-{len(reviews) + 1:03d}",
             "task_id": task_id,
-            "reviewer": "independent-reviewer (simulated, isolated from development)",
+            "reviewer": reviewer_label,
             "result": verdict["result"],
             "critical_gaps": verdict["critical_gaps"],
             "major_gaps": verdict["major_gaps"],
@@ -1040,7 +1194,7 @@ class Engine:
             ],
             "created_at": now_iso(),
             "version": sum(1 for r in reviews if r["task_id"] == task_id) + 1,
-            "provenance": "simulated",
+            "provenance": provenance,
         }
         reviews.append(report)
         self.store.write_json(reviews, "review", "reviews.json")
