@@ -30,10 +30,10 @@ def test_scenarios_and_roles_listed(client):
     assert {r["role"] for r in roles} >= {"business_owner", "independent_reviewer"}
 
 
-def test_live_mode_refused(client):
-    res = client.post("/api/runs", json={"mode": "live"})
-    assert res.status_code == 400
-    assert "live" in res.json()["detail"].lower()
+def test_create_live_run_allowed(client):
+    resp = client.post("/api/runs", json={"mode": "live"})
+    assert resp.status_code == 200
+    assert resp.json()["run"]["mode"] == "live"
 
 
 def test_unknown_mode_and_role_are_400(client, run_id):

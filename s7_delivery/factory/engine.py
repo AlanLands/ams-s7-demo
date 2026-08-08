@@ -373,6 +373,9 @@ class Engine:
     def intake_analyse(self, role: Role) -> None:
         roles.require("run_intake_analysis", role)
         self._stage_in_progress(Stage.INTAKE)
+        if self.run().mode is DemoMode.LIVE:
+            self._intake_analyse_live()
+            return
         analysis = seed.ANALYSIS.model_copy(update={"generated_at": now_iso()})
         self.store.write_json(analysis, "intake", "analysis.json")
         self._record(
@@ -385,6 +388,39 @@ class Engine:
             stage=Stage.INTAKE, actor="intake-analysis", actor_type="simulation",
             workflow="intake-analysis", artifact="ANL-001", duration_s=6.0,
             outcome="created", details="requirement analysed; open questions surfaced",
+        )
+
+    def _intake_analyse_live(self) -> None:
+        """The live path: real model call over the connected repos' context.
+        Raises (never falls back) on failure — CLAUDE.md § Staged output."""
+        import time
+
+        from s7_delivery.factory import live_intake
+
+        packs = self._context_packs()
+        if not packs:
+            raise EngineError(
+                "Live analysis needs a connected repository — use "
+                "'Connect repository' first."
+            )
+        requirement = self.store.read_json("intake", "requirement.json")
+        transcript = (self.store.read_json_or({}, "intake", "clarifications.json")
+                      .get("transcript", []))
+        t0 = time.monotonic()
+        analysis, usage = live_intake.run_analysis(requirement, packs, transcript)
+        self.store.write_json(analysis, "intake", "analysis.json")
+        repo_ids = [f"REPO-{name}" for name in sorted(packs)]
+        self._record(
+            artifact_id="ANL-001", artifact_type="intake_analysis",
+            payload=analysis, author="intake-analysis (live)",
+            stage=Stage.INTAKE, action="analyse", outcome="created",
+            inputs=[requirement["request_id"], *repo_ids],
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor="intake-analysis", actor_type="live_ai",
+            workflow="intake-analysis", artifact="ANL-001",
+            duration_s=round(time.monotonic() - t0, 2), outcome="created",
+            details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
     def intake_create_epic(self, role: Role) -> None:

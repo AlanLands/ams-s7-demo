@@ -23,6 +23,8 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from common.llm import LLMError
+
 from s7_delivery.factory import seed
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
@@ -51,6 +53,11 @@ async def _permission_error(_req: Any, exc: PermissionError_) -> JSONResponse:
 @app.exception_handler(StoreError)
 async def _store_error(_req: Any, exc: StoreError) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(LLMError)
+async def _llm_error(_req: Any, exc: LLMError) -> JSONResponse:
+    return JSONResponse(status_code=502, content={"detail": str(exc)})
 
 
 def _engine(run_id: str) -> Engine:
@@ -97,13 +104,6 @@ def post_runs(body: CreateRun) -> dict:
         mode = DemoMode(body.mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown mode {body.mode!r}") from exc
-    if mode is DemoMode.LIVE:
-        raise HTTPException(
-            status_code=400,
-            detail="Live mode is not enabled for the demonstration; use "
-            "simulation or replay (spec §20: the demo never depends on a "
-            "live model call).",
-        )
     eng = Engine.create(mode)
     return eng.state()
 
