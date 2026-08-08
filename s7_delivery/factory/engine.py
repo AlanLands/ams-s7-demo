@@ -27,9 +27,11 @@ from s7_delivery.factory.models import (
     DeliveryPack,
     DeliveryRun,
     DemoMode,
+    DeveloperWorkspace,
     EpicRecord,
     GateId,
     GateRecord,
+    GitPublication,
     Provenance,
     ProvenanceRecord,
     Requirement,
@@ -335,7 +337,7 @@ class Engine:
             "reviews": self.store.read_json_or([], "review", "reviews.json"),
             "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
             "delivery_packs": self.store.read_json_or([], "build", "packs", "meta.json"),
-            "workspaces": self.store.read_json_or([], "build", "workspaces.json"),
+            "workspaces": self._workspaces_view(),
             "publications": self.store.read_ledger("publications.jsonl"),
         }
 
@@ -1827,6 +1829,233 @@ class Engine:
             details=f"{len(packs)} team packs over {len(stories)} stories",
         )
 
+    # --- git publication + developer workspaces -----------------------------
+
+    _DEV_STATUS = {
+        "not_started": "ready",
+        "ready": "ready",
+        "in_progress": "in_development",
+        "waiting_for_approval": "in_review",
+        "blocked": "correction_requested",
+        "completed": "complete",
+        "failed": "blocked",
+    }
+
+    def _workspaces(self) -> list[dict]:
+        return self.store.read_json_or([], "build", "workspaces.json")
+
+    def _save_workspaces(self, workspaces: list[dict]) -> None:
+        self.store.write_json(workspaces, "build", "workspaces.json")
+
+    def _workspaces_view(self) -> list[dict]:
+        """Workspaces enriched with live evidence: static provisioning fields
+        come from the record; commit/PR/CI/status derive from the story's task
+        so there is a single source of truth for execution state."""
+        workspaces = self._workspaces()
+        if not workspaces:
+            return []
+        tasks_by_story = {t["story_id"]: t for t in self._tasks()}
+        stale_ids = {
+            s["artifact_id"]
+            for s in self.store.read_json_or([], "staleness.json")
+        }
+        for ws in workspaces:
+            task = tasks_by_story.get(ws["story_id"])
+            if task:
+                ws["task_id"] = task["task_id"]
+                ws["current_commit"] = task.get("commit_ref", "")
+                ws["pull_request"] = task.get("pr_ref", "")
+                ws["ci_status"] = task.get("ci_status", "")
+                ws["development_status"] = self._DEV_STATUS.get(
+                    task.get("status", ""), task.get("status", "")
+                )
+            ws["artifact_status"] = (
+                "stale" if ws.get("delivery_pack_id") in stale_ids else "current"
+            )
+        return workspaces
+
+    def delivery_pack_publish(self, role: Role, pack_id: str) -> None:
+        """Publish a team pack into its developer repository as S7-managed
+        context (AGENTS.md + .s7/** only). Canonical artifacts stay in the
+        artifact store — published, not moved. Simulation/replay never touch
+        git; only a live run writes to the connected clone."""
+        roles.require("publish_delivery_pack", role)
+        from s7_delivery.factory import delivery_packs as dp
+        from s7_delivery.factory import publication as pub
+
+        phase = self._build_phase()
+        build_phases.require_at_least(
+            phase, BuildReviewPhase.DELIVERY_PACKS_READY, "Publication"
+        )
+        packs = self._packs()
+        pack = next((p for p in packs if p["delivery_pack_id"] == pack_id), None)
+        if pack is None:
+            raise EngineError(f"Unknown delivery pack {pack_id}")
+        if pack["publication_status"] == "published":
+            raise EngineError(
+                f"{pack_id} v{pack['version']} is already published — regenerate"
+                " packs to produce a new version first"
+            )
+        stale_ids = {
+            s["artifact_id"] for s in self.store.read_json_or([], "staleness.json")
+        }
+        if pack_id in stale_ids:
+            raise EngineError(
+                f"{pack_id} is stale (its architecture or plan moved on) —"
+                " regenerate delivery packs before publishing"
+            )
+        branch = dp.branch_name(self.run_id, pack["team"])
+        files = pub.file_plan(self.store, pack)
+        publications = self.store.read_ledger("publications.jsonl")
+        republish = any(
+            p["repository"] == pack["repository"] and p["status"] == "published"
+            for p in publications
+        )
+        live = self.run().mode is DemoMode.LIVE
+        if live:
+            repo = next(
+                (r for r in self._connected_repos() if r["name"] == pack["repository"]),
+                None,
+            )
+            if repo is None:
+                raise EngineError(
+                    f"Repository {pack['repository']!r} is not connected —"
+                    " connect it at intake before publishing"
+                )
+            repo_dir = self.store.path("repos", pack["repository"])
+            try:
+                commit = pub.publish_to_clone(
+                    repo_dir, files, branch=branch,
+                    default_branch=repo.get("default_branch", ""),
+                    republish=republish,
+                )
+                if pub.has_remote(repo_dir):
+                    pub.push_branch(repo_dir, branch, repo.get("default_branch", ""))
+            except pub.PublicationConflict as exc:
+                raise EngineError(str(exc)) from exc
+        else:
+            try:
+                pub.check_branch(branch, "")
+            except pub.PublicationConflict as exc:  # defence in depth
+                raise EngineError(str(exc)) from exc
+            commit = pub.simulated_commit(pack["content_hash"])
+
+        record = GitPublication(
+            publication_id=f"PUB-{len(publications) + 1:03d}",
+            delivery_pack_id=pack_id,
+            repository=pack["repository"],
+            branch=branch,
+            commit=commit,
+            published_paths=sorted(files),
+            status="published",
+            simulated=not live,
+            published_at=now_iso(),
+            provenance=Provenance.HUMAN if live else Provenance.SIMULATED,
+        ).model_dump(mode="json")
+        self.store.append(record, "publications.jsonl")
+        pack["publication_status"] = "published"
+        pack["published_at"] = record["published_at"]
+        self._save_packs(packs)
+        self._record(
+            artifact_id=f"PUB-{pack['team_slug']}", artifact_type="git_publication",
+            payload=record, author=role.value, stage=Stage.BUILD_REVIEW,
+            action="publish", outcome="published", inputs=[pack_id],
+            version=pack["version"],
+            previous_version=pack["version"] - 1 if pack["version"] > 1 else None,
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="delivery-pack-publication", artifact=pack_id,
+            outcome="published",
+            details=f"{pack['team']} pack v{pack['version']} → "
+                    f"{pack['repository']}@{branch} ({commit[:7]}"
+                    f"{', simulated' if not live else ''})",
+        )
+        self._provision_workspaces(pack, branch, commit)
+        build_phases.advance(
+            self.store, self._build_phase(), BuildReviewPhase.WORKSPACES_READY,
+            actor=role.value,
+        )
+
+    def _provision_workspaces(self, pack: dict, branch: str, commit: str) -> None:
+        """One workspace per story in the pack. The developer field survives
+        republication — assignment is a human decision, not pack state."""
+        workspaces = self._workspaces()
+        by_story = {w["story_id"]: w for w in workspaces}
+        for story_id in pack["story_ids"]:
+            existing = by_story.get(story_id)
+            ws = DeveloperWorkspace(
+                workspace_id=f"WS-{story_id}",
+                run_id=self.run_id,
+                team=pack["team"],
+                story_id=story_id,
+                repository=pack["repository"],
+                branch=branch,
+                developer=(existing or {}).get("developer", ""),
+                delivery_pack_id=pack["delivery_pack_id"],
+                delivery_pack_version=pack["version"],
+                base_commit=commit,
+                development_status="provisioned",
+                provenance=Provenance.SIMULATED
+                if pack.get("provenance") != "human" else Provenance.HUMAN,
+            ).model_dump(mode="json")
+            if existing:
+                workspaces[workspaces.index(existing)] = ws
+                by_story[story_id] = ws
+            else:
+                workspaces.append(ws)
+                by_story[story_id] = ws
+            self._record(
+                artifact_id=f"WS-{story_id}", artifact_type="developer_workspace",
+                payload=ws, author="workspace-service", stage=Stage.BUILD_REVIEW,
+                action="provision", outcome="ready",
+                inputs=[pack["delivery_pack_id"]],
+                version=pack["version"],
+                previous_version=pack["version"] - 1 if pack["version"] > 1 else None,
+            )
+            self._activity(
+                stage=Stage.BUILD_REVIEW, actor="workspace-service",
+                actor_type="service", workflow="workspace-provisioning",
+                artifact=f"WS-{story_id}", outcome="ready",
+                details=f"{pack['team']} · {story_id} · {pack['repository']}@{branch}",
+            )
+        self._save_workspaces(workspaces)
+
+    def delivery_packs_publish_all(self, role: Role) -> int:
+        roles.require("publish_delivery_pack", role)
+        pending = [
+            p["delivery_pack_id"] for p in self._packs()
+            if p["publication_status"] != "published"
+        ]
+        if not pending:
+            raise EngineError("Every delivery pack is already published")
+        for pack_id in pending:
+            self.delivery_pack_publish(role, pack_id)
+        return len(pending)
+
+    def workspace_assign_developer(
+        self, role: Role, workspace_id: str, developer: str
+    ) -> None:
+        roles.require("assign_developer", role)
+        if not developer.strip():
+            raise EngineError("Developer name is empty")
+        workspaces = self._workspaces()
+        ws = next(
+            (w for w in workspaces if w["workspace_id"] == workspace_id), None
+        )
+        if ws is None:
+            raise EngineError(f"Unknown workspace {workspace_id}")
+        ws["developer"] = developer.strip()
+        ws["last_sync_at"] = now_iso()
+        self._save_workspaces(workspaces)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="developer-assignment", artifact=workspace_id,
+            outcome="assigned",
+            details=f"{developer.strip()} owns {ws['story_id']} "
+                    "(Human Controlled · AI Assisted)",
+        )
+
     # --- build & independent review (spec §9) ------------------------------
 
     def _tasks(self) -> list[dict]:
@@ -1870,6 +2099,21 @@ class Engine:
             raise EngineError("Build opens after the plan is signed (G1)")
         tasks = self._tasks()
         task = self._task(tasks, task_id)
+        # Entity-level guard: once delivery packs exist, execution evidence
+        # only flows for stories whose team pack reached a developer
+        # workspace. (Runs that never generate packs — the pre-existing demo
+        # macros and tests — keep the legacy direct path.)
+        packs = self._packs()
+        if packs:
+            pack = next(
+                (p for p in packs if task["story_id"] in p.get("story_ids", [])),
+                None,
+            )
+            if pack is not None and pack["publication_status"] != "published":
+                raise EngineError(
+                    f"{task_id} belongs to {pack['delivery_pack_id']}, which"
+                    " has not been published to its developer workspace yet"
+                )
         if task["status"] not in (Status.READY, "ready", Status.IN_PROGRESS, "in_progress"):
             raise EngineError(
                 f"{task_id} is {task['status']}; only a ready task can start "

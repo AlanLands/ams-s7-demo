@@ -607,6 +607,34 @@ def get_delivery_pack_zip(run_id: str, pack_id: str) -> StreamingResponse:
     )
 
 
+@app.post("/api/runs/{run_id}/delivery-packs/{pack_id}/publish")
+def post_delivery_pack_publish(run_id: str, pack_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.delivery_pack_publish(_role(body.role), pack_id)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/delivery-packs/publish-all")
+def post_delivery_packs_publish_all(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.delivery_packs_publish_all(_role(body.role))
+    return eng.state()
+
+
+class DeveloperBody(BaseModel):
+    role: str
+    developer: str
+
+
+@app.patch("/api/runs/{run_id}/workspaces/{workspace_id}/developer")
+def patch_workspace_developer(
+    run_id: str, workspace_id: str, body: DeveloperBody
+) -> dict:
+    eng = _engine(run_id)
+    eng.workspace_assign_developer(_role(body.role), workspace_id, body.developer)
+    return eng.state()
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 
