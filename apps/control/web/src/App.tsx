@@ -50,7 +50,6 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   dev_progress: DevProgress,
   test_evidence: TestEvidence,
   independent_review: IndependentReview,
-  // stories/quality/release wired once their codex ports land
 }
 
 function Shell() {

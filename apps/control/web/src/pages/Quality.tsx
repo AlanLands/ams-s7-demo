@@ -14,7 +14,7 @@ function GatePanel({ gateId, title, hint }: { gateId: string; title: string; hin
       </div>
       {(gate?.conditions ?? []).length ? (
         <ul className="plain">
-          {gate?.conditions.map((condition, index) => (
+          {(gate?.conditions ?? []).map((condition, index) => (
             <li key={`${condition.condition}-${index}`}>
               {`${condition.met ? '✓' : '✗'} ${condition.condition}`}
               {condition.detail ? <span className="hint">{` — ${condition.detail}`}</span> : null}
