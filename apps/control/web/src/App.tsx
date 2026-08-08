@@ -6,7 +6,7 @@ import { Toast } from './components/Toast'
 import { NotYetPorted } from './components/NotYetPorted'
 import { Overview } from './pages/Overview'
 
-const PAGES: Record<string, () => React.ReactElement> = {
+const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
   // intake: IntakePage,               — wired in Task 2.7
   // epic_to_stories: EpicToStories,   — wired in Phase 3
