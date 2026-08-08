@@ -32,7 +32,7 @@ from s7_delivery.factory.models import DemoMode, Role
 from s7_delivery.factory.roles import PermissionError_, actions_for
 from s7_delivery.factory.store import StoreError, list_runs
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
+STATIC_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
 app = FastAPI(
     title="S7 Delivery Control Centre",

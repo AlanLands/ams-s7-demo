@@ -29,11 +29,11 @@ artifacts/runs/
 data/*
 !data/.gitkeep
 
-# frontend build output/deps, if a web console lands here.
-# Portability rule 4: dist/ must be built or vendored ahead of time for the
-# locked-down environment, where npm may not be available.
+# frontend build deps — the web console landed at apps/control/web/.
+# Portability rule 4 (amended 2026-08-08): dist/ is committed, not ignored —
+# the locked-down environment runs the built output directly; npm is a
+# build-time tool only. See CLAUDE.md hard rule 4.
 node_modules/
-dist/
 .vite/
 
 # OS / editor noise
