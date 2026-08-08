@@ -188,3 +188,13 @@ def test_run_plan_rejects_bad_estimate(monkeypatch):
     monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
     with pytest.raises(LLMError, match="estimate"):
         live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+
+
+def test_run_plan_rejects_single_acceptance_criterion(monkeypatch):
+    bad = {**GOOD_PLAN, "stories": [dict(
+        GOOD_STORY,
+        acceptance_criteria=[{"ac_id": "US-001-AC1", "text": "only one"}],
+    )]}
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="at least 2 acceptance criteria"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)

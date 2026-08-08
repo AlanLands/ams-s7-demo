@@ -285,8 +285,10 @@ exactly matching:
             )
         if raw.get("estimate") not in _POINT_SCALE:
             raise LLMError(f"story {sid}: estimate must be one of {_POINT_SCALE}")
-        if not raw.get("acceptance_criteria"):
-            raise LLMError(f"story {sid}: no acceptance criteria")
+        if len(raw.get("acceptance_criteria") or []) < 2:
+            raise LLMError(
+                f"story {sid}: needs at least 2 acceptance criteria"
+            )
         _excluded = {"provenance", "status", "version", "epic_id"}  # ours to set
         try:
             story = Story(
