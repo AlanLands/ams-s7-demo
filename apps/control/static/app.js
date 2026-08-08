@@ -468,6 +468,23 @@
         })) : null) : el("div", { class: "card" },
       el("p", { text: "No analysis yet — run the intake analysis." }));
 
+    const clar = d.intake?.clarifications;
+    const clarCard = clar?.pending?.length ? el("div", { class: "card" },
+      el("div", { class: "section-title" }, el("h3", { text: "AI Clarification" }),
+        el("span", { class: "chip", text: `round ${clar.rounds_used} of ${clar.max_rounds}` })),
+      (() => {
+        const inputs = clar.pending.map((q) =>
+          ({ q, input: el("input", { type: "text", placeholder: "Answer (blank = stated assumption)" }) }));
+        return el("div", {},
+          ...inputs.map(({ q, input }) => el("div", { style: "margin-bottom:8px" },
+            el("p", { text: q }), input)),
+          el("button", {
+            class: "primary sq", text: "Submit answers",
+            onclick: () => act("/intake/clarify-answer",
+              { answers: inputs.map(({ input }) => input.value) }, "Answers recorded"),
+          }));
+      })()) : null;
+
     const rulesCard = analysis?.business_rules?.length ? el("div", { class: "card" },
       el("div", { class: "section-title" }, el("h3", { text: "AI Extracted Business Rules" }), prov(analysis.provenance)),
       el("ul", { class: "plain" }, analysis.business_rules.map((r) =>
@@ -484,14 +501,42 @@
         el("b", { text: "Estimated Stories" }), el("span", { text: String(epic.estimated_stories) }),
         el("b", { text: "Created By" }), el("span", { text: epic.created_by }))) : null;
 
+    const isLive = d.run?.mode === "live";
+    const repos = d.intake?.repos ?? [];
+
+    const repoCard = isLive ? el("div", { class: "card" },
+      el("div", { class: "section-title" }, el("h3", { text: "Connected Repositories" }),
+        el("span", { class: "chip", text: `${repos.length} connected` })),
+      el("ul", { class: "plain" }, repos.map((r) =>
+        el("li", {},
+          el("span", { class: "mono", text: r.name }),
+          el("span", { class: "hint", text: ` @ ${r.head_sha.slice(0, 10)} · ${r.file_count} files` })))),
+      (() => {
+        const url = el("input", { type: "text", placeholder: "https://github.com/<owner>/<repo>" });
+        const btn = el("button", {
+          class: "outline", text: "Connect repository",
+          onclick: () => { if (url.value.trim()) act("/intake/connect-repo", { url: url.value.trim() }, "Repository connected"); },
+        });
+        return el("div", { class: "row", style: "margin-top:10px; display:flex; gap:8px" }, url, btn);
+      })(),
+      repos.length === 0 ? el("p", { class: "hint", text: "Live analysis is grounded in the connected repos — connect them before analysing." }) : null) : null;
+
     const rail = el("aside", { class: "rail" },
       el("div", { class: "card rail-card" },
         el("h3", { text: "Actions" }),
-        Object.assign(el("button", {
-          class: "outline block", style: "margin-top:10px", text: "Ask AI Clarification",
-          title: "The analysis already lists its open questions for the SME (below the fold). A live clarification chat is not part of the demo engine — honestly disabled, not mocked.",
-        }), { disabled: true }),
-        el("button", { class: "outline block", style: "margin-top:8px", text: "⟳ Regenerate Analysis", onclick: () => act("/intake/analyse", {}, "Intake analysis regenerated") }),
+        isLive
+          ? el("button", {
+              class: "outline block", style: "margin-top:10px", text: "Ask AI Clarification",
+              onclick: () => act("/intake/clarify", {}, "Clarifying questions requested"),
+            })
+          : Object.assign(el("button", {
+              class: "outline block", style: "margin-top:10px", text: "Ask AI Clarification",
+              title: "Live clarification runs in live mode. In demo mode the analysis lists its open questions below — honestly disabled, not mocked.",
+            }), { disabled: true }),
+        el("button", {
+          class: "outline block", style: "margin-top:8px", text: "⟳ Regenerate Analysis",
+          onclick: () => act("/intake/analyse", {}, isLive ? "Live analysis regenerated" : "Intake analysis regenerated"),
+        }),
         el("button", { class: "primary sq block", style: "margin-top:8px", text: "Generate Epic", onclick: () => act("/intake/create-epic", {}, "Epic created") }),
         el("button", { class: "primary sq block approve", style: "margin-top:8px", text: "✓ Pass Intake Gate", onclick: () => act("/intake/pass-gate", {}, "Intake gate passed") })),
       guidanceCard());
@@ -501,8 +546,10 @@
         el("div", { class: "page-head", style: "margin-bottom:16px" },
           el("h2", { text: "Intake — AI Analysis" }),
           el("span", { class: "hint", text: "The analysis model reviews the requirement and extracts key information. A human passes the gate." })),
+        repoCard ? el("div", { style: "margin-bottom:14px" }, repoCard) : null,
         reqCard,
         el("div", { style: "margin-top:14px" }, aiCard),
+        clarCard ? el("div", { style: "margin-top:14px" }, clarCard) : null,
         rulesCard ? el("div", { style: "margin-top:14px" }, rulesCard) : null,
         analysis ? el("div", { class: "grid cols-2", style: "margin-top:14px" },
           el("div", { class: "card" },
