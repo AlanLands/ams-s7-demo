@@ -1,25 +1,53 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useRun } from '../../state/RunContext'
-import { Prov } from '../../components/Badge'
+import { Badge, Prov } from '../../components/Badge'
+import { Modal } from '../../components/Modal'
 
 export function AdvancedAnalysisSection() {
-  const { data, act } = useRun()
+  const { data, act, uploadAct, runId, notify } = useRun()
   const [open, setOpen] = useState(false)
   const [clarAnswers, setClarAnswers] = useState<string[]>([])
   const [newAppAnswers, setNewAppAnswers] = useState<string[]>([])
   const [routeOverride, setRouteOverride] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
+  const [showReqModal, setShowReqModal] = useState(false)
+  const docFileRef = useRef<HTMLInputElement>(null)
 
   if (!data) return null
   const isLive = data.run?.mode === 'live'
   const req = data.intake?.requirement
   const analysis = data.intake?.analysis
+  const epic = data.intake?.epic
   const gate = (data.gates ?? []).find((g) => g.gate_id === 'G0')
   const clar = data.intake?.clarifications
   const repos = data.intake?.repos ?? []
   const routing = data.intake?.routing
   const newApp = data.intake?.new_app
   const scaffold = data.intake?.scaffold
+
+  const gateConditions = gate?.conditions ?? []
+  const gateSummaryLine = gateConditions.length
+    ? `${gateConditions.filter((c) => c.met).length} / ${gateConditions.length} conditions met`
+    : 'Conditions appear once analysis has run.'
+  const gateChecklistItems = gateConditions.length
+    ? gateConditions.map((c) => ({ met: c.met, label: c.condition }))
+    : [
+        { met: Boolean(req), label: 'Requirement captured' },
+        { met: Boolean(req?.description), label: 'Source available' },
+        { met: Boolean(analysis), label: 'Initial analysis completed' },
+        { met: Boolean(analysis?.affected_applications?.length), label: 'Scope identifiable' },
+        { met: Boolean(req?.business_owner), label: 'Business owner identified' },
+        { met: Boolean(analysis), label: 'No critical blockers' },
+      ]
+
+  const handleDocUpload = () => {
+    const file = docFileRef.current?.files?.[0]
+    if (!file) { notify('Choose a file first', true); return }
+    const form = new FormData()
+    form.append('file', file)
+    uploadAct('/intake/upload-document', form, `${file.name} attached to the requirement`)
+    if (docFileRef.current) docFileRef.current.value = ''
+  }
 
   return (
     <details className="card advanced-section" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
@@ -37,7 +65,42 @@ export function AdvancedAnalysisSection() {
               <b>Domain</b><span>{req.domain}</span>
               <b>Description</b><span className="clamp-2">{req.description}</span>
             </div>
+            <h4 style={{ marginTop: 14, fontSize: 12.5, color: 'var(--muted)' }}>Documents</h4>
+            {req.source_documents?.length ? (
+              <ul className="plain">
+                {req.source_documents.map((name) => (
+                  <li key={name}>
+                    {name.includes('/')
+                      ? <span className="mono">{name}</span>
+                      : <a className="mono" href={`/api/runs/${runId}/intake/documents/${encodeURIComponent(name)}`} target="_blank" rel="noopener noreferrer">{name}</a>}
+                  </li>
+                ))}
+              </ul>
+            ) : <p className="hint">No documents attached yet.</p>}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
+              <input type="file" ref={docFileRef} />
+              <button type="button" className="outline" onClick={handleDocUpload}>⬆ Upload</button>
+            </div>
+            <button type="button" className="outline block" style={{ marginTop: 12 }} onClick={() => setShowReqModal(true)}>
+              ⤢ View full requirement
+            </button>
           </div>
+        )}
+
+        {showReqModal && req && (
+          <Modal title="Requirement Summary" onClose={() => setShowReqModal(false)}>
+            <Prov provenance={req.provenance} />
+            <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
+              <b>Request ID</b><span className="mono">{req.request_id}</span>
+              <b>Title</b><span>{req.title}</span>
+              <b>Requested By</b><span>{req.business_owner}</span>
+              <b>Priority</b><span><span className={`chip priority-${(req.priority || 'low').toLowerCase()}`}>{req.priority}</span></span>
+              <b>Requested On</b><span>{req.requested_date}</span>
+              <b>Target Release</b><span>{req.target_release}</span>
+              <b>Domain</b><span>{req.domain}</span>
+              <b>Description</b><span>{req.description}</span>
+            </div>
+          </Modal>
         )}
 
         <div className="card" style={{ marginBottom: 12 }}>
@@ -46,10 +109,13 @@ export function AdvancedAnalysisSection() {
               <div className="section-title"><h3>AI Analysis (Completed)</h3><Prov provenance={analysis.provenance} /></div>
               <ul className="checklist">
                 <li><span className={`tick ${analysis.problem_understood ? 'ok' : 'no'}`}>{analysis.problem_understood ? '✓' : '·'}</span>Problem understood</li>
-                <li><span className="tick ok">✓</span>Affected applications <span className="state ok mono">{analysis.affected_applications.length}</span></li>
-                <li><span className="tick ok">✓</span>Stakeholders <span className="state ok mono">{analysis.stakeholders.length}</span></li>
-                <li><span className="tick ok">✓</span>Dependencies <span className="state ok mono">{analysis.dependencies.length}</span></li>
-                <li><span className="tick ok">✓</span>Risks <span className="state ok mono">{analysis.risks.length}</span></li>
+                <li><span className={`tick ${analysis.business_impact ? 'ok' : 'no'}`}>{analysis.business_impact ? '✓' : '·'}</span>Business impact identified</li>
+                <li><span className={`tick ${analysis.affected_applications.length > 0 ? 'ok' : 'no'}`}>{analysis.affected_applications.length > 0 ? '✓' : '·'}</span>Affected applications identified <span className="state ok mono">{analysis.affected_applications.length}</span></li>
+                <li><span className={`tick ${analysis.stakeholders.length > 0 ? 'ok' : 'no'}`}>{analysis.stakeholders.length > 0 ? '✓' : '·'}</span>Stakeholders identified <span className="state ok mono">{analysis.stakeholders.length}</span></li>
+                <li><span className={`tick ${analysis.dependencies.length > 0 ? 'ok' : 'no'}`}>{analysis.dependencies.length > 0 ? '✓' : '·'}</span>Dependencies detected <span className="state ok mono">{analysis.dependencies.length}</span></li>
+                <li><span className={`tick ${analysis.risks.length > 0 ? 'ok' : 'no'}`}>{analysis.risks.length > 0 ? '✓' : '·'}</span>Risks identified <span className="state ok mono">{analysis.risks.length}</span></li>
+                <li><span className={`tick ${analysis.clarification_questions.length > 0 ? 'ok' : 'no'}`}>{analysis.clarification_questions.length > 0 ? '✓' : '·'}</span>Clarification questions generated <span className="state ok mono">{analysis.clarification_questions.length}</span></li>
+                <li><span className={`tick ${analysis.assumptions.length > 0 ? 'ok' : 'no'}`}>{analysis.assumptions.length > 0 ? '✓' : '·'}</span>Assumptions captured <span className="state ok mono">{analysis.assumptions.length}</span></li>
               </ul>
               {analysis.confidence != null && (
                 <div className="conf-row"><b>AI Confidence</b><span className="info conf-v">{analysis.confidence}% ⓘ</span></div>
@@ -78,6 +144,17 @@ export function AdvancedAnalysisSection() {
           </div>
         ) : null}
 
+        {analysis?.business_rules?.length ? (
+          <div className="card" style={{ marginBottom: 12 }}>
+            <div className="section-title"><h3>AI Extracted Business Rules</h3><Prov provenance={analysis.provenance} /></div>
+            <ul className="plain">
+              {analysis.business_rules.map((r) => (
+                <li key={r.rule_id}><span className="chip priority-high" style={{ marginRight: 8 }}>{r.rule_id}</span>{r.text}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {isLive && (
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="section-title"><h3>Connected Repositories</h3><span className="chip">{repos.length} connected</span></div>
@@ -92,6 +169,9 @@ export function AdvancedAnalysisSection() {
                 Connect repository
               </button>
             </div>
+            {repos.length === 0 && (
+              <p className="hint" style={{ marginTop: 10 }}>Live analysis is grounded in the connected repos — connect them before analysing.</p>
+            )}
           </div>
         )}
 
@@ -106,6 +186,8 @@ export function AdvancedAnalysisSection() {
                     {routing.verdict === 'routable' ? 'Fits connected repos' : 'New application needed'}
                   </span></span>
                   <b>Reasoning</b><span>{routing.reasoning}</span>
+                  {routing.candidate_repos?.length ? <><b>Candidate repos</b><span>{routing.candidate_repos.join(', ')}</span></> : null}
+                  {routing.overridden_by ? <><b>Overridden by</b><span>{routing.overridden_by} at {routing.overridden_at}</span></> : null}
                 </div>
                 <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span className="hint">Override:</span>
@@ -157,19 +239,41 @@ export function AdvancedAnalysisSection() {
               </button>
             )}
             {scaffold && (
-              <button type="button" className="primary sq block" style={{ marginTop: 10 }} onClick={() => act('/intake/create-new-app-repo', {}, 'New application repository created')}>
-                Create Repository
-              </button>
+              <div style={{ marginTop: 10 }}>
+                <p className="hint">Scaffold generated — review before creating the repository.</p>
+                {Object.entries(scaffold).map(([name, content]) => (
+                  <details key={name} style={{ marginTop: 6 }}>
+                    <summary>{name}</summary>
+                    <pre className="mono" style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{content}</pre>
+                  </details>
+                ))}
+                <button type="button" className="primary sq block" style={{ marginTop: 10 }} onClick={() => act('/intake/create-new-app-repo', {}, 'New application repository created')}>
+                  Create Repository
+                </button>
+              </div>
             )}
           </div>
         )}
 
+        {epic && (
+          <div className="card ok" style={{ marginBottom: 12 }}>
+            <div className="section-title"><h3>Created Epic</h3><Prov provenance={epic.provenance} /></div>
+            <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
+              <b>Epic ID</b><span className="mono">{epic.epic_id}</span>
+              <b>Epic Title</b><span>{epic.title}</span>
+              <b>Business Outcome</b><span>{epic.business_outcome}</span>
+              <b>Estimated Stories</b><span>{epic.estimated_stories}</span>
+              <b>Created By</b><span>{epic.created_by}</span>
+            </div>
+          </div>
+        )}
+
         <div className="card">
-          <div className="section-title"><h3>Intake Gate (G0)</h3></div>
-          <p className="hint">{gate?.status ?? 'not_started'}</p>
+          <div className="section-title"><h3>Intake Gate (G0)</h3><Badge status={gate?.status} /></div>
+          <p className="hint">{gateSummaryLine}</p>
           <ul className="checklist">
-            {(gate?.conditions ?? []).map((c) => (
-              <li key={c.condition}><span className={`tick ${c.met ? 'ok' : 'no'}`}>{c.met ? '✓' : '·'}</span>{c.condition}</li>
+            {gateChecklistItems.map((c) => (
+              <li key={c.label}><span className={`tick ${c.met ? 'ok' : 'no'}`}>{c.met ? '✓' : '·'}</span>{c.label}</li>
             ))}
           </ul>
           <div className="actions-row" style={{ marginTop: 10 }}>
