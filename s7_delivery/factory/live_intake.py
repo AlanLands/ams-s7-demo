@@ -1,0 +1,145 @@
+"""Live LLM calls for the Control Centre's upstream half (spec §3-§6).
+
+Every function here: builds a `PromptLayers` whose `ref` layer is the
+connected repos' context packs, calls `common.llm.complete` in JSON mode,
+and validates the response strictly into the factory's own Pydantic shapes.
+Reject, don't repair: a malformed response raises `LLMError`, and the engine
+surfaces it — a live run never silently serves seeded content.
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+
+from common.llm import LLMError, complete, parse_json_response
+from common.prompt import PromptLayers
+from s7_delivery.factory.models import IntakeAnalysis, Provenance
+
+MAX_CLARIFICATION_ROUNDS = 2
+
+RULES = (
+    "You are an AI delivery assistant for MapleSure Insurance, a fictional "
+    "insurer in a tabletop exercise. All data is synthetic. Answer with "
+    "structured JSON only, and never invent facts the input does not support."
+)
+
+ANALYSIS_ROLE = (
+    "Your role is intake analysis: read a business change request against the "
+    "connected application repositories and extract what a delivery lead "
+    "needs — impact, affected applications, stakeholders, dependencies, "
+    "risks, open questions, assumptions and business rules. Ground every "
+    "claim in the requirement or the repository context; where the "
+    "repositories show a capability is absent, say so as a dependency or "
+    "risk, not a guess."
+)
+
+
+def provenance_now() -> Provenance:
+    mode = os.environ.get("LLM_MODE", "replay").lower()
+    return Provenance.LIVE_AI if mode in {"live", "record"} else Provenance.REPLAYED_AI
+
+
+def _ref(requirement: dict, packs: dict[str, str]) -> str:
+    packs_text = "\n\n---\n\n".join(packs[name] for name in sorted(packs))
+    return (
+        f"The connected application repositories:\n\n{packs_text}\n\n---\n\n"
+        f"The change request, verbatim:\n\n{json.dumps(requirement, indent=2)}"
+    )
+
+
+def _transcript_text(transcript: list[dict]) -> str:
+    if not transcript:
+        return "(none yet)"
+    return "\n".join(f"{t['role']}: {t['text']}" for t in transcript)
+
+
+def _cache_digest(*parts: str) -> str:
+    return hashlib.sha256("\x1e".join(parts).encode("utf-8")).hexdigest()[:16]
+
+
+def _call(*, role: str, ref: str, task: str, beat: str, key_material: str) -> tuple[dict, dict]:
+    usage: dict = {}
+    response = complete(
+        PromptLayers(rules=RULES, role=role, ref=ref, task=task),
+        json_mode=True,
+        cache_key=f"s7_factory_{beat}:{_cache_digest(key_material)}",
+        usage_out=usage,
+    )
+    return parse_json_response(response), usage
+
+
+_ANALYSIS_SHAPE = """{
+  "problem_understood": true,
+  "business_impact": "<one paragraph>",
+  "affected_applications": ["<connected repository name, or an external system suffixed ' (externally owned)'>"],
+  "stakeholders": ["<who>"],
+  "dependencies": ["<what this depends on, grounded in the repositories>"],
+  "risks": ["<risk>"],
+  "clarification_questions": ["<open question for the SME>"],
+  "assumptions": ["<assumption carried>"],
+  "business_rules": [{"rule_id": "BR-<n>", "text": "<rule in the requirement's words>"}],
+  "risk_register": [{"text": "<risk>", "severity": "high|medium|low"}],
+  "confidence": <0-100 self-assessment>
+}"""
+
+
+def run_analysis(
+    requirement: dict, packs: dict[str, str], transcript: list[dict]
+) -> tuple[IntakeAnalysis, dict]:
+    if not packs:
+        raise LLMError(
+            "Live analysis needs at least one connected repository — connect "
+            "the target repos first (grounding is the point)."
+        )
+    task = f"""Clarification conversation so far:
+{_transcript_text(transcript)}
+
+Analyse the change request against the connected repositories. Return JSON
+exactly matching:
+{_ANALYSIS_SHAPE}"""
+    data, usage = _call(
+        role=ANALYSIS_ROLE,
+        ref=_ref(requirement, packs),
+        task=task,
+        beat="analysis",
+        # Pack content is in the key: a repo update honestly misses the cache.
+        key_material=json.dumps(requirement, sort_keys=True)
+        + "".join(packs[k] for k in sorted(packs))
+        + json.dumps(transcript, sort_keys=True),
+    )
+    return _validate_analysis(data, set(packs)), usage
+
+
+def _validate_analysis(data: dict, repo_names: set[str]) -> IntakeAnalysis:
+    apps = data.get("affected_applications")
+    if not isinstance(apps, list) or not apps:
+        raise LLMError("analysis has no affected_applications")
+    grounded = [a for a in apps if a in repo_names]
+    if not grounded:
+        raise LLMError(
+            "affected_applications names no connected repository — "
+            f"got {apps}, connected {sorted(repo_names)}"
+        )
+    for a in apps:
+        if a not in repo_names and not a.endswith("(externally owned)"):
+            raise LLMError(
+                f"affected_applications entry {a!r} is neither a connected "
+                "repository nor marked '(externally owned)'"
+            )
+    for rule in data.get("business_rules", []):
+        if not (isinstance(rule, dict) and rule.get("rule_id") and rule.get("text")):
+            raise LLMError(f"business_rules entry missing rule_id/text: {rule!r}")
+    for row in data.get("risk_register", []):
+        if not (isinstance(row, dict) and row.get("text")
+                and row.get("severity") in {"high", "medium", "low"}):
+            raise LLMError(f"risk_register entry malformed: {row!r}")
+    _excluded = {"provenance", "generated_at"}  # ours to set, not the model's
+    try:
+        return IntakeAnalysis(
+            **{k: v for k, v in data.items()
+               if k in IntakeAnalysis.model_fields and k not in _excluded},
+            provenance=provenance_now(),
+        )
+    except Exception as exc:  # pydantic ValidationError → one LLMError vocabulary
+        raise LLMError(f"analysis failed validation: {exc}") from exc
