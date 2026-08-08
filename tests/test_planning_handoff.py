@@ -66,3 +66,37 @@ def test_export_artifacts_before_signoff_is_an_error(tmp_path, monkeypatch):
     eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="sign"):
         eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+
+
+def test_write_to_clone_commits_locally_no_push(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+
+    clone_dir = eng.store.path("repos", "maplesure-claims-api")
+    assert (clone_dir / "delivery" / STORY_FOLDER / "AGENTS.md").is_file()
+    log = subprocess.run(
+        ["git", "-C", str(clone_dir), "log", "--oneline", "-1"],
+        check=True, capture_output=True, text=True,
+    ).stdout
+    assert "Delivery artifacts" in log
+
+    marker = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
+    assert marker["committed"] is True
+    assert marker["commit_sha"]
+
+
+def test_write_to_clone_before_export_is_an_error(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    with pytest.raises(EngineError, match="export"):
+        eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+
+
+def test_write_to_clone_is_idempotent(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+    first = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)  # re-run, no new changes
+    second = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
+    assert first["commit_sha"] == second["commit_sha"]

@@ -365,6 +365,13 @@ def post_export_artifacts(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/planning/write-to-clone")
+def post_write_to_clone(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.planning_write_to_clone(_role(body.role))
+    return eng.state()
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 

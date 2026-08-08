@@ -959,6 +959,74 @@ class Engine:
             details=f"{exported} story packages exported",
         )
 
+    def planning_write_to_clone(self, role: Role) -> None:
+        """§D1: copy each story's exported folder into its target repo's
+        own clone and commit locally. No push — fully reversible."""
+        roles.require("write_delivery_clone", role)
+        import subprocess
+
+        from s7_delivery.factory.artifact_export import story_folder_name
+
+        stories = self._stories()
+        by_repo: dict[str, list[dict]] = {}
+        for story in stories:
+            by_repo.setdefault(story["target_repository"], []).append(story)
+
+        for repo_name, repo_stories in by_repo.items():
+            clone_dir = self.store.path("repos", repo_name)
+            if not clone_dir.is_dir():
+                raise EngineError(f"No clone found for {repo_name!r}")
+            delivery_dir = clone_dir / "delivery"
+            for story in repo_stories:
+                team_dir = story["accountable_team"].replace(" ", "-")
+                folder = story_folder_name(story)
+                export_dir = self.store.path("planning", "export", team_dir, folder)
+                if not export_dir.is_dir():
+                    raise EngineError(
+                        f"Story {story['story_id']} has no exported package — "
+                        "run export-artifacts first"
+                    )
+                target = delivery_dir / folder
+                target.mkdir(parents=True, exist_ok=True)
+                for src_file in export_dir.iterdir():
+                    (target / src_file.name).write_text(
+                        src_file.read_text(encoding="utf-8"), encoding="utf-8"
+                    )
+            ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
+            status = subprocess.run(
+                ["git", "-C", str(clone_dir), "status", "--porcelain"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+            if status:
+                subprocess.run(
+                    ["git", "-C", str(clone_dir), "add", "-A"],
+                    check=True, capture_output=True,
+                )
+                subprocess.run(
+                    ["git", "-C", str(clone_dir), *ident, "commit", "-qm",
+                     f"Delivery artifacts for {self.run_id}"],
+                    check=True, capture_output=True,
+                )
+            commit_sha = subprocess.run(
+                ["git", "-C", str(clone_dir), "rev-parse", "HEAD"],
+                check=True, capture_output=True, text=True,
+            ).stdout.strip()
+            self.store.write_json(
+                {"committed": True, "commit_sha": commit_sha},
+                "planning", "delivery", f"{repo_name}.json",
+            )
+            self._record(
+                artifact_id=f"DELIVERY-{repo_name}", artifact_type="delivery_commit",
+                payload={"repo": repo_name, "commit_sha": commit_sha},
+                author=role.value, stage=Stage.PLANNING, action="write-to-clone",
+                outcome="created", inputs=[s["story_id"] for s in repo_stories],
+            )
+        self._activity(
+            stage=Stage.PLANNING, actor=role.value, actor_type="human",
+            workflow="delivery-write-to-clone", outcome="created",
+            details=f"{len(by_repo)} repositories committed locally",
+        )
+
     def _planning_generate_live(self) -> None:
         import time
 
