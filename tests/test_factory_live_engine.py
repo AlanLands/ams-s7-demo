@@ -255,3 +255,21 @@ def test_intake_route_in_simulation_mode_is_an_error(tmp_path):
     eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="live"):
         eng.intake_route(Role.PRODUCT_ANALYST)
+
+
+def test_intake_override_route_records_provenance(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "route_requirement",
+        lambda req, packs: (
+            RoutingVerdict(verdict="new_application_needed", reasoning="r",
+                           provenance=Provenance.LIVE_AI), {},
+        ),
+    )
+    eng.intake_route(Role.PRODUCT_ANALYST)
+    eng.intake_override_route(Role.DELIVERY_LEAD, "routable")
+    route_events = [
+        r for r in eng.state()["provenance_ledger"] if r["artifact_id"] == "ROUTE-001"
+    ]
+    assert len(route_events) == 2
+    assert route_events[-1]["action"] == "override"

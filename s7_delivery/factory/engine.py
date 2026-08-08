@@ -612,6 +612,11 @@ class Engine:
         current["overridden_by"] = role.value
         current["overridden_at"] = now_iso()
         self.store.write_json(current, "intake", "routing.json")
+        self._record(
+            artifact_id="ROUTE-001", artifact_type="routing_verdict",
+            payload=current, author=role.value, stage=Stage.INTAKE,
+            action="override", outcome="overridden",
+        )
         self._activity(
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="requirement-routing", outcome="overridden",
