@@ -5,6 +5,12 @@
 **Depends on:** `2026-08-08-live-control-centre-github-grounding-design.md` (repo connect,
 context packs, `live_intake.py`), `s7_delivery/factory/engine.py`, `demo/create_target_repos.py`
 
+**Implementation status (2026-08-08):** §A (requirement routing) and §B
+(new-application epic/story generation) are **implemented** and rehearsed end
+to end in both `LLM_MODE=record` and `LLM_MODE=replay` — see Task 8's report.
+§C (artifact plane export) and §D (live workspace materialization) are a
+separate, not-yet-built plan; their status in this document is unchanged.
+
 ## Goal
 
 Today the Control Centre's live mode assumes every requirement fits inside repos the
@@ -44,7 +50,7 @@ plan, executed independently once its dependency lands.
    `accountable_team, owner, estimate, sprint, dependencies, acceptance_criteria,
    contributing_teams, risk` on any unlocked story.
 
-## A. Requirement routing
+## A. Requirement routing — implemented 2026-08-08
 
 ### A1. The verdict
 
@@ -130,7 +136,7 @@ New module `s7_delivery/factory/scaffold.py`:
   naming the cause; nothing partial is left recorded (mirrors `clone_repo`'s
   cleanup-on-failure discipline from the prior design).
 
-## B. New-application epic/story generation
+## B. New-application epic/story generation — implemented 2026-08-08
 
 No new code. Once §A4 completes, the new repository's `RepoRecord` and context pack are
 indistinguishable from any other connected repo — `run_analysis` and `run_plan` already

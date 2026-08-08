@@ -188,6 +188,17 @@ calls in live mode, each run grounded by connecting it to a target repo first
 default (hard rule 5); this does not move the surface split above — live mode
 is still app-led intake/planning, downstream stays staged and CLI-led.
 
+**Requirement routing and new-application onboarding, added 2026-08-08.** A
+live run now computes a requirement-routing verdict (routable vs.
+new-application-needed, human-overridable) before analysis; zero connected
+repos short-circuits to new-application-needed with no LLM call. When
+new-application-needed, a capped two-round conversational setup collects
+name/description/stack, generates a reviewable scaffold (`architecture.md` +
+`README.md`), and an explicit approval action creates the real GitHub repo
+(`gh repo create --push`), normalized into `intake/repos.json` exactly like any
+repo connected by URL — after which it grounds analysis/planning like any
+connected repo, no special-casing.
+
 ## Design review — 2026-08-04
 
 The S3 console was walked through for a wider group and S7 was presented as the

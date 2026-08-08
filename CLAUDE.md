@@ -192,6 +192,19 @@ surface split above — live mode is still app-led intake and planning, CLI-led
 downstream stays staged — and it does not change the demo default either:
 simulation remains what a fresh clone runs, per hard rule 5.
 
+**Requirement routing and new-application onboarding, added 2026-08-08.**
+Before analysis runs, a live run now computes a requirement-routing verdict —
+routable (fits a connected repo) vs. new-application-needed — and a human can
+override it; a run with zero repos connected short-circuits straight to
+new-application-needed with no LLM call at all. When new-application-needed, a
+conversational setup (capped at two rounds, forced to finalize on the last one)
+collects name/description/stack, produces a reviewable scaffold
+(`architecture.md` + `README.md`), and an explicit approval action
+(`create-new-app-repo`) creates the real GitHub repo via `gh repo create
+--push` and normalizes it into `intake/repos.json` exactly like any repo
+connected by URL. From that point the new repo grounds analysis and planning
+like any connected repo, with no special-casing in `run_analysis`/`run_plan`.
+
 ## Design review — 2026-08-04
 
 The S3 console was walked through end to end for a wider group, and S7 was

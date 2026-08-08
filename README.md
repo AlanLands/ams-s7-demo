@@ -126,9 +126,14 @@ are synthetic MapleSure applications on GitHub used only as grounding context
 
 **Replay on demo day**, run through this checklist before the room:
 
-- Beat order must match the rehearsal: connect repos → Ask AI Clarification →
-  answer → Run Intake Analysis → Generate Epic → Pass Intake Gate → Generate
-  Plan → sign-off.
+- Beat order must match the rehearsal: connect repos (or leave zero connected
+  to see the routing short-circuit) → Route Requirement (routable vs.
+  new-application-needed, human-overridable) → *if new-application-needed:*
+  New-Application Setup chat → Generate Scaffold → review `architecture.md` /
+  `README.md` → Create Repository (approval-gated, calls `gh repo create
+  --push` for real during rehearsal only) → Ask AI Clarification → answer →
+  Run Intake Analysis → Generate Epic → Pass Intake Gate → Generate Plan →
+  sign-off.
 - The clarification answers must be the rehearsed ones verbatim (they are
   embedded in the recorded prompts; see
   `artifacts/runs/S7-00022/intake/clarifications.json` from the rehearsal, or
