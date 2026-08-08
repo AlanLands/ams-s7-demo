@@ -1046,7 +1046,14 @@ class Engine:
             )
         clone_dir = self.store.path("repos", repo_name)
         branch = f"delivery/{self.run_id}"
-        assert branch.startswith("delivery/"), "delivery branch must never be a bare/default branch name"
+        repo_record = next(
+            (r for r in self._connected_repos() if r["name"] == repo_name), None
+        )
+        if repo_record and branch == repo_record.get("default_branch"):
+            raise EngineError(
+                f"Refusing to push delivery branch {branch!r} — it matches "
+                f"{repo_name}'s default branch, which this system never targets"
+            )
         try:
             subprocess.run(
                 ["git", "-C", str(clone_dir), "push", "origin", f"HEAD:refs/heads/{branch}"],

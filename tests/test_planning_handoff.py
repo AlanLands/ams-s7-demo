@@ -161,3 +161,21 @@ def test_push_delivery_branch_failure_is_reported_and_retry_safe(tmp_path, monke
     marker = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
     assert marker["committed"] is True
     assert "pushed" not in marker
+
+
+def test_push_delivery_branch_refuses_to_match_default_branch(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    eng.planning_write_to_clone(Role.DELIVERY_LEAD)
+
+    # Contrive the connected repo's recorded default_branch to collide with
+    # this run's delivery branch name, proving the guard is a real check
+    # against independent data, not a tautology on the string that built it.
+    repos = eng.store.read_json("intake", "repos.json")
+    for r in repos:
+        if r["name"] == "maplesure-claims-api":
+            r["default_branch"] = f"delivery/{eng.run_id}"
+    eng.store.write_json(repos, "intake", "repos.json")
+
+    with pytest.raises(EngineError, match="default branch"):
+        eng.planning_push_delivery_branch(Role.DELIVERY_LEAD, "maplesure-claims-api")
