@@ -1,0 +1,248 @@
+import { useState } from 'react'
+import { Badge } from '../components/Badge'
+import { SectionTitle } from '../components/SectionTitle'
+import { useRun } from '../state/RunContext'
+
+function GatePanel({ gateId, title, hint }: { gateId: string; title: string; hint: string }) {
+  const { data } = useRun()
+  const gate = (data?.gates ?? []).find((candidate) => candidate.gate_id === gateId)
+
+  return (
+    <div className={`card ${gate?.status === 'passed' ? 'ok' : 'highlight'}`} style={{ marginTop: '14px' }}>
+      <div className="section-title">
+        <h3>{title}</h3>
+        <Badge status={gate?.status ?? 'not_started'} />
+      </div>
+      {(gate?.conditions ?? []).length ? (
+        <ul className="plain">
+          {(gate?.conditions ?? []).map((condition, index) => (
+            <li key={`${condition.condition}-${index}`}>
+              {`${condition.met ? '✓' : '✗'} ${condition.condition}`}
+              {condition.detail ? <span className="hint">{` — ${condition.detail}`}</span> : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="hint">{hint}</p>
+      )}
+      {gate?.decided_by ? (
+        <p className="hint">{`Decided by ${gate.decided_by} at ${gate.decided_at}`}</p>
+      ) : null}
+    </div>
+  )
+}
+
+function ApprovalMatrix() {
+  const { data } = useRun()
+  const releaseApprovals = (data?.approvals ?? []).filter((approval) => approval.subject === 'release')
+  const required = ['business_owner', 'engineering_lead', 'qa_lead', 'release_manager']
+
+  return (
+    <ul className="plain">
+      {required.map((role) => {
+        const got = releaseApprovals.filter((approval) => approval.role === role).pop()
+        return (
+          <li key={role}>
+            <b>{`${role.replaceAll('_', ' ')}: `}</b>
+            {got ? (
+              <span>
+                <Badge status={got.decision === 'approved' ? 'passed' : 'failed'} />
+                {` ${got.approver} — ${got.decided_at}`}
+              </span>
+            ) : (
+              <Badge status="waiting_for_approval" />
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+function ApprovalForm() {
+  const { act } = useRun()
+  const [approverName, setApproverName] = useState('')
+  const [note, setNote] = useState('')
+
+  return (
+    <div style={{ marginTop: '10px' }}>
+      <label className="fld">Approver</label>
+      <input
+        type="text"
+        placeholder="Approver name (required)"
+        value={approverName}
+        onChange={(event) => setApproverName(event.target.value)}
+      />
+      <label className="fld">Note</label>
+      <input
+        type="text"
+        placeholder="Note (optional)"
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
+      />
+      <div className="actions-row">
+        <button
+          className="primary approve"
+          onClick={() => void act(
+            '/release/approve',
+            { approver: approverName, note, decision: 'approved' },
+            'Approval recorded',
+          )}
+        >
+          Approve as current role
+        </button>
+        <button
+          className="ghost danger-ghost"
+          onClick={() => void act(
+            '/release/approve',
+            { approver: approverName, note, decision: 'rejected' },
+            'Rejection recorded',
+          )}
+        >
+          Reject release
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function Release() {
+  const { data, act } = useRun()
+  if (!data) return null
+
+  const rec = data.release
+
+  if (!rec) {
+    return (
+      <section>
+        <SectionTitle
+          title="Stage 5 — Release"
+          hint="A genuine blocking human gate: named approvals, then deployment, then handover"
+        />
+        <div className="card">
+          <p>Release opens after the quality gate (G3) passes.</p>
+          <div className="actions-row">
+            <button
+              className="primary"
+              onClick={() => void act('/release/request-approval', {}, 'Release approval requested')}
+            >
+              Request release approval
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
+  const dep = rec.deployment
+  const h = rec.handover
+
+  return (
+    <section>
+      <SectionTitle
+        title="Stage 5 — Release"
+        hint="A genuine blocking human gate: named approvals, then deployment, then handover"
+      />
+
+      <div className="grid cols-2">
+        <div className="card highlight">
+          <h3>Release summary</h3>
+          <div className="kv" style={{ marginTop: '8px' }}>
+            <b>Release</b><span className="mono">{rec.release_id}</span>
+            <b>Epic</b><span className="mono">{rec.epic_id}</span>
+            <b>Version</b><span>{rec.version}</span>
+            <b>Environment</b><span>{rec.environment}</span>
+            <b>Window</b><span>{rec.release_window}</span>
+            <b>Feature flag</b><code>{rec.feature_flag}</code>
+            <b>Rollback</b><span>{rec.rollback_plan}</span>
+            <b>Status</b><span><Badge status={rec.status} /></span>
+          </div>
+        </div>
+        <div className="card">
+          <h3>Required approvals</h3>
+          <p className="hint">
+            Business Owner, Engineering Lead, QA Lead and Release Manager must each approve under their own role.
+            Switch the acting role in the header to record each one.
+          </p>
+          <ApprovalMatrix />
+          <ApprovalForm />
+        </div>
+      </div>
+
+      {dep ? (
+        <div className="card ok" style={{ marginTop: '14px' }}>
+          <div className="section-title">
+            <h3>Deployment</h3>
+            <Badge status={dep.status} />
+          </div>
+          <div className="kv" style={{ marginTop: '8px' }}>
+            <b>Deployment</b><span className="mono">{dep.deployment_id}</span>
+            <b>Pipeline</b><span>{dep.pipeline_ref}</span>
+            <b>Strategy</b><span>{dep.strategy}</span>
+            <b>Artifacts</b><span>{String(dep.artifact_count)}</span>
+            <b>Smoke tests</b><span>{dep.smoke_test_status}</span>
+            <b>Post-deployment</b>
+            <span>
+              <ul className="plain">
+                {dep.post_checks.map((postCheck, index) => (
+                  <li key={`${postCheck}-${index}`}>{postCheck}</li>
+                ))}
+              </ul>
+            </span>
+            <b>Deployed at</b><span className="mono">{dep.deployed_at}</span>
+          </div>
+        </div>
+      ) : null}
+
+      {h ? (
+        <div className="card ok" style={{ marginTop: '14px' }}>
+          <h3>Support handover</h3>
+          <div className="kv" style={{ marginTop: '8px' }}>
+            <b>Support team</b><span>{h.support_team}</span>
+            <b>Runbook</b><code>{h.runbook_ref}</code>
+            <b>Knowledge article</b><span>{h.knowledge_article_ref}</span>
+            <b>Monitoring alerts</b>
+            <span>
+              <ul className="plain">
+                {h.monitoring_alerts.map((alert, index) => (
+                  <li key={`${alert}-${index}`}>{alert}</li>
+                ))}
+              </ul>
+            </span>
+            <b>Escalation</b><span>{h.escalation_path}</span>
+            <b>Known limitations</b>
+            <span>
+              <ul className="plain">
+                {h.known_limitations.map((limitation, index) => (
+                  <li key={`${limitation}-${index}`}>{limitation}</li>
+                ))}
+              </ul>
+            </span>
+            <b>Hypercare</b><span>{`${h.hypercare_days} days`}</span>
+            <b>Accepted by</b><span>{`${h.accepted_by} at ${h.accepted_at}`}</span>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="actions-row" style={{ marginTop: '14px' }}>
+        <button
+          className="primary"
+          onClick={() => void act('/release/deploy', {}, 'Deployment complete')}
+        >
+          Deploy to production (Release Manager)
+        </button>
+        <button
+          className="primary approve"
+          onClick={() => void act('/release/handover', {}, 'Handover accepted — run complete')}
+        >
+          Complete support handover
+        </button>
+      </div>
+      <GatePanel
+        gateId="G4"
+        title="Gate 4 — Release"
+        hint="Conditions evaluate at deployment: all gates green, all approvals present, nothing stale."
+      />
+    </section>
+  )
+}

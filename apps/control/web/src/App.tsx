@@ -23,6 +23,9 @@ import { BuildWorkQueue } from './pages/build/BuildWorkQueue'
 import { DevProgress } from './pages/build/DevProgress'
 import { TestEvidence } from './pages/build/TestEvidence'
 import { IndependentReview } from './pages/build/IndependentReview'
+import { Stories } from './pages/Stories'
+import { Quality } from './pages/Quality'
+import { Release } from './pages/Release'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
@@ -40,6 +43,9 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   routing_by_team: RoutingByTeam,
   plan_summary: PlanSummary,
   plan_signoff: PlanSignoff,
+  stories: Stories,
+  quality: Quality,
+  release: Release,
   build_work_queue: BuildWorkQueue,
   dev_progress: DevProgress,
   test_evidence: TestEvidence,

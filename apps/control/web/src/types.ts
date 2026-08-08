@@ -205,6 +205,65 @@ export interface QualityRisk {
   description: string
 }
 
+export interface QualityCheck {
+  check_id: string
+  name: string
+  status: string
+  evidence?: string
+  owner: string
+}
+
+export interface QualityException {
+  exception_id: string
+  description: string
+  approved_by: string
+}
+
+export interface QualityReport {
+  checks?: QualityCheck[]
+  risks?: QualityRisk[]
+  exceptions?: QualityException[]
+  quality_score: number
+  score_note?: string
+  recommendation: string
+}
+
+export interface DeploymentRecord {
+  status: string
+  deployment_id: string
+  pipeline_ref: string
+  strategy: string
+  artifact_count: number
+  smoke_test_status: string
+  post_checks: string[]
+  deployed_at: string
+}
+
+export interface HandoverRecord {
+  support_team: string
+  runbook_ref: string
+  knowledge_article_ref: string
+  monitoring_alerts: string[]
+  escalation_path: string
+  known_limitations: string[]
+  hypercare_days: number
+  accepted_by: string
+  accepted_at: string
+}
+
+export interface ReleaseRecord {
+  release_id: string
+  epic_id: string
+  version: string
+  environment: string
+  release_window: string
+  feature_flag: string
+  rollback_plan: string
+  status: string
+  deployment?: DeploymentRecord | null
+  handover?: HandoverRecord | null
+}
+
 export interface StaleArtifact {
   artifact_id: string
   artifact_type: string
@@ -393,7 +452,8 @@ export interface RunState {
   activity_summary?: { counters?: Record<string, number>; total_events?: number; stage_time_s?: Record<string, number> }
   traceability?: TraceRow[]
   approvals?: ApprovalRecord[]
-  quality?: { risks?: QualityRisk[] }
+  quality?: QualityReport
+  release?: ReleaseRecord
   staleness?: StaleArtifact[]
   amendments?: Amendment[]
   design?: DesignRecord
