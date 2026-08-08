@@ -153,6 +153,81 @@ def _validate_analysis(data: dict, repo_names: set[str]) -> IntakeAnalysis:
         raise LLMError(f"analysis failed validation: {exc}") from exc
 
 
+ROUTE_ROLE = (
+    "Your role is requirement routing: decide whether a business change "
+    "request's capabilities plausibly land inside the connected application "
+    "repositories, or whether it needs an application that does not exist "
+    "yet. Ground the verdict in what the repositories' architecture.md files "
+    "say they do and do not do."
+)
+
+_ROUTE_SHAPE = """{
+  "verdict": "routable" | "new_application_needed",
+  "reasoning": "<one paragraph>",
+  "candidate_repos": ["<connected repository name, only if routable>"],
+  "confidence": <0-100 self-assessment>
+}"""
+
+
+def route_requirement(
+    requirement: dict, packs: dict[str, str]
+) -> tuple["RoutingVerdict", dict]:
+    from s7_delivery.factory.models import RoutingVerdict
+
+    if not packs:
+        # Deterministic: zero connected repos always means a new application
+        # is needed. No model call — cheaper and more honest than asking a
+        # model to notice an empty list. HUMAN provenance because this is
+        # engine logic, not a model assertion (same use as RepoRecord's
+        # "extraction, not generation").
+        return RoutingVerdict(
+            verdict="new_application_needed",
+            reasoning="No repositories are connected yet.",
+            candidate_repos=[],
+            confidence=100,
+            provenance=Provenance.HUMAN,
+        ), {}
+    task = f"""Decide whether this change request fits inside the connected
+repositories, or needs an application that does not exist yet. Return JSON
+exactly matching:
+{_ROUTE_SHAPE}"""
+    data, usage = _call(
+        role=ROUTE_ROLE,
+        ref=_ref(requirement, packs),
+        task=task,
+        beat="route",
+        key_material=json.dumps(requirement, sort_keys=True)
+        + "".join(packs[k] for k in sorted(packs)),
+    )
+    return _validate_route(data, set(packs)), usage
+
+
+def _validate_route(data: dict, repo_names: set[str]) -> "RoutingVerdict":
+    from s7_delivery.factory.models import RoutingVerdict
+
+    verdict = data.get("verdict")
+    if verdict not in {"routable", "new_application_needed"}:
+        raise LLMError(
+            f"route verdict must be 'routable' or 'new_application_needed', "
+            f"got {verdict!r}"
+        )
+    candidates = data.get("candidate_repos") or []
+    if not isinstance(candidates, list):
+        raise LLMError("candidate_repos must be a list")
+    unknown = [c for c in candidates if c not in repo_names]
+    if unknown:
+        raise LLMError(f"candidate_repos names non-connected repositories: {unknown}")
+    if verdict == "routable" and not candidates:
+        raise LLMError("verdict is routable but candidate_repos is empty")
+    return RoutingVerdict(
+        verdict=verdict,
+        reasoning=str(data.get("reasoning", "")),
+        candidate_repos=candidates,
+        confidence=data.get("confidence"),
+        provenance=provenance_now(),
+    )
+
+
 def run_clarification(
     requirement: dict, packs: dict[str, str], transcript: list[dict]
 ) -> tuple[list[str], dict]:

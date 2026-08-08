@@ -215,3 +215,71 @@ def test_run_plan_cache_key_ignores_epic_timestamp(monkeypatch):
     live_intake.run_plan(epic_a, ANALYSIS, PACKS, [], TEAMS)
     live_intake.run_plan(epic_b, ANALYSIS, PACKS, [], TEAMS)
     assert seen[0] == seen[1]
+
+
+# --- routing tests ---------------------------------------------------------
+
+from s7_delivery.factory.models import RoutingVerdict
+
+GOOD_ROUTE_ROUTABLE = {
+    "verdict": "routable",
+    "reasoning": "The claims-api already exposes member lookup; this extends it.",
+    "candidate_repos": ["maplesure-claims-api"],
+    "confidence": 85,
+}
+
+GOOD_ROUTE_NEW_APP = {
+    "verdict": "new_application_needed",
+    "reasoning": "Neither connected repository has anything resembling this capability.",
+    "candidate_repos": [],
+    "confidence": 90,
+}
+
+
+def test_route_requirement_routable(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_ROUTE_ROUTABLE))
+    monkeypatch.setenv("LLM_MODE", "live")
+    verdict, usage = live_intake.route_requirement(REQUIREMENT, PACKS)
+    assert isinstance(verdict, RoutingVerdict)
+    assert verdict.verdict == "routable"
+    assert verdict.candidate_repos == ["maplesure-claims-api"]
+    assert verdict.provenance.value == "live_ai"
+    assert usage["input_tokens"] == 1200
+
+
+def test_route_requirement_new_application_needed(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_ROUTE_NEW_APP))
+    verdict, _ = live_intake.route_requirement(REQUIREMENT, PACKS)
+    assert verdict.verdict == "new_application_needed"
+    assert verdict.candidate_repos == []
+
+
+def test_route_requirement_zero_repos_short_circuits_without_a_call(monkeypatch):
+    def forbidden(*a, **kw):
+        raise AssertionError("route_requirement called the model with zero repos")
+    monkeypatch.setattr(live_intake, "complete", forbidden)
+    verdict, usage = live_intake.route_requirement(REQUIREMENT, {})
+    assert verdict.verdict == "new_application_needed"
+    assert verdict.provenance.value == "human"
+    assert usage == {}
+
+
+def test_route_requirement_rejects_bad_verdict(monkeypatch):
+    bad = dict(GOOD_ROUTE_ROUTABLE, verdict="maybe")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="verdict"):
+        live_intake.route_requirement(REQUIREMENT, PACKS)
+
+
+def test_route_requirement_rejects_unconnected_candidate(monkeypatch):
+    bad = dict(GOOD_ROUTE_ROUTABLE, candidate_repos=["some-invented-repo"])
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="candidate_repos"):
+        live_intake.route_requirement(REQUIREMENT, PACKS)
+
+
+def test_route_requirement_rejects_routable_with_no_candidates(monkeypatch):
+    bad = dict(GOOD_ROUTE_ROUTABLE, candidate_repos=[])
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="routable"):
+        live_intake.route_requirement(REQUIREMENT, PACKS)

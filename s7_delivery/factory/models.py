@@ -121,6 +121,18 @@ class RepoRecord(BaseModel):
     provenance: Provenance = Provenance.HUMAN
 
 
+class RoutingVerdict(BaseModel):
+    """Whether a requirement fits the connected repos, or needs a new one."""
+
+    verdict: str  # "routable" | "new_application_needed"
+    reasoning: str
+    candidate_repos: list[str] = []
+    confidence: int | None = None
+    overridden_by: str = ""
+    overridden_at: str = ""
+    provenance: Provenance = Provenance.SIMULATED
+
+
 class IntakeAnalysis(BaseModel):
     problem_understood: bool
     business_impact: str
