@@ -91,6 +91,47 @@ def member_summary(member_id: str) -> dict:
     "templates/members.html": "{% extends 'base.html' %}{% block body %}<h1>Member directory</h1>\n<ul>{% for m in members %}<li>{{ m.name }}</li>{% endfor %}</ul>{% endblock %}\n",
     "templates/member.html": "{% extends 'base.html' %}{% block body %}<h1>{{ member.name }}</h1>\n<p>Plan: {{ member.plan_id }}</p>{% endblock %}\n",
     "static/portal.js": "// Progressive enhancement only; the portal works without JS.\ndocument.querySelectorAll('[data-expand]').forEach((n) => {\n  n.addEventListener('click', () => n.classList.toggle('open'));\n});\n",
+    "static/utilities.js": '''// Utility functions for SponsorConnect portal.
+
+// Format a date as YYYY-MM-DD.
+function formatDate(d) {
+  return [d.getFullYear(), d.getMonth() + 1, d.getDate()]
+    .map(x => String(x).padStart(2, '0')).join('-');
+}
+
+// Fetch member details and render them to a container.
+function loadMemberDetail(memberId) {
+  return fetch(`/api/members/${memberId}`)
+    .then(r => r.json())
+    .then(data => {
+      document.getElementById('member-detail').innerHTML = `
+        <h2>${data.name}</h2>
+        <p>Member ID: ${data.member_id}</p>
+        <p>Plan: ${data.plan_id}</p>
+        <p>Sponsor: ${data.sponsor_org}</p>
+      `;
+    })
+    .catch(err => console.error('Failed to load member:', err));
+}
+
+// Extract query parameters from the URL.
+function getQueryParams() {
+  const params = new URLSearchParams(window.location.search);
+  const result = {};
+  for (const [key, value] of params.entries()) {
+    result[key] = value;
+  }
+  return result;
+}
+
+// Initialize page based on query parameters.
+document.addEventListener('DOMContentLoaded', () => {
+  const params = getQueryParams();
+  if (params.member_id) {
+    loadMemberDetail(params.member_id);
+  }
+});
+''',
 }
 
 API_FILES: dict[str, str] = {

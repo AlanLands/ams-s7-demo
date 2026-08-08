@@ -109,6 +109,18 @@ class Requirement(BaseModel):
     provenance: Provenance = Provenance.HUMAN
 
 
+class RepoRecord(BaseModel):
+    """A connected target repository — cloned at connect time, then local."""
+
+    url: str
+    name: str
+    head_sha: str
+    default_branch: str
+    file_count: int
+    cloned_at: str = Field(default_factory=now_iso)
+    provenance: Provenance = Provenance.HUMAN
+
+
 class IntakeAnalysis(BaseModel):
     problem_understood: bool
     business_impact: str
