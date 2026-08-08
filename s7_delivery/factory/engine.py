@@ -730,6 +730,52 @@ class Engine:
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
+    def intake_create_new_app_repo(self, role: Role) -> None:
+        """The approval action: creates the real GitHub repo from the
+        reviewed scaffold, then normalizes it into an ordinary connected
+        repo — §B needs no special case because of this."""
+        roles.require("create_new_application_repo", role)
+        from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
+        from s7_delivery.factory.scaffold import push_new_repo, write_scaffold_locally
+
+        setup = self._new_app()
+        name = setup.get("name")
+        if not name:
+            raise EngineError("Complete the new-application setup conversation first")
+        files = self._scaffold_files(name)
+        if any(r["name"] == name for r in self._connected_repos()):
+            raise EngineError(f"{name} is already connected")
+
+        try:
+            repo_path = write_scaffold_locally(name, files, self.store.path("scaffold-src"))
+        except RepoConnectError as exc:
+            raise EngineError(f"Writing the scaffold locally failed: {exc}") from exc
+        try:
+            url = push_new_repo(repo_path, name)
+        except RepoConnectError as exc:
+            raise EngineError(f"New application repo creation failed: {exc}") from exc
+        try:
+            rec = clone_repo(url, self.store.path("repos"))
+        except RepoConnectError as exc:
+            raise EngineError(f"Cloning the newly created repo failed: {exc}") from exc
+
+        repos = self.store.read_json_or([], "intake", "repos.json")
+        repos.append(rec.model_dump(mode="json"))
+        self.store.write_json(repos, "intake", "repos.json")
+        pack = build_context_pack(self.store.path("repos", rec.name), rec.name)
+        self.store.write_text(pack, "intake", "context", f"{rec.name}.md")
+
+        self._record(
+            artifact_id=f"REPO-{rec.name}", artifact_type="repository", payload=rec,
+            author=role.value, stage=Stage.INTAKE, action="create-new-app-repo",
+            outcome="created",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="create-new-application-repo", artifact=rec.name,
+            outcome="created", details=f"{rec.url} @ {rec.head_sha[:10]}",
+        )
+
     def intake_pass_gate(self, role: Role) -> None:
         roles.require("pass_intake_gate", role)
         conditions = gates.intake_gate(

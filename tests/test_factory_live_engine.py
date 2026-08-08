@@ -342,3 +342,56 @@ def test_generate_scaffold_before_setup_is_an_error(tmp_path):
     eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="setup"):
         eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
+
+
+# --- new-app repo creation tests -----------------------------------------------
+
+
+def _settled_new_app(eng, monkeypatch, name="maplesure-eligibility-check"):
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: (
+            {"done": True, "name": name, "description": "d", "stack": "FastAPI"}, {},
+        ),
+    )
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    monkeypatch.setattr(
+        scaffold_mod, "generate_scaffold",
+        lambda n, d, s: ({"architecture.md": "# arch\n\nWhat this application does NOT do\n- nothing yet\n", "README.md": "# readme\n"}, {}),
+    )
+    eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
+
+
+def test_create_new_app_repo_normalizes_into_connected_repos(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    _settled_new_app(eng, monkeypatch)
+
+    def fake_push(repo_path, name):
+        return str(repo_path)  # a local path is a valid clone_repo() URL too
+
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", fake_push)
+    eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+    repos = eng.state()["intake"]["repos"]
+    assert repos[-1]["name"] == "maplesure-eligibility-check"
+    assert eng.store.exists("intake", "context", "maplesure-eligibility-check.md")
+
+
+def test_create_new_app_repo_before_setup_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="setup"):
+        eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+
+def test_create_new_app_repo_push_failure_leaves_no_connected_repo(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    _settled_new_app(eng, monkeypatch)
+
+    def boom(repo_path, name):
+        from s7_delivery.factory.repos import RepoConnectError
+        raise RepoConnectError("gh: name already taken")
+
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", boom)
+    with pytest.raises(EngineError, match="failed"):
+        eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+    assert eng.state()["intake"]["repos"] == []

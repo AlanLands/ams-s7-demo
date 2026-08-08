@@ -30,6 +30,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "ask_clarification": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "route_requirement": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "setup_new_application": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
+    "create_new_application_repo": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "pass_intake_gate": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST},
     # planning
     "generate_plan": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},

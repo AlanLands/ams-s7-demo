@@ -247,6 +247,13 @@ def post_generate_scaffold(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/intake/create-new-app-repo")
+def post_create_new_app_repo(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_create_new_app_repo(_role(body.role))
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 
