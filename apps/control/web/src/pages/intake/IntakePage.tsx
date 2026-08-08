@@ -6,11 +6,19 @@ import { AiActivityPanel } from './AiActivityPanel'
 import { AdvancedAnalysisSection } from './AdvancedAnalysisSection'
 
 export function IntakePage() {
-  const { data } = useRun()
+  const { data, act } = useRun()
   const [extracting, setExtracting] = useState(false)
   const [extractError, setExtractError] = useState<string | null>(null)
   if (!data) return null
   const epic = data.intake?.epic
+
+  async function retryExtraction() {
+    setExtracting(true)
+    setExtractError(null)
+    const ok = await act('/intake/re-extract', {}, 'Retrying extraction')
+    setExtracting(false)
+    if (!ok) setExtractError('Extraction could not be completed')
+  }
 
   return (
     <section className="page-with-rail intake-page">
@@ -33,7 +41,7 @@ export function IntakePage() {
             onExtractEnd={(ok, message) => { setExtracting(false); if (!ok) setExtractError(message ?? 'Extraction failed') }}
           />
           <span className="intake-arrow" aria-hidden="true">→</span>
-          <ExtractionCard extracting={extracting} extractError={extractError} onRetry={() => setExtractError(null)} />
+          <ExtractionCard extracting={extracting} extractError={extractError} onRetry={retryExtraction} />
         </div>
 
         <AdvancedAnalysisSection />

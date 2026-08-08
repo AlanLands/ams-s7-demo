@@ -13,6 +13,7 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
   const { data, act } = useRun()
   const [expanded, setExpanded] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [finalizing, setFinalizing] = useState(false)
   const source = data?.intake?.source
   const ext = data?.intake?.extraction
   const isLive = data?.run?.mode === 'live'
@@ -21,14 +22,14 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
     ? '2. AI Extraction'
     : ext
       ? (ext.method === 'live_llm' ? '2. AI Extraction (Completed)' : '2. Extraction (Rule-Based) (Completed)')
-      : (ext ? '2. AI Extraction' : '2. AI Extraction')
+      : '2. AI Extraction'
 
   return (
     <div className="card">
       <div className="section-title">
         <h3>{title}</h3>
         {ext && !extracting && (
-          <span className="chip priority-low">✓ {ext.method === 'live_llm' ? 'Extraction Complete' : 'Extraction Complete'}</span>
+          <span className="chip priority-low">✓ Extraction Complete</span>
         )}
       </div>
 
@@ -89,9 +90,12 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
             <button
               type="button"
               className="primary sq"
+              disabled={finalizing}
               onClick={async () => {
+                setFinalizing(true)
                 const ok = await act('/intake/finalize-epic', {}, 'Epic created')
                 if (ok) await act('/intake/pass-gate', {}, 'Intake gate passed')
+                setFinalizing(false)
               }}
             >
               Create Epic &amp; Proceed to Planning →
