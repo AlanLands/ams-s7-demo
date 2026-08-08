@@ -893,3 +893,29 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   .grid.cols-2, .grid.cols-3, .grid.cols-4 { grid-template-columns: 1fr; }
   .kv { grid-template-columns: 1fr; }
 }
+
+/* --- intake redesign ------------------------------------------------------*/
+
+.intake-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.epic-id-chip { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+
+.intake-grid {
+  display: grid;
+  grid-template-columns: 42fr auto 58fr;
+  align-items: start;
+  gap: 20px;
+  margin: 20px 0;
+}
+.intake-arrow {
+  align-self: center;
+  font-size: 22px;
+  color: var(--red);
+  padding-top: 60px;
+}
+@media (max-width: 980px) {
+  .intake-grid { grid-template-columns: 1fr; }
+  .intake-arrow { display: none; }
+}
+
+.info-bar { background: var(--surface-2); border-color: var(--border); }
+.info-bar p { color: var(--muted); font-size: 13.5px; }

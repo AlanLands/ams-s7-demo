@@ -5,10 +5,11 @@ import { SideNav } from './components/SideNav'
 import { Toast } from './components/Toast'
 import { NotYetPorted } from './components/NotYetPorted'
 import { Overview } from './pages/Overview'
+import { IntakePage } from './pages/intake/IntakePage'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
-  // intake: IntakePage,               — wired in Task 2.7
+  intake: IntakePage,
   // epic_to_stories: EpicToStories,   — wired in Phase 3
   // ...remaining Phase-3 pages wired as each is ported
 }
