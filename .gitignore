@@ -67,3 +67,8 @@ reference-internal/
 #     demo/run_console.sh   then   demo/render_pdf.py
 docs/assets/
 docs/S7-Delivery-Pack.pdf
+
+# Subagent-driven-development scratch — ledgers, task briefs, review
+# packages. Per-plan working state, not a deliverable; git history is the
+# record once a plan finishes.
+.superpowers/
