@@ -1651,6 +1651,32 @@
             ))))),
     );
 
+    const repoNames = [...new Set(stories.map((s) => s.target_repository))];
+    const handoffCard = plan ? el("div", { class: "card" },
+      el("div", { class: "section-title" }, el("h3", { text: "Delivery Handoff" }),
+        el("span", { class: "hint", text: "Portable, per-team packages — no .claude/ tooling" })),
+      el("div", { class: "actions-row", style: "gap:8px; flex-wrap:wrap" },
+        el("button", {
+          class: "outline", text: "Export Artifacts",
+          onclick: () => act("/planning/export-artifacts", {}, "Artifacts exported"),
+        }),
+        el("button", {
+          class: "outline", text: "Write to Clone",
+          onclick: () => act("/planning/write-to-clone", {}, "Committed locally to each target repo"),
+        }),
+        el("button", {
+          class: "outline", text: "⬇ Download Zip",
+          onclick: () => { window.location.href = `${API}/api/runs/${state.runId}/planning/export.zip`; },
+        })),
+      el("p", { class: "hint", style: "margin-top:10px", text:
+        "Pushing creates delivery/" + state.runId + " on each target repo — a fresh, disposable branch, never the default branch. Merging it into your own working branch is a manual step; nothing here does that for you." }),
+      el("div", { class: "actions-row", style: "gap:8px; flex-wrap:wrap; margin-top:8px" },
+        ...repoNames.map((repo) => el("button", {
+          class: "primary sq", text: `Push delivery branch → ${repo}`,
+          onclick: () => act("/planning/push-delivery-branch", { repo_name: repo }, `Pushed to ${repo}`),
+        }))),
+    ) : null;
+
     return el("section", { class: "page-with-rail" },
       el("div", {},
         el("div", { class: "page-head", style: "margin-bottom:16px" },
@@ -1658,6 +1684,7 @@
           el("span", { class: "hint", text: "Review and approve the plan to lock it and proceed to execution." })),
         readiness,
         el("div", { style: "margin-top:14px" }, history),
+        handoffCard ? el("div", { style: "margin-top:14px" }, handoffCard) : null,
         el("div", { style: "margin-top:14px" }, artifactsCard(true)),
       ),
       el("aside", { class: "rail" }, gate1Rail()),
