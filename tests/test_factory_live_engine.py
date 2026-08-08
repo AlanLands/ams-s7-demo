@@ -415,3 +415,39 @@ def test_create_new_app_repo_push_failure_allows_retry(tmp_path, monkeypatch):
     monkeypatch.setattr(scaffold_mod, "push_new_repo", fake_push)
     eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
     assert eng.state()["intake"]["repos"][-1]["name"] == "maplesure-eligibility-check"
+
+
+# --- new-app repo analysis tests -----------------------------------------------
+
+
+def test_new_app_repo_grounds_live_analysis_with_no_special_case(tmp_path, monkeypatch):
+    """B: a repo created via the new-app path is indistinguishable, to
+    run_analysis, from one connected by URL — same context-pack shape,
+    same validator, no branch in live_intake for repo origin."""
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    _settled_new_app(eng, monkeypatch, name="maplesure-new-claims-portal")
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", lambda repo_path, name: str(repo_path))
+    eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (
+            _fake_analysis_for(list(packs)[0]), {"input_tokens": 1, "output_tokens": 1},
+        ),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    analysis = eng.state()["intake"]["analysis"]
+    assert analysis["affected_applications"] == ["maplesure-new-claims-portal"]
+    assert analysis["provenance"] == "live_ai"
+
+
+def _fake_analysis_for(repo_name: str) -> IntakeAnalysis:
+    return IntakeAnalysis(
+        problem_understood=True, business_impact="impact",
+        affected_applications=[repo_name],
+        stakeholders=["ops"], dependencies=["dep"], risks=["risk"],
+        clarification_questions=["q1"], assumptions=["a1"],
+        business_rules=[{"rule_id": "BR-01", "text": "rule"}],
+        risk_register=[{"text": "r", "severity": "high"}],
+        confidence=80, provenance=Provenance.LIVE_AI,
+    )
