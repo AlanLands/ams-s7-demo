@@ -521,9 +521,88 @@
       })(),
       repos.length === 0 ? el("p", { class: "hint", text: "Live analysis is grounded in the connected repos — connect them before analysing." }) : null) : null;
 
+    const routing = d.intake?.routing;
+    const routingCard = isLive ? el("div", { class: "card" },
+      el("div", { class: "section-title" }, el("h3", { text: "Requirement Routing" }),
+        routing ? prov(routing.provenance) : null),
+      routing
+        ? el("div", {},
+            el("div", { class: "kv", style: "grid-template-columns: 130px 1fr" },
+              el("b", { text: "Verdict" }),
+              el("span", {}, el("span", {
+                class: `chip ${routing.verdict === "routable" ? "priority-low" : "priority-high"}`,
+                text: routing.verdict === "routable" ? "Fits connected repos" : "New application needed",
+              })),
+              el("b", { text: "Reasoning" }), el("span", { text: routing.reasoning }),
+              routing.candidate_repos?.length ? el("b", { text: "Candidate repos" }) : null,
+              routing.candidate_repos?.length ? el("span", { text: routing.candidate_repos.join(", ") }) : null,
+              routing.overridden_by ? el("b", { text: "Overridden by" }) : null,
+              routing.overridden_by ? el("span", { text: `${routing.overridden_by} at ${routing.overridden_at}` }) : null),
+            (() => {
+              const sel = el("select", {},
+                el("option", { value: "routable", text: "Routable" }),
+                el("option", { value: "new_application_needed", text: "New application needed" }));
+              sel.value = routing.verdict;
+              return el("div", { style: "margin-top:10px; display:flex; gap:8px; align-items:center" },
+                el("span", { class: "hint", text: "Override:" }), sel,
+                el("button", {
+                  class: "outline", text: "Apply override",
+                  onclick: () => act("/intake/override-route", { verdict: sel.value }, "Routing verdict overridden"),
+                }));
+            })())
+        : el("p", { class: "hint", text: "Run requirement routing to decide whether this fits the connected repos, or needs a new application." })) : null;
+
+    const newApp = d.intake?.new_app;
+    const scaffoldFiles = d.intake?.scaffold;
+    const newAppCard = (isLive && routing?.verdict === "new_application_needed") ? el("div", { class: "card" },
+      el("div", { class: "section-title" }, el("h3", { text: "New Application Setup" })),
+      newApp?.name
+        ? el("div", {},
+            el("div", { class: "kv", style: "grid-template-columns: 130px 1fr" },
+              el("b", { text: "Name" }), el("span", { class: "mono", text: newApp.name }),
+              el("b", { text: "Description" }), el("span", { text: newApp.description }),
+              el("b", { text: "Stack" }), el("span", { text: newApp.stack })),
+            scaffoldFiles
+              ? el("div", { style: "margin-top:10px" },
+                  el("p", { class: "hint", text: "Scaffold generated — review before creating the repository." }),
+                  ...Object.entries(scaffoldFiles).map(([name, content]) =>
+                    el("details", { style: "margin-top:6px" },
+                      el("summary", { text: name }),
+                      el("pre", { class: "mono", style: "white-space:pre-wrap; font-size:12px", text: content }))),
+                  el("button", {
+                    class: "primary sq block", style: "margin-top:10px", text: "Create Repository",
+                    onclick: () => act("/intake/create-new-app-repo", {}, "New application repository created"),
+                  }))
+              : el("button", {
+                  class: "outline block", style: "margin-top:10px", text: "Generate Scaffold",
+                  onclick: () => act("/intake/generate-scaffold", {}, "Scaffold generated"),
+                }))
+        : el("div", {},
+            newApp?.pending?.length
+              ? (() => {
+                  const inputs = newApp.pending.map((q) =>
+                    ({ q, input: el("input", { type: "text", placeholder: "Answer" }) }));
+                  return el("div", {},
+                    ...inputs.map(({ q, input }) => el("div", { style: "margin-bottom:8px" },
+                      el("p", { text: q }), input)),
+                    el("button", {
+                      class: "primary sq", text: "Submit answers",
+                      onclick: () => act("/intake/new-app-answer",
+                        { answers: inputs.map(({ input }) => input.value) }, "Answers recorded"),
+                    }));
+                })()
+              : el("button", {
+                  class: "outline block", text: "Start New Application Setup",
+                  onclick: () => act("/intake/new-app-setup", {}, "Setup started"),
+                }))) : null;
+
     const rail = el("aside", { class: "rail" },
       el("div", { class: "card rail-card" },
         el("h3", { text: "Actions" }),
+        isLive ? el("button", {
+          class: "outline block", style: "margin-top:10px", text: "Route Requirement",
+          onclick: () => act("/intake/route", {}, "Requirement routed"),
+        }) : null,
         isLive
           ? el("button", {
               class: "outline block", style: "margin-top:10px", text: "Ask AI Clarification",
@@ -547,6 +626,8 @@
           el("h2", { text: "Intake — AI Analysis" }),
           el("span", { class: "hint", text: "The analysis model reviews the requirement and extracts key information. A human passes the gate." })),
         repoCard ? el("div", { style: "margin-bottom:14px" }, repoCard) : null,
+        routingCard ? el("div", { style: "margin-bottom:14px" }, routingCard) : null,
+        newAppCard ? el("div", { style: "margin-bottom:14px" }, newAppCard) : null,
         reqCard,
         el("div", { style: "margin-top:14px" }, aiCard),
         clarCard ? el("div", { style: "margin-top:14px" }, clarCard) : null,
