@@ -161,6 +161,17 @@ manual, human action — this system never automates it.
   --push` for real during rehearsal only) → Ask AI Clarification → answer →
   Run Intake Analysis → Generate Epic → Pass Intake Gate → Generate Plan →
   sign-off.
+- After sign-off, the delivery handoff beats are **not** part of the LLM
+  replay path — they have no recording to miss, since they're local file
+  writes and (for the push beat) a real git operation:
+  - Export Artifacts and Write to Clone are safe to run live every time — no
+    external side effects beyond the run's own local clone.
+  - Push Delivery Branch creates a real `delivery/<run_id>` branch on the
+    real target repo — safe to run live on demo day too (each run gets its
+    own uniquely-named branch, and it can never target the repo's default
+    branch), but it is a genuine, visible GitHub action. If you'd rather not
+    touch the real repo in the room, use Download Zip instead — same
+    content, zero side effects.
 - The clarification answers must be the rehearsed ones verbatim (they are
   embedded in the recorded prompts; see
   `artifacts/runs/S7-00022/intake/clarifications.json` from the rehearsal, or
