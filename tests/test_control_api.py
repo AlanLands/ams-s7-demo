@@ -234,3 +234,35 @@ def test_plan_confidence_in_state(client, planned_run):
     conf = state["planning"]["confidence"]
     assert conf["value"] == 96
     assert conf["provenance"] == "simulated"
+
+
+def test_export_zip_contains_previously_exported_packages(client, run_id):
+    from s7_delivery.factory.engine import Engine
+
+    eng = Engine(run_id)
+    eng.store.write_text(
+        "# AGENTS.md content\n", "planning", "export", "Services-Team",
+        "US-001-story", "AGENTS.md",
+    )
+    eng.store.write_text(
+        "- [ ] AC-1: text\n", "planning", "export", "Services-Team",
+        "US-001-story", "acceptance-criteria.md",
+    )
+
+    res = client.get(f"/api/runs/{run_id}/planning/export.zip")
+    assert res.status_code == 200
+    assert res.headers["content-type"] == "application/zip"
+
+    import io
+    import zipfile
+    names = zipfile.ZipFile(io.BytesIO(res.content)).namelist()
+    assert "Services-Team/US-001-story/AGENTS.md" in names
+    assert "Services-Team/US-001-story/acceptance-criteria.md" in names
+
+
+def test_export_zip_empty_before_export_is_a_valid_empty_zip(client, run_id):
+    res = client.get(f"/api/runs/{run_id}/planning/export.zip")
+    assert res.status_code == 200
+    import io
+    import zipfile
+    assert zipfile.ZipFile(io.BytesIO(res.content)).namelist() == []

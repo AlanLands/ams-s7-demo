@@ -15,11 +15,13 @@ nothing in memory, so a browser refresh or server restart loses nothing
 
 from __future__ import annotations
 
+import io
+import zipfile
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -382,6 +384,23 @@ def post_push_delivery_branch(run_id: str, body: PushDeliveryBody) -> dict:
     eng = _engine(run_id)
     eng.planning_push_delivery_branch(_role(body.role), body.repo_name)
     return eng.state()
+
+
+@app.get("/api/runs/{run_id}/planning/export.zip")
+def get_export_zip(run_id: str) -> StreamingResponse:
+    eng = _engine(run_id)
+    root = eng.store.path("planning", "export")
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        if root.is_dir():
+            for path in sorted(root.rglob("*")):
+                if path.is_file():
+                    zf.write(path, path.relative_to(root))
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{run_id}-delivery-export.zip"'},
+    )
 
 
 # --- build & independent review (spec §9) -----------------------------------
