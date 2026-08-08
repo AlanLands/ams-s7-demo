@@ -342,6 +342,52 @@ def test_generate_scaffold_before_setup_is_an_error(tmp_path):
         eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
 
 
+def test_generate_scaffold_activity_uses_correct_actor(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: (
+            {"done": True, "name": "maplesure-eligibility-check",
+             "description": "d", "stack": "FastAPI"}, {},
+        ),
+    )
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    monkeypatch.setattr(
+        scaffold_mod, "generate_scaffold",
+        lambda name, description, stack: (
+            {"architecture.md": "# arch\n", "README.md": "# readme\n"}, {},
+        ),
+    )
+    eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
+    events = [e for e in eng.state()["activity"] if e["workflow"] == "new-app-scaffold"]
+    assert events[-1]["actor"] == "new-app-scaffold"
+
+
+def test_generate_scaffold_records_provenance(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: (
+            {"done": True, "name": "maplesure-eligibility-check",
+             "description": "d", "stack": "FastAPI"}, {},
+        ),
+    )
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    monkeypatch.setattr(
+        scaffold_mod, "generate_scaffold",
+        lambda name, description, stack: (
+            {"architecture.md": "# arch\n", "README.md": "# readme\n"}, {},
+        ),
+    )
+    eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
+    scaffold_events = [
+        r for r in eng.state()["provenance_ledger"]
+        if r["artifact_id"] == "SCAFFOLD-maplesure-eligibility-check"
+    ]
+    assert len(scaffold_events) == 1
+    assert scaffold_events[0]["artifact_type"] == "scaffold"
+
+
 # --- new-app repo creation tests -----------------------------------------------
 
 

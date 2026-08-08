@@ -727,8 +727,13 @@ class Engine:
         )
         for filename, content in files.items():
             self.store.write_text(content, "intake", "scaffold", setup["name"], filename)
+        self._record(
+            artifact_id=f"SCAFFOLD-{setup['name']}", artifact_type="scaffold",
+            payload={"files": sorted(files)}, author="requirement-routing (live)",
+            stage=Stage.INTAKE, action="generate-scaffold", outcome="created",
+        )
         self._activity(
-            stage=Stage.INTAKE, actor="requirement-routing", actor_type="live_ai",
+            stage=Stage.INTAKE, actor="new-app-scaffold", actor_type="live_ai",
             workflow="new-app-scaffold", duration_s=round(time.monotonic() - t0, 2),
             outcome="created",
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",

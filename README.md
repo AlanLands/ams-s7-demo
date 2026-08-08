@@ -138,6 +138,13 @@ are synthetic MapleSure applications on GitHub used only as grounding context
   embedded in the recorded prompts; see
   `artifacts/runs/S7-00022/intake/clarifications.json` from the rehearsal, or
   re-record with `LLM_MODE=record` after any change).
+- If the routing verdict comes back `new_application_needed`, the
+  new-application setup conversation's answers (repository name, description,
+  stack) must also match the rehearsed ones verbatim — they are baked into the
+  scaffold-generation recording's cache key the same way the clarification
+  answers are. See the recorded new-app-setup transcript in the rehearsed
+  run's artifacts (`intake/new_app.json`), or re-record with
+  `LLM_MODE=record` after any change.
 - Connect-repo needs network for GitHub URLs, but an absolute local clone
   path works fully offline — the URL is not part of the cache key.
 - A replay miss fails loudly (HTTP 502 naming the missing recording) rather
