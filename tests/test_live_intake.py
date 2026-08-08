@@ -112,3 +112,79 @@ def test_run_clarification_enforces_round_cap(monkeypatch):
     ]
     with pytest.raises(LLMError, match="cap"):
         live_intake.run_clarification(REQUIREMENT, PACKS, transcript)
+
+
+# --- planning tests -------------------------------------------------------
+
+GOOD_STORY = {
+    "story_id": "US-001",
+    "title": "Claim submission record",
+    "purpose": "Persist the submission as a first-class record.",
+    "accountable_team": "Data Team",
+    "target_application": "maplesure-claims-api",
+    "target_repository": "maplesure-claims-api",
+    "target_component": "claims data model",
+    "acceptance_criteria": [
+        {"ac_id": "US-001-AC1", "text": "A submission persists across a dropped session."},
+        {"ac_id": "US-001-AC2", "text": "Every submission carries an audit trail."},
+    ],
+    "dependencies": [],
+    "impacts": ["claims/db.py schema"],
+    "feature_flag": {"name": "sponsor_claim_submission"},
+    "rollback_plan": {"method": "disable feature flag; additive schema"},
+    "task_type": "feature",
+    "estimate": 5,
+    "sprint": 1,
+    "traces_to": ["BR-01"],
+}
+
+GOOD_PLAN = {
+    "stories": [GOOD_STORY],
+    "confidence": 78,
+    "rationale": "Data model first; the journey consumes it.",
+}
+
+EPIC = {"epic_id": "EPIC-S7-001", "title": "Online disability claim submission",
+        "business_outcome": "Sponsors submit online."}
+ANALYSIS = {"business_rules": [{"rule_id": "BR-01", "text": "Sponsor-scoped lookup only."}]}
+TEAMS = ["Portal Team", "Services Team", "Data Team"]
+
+
+def test_run_plan_validates_stories(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_PLAN))
+    monkeypatch.setenv("LLM_MODE", "live")
+    stories, confidence, rationale, usage = live_intake.run_plan(
+        EPIC, ANALYSIS, PACKS, [], TEAMS
+    )
+    assert stories[0].story_id == "US-001"
+    assert stories[0].provenance.value == "live_ai"
+    assert confidence["value"] == 78
+    assert "self-assessment" in confidence["basis"]
+
+
+def test_run_plan_rejects_unknown_team(monkeypatch):
+    bad = {**GOOD_PLAN, "stories": [dict(GOOD_STORY, accountable_team="Invented Team")]}
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="team"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+
+
+def test_run_plan_rejects_unconnected_repo(monkeypatch):
+    bad = {**GOOD_PLAN, "stories": [dict(GOOD_STORY, target_repository="other-repo")]}
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="repository"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+
+
+def test_run_plan_rejects_unclaimed_business_rule(monkeypatch):
+    bad = {**GOOD_PLAN, "stories": [dict(GOOD_STORY, traces_to=[])]}
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="BR-01"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+
+
+def test_run_plan_rejects_bad_estimate(monkeypatch):
+    bad = {**GOOD_PLAN, "stories": [dict(GOOD_STORY, estimate=4)]}
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="estimate"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)

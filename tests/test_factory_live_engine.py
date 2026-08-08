@@ -144,3 +144,50 @@ def test_clarify_answer_count_mismatch_is_an_error(tmp_path, monkeypatch):
         eng.intake_clarify_answer(Role.PRODUCT_ANALYST, ["only one answer"])
     # Pending questions remain unanswered after the failed submit.
     assert eng.state()["intake"]["clarifications"]["pending"] == ["Q one?", "Q two?"]
+
+
+# --- planning tests -------------------------------------------------------
+
+from s7_delivery.factory.models import Story, AcceptanceCriterion, FeatureFlag, RollbackPlan
+
+
+def _fake_story() -> Story:
+    return Story(
+        story_id="US-001", epic_id="EPIC-S7-001", title="t", purpose="p",
+        accountable_team="Data Team", target_application="maplesure-claims-api",
+        target_component="c", target_repository="maplesure-claims-api",
+        acceptance_criteria=[AcceptanceCriterion(ac_id="US-001-AC1", text="x")],
+        feature_flag=FeatureFlag(name="f"), rollback_plan=RollbackPlan(method="m"),
+        estimate=5, sprint=1, traces_to=["BR-01"],
+        provenance=Provenance.LIVE_AI,
+    )
+
+
+def test_live_planning_generate(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (_fake_analysis(), {}),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+
+    monkeypatch.setattr(
+        live_intake, "run_plan",
+        lambda epic, analysis, packs, transcript, teams: (
+            [_fake_story()],
+            {"value": 78, "basis": "Planning model self-assessment (live).",
+             "provenance": "live_ai"},
+            {"text": "why", "provenance": "live_ai"},
+            {},
+        ),
+    )
+    eng.planning_generate(Role.DELIVERY_LEAD)
+    state = eng.state()
+    assert state["planning"]["stories"][0]["provenance"] == "live_ai"
+    assert state["planning"]["confidence"]["value"] == 78
+    # Sign-off and task seeding work on live stories unchanged.
+    eng.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Hale")
+    state = eng.state()
+    assert state["build"]["tasks"][0]["story_id"] == "US-001"

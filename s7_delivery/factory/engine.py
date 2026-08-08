@@ -614,6 +614,10 @@ class Engine:
             raise EngineError("The plan is locked; use an amendment to change it")
         self._stage_in_progress(Stage.PLANNING)
 
+        if self.run().mode is DemoMode.LIVE:
+            self._planning_generate_live()
+            return
+
         # The design artifact the stories derive from — the upstream pointer
         # the staleness demonstration flips (spec §15). Its rules quote the
         # epic's provisional answers to the open SME questions.
@@ -691,6 +695,41 @@ class Engine:
             stage=Stage.PLANNING, actor=role.value, actor_type="human",
             workflow="story-edit", artifact=story_id,
             outcome="amended", details=", ".join(sorted(patch)),
+        )
+
+    def _planning_generate_live(self) -> None:
+        import time
+
+        from s7_delivery.factory import live_intake
+
+        packs = self._context_packs()
+        epic = self.store.read_json_or(None, "intake", "epic.json")
+        if epic is None:
+            raise EngineError("Create the epic before generating the plan")
+        analysis = self.store.read_json("intake", "analysis.json")
+        transcript = self._clarifications()["transcript"]
+        t0 = time.monotonic()
+        stories, confidence, rationale, usage = live_intake.run_plan(
+            epic, analysis, packs, transcript, seed.TEAMS
+        )
+        payloads = [s.model_dump(mode="json") for s in stories]
+        self.store.write_json(payloads, "planning", "stories.json")
+        self.store.write_json(confidence, "planning", "confidence.json")
+        self.store.write_json(rationale, "planning", "rationale.json")
+        for s in payloads:
+            self._record(
+                artifact_id=s["story_id"], artifact_type="story", payload=s,
+                author="planning (live)", stage=Stage.PLANNING,
+                action="decompose", outcome="created",
+                inputs=[s["epic_id"], "ANL-001",
+                        f"REPO-{s['target_repository']}"],
+            )
+        self._activity(
+            stage=Stage.PLANNING, actor="planning", actor_type="live_ai",
+            workflow="epic-decomposition",
+            duration_s=round(time.monotonic() - t0, 2), outcome="created",
+            details=f"{len(payloads)} stories; "
+            f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
     def _planning_open_for_change(self) -> None:

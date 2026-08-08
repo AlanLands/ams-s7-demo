@@ -181,3 +181,145 @@ change the delivery plan. Return JSON exactly matching:
     if not 1 <= len(questions) <= 4:
         raise LLMError(f"expected 1-4 clarifying questions, got {len(questions)}")
     return questions, usage
+
+
+PLAN_ROLE = (
+    "Your role is delivery planning: break the epic into small, independently "
+    "deliverable user stories with owners, grounded in the connected "
+    "repositories — a story lands in the repository whose code it changes. "
+    "Where the repositories show a capability does not exist, the story that "
+    "introduces it comes first in the dependency order."
+)
+
+_POINT_SCALE = (1, 2, 3, 5, 8, 13)
+
+_PLAN_SHAPE = """{
+  "stories": [
+    {
+      "story_id": "US-<n>, numbered from 1 in delivery order",
+      "title": "<short imperative title>",
+      "purpose": "<why this story exists, one or two sentences>",
+      "accountable_team": "<one team from the roster>",
+      "target_application": "<the connected repository this changes>",
+      "target_repository": "<same connected repository name>",
+      "target_component": "<the part of that repository this lands in>",
+      "acceptance_criteria": [
+        {"ac_id": "US-<n>-AC<m>", "text": "Given <context>, when <action>, then <observable result>"}
+      ],
+      "dependencies": ["<story ids this cannot start before>"],
+      "impacts": ["<existing file or behaviour this touches>"],
+      "feature_flag": {"name": "<flag to ship dark behind>"},
+      "rollback_plan": {"method": "<one line: how this is backed out>"},
+      "task_type": "feature | config | migration | integration | test",
+      "estimate": <integer: 1/2/3/5/8/13>,
+      "sprint": <1, 2 or 3>,
+      "traces_to": ["<business rule ids from the analysis this story delivers>"]
+    }
+  ],
+  "confidence": <0-100 self-assessment of the draft>,
+  "rationale": "<one paragraph: the decomposition logic>"
+}"""
+
+
+def run_plan(
+    epic: dict,
+    analysis: dict,
+    packs: dict[str, str],
+    transcript: list[dict],
+    teams: list[str],
+) -> tuple[list, dict, dict, dict]:
+    from s7_delivery.factory.models import Status, Story
+
+    if not packs:
+        raise LLMError("Live planning needs a connected repository.")
+    rule_ids = [r["rule_id"] for r in analysis.get("business_rules", [])]
+    roster = "\n".join(f"- {t}" for t in teams)
+    task = f"""The approved epic:
+{json.dumps(epic, indent=2)}
+
+The intake analysis' business rules (every rule id must be claimed by at
+least one story's "traces_to"):
+{json.dumps(analysis.get("business_rules", []), indent=2)}
+
+Clarification conversation so far:
+{_transcript_text(transcript)}
+
+The team roster. Assign each story's accountable_team from this list ONLY:
+{roster}
+
+Break the epic into 4 to 8 stories across sprints 1 to 3. Every story's
+target_repository must be one of the connected repositories. Return JSON
+exactly matching:
+{_PLAN_SHAPE}"""
+    data, usage = _call(
+        role=PLAN_ROLE,
+        ref=_ref(epic, packs),
+        task=task,
+        beat="plan",
+        key_material=json.dumps(epic, sort_keys=True)
+        + json.dumps(rule_ids)
+        + json.dumps(transcript, sort_keys=True),
+    )
+
+    raw_stories = data.get("stories")
+    if not isinstance(raw_stories, list) or not 1 <= len(raw_stories) <= 10:
+        raise LLMError("plan must contain 1-10 stories")
+
+    provenance = provenance_now()
+    stories: list[Story] = []
+    seen: set[str] = set()
+    for raw in raw_stories:
+        sid = str(raw.get("story_id", ""))
+        if not sid or sid in seen:
+            raise LLMError(f"missing or duplicate story_id {sid!r}")
+        seen.add(sid)
+        if raw.get("accountable_team") not in teams:
+            raise LLMError(
+                f"story {sid}: accountable_team {raw.get('accountable_team')!r} "
+                "is not on the team roster"
+            )
+        if raw.get("target_repository") not in packs:
+            raise LLMError(
+                f"story {sid}: target_repository {raw.get('target_repository')!r} "
+                "is not a connected repository"
+            )
+        if raw.get("estimate") not in _POINT_SCALE:
+            raise LLMError(f"story {sid}: estimate must be one of {_POINT_SCALE}")
+        if not raw.get("acceptance_criteria"):
+            raise LLMError(f"story {sid}: no acceptance criteria")
+        _excluded = {"provenance", "status", "version", "epic_id"}  # ours to set
+        try:
+            story = Story(
+                **{k: v for k, v in raw.items()
+                   if k in Story.model_fields and k not in _excluded},
+                epic_id=str(epic.get("epic_id", "")),
+                provenance=provenance,
+            )
+        except Exception as exc:
+            raise LLMError(f"story {sid} failed validation: {exc}") from exc
+        if story.sprint != 1:
+            story = story.model_copy(update={"status": Status.PLANNED})
+        stories.append(story)
+
+    ids = {s.story_id for s in stories}
+    for s in stories:
+        dangling = [d for d in s.dependencies if d not in ids]
+        if dangling:
+            raise LLMError(f"story {s.story_id} depends on unknown stories {dangling}")
+
+    claimed = {rid for s in stories for rid in s.traces_to}
+    unclaimed = [rid for rid in rule_ids if rid not in claimed]
+    if unclaimed:
+        raise LLMError(f"business rules claimed by no story: {unclaimed}")
+
+    confidence = {
+        "value": data.get("confidence"),
+        "basis": "Planning model self-assessment of the draft decomposition "
+                 "(live) — not a measured outcome.",
+        "provenance": provenance.value,
+    }
+    rationale = {
+        "text": str(data.get("rationale", "")),
+        "provenance": provenance.value,
+    }
+    return stories, confidence, rationale, usage
