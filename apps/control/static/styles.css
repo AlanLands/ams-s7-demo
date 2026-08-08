@@ -388,6 +388,7 @@ ul.plain li:last-child { border-bottom: 0; }
 .prov-human { border-color: var(--green); color: var(--green); background: var(--green-pale); }
 .prov-simulated { border-color: var(--amber); color: var(--amber-text); background: var(--amber-pale); }
 .prov-replayed_ai { border-color: #4a7fb5; color: #2c5f8f; background: #eaf2fa; }
+.prov-live_ai { border-color: var(--red); color: var(--red-dark); background: var(--red-pale); }
 .prov-staged { border: 2px solid var(--amber); background: #f9e2ac; color: #4d3800; }
 
 /* --- tables ---------------------------------------------------------------*/

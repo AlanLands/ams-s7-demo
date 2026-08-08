@@ -125,8 +125,10 @@ locked. Every artifact carries a visible `STAGED` badge.
 
 **Built.** `common/llm.py` (5 providers, replay/record/live, loud replay
 misses), `common/prompt.py`, `common/telemetry.py`, `s7_delivery/models.py`,
-`pipeline.py`, `staged.py`, `apps/console/`, `crs/EPIC-S7-001.md`, **60 tests**
-green offline with no API key.
+`pipeline.py`, `staged.py`, `crs/EPIC-S7-001.md`, **60 tests** green offline
+with no API key. (`apps/console/`, the original five-gate demo console, was
+built here and removed 2026-08-07 once the Control Centre superseded it as
+the app surface.)
 
 ### The rework — why it happened here rather than later
 

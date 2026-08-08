@@ -1,8 +1,8 @@
 # S7 Delivery Control Centre — Architecture
 
-The Control Centre is the third surface over this repo's delivery machinery,
-beside the console (`apps/console`, port 8700) and the intake app
-(`apps/intake`, port 8710). It demonstrates the full governed journey —
+The Control Centre is a surface over this repo's delivery machinery, beside
+the intake app (`apps/intake`, port 8710). It demonstrates the full governed
+journey —
 intake → planning → build & independent review → quality → release — as a
 customer-safe browser application: no IDE, no terminal, no prompts, no
 credentials, no raw logs on the surface.
@@ -57,8 +57,8 @@ nothing is silently updated.
 
 ## Relationship to the existing pipeline
 
-`s7_delivery/pipeline.py` (the console's upstream stages) and
+`s7_delivery/pipeline.py` (the upstream stages) and
 `s7_delivery/downstream.py` (the recorded three-role lane) are untouched.
 The factory reuses their vocabulary — EPIC-S7-001, stories, acceptance
 criteria, provenance labels — and the same FastAPI + vanilla-JS surface
-pattern, so all three apps stay thin views over engines that own the rules.
+pattern, so both apps stay thin views over engines that own the rules.
