@@ -72,3 +72,4 @@ docs/S7-Delivery-Pack.pdf
 # packages. Per-plan working state, not a deliverable; git history is the
 # record once a plan finishes.
 .superpowers/
+.worktrees/
