@@ -140,6 +140,21 @@ export interface RunRecord {
   plan_locked?: boolean
 }
 
+export interface TraceRow {
+  ac: string
+  story?: string
+  task?: string
+  pr?: string
+  tests?: string[]
+  review?: string
+  review_result?: string
+  quality?: string
+  deployment?: string
+  handover?: string
+  requirement?: string
+  design?: string
+}
+
 export interface RunState {
   run: RunRecord
   scenario?: { title: string; description: string; epic_source: string }
@@ -147,6 +162,7 @@ export interface RunState {
   gates?: Gate[]
   provenance?: unknown[]
   activity_summary?: { counters?: Record<string, number>; total_events?: number }
+  traceability?: TraceRow[]
   [section: string]: unknown
 }
 
