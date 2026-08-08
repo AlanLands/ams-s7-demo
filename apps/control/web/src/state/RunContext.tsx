@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { apiGet, apiPost, apiUpload } from '../api'
 import type { RunState, RoleInfo } from '../types'
 
@@ -27,10 +27,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const [runs, setRuns] = useState<string[]>([])
   const [roles, setRoles] = useState<RoleInfo[]>([])
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null)
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const showToast = useCallback((message: string, isError = false) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast({ message, isError })
-    setTimeout(() => setToast(null), 3200)
+    toastTimer.current = setTimeout(() => setToast(null), 3200)
   }, [])
 
   const setRole = useCallback((next: string) => {
