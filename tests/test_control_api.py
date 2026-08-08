@@ -268,3 +268,83 @@ def test_export_zip_empty_before_export_is_a_valid_empty_zip(client, run_id):
     import io
     import zipfile
     assert zipfile.ZipFile(io.BytesIO(res.content)).namelist() == []
+
+
+SOURCE_TEXT = """Claims Deductible Handling
+
+Apply policy deductible during claim intake to ensure valid claim processing.
+
+- Policy record must contain a deductible amount.
+- Reject claim if claim amount is at or below the policy deductible.
+"""
+
+
+def test_upload_source_extracts_and_updates_requirement(client, run_id):
+    res = client.post(
+        f"/api/runs/{run_id}/intake/upload-source",
+        data={"role": "product_analyst"},
+        files={"file": ("epic.md", SOURCE_TEXT.encode(), "text/markdown")},
+    )
+    assert res.status_code == 200
+    state = res.json()
+    assert state["intake"]["requirement"]["title"] == "Claims Deductible Handling"
+    assert state["intake"]["extraction"]["method"] == "rule_based"
+
+
+def test_upload_source_rejects_unsupported_extension(client, run_id):
+    res = client.post(
+        f"/api/runs/{run_id}/intake/upload-source",
+        data={"role": "product_analyst"},
+        files={"file": ("epic.xlsx", b"data", "application/octet-stream")},
+    )
+    assert res.status_code == 400
+    assert "Unsupported file type" in res.json()["detail"]
+
+
+def test_upload_source_rejects_oversized_file(client, run_id):
+    oversized = b"x" * (10 * 1024 * 1024 + 1)
+    res = client.post(
+        f"/api/runs/{run_id}/intake/upload-source",
+        data={"role": "product_analyst"},
+        files={"file": ("epic.txt", oversized, "text/plain")},
+    )
+    assert res.status_code == 400
+    assert "10MB" in res.json()["detail"]
+
+
+def test_paste_source_extracts(client, run_id):
+    res = client.post(
+        f"/api/runs/{run_id}/intake/paste-source",
+        json={"role": "product_analyst", "text": SOURCE_TEXT},
+    )
+    assert res.status_code == 200
+    assert res.json()["intake"]["extraction"]["epic_title"] == "Claims Deductible Handling"
+
+
+def test_re_extract(client, run_id):
+    client.post(f"/api/runs/{run_id}/intake/paste-source",
+                json={"role": "product_analyst", "text": SOURCE_TEXT})
+    res = client.post(f"/api/runs/{run_id}/intake/re-extract", json={"role": "product_analyst"})
+    assert res.status_code == 200
+    assert res.json()["intake"]["extraction"]["method"] == "rule_based"
+
+
+def test_patch_extraction(client, run_id):
+    client.post(f"/api/runs/{run_id}/intake/paste-source",
+                json={"role": "product_analyst", "text": SOURCE_TEXT})
+    res = client.patch(
+        f"/api/runs/{run_id}/intake/extraction",
+        json={"role": "business_owner", "patch": {"epic_title": "Corrected"}},
+    )
+    assert res.status_code == 200
+    assert res.json()["intake"]["extraction"]["epic_title"] == "Corrected"
+
+
+def test_finalize_epic_creates_epic_from_extraction(client, run_id):
+    client.post(f"/api/runs/{run_id}/intake/paste-source",
+                json={"role": "product_analyst", "text": SOURCE_TEXT})
+    res = client.post(f"/api/runs/{run_id}/intake/finalize-epic", json={"role": "product_analyst"})
+    assert res.status_code == 200
+    state = res.json()
+    assert state["intake"]["epic"]["title"] == "Claims Deductible Handling"
+    assert state["intake"]["analysis"] is not None

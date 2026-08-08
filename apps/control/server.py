@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from common.llm import LLMError
-from s7_delivery.factory import seed
+from s7_delivery.factory import extraction, seed
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 from s7_delivery.factory.roles import PermissionError_, actions_for
@@ -253,6 +253,65 @@ def post_generate_scaffold(run_id: str, body: RoleBody) -> dict:
 def post_create_new_app_repo(run_id: str, body: RoleBody) -> dict:
     eng = _engine(run_id)
     eng.intake_create_new_app_repo(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/upload-source")
+async def post_intake_upload_source(
+    run_id: str, role: str = Form(...), file: UploadFile = File(...)
+) -> dict:
+    eng = _engine(run_id)
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=400, detail="File exceeds the 10MB demo limit")
+    filename = file.filename or "document"
+    try:
+        text = extraction.decode_source(filename, content)
+    except extraction.ExtractionError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    r = _role(role)
+    eng.intake_set_source(r, text, filename=filename, source_kind="upload", raw_content=content)
+    eng.intake_extract(r)
+    return eng.state()
+
+
+class PasteSourceBody(BaseModel):
+    role: str
+    text: str
+
+
+@app.post("/api/runs/{run_id}/intake/paste-source")
+def post_intake_paste_source(run_id: str, body: PasteSourceBody) -> dict:
+    eng = _engine(run_id)
+    r = _role(body.role)
+    eng.intake_set_source(r, body.text, source_kind="paste")
+    eng.intake_extract(r)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/re-extract")
+def post_intake_re_extract(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_extract(_role(body.role))
+    return eng.state()
+
+
+class ExtractionPatch(BaseModel):
+    role: str
+    patch: dict
+
+
+@app.patch("/api/runs/{run_id}/intake/extraction")
+def patch_intake_extraction(run_id: str, body: ExtractionPatch) -> dict:
+    eng = _engine(run_id)
+    eng.intake_edit_extraction(_role(body.role), body.patch)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/finalize-epic")
+def post_intake_finalize_epic(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_finalize(_role(body.role))
     return eng.state()
 
 
