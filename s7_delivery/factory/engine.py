@@ -735,6 +735,7 @@ class Engine:
         reviewed scaffold, then normalizes it into an ordinary connected
         repo — §B needs no special case because of this."""
         roles.require("create_new_application_repo", role)
+        import shutil
         from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
         from s7_delivery.factory.scaffold import push_new_repo, write_scaffold_locally
 
@@ -753,10 +754,12 @@ class Engine:
         try:
             url = push_new_repo(repo_path, name)
         except RepoConnectError as exc:
+            shutil.rmtree(repo_path, ignore_errors=True)
             raise EngineError(f"New application repo creation failed: {exc}") from exc
         try:
             rec = clone_repo(url, self.store.path("repos"))
         except RepoConnectError as exc:
+            shutil.rmtree(repo_path, ignore_errors=True)
             raise EngineError(f"Cloning the newly created repo failed: {exc}") from exc
 
         repos = self.store.read_json_or([], "intake", "repos.json")

@@ -395,3 +395,23 @@ def test_create_new_app_repo_push_failure_leaves_no_connected_repo(tmp_path, mon
     with pytest.raises(EngineError, match="failed"):
         eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
     assert eng.state()["intake"]["repos"] == []
+
+
+def test_create_new_app_repo_push_failure_allows_retry(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    _settled_new_app(eng, monkeypatch)
+
+    def boom(repo_path, name):
+        from s7_delivery.factory.repos import RepoConnectError
+        raise RepoConnectError("gh: transient network error")
+
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", boom)
+    with pytest.raises(EngineError, match="failed"):
+        eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+    def fake_push(repo_path, name):
+        return str(repo_path)
+
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", fake_push)
+    eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+    assert eng.state()["intake"]["repos"][-1]["name"] == "maplesure-eligibility-check"
