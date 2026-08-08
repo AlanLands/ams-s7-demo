@@ -967,6 +967,21 @@ class Engine:
 
         from s7_delivery.factory.artifact_export import story_folder_name
 
+        def _git(*args: str, cwd) -> str:
+            """Wrapper for git subprocess calls with error handling and timeout."""
+            try:
+                out = subprocess.run(
+                    ["git", "-C", str(cwd), *args],
+                    check=True, capture_output=True, text=True, timeout=120,
+                )
+            except subprocess.CalledProcessError as exc:
+                raise EngineError(
+                    f"git {' '.join(args)} failed in {cwd}: {(exc.stderr or str(exc)).strip()}"
+                ) from exc
+            except subprocess.TimeoutExpired as exc:
+                raise EngineError(f"git {' '.join(args)} timed out in {cwd}") from exc
+            return out.stdout.strip()
+
         stories = self._stories()
         by_repo: dict[str, list[dict]] = {}
         for story in stories:
@@ -993,24 +1008,12 @@ class Engine:
                         src_file.read_text(encoding="utf-8"), encoding="utf-8"
                     )
             ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
-            status = subprocess.run(
-                ["git", "-C", str(clone_dir), "status", "--porcelain"],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
+            status = _git("status", "--porcelain", cwd=clone_dir)
             if status:
-                subprocess.run(
-                    ["git", "-C", str(clone_dir), "add", "-A"],
-                    check=True, capture_output=True,
-                )
-                subprocess.run(
-                    ["git", "-C", str(clone_dir), *ident, "commit", "-qm",
-                     f"Delivery artifacts for {self.run_id}"],
-                    check=True, capture_output=True,
-                )
-            commit_sha = subprocess.run(
-                ["git", "-C", str(clone_dir), "rev-parse", "HEAD"],
-                check=True, capture_output=True, text=True,
-            ).stdout.strip()
+                _git("add", "-A", cwd=clone_dir)
+                _git(*ident, "commit", "-qm",
+                     f"Delivery artifacts for {self.run_id}", cwd=clone_dir)
+            commit_sha = _git("rev-parse", "HEAD", cwd=clone_dir)
             self.store.write_json(
                 {"committed": True, "commit_sha": commit_sha},
                 "planning", "delivery", f"{repo_name}.json",

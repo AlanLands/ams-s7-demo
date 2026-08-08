@@ -1,4 +1,5 @@
 """Export → write-to-clone → push, offline. Fixtures are local git repos."""
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -100,3 +101,13 @@ def test_write_to_clone_is_idempotent(tmp_path, monkeypatch):
     eng.planning_write_to_clone(Role.DELIVERY_LEAD)  # re-run, no new changes
     second = eng.store.read_json("planning", "delivery", "maplesure-claims-api.json")
     assert first["commit_sha"] == second["commit_sha"]
+
+
+def test_write_to_clone_git_failure_is_an_engine_error(tmp_path, monkeypatch):
+    eng = _signed_off_run_with_repo(tmp_path, monkeypatch)
+    eng.planning_export_artifacts(Role.DELIVERY_LEAD)
+    clone_dir = eng.store.path("repos", "maplesure-claims-api")
+    # Corrupt the git directory so any git command in it fails.
+    shutil.rmtree(clone_dir / ".git")
+    with pytest.raises(EngineError, match="git"):
+        eng.planning_write_to_clone(Role.DELIVERY_LEAD)
