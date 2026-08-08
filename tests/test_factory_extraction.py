@@ -1,5 +1,6 @@
 """Rule-based (non-LLM) requirement extraction. Pure functions, offline."""
 
+import io
 from pathlib import Path
 
 import pytest
@@ -70,3 +71,47 @@ def test_extract_never_returns_silently_empty_requirements():
 def test_extract_rejects_empty_text():
     with pytest.raises(extraction.ExtractionError, match="empty"):
         extraction.extract_requirement("   ")
+
+
+def test_decode_txt_and_md():
+    assert extraction.decode_source("req.txt", b"Hello world") == "Hello world"
+    assert extraction.decode_source("req.md", "café".encode()) == "café"
+
+
+def test_decode_unsupported_extension_raises():
+    with pytest.raises(extraction.ExtractionError, match="Unsupported file type"):
+        extraction.decode_source("req.xlsx", b"data")
+
+
+def test_decode_pdf(monkeypatch):
+    class FakePage:
+        def __init__(self, text):
+            self._text = text
+
+        def extract_text(self):
+            return self._text
+
+    class FakeReader:
+        def __init__(self, stream):
+            self.pages = [FakePage("Page one text."), FakePage("Page two text.")]
+
+    monkeypatch.setattr("pypdf.PdfReader", FakeReader)
+    text = extraction.decode_source("req.pdf", b"%PDF-fake-bytes")
+    assert "Page one text." in text
+    assert "Page two text." in text
+
+
+def test_decode_docx_real_roundtrip():
+    import docx
+
+    doc = docx.Document()
+    doc.add_heading("Claims Deductible Handling", level=1)
+    doc.add_paragraph("Apply the deductible during claim intake.")
+    buf = io.BytesIO()
+    doc.save(buf)
+
+    text = extraction.decode_source("req.docx", buf.getvalue())
+    assert "# Claims Deductible Handling" in text
+    assert "Apply the deductible during claim intake." in text
+    result = extraction.extract_requirement(text)
+    assert result["epic_title"] == "Claims Deductible Handling"
