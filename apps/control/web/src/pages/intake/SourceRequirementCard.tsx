@@ -14,23 +14,29 @@ function formatBytes(n: number) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`
 }
 
-export function SourceRequirementCard() {
+interface Props {
+  extracting: boolean
+  onExtractStart: () => void
+  onExtractEnd: (ok: boolean, message?: string) => void
+}
+
+export function SourceRequirementCard({ extracting, onExtractStart, onExtractEnd }: Props) {
   const { data, uploadAct, act } = useRun()
   const [tab, setTab] = useState<'upload' | 'paste'>('upload')
   const [dragOver, setDragOver] = useState(false)
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [pasteText, setPasteText] = useState('')
-  const [busy, setBusy] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const source = data?.intake?.source
+  const busy = extracting
 
   async function submitFile(file: File) {
     if (file.size > MAX_BYTES) return
-    setBusy(true)
+    onExtractStart()
     const form = new FormData()
     form.append('file', file)
-    await uploadAct('/intake/upload-source', form, `${file.name} extracted`)
-    setBusy(false)
+    const ok = await uploadAct('/intake/upload-source', form, `${file.name} extracted`)
+    onExtractEnd(ok, ok ? undefined : 'Extraction could not be completed')
     setPendingFile(null)
   }
 
@@ -43,9 +49,9 @@ export function SourceRequirementCard() {
 
   async function submitPaste() {
     if (!pasteText.trim()) return
-    setBusy(true)
-    await act('/intake/paste-source', { text: pasteText }, 'Text extracted')
-    setBusy(false)
+    onExtractStart()
+    const ok = await act('/intake/paste-source', { text: pasteText }, 'Text extracted')
+    onExtractEnd(ok, ok ? undefined : 'Extraction could not be completed')
   }
 
   return (

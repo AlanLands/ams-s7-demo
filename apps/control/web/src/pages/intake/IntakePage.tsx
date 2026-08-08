@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useRun } from '../../state/RunContext'
 import { SourceRequirementCard } from './SourceRequirementCard'
 import { ExtractionCard } from './ExtractionCard'
@@ -6,6 +7,8 @@ import { AdvancedAnalysisSection } from './AdvancedAnalysisSection'
 
 export function IntakePage() {
   const { data } = useRun()
+  const [extracting, setExtracting] = useState(false)
+  const [extractError, setExtractError] = useState<string | null>(null)
   if (!data) return null
   const epic = data.intake?.epic
 
@@ -24,9 +27,13 @@ export function IntakePage() {
         </div>
 
         <div className="intake-grid">
-          <SourceRequirementCard />
+          <SourceRequirementCard
+            extracting={extracting}
+            onExtractStart={() => { setExtracting(true); setExtractError(null) }}
+            onExtractEnd={(ok, message) => { setExtracting(false); if (!ok) setExtractError(message ?? 'Extraction failed') }}
+          />
           <span className="intake-arrow" aria-hidden="true">→</span>
-          <ExtractionCard />
+          <ExtractionCard extracting={extracting} extractError={extractError} onRetry={() => setExtractError(null)} />
         </div>
 
         <AdvancedAnalysisSection />

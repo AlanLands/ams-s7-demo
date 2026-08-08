@@ -558,6 +558,12 @@ button.primary.sq { border-radius: var(--radius-sm); }
 
 .char-count { text-align: right; font-size: 11px; color: var(--muted); margin-top: 2px; }
 
+.req-rows { margin-top: 4px; }
+.req-row { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--border); }
+.req-row:last-child { border-bottom: none; }
+.chip.req-id { background: var(--green-pale); color: var(--green); font-weight: 600; }
+.link-btn { background: none; border: none; color: var(--red); font-size: 13px; padding: 6px 0; text-decoration: underline; }
+
 .sig-box {
   border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
   min-height: 64px; display: grid; place-items: center; margin-top: 4px;
