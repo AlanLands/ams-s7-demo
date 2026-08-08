@@ -511,10 +511,10 @@ class Engine:
         stripped = text.strip()
         if not stripped:
             raise EngineError("Source text is empty")
-        if len(stripped) > MAX_SOURCE_CHARS:
+        if len(text) > MAX_SOURCE_CHARS:
             raise EngineError(
                 f"Source text exceeds the {MAX_SOURCE_CHARS:,}-character limit "
-                f"({len(stripped):,} chars) — trim it and try again"
+                f"({len(text):,} chars) — trim it and try again"
             )
         safe_name = None
         if filename:

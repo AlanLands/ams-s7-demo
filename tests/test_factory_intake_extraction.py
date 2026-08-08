@@ -44,6 +44,17 @@ def test_set_source_rejects_oversized_text(eng):
         eng.intake_set_source(Role.PRODUCT_ANALYST, "x" * 20_001)
 
 
+def test_set_source_rejects_oversized_text_with_trailing_whitespace(eng):
+    # 20,000 non-whitespace chars + 200 trailing spaces: stripped length is
+    # exactly at the cap (20,000), but the raw stored/used text is 20,200 —
+    # over the cap. The check must reject based on the raw text, since that
+    # is what is stored in requirement.description / source.json and later
+    # fed to the parser/LLM by intake_extract, not the stripped copy.
+    text = ("a" * 20_000) + (" " * 200)
+    with pytest.raises(EngineError, match="20,000"):
+        eng.intake_set_source(Role.PRODUCT_ANALYST, text)
+
+
 def test_set_source_persists_raw_upload_bytes(eng, tmp_path):
     eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md",
                            source_kind="upload", raw_content=SOURCE_TEXT.encode())
