@@ -124,6 +124,20 @@ The two target repos, `maplesure-sponsor-portal` and `maplesure-claims-api`,
 are synthetic MapleSure applications on GitHub used only as grounding context
 (shallow-cloned into the run's artifact tree; nothing is pushed back to them).
 
+**Replay on demo day**, run through this checklist before the room:
+
+- Beat order must match the rehearsal: connect repos → Ask AI Clarification →
+  answer → Run Intake Analysis → Generate Epic → Pass Intake Gate → Generate
+  Plan → sign-off.
+- The clarification answers must be the rehearsed ones verbatim (they are
+  embedded in the recorded prompts; see
+  `artifacts/runs/S7-00022/intake/clarifications.json` from the rehearsal, or
+  re-record with `LLM_MODE=record` after any change).
+- Connect-repo needs network for GitHub URLs, but an absolute local clone
+  path works fully offline — the URL is not part of the cache key.
+- A replay miss fails loudly (HTTP 502 naming the missing recording) rather
+  than serving stale content — that is by design.
+
 The intended end state is a mode selector with two entry points converging on one
 downstream lane. The right-hand lane and everything below the join are **not built
 yet**:

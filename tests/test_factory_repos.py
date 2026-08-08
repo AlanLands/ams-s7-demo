@@ -48,6 +48,16 @@ def test_context_pack_respects_cap(tmp_path: Path):
     assert "[truncated" in pack
 
 
+def test_clone_repo_rejects_ext_transport(tmp_path: Path):
+    with pytest.raises(RepoConnectError, match="Unsupported repository URL"):
+        clone_repo("ext::sh -c 'touch /tmp/pwned'", tmp_path / "dest")
+
+
+def test_clone_repo_rejects_option_injection(tmp_path: Path):
+    with pytest.raises(RepoConnectError, match="Unsupported repository URL"):
+        clone_repo("--upload-pack=touch /tmp/pwned", tmp_path / "dest")
+
+
 def test_failed_clone_leaves_no_stale_dir_and_retry_works(tmp_path: Path):
     src = make_fixture_repo(tmp_path)
     bad = tmp_path / "src" / "maplesure-sponsor-portal-missing"

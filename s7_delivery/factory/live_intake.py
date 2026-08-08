@@ -79,7 +79,8 @@ def _call(*, role: str, ref: str, task: str, beat: str, key_material: str) -> tu
 _ANALYSIS_SHAPE = """{
   "problem_understood": true,
   "business_impact": "<one paragraph>",
-  "affected_applications": ["<connected repository name, or an external system suffixed ' (externally owned)'>"],
+  "affected_applications":
+    ["<connected repository name, or an external system suffixed ' (externally owned)'>"],
   "stakeholders": ["<who>"],
   "dependencies": ["<what this depends on, grounded in the repositories>"],
   "risks": ["<risk>"],
@@ -204,7 +205,8 @@ _PLAN_SHAPE = """{
       "target_repository": "<same connected repository name>",
       "target_component": "<the part of that repository this lands in>",
       "acceptance_criteria": [
-        {"ac_id": "US-<n>-AC<m>", "text": "Given <context>, when <action>, then <observable result>"}
+        {"ac_id": "US-<n>-AC<m>",
+         "text": "Given <context>, when <action>, then <observable result>"}
       ],
       "dependencies": ["<story ids this cannot start before>"],
       "impacts": ["<existing file or behaviour this touches>"],

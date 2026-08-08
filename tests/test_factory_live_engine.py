@@ -4,9 +4,20 @@ from pathlib import Path
 
 import pytest
 
+from common.llm import LLMError
 from demo.create_target_repos import PORTAL_FILES, write_repo
+from s7_delivery.factory import live_intake
 from s7_delivery.factory.engine import Engine, EngineError
-from s7_delivery.factory.models import DemoMode, Role
+from s7_delivery.factory.models import (
+    AcceptanceCriterion,
+    DemoMode,
+    FeatureFlag,
+    IntakeAnalysis,
+    Provenance,
+    Role,
+    RollbackPlan,
+    Story,
+)
 
 
 def fixture_repo(tmp_path: Path, name: str = "maplesure-sponsor-portal") -> Path:
@@ -39,11 +50,6 @@ def test_connect_repo_bad_url_is_engine_error(tmp_path: Path):
 
 
 # --- live analysis tests -------------------------------------------------------
-
-
-from common.llm import LLMError
-from s7_delivery.factory import live_intake
-from s7_delivery.factory.models import IntakeAnalysis, Provenance
 
 
 def _fake_analysis() -> IntakeAnalysis:
@@ -147,8 +153,6 @@ def test_clarify_answer_count_mismatch_is_an_error(tmp_path, monkeypatch):
 
 
 # --- planning tests -------------------------------------------------------
-
-from s7_delivery.factory.models import Story, AcceptanceCriterion, FeatureFlag, RollbackPlan
 
 
 def _fake_story() -> Story:

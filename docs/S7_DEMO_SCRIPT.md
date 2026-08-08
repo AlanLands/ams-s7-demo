@@ -81,11 +81,13 @@ and the process knew."*
 
 ## If asked
 
-- *"Is this live AI?"* — No. Every engine-produced artifact is badged
-  SIMULATED; the run is deterministic on purpose (demo reliability rule).
-  The pipeline behind the console (port 8700) shows recorded real model
-  output; the architecture swaps the simulation for live calls behind the
-  same interface.
+- *"Is this live AI?"* — Depends which environment you're in. **Demo**
+  (the default, hard rule 5) is deterministic simulation, badged SIMULATED.
+  **Live** makes real model calls, grounded in the two connected MapleSure
+  GitHub repos, badged LIVE_AI. **Replay** serves the rehearsed live run
+  offline from committed recordings, badged REPLAYED_AI — same grounding,
+  no network, no key. On demo day we run Demo/Replay; nothing simulated or
+  replayed ever presents as live.
 - *"What stops the AI approving its own work?"* — Roles are server-side;
   the reviewer role cannot run development actions and vice versa. That is
   G2's standing condition, not a UI affordance.

@@ -43,13 +43,17 @@ def _repo_files(repo_dir: Path) -> list[Path]:
 
 
 def clone_repo(url: str, dest_root: Path) -> RepoRecord:
+    if not (url.startswith("https://") or Path(url).is_absolute()):
+        raise RepoConnectError(
+            f"Unsupported repository URL {url!r} — use https:// or an absolute local path"
+        )
     name = url.rstrip("/").removesuffix(".git").rsplit("/", 1)[-1]
     dest = dest_root / name
     if dest.exists():
         raise RepoConnectError(f"{name} is already connected")
     dest_root.mkdir(parents=True, exist_ok=True)
     try:
-        _git(None, "clone", "--depth", "1", url, str(dest))
+        _git(None, "-c", "protocol.ext.allow=never", "clone", "--depth", "1", "--", url, str(dest))
     except RepoConnectError:
         shutil.rmtree(dest, ignore_errors=True)
         raise

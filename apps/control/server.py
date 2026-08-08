@@ -24,7 +24,6 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from common.llm import LLMError
-
 from s7_delivery.factory import seed
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role

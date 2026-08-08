@@ -26,7 +26,8 @@ The plan-sponsor web portal for MapleSure Insurance (fictional; all data
 synthetic). Flask, server-rendered templates, no SPA framework.
 
 ## Components
-- `app.py` — routes: dashboard (`/`), member directory (`/members`), member detail (`/members/<id>`).
+- `app.py` — routes: dashboard (`/`), member directory (`/members`),
+  member detail (`/members/<id>`).
 - `portal/members.py` — member lookup against the claims API.
 - `templates/` — Jinja pages; `static/portal.js` progressive enhancement.
 
@@ -42,7 +43,10 @@ http://localhost:8600). Sessions are cookie-based, server-side.
 - No claim status visibility.
 - No direct database access; the claims API is the only backend.
 ''',
-    "README.md": "# MapleSure SponsorConnect Portal\n\nSynthetic demo application. See architecture.md.\n",
+    "README.md": (
+        "# MapleSure SponsorConnect Portal\n\n"
+        "Synthetic demo application. See architecture.md.\n"
+    ),
     "app.py": '''"""SponsorConnect portal — plan sponsor web UI (synthetic demo app)."""
 import os
 
@@ -86,11 +90,28 @@ def member_summary(member_id: str) -> dict:
     with urllib.request.urlopen(f"{API}/members/{member_id}") as resp:
         return json.load(resp)
 ''',
-    "templates/base.html": "<!doctype html><html><head><title>SponsorConnect</title></head>\n<body>{% block body %}{% endblock %}</body></html>\n",
-    "templates/dashboard.html": "{% extends 'base.html' %}{% block body %}<h1>Sponsor dashboard</h1>\n<p>{{ members|length }} recent members</p>{% endblock %}\n",
-    "templates/members.html": "{% extends 'base.html' %}{% block body %}<h1>Member directory</h1>\n<ul>{% for m in members %}<li>{{ m.name }}</li>{% endfor %}</ul>{% endblock %}\n",
-    "templates/member.html": "{% extends 'base.html' %}{% block body %}<h1>{{ member.name }}</h1>\n<p>Plan: {{ member.plan_id }}</p>{% endblock %}\n",
-    "static/portal.js": "// Progressive enhancement only; the portal works without JS.\ndocument.querySelectorAll('[data-expand]').forEach((n) => {\n  n.addEventListener('click', () => n.classList.toggle('open'));\n});\n",
+    "templates/base.html": (
+        "<!doctype html><html><head><title>SponsorConnect</title></head>\n"
+        "<body>{% block body %}{% endblock %}</body></html>\n"
+    ),
+    "templates/dashboard.html": (
+        "{% extends 'base.html' %}{% block body %}<h1>Sponsor dashboard</h1>\n"
+        "<p>{{ members|length }} recent members</p>{% endblock %}\n"
+    ),
+    "templates/members.html": (
+        "{% extends 'base.html' %}{% block body %}<h1>Member directory</h1>\n"
+        "<ul>{% for m in members %}<li>{{ m.name }}</li>{% endfor %}</ul>{% endblock %}\n"
+    ),
+    "templates/member.html": (
+        "{% extends 'base.html' %}{% block body %}<h1>{{ member.name }}</h1>\n"
+        "<p>Plan: {{ member.plan_id }}</p>{% endblock %}\n"
+    ),
+    "static/portal.js": (
+        "// Progressive enhancement only; the portal works without JS.\n"
+        "document.querySelectorAll('[data-expand]').forEach((n) => {\n"
+        "  n.addEventListener('click', () => n.classList.toggle('open'));\n"
+        "});\n"
+    ),
     "static/utilities.js": '''// Utility functions for SponsorConnect portal.
 
 // Format a date as YYYY-MM-DD.
@@ -141,7 +162,8 @@ The claims intake API for MapleSure Insurance (fictional; all data
 synthetic). FastAPI over SQLite.
 
 ## Components
-- `main.py` — app factory and routes: member list (`/members`), member detail (`/members/{id}`), claims by member (`/members/{id}/claims`).
+- `main.py` — app factory and routes: member list (`/members`), member
+  detail (`/members/{id}`), claims by member (`/members/{id}/claims`).
 - `claims/models.py` — Pydantic models: Member, Claim.
 - `claims/db.py` — SQLite persistence (`claims.db`), schema created on start.
 
