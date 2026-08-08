@@ -247,7 +247,8 @@ Clarification conversation so far:
 The team roster. Assign each story's accountable_team from this list ONLY:
 {roster}
 
-Break the epic into 4 to 8 stories across sprints 1 to 3. Every story's
+Break the epic into 4 to 8 stories across sprints 1 to 3. Every story needs
+2 to 4 acceptance criteria, each independently testable. Every story's
 target_repository must be one of the connected repositories. Return JSON
 exactly matching:
 {_PLAN_SHAPE}"""
