@@ -104,3 +104,30 @@ def test_simulation_mode_never_touches_live(tmp_path, monkeypatch):
     monkeypatch.setattr(live_intake, "run_analysis", forbidden)
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     assert eng.state()["intake"]["analysis"]["provenance"] == "simulated"
+
+
+# --- clarification tests -------------------------------------------------------
+
+
+def test_clarify_roundtrip(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "run_clarification",
+        lambda req, packs, transcript: (["Which attachments are mandatory?"], {}),
+    )
+    eng.intake_clarify(Role.PRODUCT_ANALYST)
+    clar = eng.state()["intake"]["clarifications"]
+    assert clar["pending"] == ["Which attachments are mandatory?"]
+    assert clar["rounds_used"] == 1
+
+    eng.intake_clarify_answer(Role.PRODUCT_ANALYST, ["Employer statement only."])
+    clar = eng.state()["intake"]["clarifications"]
+    assert clar["pending"] == []
+    assert clar["transcript"][-1]["role"] == "user"
+    assert "Employer statement" in clar["transcript"][-1]["text"]
+
+
+def test_clarify_in_simulation_mode_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="live"):
+        eng.intake_clarify(Role.PRODUCT_ANALYST)

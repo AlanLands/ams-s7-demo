@@ -423,6 +423,65 @@ class Engine:
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
+    def _clarifications(self) -> dict:
+        return self.store.read_json_or(
+            {"transcript": [], "pending": [], "rounds_used": 0,
+             "max_rounds": 2},
+            "intake", "clarifications.json",
+        )
+
+    def intake_clarify(self, role: Role) -> None:
+        """Live mode only: the model asks its clarifying questions."""
+        roles.require("ask_clarification", role)
+        if self.run().mode is not DemoMode.LIVE:
+            raise EngineError("AI clarification runs in live mode only")
+        import time
+
+        from s7_delivery.factory import live_intake
+
+        clar = self._clarifications()
+        if clar["pending"]:
+            raise EngineError("Answer the open questions before asking again")
+        requirement = self.store.read_json("intake", "requirement.json")
+        t0 = time.monotonic()
+        questions, usage = live_intake.run_clarification(
+            requirement, self._context_packs(), clar["transcript"]
+        )
+        clar["transcript"].append({"role": "assistant", "text": "\n".join(questions)})
+        clar["pending"] = questions
+        clar["rounds_used"] = sum(
+            1 for t in clar["transcript"] if t["role"] == "assistant"
+        )
+        self.store.write_json(clar, "intake", "clarifications.json")
+        self._activity(
+            stage=Stage.INTAKE, actor="intake-analysis", actor_type="live_ai",
+            workflow="clarification", duration_s=round(time.monotonic() - t0, 2),
+            outcome="asked", details=f"{len(questions)} questions; "
+            f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
+        )
+
+    def intake_clarify_answer(self, role: Role, answers: list[str]) -> None:
+        roles.require("ask_clarification", role)
+        clar = self._clarifications()
+        if not clar["pending"]:
+            raise EngineError("There are no open questions to answer")
+        if len(answers) != len(clar["pending"]):
+            raise EngineError(
+                f"Expected {len(clar['pending'])} answers, got {len(answers)}"
+            )
+        joined = "\n".join(
+            f"Q: {q}\nA: {a.strip() or '(no answer — make a stated assumption)'}"
+            for q, a in zip(clar["pending"], answers, strict=True)
+        )
+        clar["transcript"].append({"role": "user", "text": joined})
+        clar["pending"] = []
+        self.store.write_json(clar, "intake", "clarifications.json")
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="clarification", outcome="answered",
+            details=f"{len(answers)} answers recorded",
+        )
+
     def intake_create_epic(self, role: Role) -> None:
         roles.require("create_epic", role)
         if not self.store.exists("intake", "analysis.json"):

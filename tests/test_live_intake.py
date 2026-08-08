@@ -80,3 +80,35 @@ def test_run_analysis_rejects_missing_rule_ids(monkeypatch):
 def test_run_analysis_requires_connected_repos():
     with pytest.raises(LLMError, match="[Cc]onnect"):
         live_intake.run_analysis(REQUIREMENT, {}, [])
+
+
+# --- clarification tests -------------------------------------------------------
+
+GOOD_QUESTIONS = {"questions": [
+    "Which attachments are mandatory at submission time?",
+    "What are the authoritative claim status values?",
+]}
+
+
+def test_run_clarification_returns_questions(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_QUESTIONS))
+    questions, usage = live_intake.run_clarification(REQUIREMENT, PACKS, [])
+    assert len(questions) == 2
+    assert usage["output_tokens"] == 400
+
+
+def test_run_clarification_rejects_too_many(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete",
+                        fake_complete({"questions": ["q"] * 6}))
+    with pytest.raises(LLMError, match="1-4"):
+        live_intake.run_clarification(REQUIREMENT, PACKS, [])
+
+
+def test_run_clarification_enforces_round_cap(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_QUESTIONS))
+    transcript = [
+        {"role": "assistant", "text": "q1"}, {"role": "user", "text": "a1"},
+        {"role": "assistant", "text": "q2"}, {"role": "user", "text": "a2"},
+    ]
+    with pytest.raises(LLMError, match="cap"):
+        live_intake.run_clarification(REQUIREMENT, PACKS, transcript)

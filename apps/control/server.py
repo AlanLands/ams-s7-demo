@@ -184,6 +184,25 @@ def post_intake_connect_repo(run_id: str, body: ConnectRepoBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/intake/clarify")
+def post_intake_clarify(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_clarify(_role(body.role))
+    return eng.state()
+
+
+class ClarifyAnswerBody(BaseModel):
+    role: str
+    answers: list[str]
+
+
+@app.post("/api/runs/{run_id}/intake/clarify-answer")
+def post_intake_clarify_answer(run_id: str, body: ClarifyAnswerBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_clarify_answer(_role(body.role), body.answers)
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 

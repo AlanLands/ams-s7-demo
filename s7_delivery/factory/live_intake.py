@@ -34,6 +34,13 @@ ANALYSIS_ROLE = (
     "risk, not a guess."
 )
 
+CLARIFY_ROLE = (
+    "Your role is a product analyst preparing a change request for delivery: "
+    "ask only the clarifying questions whose answers would materially change "
+    "the analysis or the plan. Most requests need one short round, not an "
+    "interrogation."
+)
+
 
 def provenance_now() -> Provenance:
     mode = os.environ.get("LLM_MODE", "replay").lower()
@@ -143,3 +150,34 @@ def _validate_analysis(data: dict, repo_names: set[str]) -> IntakeAnalysis:
         )
     except Exception as exc:  # pydantic ValidationError → one LLMError vocabulary
         raise LLMError(f"analysis failed validation: {exc}") from exc
+
+
+def run_clarification(
+    requirement: dict, packs: dict[str, str], transcript: list[dict]
+) -> tuple[list[str], dict]:
+    if not packs:
+        raise LLMError("Live clarification needs a connected repository.")
+    rounds_used = sum(1 for t in transcript if t["role"] == "assistant")
+    if rounds_used >= MAX_CLARIFICATION_ROUNDS:
+        raise LLMError(
+            f"Clarification cap reached ({MAX_CLARIFICATION_ROUNDS} rounds) — "
+            "answer what is open or run the analysis with assumptions."
+        )
+    task = f"""Clarification conversation so far:
+{_transcript_text(transcript)}
+
+Ask the 1 to 4 clarifying questions (one topic each) whose answers would most
+change the delivery plan. Return JSON exactly matching:
+{{"questions": ["<question>"]}}"""
+    data, usage = _call(
+        role=CLARIFY_ROLE,
+        ref=_ref(requirement, packs),
+        task=task,
+        beat="clarify",
+        key_material=json.dumps(requirement, sort_keys=True)
+        + json.dumps(transcript, sort_keys=True),
+    )
+    questions = [str(q).strip() for q in data.get("questions", []) if str(q).strip()]
+    if not 1 <= len(questions) <= 4:
+        raise LLMError(f"expected 1-4 clarifying questions, got {len(questions)}")
+    return questions, usage
