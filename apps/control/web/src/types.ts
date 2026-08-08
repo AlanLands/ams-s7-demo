@@ -137,7 +137,7 @@ export interface RunRecord {
   mode: 'simulation' | 'replay' | 'live'
   created_at: string
   stages: StageState[]
-  status?: string
+  status: string
   plan_locked?: boolean
 }
 

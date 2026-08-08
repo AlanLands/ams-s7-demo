@@ -42,7 +42,7 @@ export function Reports() {
           <div className="l">Human decisions</div>
         </div>
         <div className="card metric">
-          <div className="v">{run.status!.replaceAll('_', ' ')}</div>
+          <div className="v">{run.status.replaceAll('_', ' ')}</div>
           <div className="l">Run outcome</div>
         </div>
       </div>
