@@ -19,10 +19,13 @@ import { DependencyMap } from './pages/planning/DependencyMap'
 import { RoutingByTeam } from './pages/planning/RoutingByTeam'
 import { PlanSummary } from './pages/planning/PlanSummary'
 import { PlanSignoff } from './pages/planning/PlanSignoff'
-import { BuildWorkQueue } from './pages/build/BuildWorkQueue'
-import { DevProgress } from './pages/build/DevProgress'
+import { BuildOverview } from './pages/build/BuildOverview'
+import { Architecture } from './pages/build/Architecture'
+import { DeliveryPacks } from './pages/build/DeliveryPacks'
+import { DeveloperWorkspaces } from './pages/build/DeveloperWorkspaces'
 import { TestEvidence } from './pages/build/TestEvidence'
 import { IndependentReview } from './pages/build/IndependentReview'
+import { BuildSummaryPage } from './pages/build/BuildSummary'
 import { Stories } from './pages/Stories'
 import { Quality } from './pages/Quality'
 import { Release } from './pages/Release'
@@ -46,17 +49,21 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   stories: Stories,
   quality: Quality,
   release: Release,
-  build_work_queue: BuildWorkQueue,
-  dev_progress: DevProgress,
+  build_overview: BuildOverview,
+  architecture: Architecture,
+  delivery_packs: DeliveryPacks,
+  workspaces: DeveloperWorkspaces,
   test_evidence: TestEvidence,
   independent_review: IndependentReview,
-  // Aliases for the vanilla app's old landing-group keys, which mapped to
-  // sub-pages rather than direct pages. Kept so a browser holding a stale
-  // localStorage section value from before the migration still lands
-  // somewhere real instead of NotYetPorted.
+  build_summary: BuildSummaryPage,
+  // Aliases so a browser holding a stale localStorage section value — from
+  // the vanilla app or from the pre-redesign Build & Review pages — still
+  // lands somewhere real instead of NotYetPorted.
   planning: EpicToStories,
-  build_review: BuildWorkQueue,
-  work: BuildWorkQueue,
+  build_review: BuildOverview,
+  work: BuildOverview,
+  build_work_queue: BuildOverview,
+  dev_progress: DeveloperWorkspaces,
 }
 
 function Shell() {

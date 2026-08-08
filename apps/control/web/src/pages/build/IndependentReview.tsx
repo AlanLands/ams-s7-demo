@@ -2,6 +2,7 @@ import { useRun } from '../../state/RunContext'
 import { SectionTitle } from '../../components/SectionTitle'
 import { Badge } from '../../components/Badge'
 import type { BuildState, BuildTask, PlanningState, ReviewRecord } from '../../types'
+import { selectedStory } from './buildHelpers'
 
 function hhmm(iso?: string) {
   return (iso ?? '').slice(11, 16) || '—'
@@ -27,8 +28,8 @@ function ReviewFindingsBlock({ rv, task }: { rv: ReviewRecord; task: BuildTask }
     <>
       <div className="kv" style={{ gridTemplateColumns: '130px 1fr', marginTop: '8px' }}>
         <b>Review ID</b><span className="mono">{rv.review_id}</span>
-        <b>Reviewer Agent</b><span>{rv.reviewer}</span>
-        <b>Author Agent</b><span>{task.owner || 'AI developer (simulated)'}</span>
+        <b>Reviewer (isolated)</b><span>{rv.reviewer}</span>
+        <b>Developer</b><span>{task.owner || '—'}</span>
         <b>Reviewed On</b><span className="mono">{(rv.created_at ?? '').slice(0, 16).replace('T', ' ')}</span>
         <b>Artifacts Reviewed</b><span>{artifactsReviewed}</span>
         <b>Result</b><span><Badge status={rv.result === 'passed' ? 'passed' : 'blocked'} /></span>
@@ -74,7 +75,7 @@ function ReviewFindingsBlock({ rv, task }: { rv: ReviewRecord; task: BuildTask }
 }
 
 export function IndependentReview() {
-  const { data, act } = useRun()
+  const { data, act, goTo } = useRun()
   if (!data) return null
 
   const build = data.build as BuildState | undefined
@@ -95,13 +96,13 @@ export function IndependentReview() {
   const plan = planning?.plan
   const stories = planning?.stories ?? []
 
-  // Mirrors the vanilla app's currentTask() fallback chain. The vanilla app also honours an
-  // explicitly-selected state.taskId (set by clicking a row on the Task List page); that
-  // cross-page selection concept does not exist yet in RunContext, so this page falls back to
-  // the same in-progress / not-completed / first-task chain the vanilla page uses absent a
-  // selection.
-  const task: BuildTask = tasks.find((t) => t.status === 'in_progress')
-    ?? tasks.find((t) => t.status !== 'completed')
+  // Shared story-selection (same chain on every build page): the explicitly
+  // selected story first, then in_progress → blocked → waiting_for_approval → first.
+  const sel = selectedStory()
+  const task: BuildTask = tasks.find((t) => t.story_id === sel)
+    ?? tasks.find((t) => t.status === 'in_progress')
+    ?? tasks.find((t) => t.status === 'blocked')
+    ?? tasks.find((t) => t.status === 'waiting_for_approval')
     ?? tasks[0]
 
   const story = stories.find((s) => s.story_id === task.story_id)
@@ -113,16 +114,16 @@ export function IndependentReview() {
     review ? ({ critical: review.critical_gaps, major: review.major_gaps, minor: review.minor_gaps }[s] ?? 0) : 0
   const trace = (data.traceability ?? []).find((r) => r.task === task.task_id)
   const totalFindings = (review?.findings ?? []).length
-  const history = (data.activity ?? [])
-    .filter((a) => a.artifact === task.task_id)
-    .filter((a) => a.workflow && ['submit-review', 'independent-review-gate', 'return-to-development'].includes(a.workflow))
 
   return (
     <section className="page-with-rail">
       <div>
         <div className="page-head" style={{ marginBottom: '16px' }}>
           <h2>Independent Review</h2>
-          <span className="hint">Isolated review of code, tests, and acceptance criteria. No phase self-approves.</span>
+          <span className="hint">
+            An isolated reviewer validates implementation against the approved story, acceptance criteria and
+            evidence package. The reviewer cannot modify source and never approves its own output.
+          </span>
         </div>
 
         <div className="tiles">
@@ -262,6 +263,12 @@ export function IndependentReview() {
             </button>
           ) : null}
         </div>
+        <p className="hint" style={{ marginTop: 6 }}>
+          Returned tasks appear as &ldquo;Correction Requested&rdquo; in Developer Workspaces.
+          <button type="button" className="link-btn" style={{ marginLeft: 6 }} onClick={() => goTo('workspaces')}>
+            Open Developer Workspaces →
+          </button>
+        </p>
       </div>
 
       <aside className="rail">
@@ -292,17 +299,18 @@ export function IndependentReview() {
           <h3>No code editor exposed</h3>
           <p className="hint">Only evidence and status are visible. Implementation details remain behind the surface.</p>
         </div>
-        {history.length ? (
+        {reviews.length ? (
           <div className="card rail-card">
             <h3>Review History</h3>
             <ul className="checklist">
-              {history.map((a, i) => (
-                <li key={`${a.timestamp}-${i}`}>
-                  <span className="mono hint" style={{ marginRight: '6px' }}>{hhmm(a.timestamp)}</span>
-                  {a.details || a.outcome || a.workflow}
+              {reviews.map((rv, i) => (
+                <li key={rv.review_id}>
+                  <span className="mono hint" style={{ marginRight: '6px' }}>{rv.review_id}</span>
+                  {`${rv.result === 'passed' ? 'PASSED' : 'BLOCKED'} (v${rv.version ?? i + 1}, ${hhmm(rv.created_at)})`}
                 </li>
               ))}
             </ul>
+            <p className="hint">Each correction cycle creates a new immutable review record — earlier reviews are never edited.</p>
           </div>
         ) : null}
         <GuidanceCard />

@@ -8,10 +8,13 @@ const PLANNING_SUBS: [string, string][] = [
   ['plan_signoff', 'Plan Sign-off'],
 ]
 const BUILD_SUBS: [string, string][] = [
-  ['build_work_queue', 'Work Queue'],
-  ['dev_progress', 'Development Progress'],
-  ['test_evidence', 'Test Evidence'],
+  ['build_overview', 'Overview'],
+  ['architecture', 'Architecture'],
+  ['delivery_packs', 'Delivery Packs'],
+  ['workspaces', 'Developer Workspaces'],
+  ['test_evidence', 'Build & Test Evidence'],
   ['independent_review', 'Independent Review'],
+  ['build_summary', 'Build Summary'],
 ]
 const NAV: [string, string, string?][] = [
   ['nav-run', 'Run'],
@@ -35,7 +38,13 @@ const NAV: [string, string, string?][] = [
 ]
 const GROUPS: Record<string, { subs: [string, string][]; sections: Set<string>; landing: string }> = {
   planning: { subs: PLANNING_SUBS, sections: new Set(['planning', ...PLANNING_SUBS.map(([k]) => k)]), landing: 'epic_to_stories' },
-  build_review: { subs: BUILD_SUBS, sections: new Set(['build_review', ...BUILD_SUBS.map(([k]) => k)]), landing: 'build_work_queue' },
+  build_review: {
+    subs: BUILD_SUBS,
+    // old section ids stay in the set so a stale localStorage value still
+    // lights up the group (they alias to new pages in App.tsx)
+    sections: new Set(['build_review', 'build_work_queue', 'dev_progress', ...BUILD_SUBS.map(([k]) => k)]),
+    landing: 'build_overview',
+  },
 }
 
 export function SideNav() {

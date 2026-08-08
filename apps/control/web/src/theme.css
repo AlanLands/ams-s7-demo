@@ -1199,3 +1199,20 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   display: flex; flex-direction: column; gap: 10px;
 }
 .drawer input, .drawer textarea { width: 100%; margin-bottom: 8px; }
+
+/* --- Build & Review redesign (2026-08-09): governed control plane ------- */
+/* Ownership chips: the developer owns implementation; AI assists. */
+.own-chips { display: inline-flex; gap: 6px; }
+.chip.own-human { background: var(--green-pale); color: var(--green); border-color: var(--green); }
+.chip.own-ai { background: #eaf2fa; color: #2c5f8f; border-color: #2c5f8f; }
+/* Phase rail on the Build Overview — reuses the wf-stepper vocabulary. */
+.phase-rail { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.phase-rail .phase { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.phase-rail .phase .dot { width: 10px; height: 10px; border: 2px solid var(--border-strong); background: var(--surface); display: inline-block; }
+.phase-rail .phase.done { color: var(--green); }
+.phase-rail .phase.done .dot { border-color: var(--green); background: var(--green); }
+.phase-rail .phase.now { color: var(--ink); font-weight: 600; }
+.phase-rail .phase.now .dot { border-color: var(--red); background: var(--red-pale); }
+.phase-rail .phase-line { flex: 0 0 14px; height: 1px; background: var(--border-strong); }
+/* Monospace preview block for rendered artifact files (never an editor). */
+.artifact-preview { background: var(--surface-2); border: 1px solid var(--border); padding: 12px 14px; font-family: var(--mono); font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow: auto; max-height: 420px; }

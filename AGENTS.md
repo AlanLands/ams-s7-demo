@@ -222,6 +222,31 @@ no-side-effects download, independent of whether the clone/push steps ever
 ran. Merging the delivery branch into a working branch stays a manual, human
 action this system never automates.
 
+**Build & Review redesign — the governed control plane, added 2026-08-09.**
+Build & Review was rebuilt around one sentence: **S7 is the governed control
+plane, not an IDE** — human developers own implementation in their own
+IDE/CLI/Git (*Human Controlled · AI Assisted* everywhere), and S7 generates
+governed context, publishes it, collects evidence and orchestrates
+independent review. G1 authorises (never performs) downstream generation,
+gated by a server-validated phase machine (`factory/build_phases.py`, 409 on
+out-of-order actions). A versioned five-file architecture pack is generated
+*after* G1 into immutable `architecture/v<N>/` dirs with a human acceptance
+checkpoint (`factory/architecture.py`). Layered team delivery packs — thin
+task packs reference plan/architecture by version, never copy them — render
+under `build/packs|stories|tasks/` (`factory/delivery_packs.py`). Git
+publication (`factory/publication.py`) writes only `AGENTS.md` + `.s7/**` on
+a fresh `s7/<run>-<team>` branch, refuses default branches and foreign
+`.s7`/`AGENTS.md` content, and in simulation/replay never touches git
+(deterministic pseudo-commit, record badged `SIMULATED`). Publishing
+provisions one developer workspace per story (assignment is a human PATCH);
+per-story quality handoff is named conditions, never a score
+(`gates.quality_handoff_rows`); staleness rides the provenance walk. The
+Build & Review nav is Overview / Architecture / Delivery Packs / Developer
+Workspaces / Build & Test Evidence / Independent Review / Build Summary.
+Docs: `docs/BUILD_REVIEW_IMPLEMENTATION_PLAN.md`, `ARTIFACT_MODEL.md`,
+`DEVELOPER_WORKSPACE_MODEL.md`, `GIT_PUBLICATION_MODEL.md`,
+`BUILD_REVIEW_STATE_MACHINE.md`, `BUILD_REVIEW_DEMO_SCRIPT.md`.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** Intake
 now opens with an extraction front door: upload `.txt`/`.md`/`.pdf`/`.docx`
 or paste text, and the requirement's title, objective, summary and numbered

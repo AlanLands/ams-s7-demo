@@ -10,7 +10,7 @@ const STAGES: [string, string][] = [
 
 const GROUP_LANDING: Record<string, string> = {
   planning: 'epic_to_stories',
-  build_review: 'build_work_queue',
+  build_review: 'build_overview',
 }
 
 export function Stepper() {

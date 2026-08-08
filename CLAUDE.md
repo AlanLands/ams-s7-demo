@@ -223,6 +223,34 @@ clone/push steps ever ran. Merging the delivery branch into a developer's own
 working branch stays a manual, human action this system never automates —
 the same discipline as every other gate in this app.
 
+**Build & Review redesign — the governed control plane, added 2026-08-09.**
+The Build & Review phase was rebuilt around one sentence: **S7 is the governed
+control plane, not an IDE** — human developers own implementation in their own
+IDE/CLI/Git (surfaced everywhere as *Human Controlled · AI Assisted*), and S7
+generates governed context, publishes it, collects evidence and orchestrates
+independent review. Concretely: G1 approval now also authorises (never
+performs) downstream generation, gated by a server-validated phase machine
+(`factory/build_phases.py`, 409 on out-of-order actions); a versioned
+five-file **architecture pack** is generated *after* G1 into immutable
+`architecture/v<N>/` dirs with a human acceptance checkpoint
+(`factory/architecture.py`); layered **team delivery packs** — thin task packs
+reference plan/architecture by version, never copy them — render under
+`build/packs|stories|tasks/` (`factory/delivery_packs.py`); **git
+publication** (`factory/publication.py`) writes only `AGENTS.md` + `.s7/**`
+on a fresh `s7/<run>-<team>` branch, refuses default branches and foreign
+`.s7`/`AGENTS.md` content, and in simulation/replay never touches git at all
+(deterministic pseudo-commit, record badged `SIMULATED`); publishing
+provisions one **developer workspace** per story (assignment is a human
+PATCH); per-story **quality handoff** is named conditions, never a score
+(`gates.quality_handoff_rows`); staleness rides the existing provenance
+walk (architecture revision → packs/workspaces/evidence stale). The app's
+Build & Review nav became Overview / Architecture / Delivery Packs /
+Developer Workspaces / Build & Test Evidence / Independent Review / Build
+Summary (old ids alias). Docs: `docs/BUILD_REVIEW_IMPLEMENTATION_PLAN.md`,
+`ARTIFACT_MODEL.md`, `DEVELOPER_WORKSPACE_MODEL.md`,
+`GIT_PUBLICATION_MODEL.md`, `BUILD_REVIEW_STATE_MACHINE.md`,
+`BUILD_REVIEW_DEMO_SCRIPT.md`.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** The
 Intake stage now opens with a genuine extraction front door: upload a file
 (`.txt`/`.md`/`.pdf`/`.docx`) or paste text, and the requirement's title,

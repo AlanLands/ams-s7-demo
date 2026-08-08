@@ -395,3 +395,99 @@ def test_paste_source_403_is_atomic_no_partial_state(client, run_id):
     assert state["intake"]["source"] is None
     assert state["intake"]["extraction"] is None
     assert state["intake"]["requirement"]["description"] != SOURCE_TEXT
+
+
+# --- Build & Review control-plane routes ------------------------------------
+
+
+@pytest.fixture()
+def signed_run(client, run_id):
+    """Drive a run through G1 over HTTP."""
+    client.post(f"/api/runs/{run_id}/intake/analyse", json={"role": "product_analyst"})
+    client.post(f"/api/runs/{run_id}/intake/create-epic", json={"role": "product_analyst"})
+    client.post(f"/api/runs/{run_id}/intake/pass-gate", json={"role": "delivery_lead"})
+    client.post(f"/api/runs/{run_id}/planning/generate", json={"role": "product_analyst"})
+    res = client.post(
+        f"/api/runs/{run_id}/planning/sign-off",
+        json={"role": "business_owner", "approver": "Jordan Blake"},
+    )
+    assert res.status_code == 200
+    return run_id
+
+
+def test_out_of_order_build_actions_are_409(client, run_id):
+    # architecture before G1
+    res = client.post(
+        f"/api/runs/{run_id}/architecture/generate", json={"role": "engineering_lead"}
+    )
+    assert res.status_code == 409
+    assert "pre-G1" in res.json()["detail"]
+
+
+def test_packs_before_acceptance_is_409(client, signed_run):
+    run_id = signed_run
+    client.post(f"/api/runs/{run_id}/architecture/generate", json={"role": "engineering_lead"})
+    res = client.post(
+        f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"}
+    )
+    assert res.status_code == 409
+    assert "architecture_accepted" in res.json()["detail"]
+
+
+def test_full_build_review_flow_over_http(client, signed_run):
+    run_id = signed_run
+    client.post(f"/api/runs/{run_id}/architecture/generate", json={"role": "engineering_lead"})
+    client.post(
+        f"/api/runs/{run_id}/architecture/accept",
+        json={"role": "engineering_lead", "approver": "Sam Whitfield"},
+    )
+    client.post(f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"})
+    state = client.post(
+        f"/api/runs/{run_id}/delivery-packs/publish-all", json={"role": "delivery_lead"}
+    ).json()
+    assert state["build"]["phase"] == "workspaces_ready"
+    ws = state["build"]["workspaces"][0]
+    # developer assignment over PATCH
+    res = client.patch(
+        f"/api/runs/{run_id}/workspaces/{ws['workspace_id']}/developer",
+        json={"role": "delivery_lead", "developer": "Priya Raman"},
+    )
+    assert res.status_code == 200
+    assigned = next(
+        w for w in res.json()["build"]["workspaces"]
+        if w["workspace_id"] == ws["workspace_id"]
+    )
+    assert assigned["developer"] == "Priya Raman"
+    # zips stream with the right content type, and change nothing
+    arch_zip = client.get(f"/api/runs/{run_id}/architecture/download.zip")
+    assert arch_zip.status_code == 200
+    assert arch_zip.headers["content-type"] == "application/zip"
+    pack_id = state["build"]["delivery_packs"][0]["delivery_pack_id"]
+    pack_zip = client.get(f"/api/runs/{run_id}/delivery-packs/{pack_id}/download.zip")
+    assert pack_zip.status_code == 200
+    # artifact-file preview serves markdown, refuses traversal
+    md = client.get(f"/api/runs/{run_id}/artifact-file/architecture/v1/architecture.md")
+    assert md.status_code == 200
+    assert "text/markdown" in md.headers["content-type"]
+    assert client.get(
+        f"/api/runs/{run_id}/artifact-file/..%2F..%2Fetc%2Fpasswd"
+    ).status_code in (400, 404)
+
+
+def test_workspace_assignment_requires_permitted_role(client, signed_run):
+    run_id = signed_run
+    client.post(f"/api/runs/{run_id}/architecture/generate", json={"role": "engineering_lead"})
+    client.post(
+        f"/api/runs/{run_id}/architecture/accept",
+        json={"role": "engineering_lead", "approver": "Sam Whitfield"},
+    )
+    client.post(f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"})
+    state = client.post(
+        f"/api/runs/{run_id}/delivery-packs/publish-all", json={"role": "delivery_lead"}
+    ).json()
+    ws_id = state["build"]["workspaces"][0]["workspace_id"]
+    res = client.patch(
+        f"/api/runs/{run_id}/workspaces/{ws_id}/developer",
+        json={"role": "business_owner", "developer": "X"},
+    )
+    assert res.status_code == 403

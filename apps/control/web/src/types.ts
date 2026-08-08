@@ -403,6 +403,7 @@ export interface BuildTask {
   change_summary?: string
   commit_ref?: string
   pr_ref?: string
+  ci_status?: string
   version?: number
   provenance?: Provenance
 }
@@ -434,9 +435,135 @@ export interface ReviewRecord {
   version?: number
 }
 
+export type BuildReviewPhase =
+  | 'gate1_approved'
+  | 'architecture_ready'
+  | 'architecture_accepted'
+  | 'delivery_packs_ready'
+  | 'workspaces_ready'
+  | 'developer_execution'
+  | 'build_complete'
+
+export interface ArchitectureMeta {
+  artifact_id: string
+  version: number
+  status: 'generated' | 'accepted'
+  generated_at: string
+  generated_by: string
+  accepted_by: string
+  accepted_at: string
+  revision_note: string
+  files: string[]
+  provenance: Provenance
+}
+
+export interface DeliveryPack {
+  delivery_pack_id: string
+  run_id: string
+  team: string
+  team_slug: string
+  version: number
+  story_ids: string[]
+  task_ids: string[]
+  architecture_version: number
+  plan_version: number
+  repository: string
+  status: string
+  publication_status: 'not_published' | 'published' | 'failed'
+  content_hash: string
+  created_at: string
+  published_at: string
+  provenance: Provenance
+}
+
+export interface DeveloperWorkspace {
+  workspace_id: string
+  run_id: string
+  team: string
+  story_id: string
+  repository: string
+  branch: string
+  developer: string
+  delivery_pack_id: string
+  delivery_pack_version: number
+  base_commit: string
+  current_commit: string
+  pull_request: string
+  ci_status: string
+  development_status: string
+  artifact_status: 'current' | 'stale'
+  last_sync_at: string
+  provenance: Provenance
+  // derived at state assembly from the story's task
+  task_id?: string
+}
+
+export interface GitPublication {
+  publication_id: string
+  delivery_pack_id: string
+  repository: string
+  branch: string
+  commit: string
+  published_paths: string[]
+  status: string
+  simulated: boolean
+  created_at: string
+  published_at: string
+  error_message: string
+  provenance: Provenance
+}
+
+export interface BuildSummaryRow {
+  story_id: string
+  title: string
+  team: string
+  developer: string
+  development: string
+  testing: 'waiting' | 'passed' | 'failing'
+  tests_passed: number
+  tests_total: number
+  review: 'pending' | 'passed' | 'blocked'
+  overall: 'not_started' | 'in_development' | 'blocked' | 'complete' | 'ready_for_quality'
+  stale: boolean
+  last_updated: string
+}
+
+export interface BuildSummary {
+  stories: BuildSummaryRow[]
+  totals: {
+    total: number
+    complete: number
+    in_progress: number
+    blocked: number
+    not_started: number
+    ready_for_quality: number
+    tests_passed: number
+    tests_total: number
+    review_pass_rate: number | null
+  }
+  blockers: { story_id: string; team: string; reason: string }[]
+  ready_story_ids: string[]
+}
+
+export interface QualityHandoffRow {
+  story_id: string
+  title: string
+  team: string
+  checks: GateCondition[]
+  ready: boolean
+}
+
 export interface BuildState {
+  phase?: BuildReviewPhase | null
+  phase_history?: { phase: string; at: string; actor: string }[]
   tasks?: BuildTask[]
   reviews?: ReviewRecord[]
+  architecture?: ArchitectureMeta | null
+  delivery_packs?: DeliveryPack[]
+  workspaces?: DeveloperWorkspace[]
+  publications?: GitPublication[]
+  summary?: BuildSummary
+  quality_handoff?: QualityHandoffRow[]
 }
 
 export interface RunState {
