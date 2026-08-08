@@ -198,3 +198,20 @@ def test_run_plan_rejects_single_acceptance_criterion(monkeypatch):
     monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
     with pytest.raises(LLMError, match="at least 2 acceptance criteria"):
         live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+
+
+def test_run_plan_cache_key_ignores_epic_timestamp(monkeypatch):
+    seen: list[str] = []
+
+    def capture(prompt, *, json_mode=False, cache_key=None, usage_out=None, **kw):
+        seen.append(cache_key)
+        if usage_out is not None:
+            usage_out.update({"input_tokens": 1, "output_tokens": 1})
+        return json.dumps(GOOD_PLAN)
+
+    monkeypatch.setattr(live_intake, "complete", capture)
+    epic_a = dict(EPIC, created_at="2026-08-08T00:00:00+00:00")
+    epic_b = dict(EPIC, created_at="2026-08-09T09:09:09+00:00")
+    live_intake.run_plan(epic_a, ANALYSIS, PACKS, [], TEAMS)
+    live_intake.run_plan(epic_b, ANALYSIS, PACKS, [], TEAMS)
+    assert seen[0] == seen[1]

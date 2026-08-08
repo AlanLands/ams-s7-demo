@@ -230,6 +230,10 @@ def run_plan(
 ) -> tuple[list, dict, dict, dict]:
     from s7_delivery.factory.models import Status, Story
 
+    # Volatile timestamps must not enter prompt or key material, or the beat
+    # can never replay across runs (each run stamps its own epic afresh).
+    epic = {k: v for k, v in epic.items() if k not in {"created_at", "generated_at"}}
+
     if not packs:
         raise LLMError("Live planning needs a connected repository.")
     rule_ids = [r["rule_id"] for r in analysis.get("business_rules", [])]
