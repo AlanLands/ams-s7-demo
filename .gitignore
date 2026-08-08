@@ -18,6 +18,9 @@ venv/
 # per-run staging/diff artifacts — regenerated every run
 s7_delivery/out/
 
+# synthetic target-application repos, generated for testing/demo — not part of the repo
+target-apps/
+
 # Control Centre run state — recreated from seed on demand; a presenter's
 # local runs are not demo material to commit
 artifacts/runs/
