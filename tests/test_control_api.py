@@ -348,3 +348,50 @@ def test_finalize_epic_creates_epic_from_extraction(client, run_id):
     state = res.json()
     assert state["intake"]["epic"]["title"] == "Claims Deductible Handling"
     assert state["intake"]["analysis"] is not None
+
+
+def test_default_role_delivery_lead_can_edit_extraction(client, run_id):
+    """final review finding 3: delivery_lead is the app's own default role
+    (apps/control/static/app.js `state.role`) — it must be able to complete
+    the whole upload/paste panel, including the edit-extraction step, not
+    403 on the app's own default."""
+    client.post(f"/api/runs/{run_id}/intake/paste-source",
+                json={"role": "delivery_lead", "text": SOURCE_TEXT})
+    res = client.post(f"/api/runs/{run_id}/intake/finalize-epic", json={"role": "delivery_lead"})
+    assert res.status_code == 200
+    res = client.patch(
+        f"/api/runs/{run_id}/intake/extraction",
+        json={"role": "delivery_lead", "patch": {"epic_title": "Corrected by lead"}},
+    )
+    assert res.status_code == 200
+    assert res.json()["intake"]["extraction"]["epic_title"] == "Corrected by lead"
+
+
+def test_upload_source_403_is_atomic_no_partial_state(client, run_id):
+    """final review finding 3: business_owner is permitted for
+    upload_intake_document but not run_intake_analysis (roles.py) — both
+    permissions must be checked before either engine call runs, so a 403
+    never leaves a half-written source.json / overwritten requirement
+    behind."""
+    res = client.post(
+        f"/api/runs/{run_id}/intake/upload-source",
+        data={"role": "business_owner"},
+        files={"file": ("epic.md", SOURCE_TEXT.encode(), "text/markdown")},
+    )
+    assert res.status_code == 403
+    state = client.get(f"/api/runs/{run_id}").json()
+    assert state["intake"]["source"] is None
+    assert state["intake"]["extraction"] is None
+    assert state["intake"]["requirement"]["description"] != SOURCE_TEXT
+
+
+def test_paste_source_403_is_atomic_no_partial_state(client, run_id):
+    res = client.post(
+        f"/api/runs/{run_id}/intake/paste-source",
+        json={"role": "business_owner", "text": SOURCE_TEXT},
+    )
+    assert res.status_code == 403
+    state = client.get(f"/api/runs/{run_id}").json()
+    assert state["intake"]["source"] is None
+    assert state["intake"]["extraction"] is None
+    assert state["intake"]["requirement"]["description"] != SOURCE_TEXT

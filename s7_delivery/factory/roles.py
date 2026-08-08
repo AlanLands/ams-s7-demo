@@ -22,7 +22,7 @@ class PermissionError_(Exception):
 # Action names are the engine's method names — one vocabulary end to end.
 PERMISSIONS: dict[str, set[Role]] = {
     # intake
-    "edit_requirement": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST},
+    "edit_requirement": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "upload_intake_document": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "run_intake_analysis": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_epic": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
