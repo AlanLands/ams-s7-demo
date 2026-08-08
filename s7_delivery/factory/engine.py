@@ -601,7 +601,7 @@ class Engine:
             req = self.store.read_json("intake", "requirement.json")
             req_count = len(extraction.get("extracted_requirements", []))
             epic = EpicRecord(
-                epic_id=f"EPIC-{self.run_id}",
+                epic_id=seed.EPIC.epic_id,
                 title=extraction["epic_title"],
                 business_outcome=extraction["business_objective"],
                 estimated_stories=max(2, min(8, (req_count + 1) // 2)),

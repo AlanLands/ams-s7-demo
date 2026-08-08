@@ -129,8 +129,14 @@ def test_create_epic_from_extraction_uses_extracted_content(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
     epic = eng.state()["intake"]["epic"]
-    assert epic["epic_id"] != "EPIC-S7-001"
-    assert epic["epic_id"] == f"EPIC-{eng.run_id}"
+    # Human-decided direction (final review finding 6): extraction-driven
+    # epics always reuse the seeded EPIC-S7-001 id too — only content
+    # (title/business_outcome/estimated_stories/provenance) differs by
+    # path. This keeps the id consistent with the downstream provenance
+    # records (planning_generate, release records, and the UI's epic
+    # sub-heading) that already reference "EPIC-S7-001" unconditionally,
+    # regardless of which path — seeded or extraction-driven — created it.
+    assert epic["epic_id"] == "EPIC-S7-001"
     assert epic["title"] == "Claims Deductible Handling"
     assert epic["provenance"] == "rule_based"
 
