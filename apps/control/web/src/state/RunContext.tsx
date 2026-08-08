@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { apiGet, apiPost, apiUpload } from '../api'
+import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
 import type { RunState, RoleInfo } from '../types'
 
 interface RunContextValue {
@@ -13,8 +13,13 @@ interface RunContextValue {
   goTo: (section: string) => void
   refresh: () => Promise<void>
   act: (path: string, body?: Record<string, unknown>, okMessage?: string) => Promise<boolean>
+  patchAct: (path: string, patch: Record<string, unknown>, okMessage?: string) => Promise<boolean>
   uploadAct: (path: string, form: FormData, okMessage?: string) => Promise<boolean>
   toast: { message: string; isError: boolean } | null
+  /** Show a toast without a server round-trip — for client-only feedback
+   * (e.g. a JSON export/import outcome) that vanilla surfaced via a bare
+   * `toast(...)` call rather than through `act`. */
+  notify: (message: string, isError?: boolean) => void
 }
 
 const RunContext = createContext<RunContextValue | null>(null)
@@ -87,6 +92,18 @@ export function RunProvider({ children }: { children: ReactNode }) {
     }
   }, [runId, role, showToast])
 
+  const patchAct = useCallback(async (path: string, patch: Record<string, unknown>, okMessage = 'Saved') => {
+    try {
+      const next = await apiPatch<RunState>(`/api/runs/${runId}${path}`, { role, patch })
+      setData(next)
+      showToast(okMessage)
+      return true
+    } catch (err) {
+      showToast((err as Error).message, true)
+      return false
+    }
+  }, [runId, role, showToast])
+
   const uploadAct = useCallback(async (path: string, form: FormData, okMessage = 'Done') => {
     form.append('role', role)
     try {
@@ -107,7 +124,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, refresh, act, uploadAct, toast }}>
+    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, refresh, act, patchAct, uploadAct, toast, notify: showToast }}>
       {children}
     </RunContext.Provider>
   )
