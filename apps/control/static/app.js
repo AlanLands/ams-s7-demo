@@ -401,6 +401,135 @@
       }));
   }
 
+  function openEditExtractionModal(ext) {
+    closeModal();
+    const title = el("input", { type: "text", value: ext.epic_title });
+    const objective = el("textarea", { rows: "3" }); objective.value = ext.business_objective;
+    const summary = el("textarea", { rows: "3" }); summary.value = ext.requirement_summary;
+    const reqs = el("textarea", { rows: "6" });
+    reqs.value = ext.extracted_requirements.map((r) => r.text).join("\n");
+    const modal = el("div", { id: "modal", class: "modal-overlay", onclick: (e) => { if (e.target === modal) closeModal(); } },
+      el("div", { class: "modal card" },
+        el("div", { class: "card-head" },
+          el("h3", { text: "Edit Extracted Epic" }),
+          el("button", { class: "kebab", text: "✕", onclick: closeModal })),
+        el("div", {}, el("label", { class: "fld", text: "Epic Title" }), title),
+        el("div", {}, el("label", { class: "fld", text: "Business Objective" }), objective),
+        el("div", {}, el("label", { class: "fld", text: "Requirement Summary" }), summary),
+        el("div", {}, el("label", { class: "fld", text: "Extracted Requirements (one per line)" }), reqs),
+        el("div", { class: "actions-row" },
+          el("button", {
+            class: "primary sq", text: "Save",
+            onclick: () => {
+              const lines = reqs.value.split("\n").map((t) => t.trim()).filter(Boolean);
+              const patch = {
+                epic_title: title.value.trim(),
+                business_objective: objective.value.trim(),
+                requirement_summary: summary.value.trim(),
+                extracted_requirements: lines.map((text, i) =>
+                  ({ rule_id: `REQ-${String(i + 1).padStart(2, "0")}`, text })),
+              };
+              api(`/api/runs/${state.runId}/intake/extraction`, {
+                method: "PATCH", body: JSON.stringify({ role: state.role, patch }),
+              }).then((data) => { state.data = data; render(); toast("Extraction updated"); closeModal(); })
+                .catch((err) => toast(err.message, true));
+            },
+          }),
+          el("button", { class: "ghost", text: "Cancel", onclick: closeModal }),
+        )));
+    document.body.appendChild(modal);
+    title.focus();
+  }
+
+  function sourceRequirementSection(d) {
+    const ext = d.intake?.extraction;
+    const isLive = d.run?.mode === "live";
+
+    const uploadInput = el("input", { type: "file", accept: ".txt,.md,.pdf,.docx" });
+    const uploadPane = el("div", {},
+      el("div", { class: "dropzone" },
+        el("p", { class: "hint", text: "Upload a requirement or epic document" }),
+        uploadInput,
+        el("p", { class: "hint", style: "margin-top:8px", text: "Supported formats: PDF, DOCX, TXT, MD — up to 10MB" })),
+      el("button", {
+        class: "primary sq block", style: "margin-top:10px", text: "⬆ Upload & Extract",
+        onclick: async () => {
+          const file = uploadInput.files?.[0];
+          if (!file) { toast("Choose a file first", true); return; }
+          const form = new FormData();
+          form.append("role", state.role);
+          form.append("file", file);
+          try {
+            state.data = await api(`/api/runs/${state.runId}/intake/upload-source`, { method: "POST", headers: {}, body: form });
+            render();
+            toast(`${file.name} extracted`);
+          } catch (err) { toast(err.message, true); }
+        },
+      }));
+
+    const pasteArea = el("textarea", { rows: "8", placeholder: "Paste the requirement or epic text here…" });
+    const pastePane = el("div", { style: "display:none" }, pasteArea, el("button", {
+      class: "primary sq block", style: "margin-top:10px", text: "Extract from pasted text",
+      onclick: () => {
+        if (!pasteArea.value.trim()) { toast("Paste some text first", true); return; }
+        act("/intake/paste-source", { text: pasteArea.value }, "Text extracted");
+      },
+    }));
+
+    const uploadTab = el("button", { class: "on", text: "Upload File" });
+    const pasteTab = el("button", { text: "Paste Text" });
+    uploadTab.onclick = () => {
+      uploadTab.className = "on"; pasteTab.className = "";
+      uploadPane.style.display = ""; pastePane.style.display = "none";
+    };
+    pasteTab.onclick = () => {
+      pasteTab.className = "on"; uploadTab.className = "";
+      pastePane.style.display = ""; uploadPane.style.display = "none";
+    };
+
+    const sourceCard = el("div", { class: "card" },
+      el("h3", { text: "1. Source Requirement" }),
+      el("p", { class: "hint", text: "Upload a file or paste text — the requirement is extracted from what you actually give it." }),
+      el("div", { class: "tabs", style: "margin-top:10px" }, uploadTab, pasteTab),
+      uploadPane, pastePane,
+      d.intake?.source ? el("div", { class: "file-row" },
+        el("span", { class: "mono", text: d.intake.source.filename || "(pasted text)" }),
+        el("span", { class: "chip tag", text: `${d.intake.source.text.length.toLocaleString()} chars` }),
+        el("span", { class: "prov prov-human", text: "SET" })) : null);
+
+    const extractionCard = el("div", { class: "card" },
+      el("div", { class: "section-title" },
+        el("h3", { text: ext ? (ext.method === "live_llm" ? "2. AI Extraction" : "2. Extraction (Rule-Based)") : "2. Extraction" }),
+        ext ? prov(ext.provenance) : null),
+      !ext
+        ? el("p", { class: "hint", text: "Upload or paste a source above to extract a requirement from it." })
+        : el("div", {},
+            el("div", { class: "kv", style: "grid-template-columns: 160px 1fr" },
+              el("b", { text: "Epic Title" }), el("span", { text: ext.epic_title }),
+              el("b", { text: "Business Objective" }), el("span", { text: ext.business_objective }),
+              el("b", { text: "Requirement Summary" }), el("span", { text: ext.requirement_summary })),
+            el("h4", { style: "margin-top:14px; font-size:12.5px; color:var(--muted)", text: "Extracted Requirements" }),
+            el("ul", { class: "plain" }, ext.extracted_requirements.map((r) =>
+              el("li", {},
+                el("span", { class: "chip tag", style: "margin-right:8px", text: r.rule_id }),
+                r.text))),
+            ext.edited_by ? el("p", { class: "hint", style: "margin-top:8px",
+              text: `Edited by ${ext.edited_by} at ${ext.edited_at}` }) : null,
+            el("div", { class: "actions-row", style: "margin-top:14px" },
+              el("button", { class: "outline", text: "✎ Edit Extracted Epic", onclick: () => openEditExtractionModal(ext) }),
+              el("button", {
+                class: "primary sq", text: "Create Epic & Proceed to Planning →",
+                onclick: () => act("/intake/finalize-epic", {}, "Epic created")
+                  .then((ok) => { if (ok) go("epic_to_stories"); }),
+              })),
+            !isLive ? el("p", { class: "hint", style: "margin-top:10px",
+              text: "Simulation mode demonstrates extraction from your actual document; downstream " +
+                "planning still follows the rehearsed demo scenario, exactly as it does for every run " +
+                "in simulation mode today." }) : null));
+
+    return el("div", { class: "grid cols-2", style: "margin-bottom:14px" }, sourceCard, extractionCard);
+  }
+
   function renderIntake() {
     const d = state.data;
     const req = d.intake?.requirement;
@@ -623,8 +752,9 @@
     return el("section", { class: "page-with-rail" },
       el("div", {},
         el("div", { class: "page-head", style: "margin-bottom:16px" },
-          el("h2", { text: "Intake — AI Analysis" }),
-          el("span", { class: "hint", text: "The analysis model reviews the requirement and extracts key information. A human passes the gate." })),
+          el("h2", { text: "Intake — Requirement Input" }),
+          el("span", { class: "hint", text: "Upload your business epic or requirement. Extraction reads the actual document; a human passes the gate." })),
+        sourceRequirementSection(d),
         repoCard ? el("div", { style: "margin-bottom:14px" }, repoCard) : null,
         routingCard ? el("div", { style: "margin-bottom:14px" }, routingCard) : null,
         newAppCard ? el("div", { style: "margin-bottom:14px" }, newAppCard) : null,
