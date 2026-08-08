@@ -290,3 +290,57 @@ def test_route_requirement_rejects_missing_reasoning(monkeypatch):
     monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
     with pytest.raises(LLMError, match="reasoning"):
         live_intake.route_requirement(REQUIREMENT, PACKS)
+
+
+# --- new-app setup tests ------------------------------------------------
+
+GOOD_NEW_APP_QUESTIONS = {
+    "needs_more_info": True,
+    "questions": ["What should the repository be named?", "What stack should it use?"],
+}
+GOOD_NEW_APP_SETTLED = {
+    "needs_more_info": False,
+    "name": "maplesure-eligibility-check",
+    "description": "Retirement eligibility check service.",
+    "stack": "FastAPI + SQLite",
+}
+
+
+def test_run_new_app_setup_asks_questions(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_NEW_APP_QUESTIONS))
+    result, usage = live_intake.run_new_app_setup(REQUIREMENT, [])
+    assert result == {"done": False, "questions": GOOD_NEW_APP_QUESTIONS["questions"]}
+    assert usage["input_tokens"] == 1200
+
+
+def test_run_new_app_setup_settles(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_NEW_APP_SETTLED))
+    result, _ = live_intake.run_new_app_setup(REQUIREMENT, [{"role": "assistant", "text": "q"}])
+    assert result == {
+        "done": True, "name": "maplesure-eligibility-check",
+        "description": "Retirement eligibility check service.", "stack": "FastAPI + SQLite",
+    }
+
+
+def test_run_new_app_setup_rejects_invalid_name(monkeypatch):
+    bad = dict(GOOD_NEW_APP_SETTLED, name="Not A Valid Name!")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="not a valid repository name"):
+        live_intake.run_new_app_setup(REQUIREMENT, [])
+
+
+def test_run_new_app_setup_rejects_missing_description(monkeypatch):
+    bad = dict(GOOD_NEW_APP_SETTLED, description="")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="missing description or stack"):
+        live_intake.run_new_app_setup(REQUIREMENT, [])
+
+
+def test_run_new_app_setup_enforces_round_cap(monkeypatch):
+    monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_NEW_APP_QUESTIONS))
+    transcript = [
+        {"role": "assistant", "text": "q1"}, {"role": "user", "text": "a1"},
+        {"role": "assistant", "text": "q2"}, {"role": "user", "text": "a2"},
+    ]
+    with pytest.raises(LLMError, match="cap"):
+        live_intake.run_new_app_setup(REQUIREMENT, transcript)

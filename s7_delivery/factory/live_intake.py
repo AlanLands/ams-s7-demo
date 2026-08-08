@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 
 from common.llm import LLMError, complete, parse_json_response
 from common.prompt import PromptLayers
@@ -39,6 +40,21 @@ CLARIFY_ROLE = (
     "ask only the clarifying questions whose answers would materially change "
     "the analysis or the plan. Most requests need one short round, not an "
     "interrogation."
+)
+
+NEW_APP_ROLE = (
+    "Your role is capturing the essentials of a brand-new application "
+    "before it exists: a short, valid repository name, a one-line "
+    "description, and the intended technology stack. Ask only what is "
+    "still missing; once all three are known, stop asking and report them."
+)
+
+_REPO_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{2,38}$")
+
+_NEW_APP_SHAPE_QUESTIONS = """{"needs_more_info": true, "questions": ["<question>"]}"""
+_NEW_APP_SHAPE_SETTLED = (
+    """{"needs_more_info": false, "name": "<repo-name-like-this>", """
+    """"description": "<one line>", "stack": "<e.g. Flask + SQLite>"}"""
 )
 
 
@@ -260,6 +276,49 @@ change the delivery plan. Return JSON exactly matching:
     if not 1 <= len(questions) <= 4:
         raise LLMError(f"expected 1-4 clarifying questions, got {len(questions)}")
     return questions, usage
+
+
+def run_new_app_setup(
+    requirement: dict, transcript: list[dict]
+) -> tuple[dict, dict]:
+    rounds_used = sum(1 for t in transcript if t["role"] == "assistant")
+    if rounds_used >= MAX_CLARIFICATION_ROUNDS:
+        raise LLMError(
+            f"New-application setup cap reached ({MAX_CLARIFICATION_ROUNDS} "
+            "rounds) — name, description and stack must be settled by now."
+        )
+    task = f"""Conversation so far:
+{_transcript_text(transcript)}
+
+The requirement this new application would satisfy:
+{json.dumps(requirement, indent=2)}
+
+If name, description and stack are not all known yet, ask 1 to 3 short
+questions. Otherwise, report the final values. Return JSON exactly matching
+exactly one of:
+{_NEW_APP_SHAPE_QUESTIONS}
+{_NEW_APP_SHAPE_SETTLED}"""
+    data, usage = _call(
+        role=NEW_APP_ROLE,
+        ref=json.dumps(requirement, indent=2),
+        task=task,
+        beat="new-app-setup",
+        key_material=json.dumps(requirement, sort_keys=True)
+        + json.dumps(transcript, sort_keys=True),
+    )
+    if data.get("needs_more_info"):
+        questions = [str(q).strip() for q in data.get("questions", []) if str(q).strip()]
+        if not 1 <= len(questions) <= 3:
+            raise LLMError(f"expected 1-3 setup questions, got {len(questions)}")
+        return {"done": False, "questions": questions}, usage
+    name = str(data.get("name", "")).strip()
+    if not _REPO_NAME_RE.match(name):
+        raise LLMError(f"new application name {name!r} is not a valid repository name")
+    description = str(data.get("description", "")).strip()
+    stack = str(data.get("stack", "")).strip()
+    if not description or not stack:
+        raise LLMError("new application setup is missing description or stack")
+    return {"done": True, "name": name, "description": description, "stack": stack}, usage
 
 
 PLAN_ROLE = (

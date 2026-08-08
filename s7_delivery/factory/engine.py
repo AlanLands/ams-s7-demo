@@ -280,6 +280,7 @@ class Engine:
                 "repos": self.store.read_json_or([], "intake", "repos.json"),
                 "clarifications": self.store.read_json_or(None, "intake", "clarifications.json"),
                 "routing": self.store.read_json_or(None, "intake", "routing.json"),
+                "new_app": self.store.read_json_or(None, "intake", "new_app.json"),
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
@@ -621,6 +622,72 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="requirement-routing", outcome="overridden",
             details=f"verdict set to {verdict}",
+        )
+
+    def _new_app(self) -> dict:
+        return self.store.read_json_or(
+            {"transcript": [], "pending": [], "rounds_used": 0, "max_rounds": 2,
+             "name": None, "description": None, "stack": None},
+            "intake", "new_app.json",
+        )
+
+    def intake_new_app_setup(self, role: Role) -> None:
+        roles.require("setup_new_application", role)
+        if self.run().mode is not DemoMode.LIVE:
+            raise EngineError("New-application setup runs in live mode only")
+        import time
+
+        from s7_delivery.factory import live_intake
+
+        setup = self._new_app()
+        if setup["pending"]:
+            raise EngineError("Answer the open questions before asking again")
+        if setup["name"]:
+            raise EngineError("New-application setup is already complete")
+        requirement = self.store.read_json("intake", "requirement.json")
+        t0 = time.monotonic()
+        result, usage = live_intake.run_new_app_setup(requirement, setup["transcript"])
+        if result["done"]:
+            setup["name"] = result["name"]
+            setup["description"] = result["description"]
+            setup["stack"] = result["stack"]
+            outcome = "settled"
+        else:
+            questions = result["questions"]
+            setup["transcript"].append({"role": "assistant", "text": "\n".join(questions)})
+            setup["pending"] = questions
+            setup["rounds_used"] = sum(
+                1 for t in setup["transcript"] if t["role"] == "assistant"
+            )
+            outcome = "asked"
+        self.store.write_json(setup, "intake", "new_app.json")
+        self._activity(
+            stage=Stage.INTAKE, actor="requirement-routing", actor_type="live_ai",
+            workflow="new-app-setup", duration_s=round(time.monotonic() - t0, 2),
+            outcome=outcome,
+            details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
+        )
+
+    def intake_new_app_answer(self, role: Role, answers: list[str]) -> None:
+        roles.require("setup_new_application", role)
+        setup = self._new_app()
+        if not setup["pending"]:
+            raise EngineError("There are no open questions to answer")
+        if len(answers) != len(setup["pending"]):
+            raise EngineError(
+                f"Expected {len(setup['pending'])} answers, got {len(answers)}"
+            )
+        joined = "\n".join(
+            f"Q: {q}\nA: {a.strip() or '(no answer — make a stated assumption)'}"
+            for q, a in zip(setup["pending"], answers, strict=True)
+        )
+        setup["transcript"].append({"role": "user", "text": joined})
+        setup["pending"] = []
+        self.store.write_json(setup, "intake", "new_app.json")
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="new-app-setup", outcome="answered",
+            details=f"{len(answers)} answers recorded",
         )
 
     def intake_pass_gate(self, role: Role) -> None:

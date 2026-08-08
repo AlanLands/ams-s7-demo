@@ -221,6 +221,25 @@ def post_intake_override_route(run_id: str, body: OverrideRouteBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/intake/new-app-setup")
+def post_new_app_setup(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_new_app_setup(_role(body.role))
+    return eng.state()
+
+
+class NewAppAnswerBody(BaseModel):
+    role: str
+    answers: list[str]
+
+
+@app.post("/api/runs/{run_id}/intake/new-app-answer")
+def post_new_app_answer(run_id: str, body: NewAppAnswerBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_new_app_answer(_role(body.role), body.answers)
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 

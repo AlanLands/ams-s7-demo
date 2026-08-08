@@ -273,3 +273,36 @@ def test_intake_override_route_records_provenance(tmp_path, monkeypatch):
     ]
     assert len(route_events) == 2
     assert route_events[-1]["action"] == "override"
+
+
+# --- new-app setup tests -------------------------------------------------------
+
+
+def test_new_app_setup_roundtrip(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: ({"done": False, "questions": ["Name it?"]}, {}),
+    )
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    setup = eng.state()["intake"]["new_app"]
+    assert setup["pending"] == ["Name it?"]
+
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: (
+            {"done": True, "name": "maplesure-eligibility-check",
+             "description": "d", "stack": "FastAPI"}, {},
+        ),
+    )
+    eng.intake_new_app_answer(Role.PRODUCT_ANALYST, ["maplesure-eligibility-check"])
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    setup = eng.state()["intake"]["new_app"]
+    assert setup["name"] == "maplesure-eligibility-check"
+    assert setup["pending"] == []
+
+
+def test_new_app_setup_in_simulation_mode_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="live"):
+        eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
