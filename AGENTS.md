@@ -110,8 +110,12 @@ real client in code, data, commits, generated UI, screenshots, or docs.
    Never hardcode, print, log, or commit secrets. Keep `.env.example` as
    documentation only — no values.
 4. Keep the project portable to a locked-down sandbox: plain Python,
-   CSV/SQLite, simple UI, pinned dependencies, no Docker-required flow, no
-   machine-specific paths.
+   CSV/SQLite, pinned dependencies, no Docker-required flow, no
+   machine-specific paths. **Amended 2026-08-08:** the Control Centre frontend
+   (`apps/control/web/`) is React + TypeScript + Vite with a pinned,
+   committed-lockfile build step, matching `../ams-s3-demo/apps/console/web/`.
+   Node is a build-time tool; the sandbox runs the committed `dist/` output,
+   not `npm`. Full rationale in `CLAUDE.md` hard rule 4.
 5. Demo reliability beats cleverness. Once a beat is rehearsed, prefer
    deterministic replay over a live call.
 

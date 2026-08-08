@@ -527,8 +527,25 @@ language. Rewrite to the MapleSure fiction first — see hard rule 2.
    Never hardcode, print, log, or commit a key. `.env.example` is documentation
    only and must stay valueless.
 4. **Must survive a port to a locked-down environment.** Plain Python +
-   CSV/SQLite + static/simple web UI preferred. No cloud-managed services, no
-   Docker-required paths, no OS-specific hacks. Pin dependencies.
+   CSV/SQLite preferred. No cloud-managed services, no Docker-required paths,
+   no OS-specific hacks. Pin dependencies.
+
+   **Amended 2026-08-08 for the Control Centre frontend.** The Control Centre
+   (`apps/control/`) moved from a hand-rolled vanilla-JS single file to
+   React + TypeScript + Vite, matching the sibling S3 console's own
+   `apps/console/web/` precedent (`../ams-s3-demo`), which already carried this
+   exact stack under the identically-worded rule without either repo
+   revisiting the wording until now. The build step is acceptable under this
+   rule because: dependencies are pinned (`package-lock.json` committed), the
+   build has no network dependency at build time beyond the initial `npm
+   install` (same class of one-time setup as `pip install -r
+   requirements.txt`), and the **built output** (`apps/control/web/dist/`) is
+   what the locked-down environment actually runs — `apps/control/server.py`
+   serves static files, same as before. No CDN imports, no fonts fetched at
+   runtime (`public/fonts/*.woff2` stays self-hosted). If the target sandbox
+   cannot run `npm install`/`npm run build` at all, the build must happen
+   before the port and the committed `dist/` output ships as-is — Node is then
+   a build-time tool, not a runtime dependency.
 5. **Demo reliability beats cleverness.** Once a beat is rehearsed, prefer a
    deterministic replay over a live call. A beat that is impressive four times
    in five is worse than a beat that is adequate five times in five.
