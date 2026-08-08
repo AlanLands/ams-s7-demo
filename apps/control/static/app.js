@@ -1596,6 +1596,7 @@
 
   function renderPlanSignoff() {
     const d = state.data;
+    const isLive = d.run?.mode === "live";
     const stories = planningStories();
     const plan = d.planning?.plan;
     const conf = d.planning?.confidence;
@@ -1652,7 +1653,7 @@
     );
 
     const repoNames = [...new Set(stories.map((s) => s.target_repository))];
-    const handoffCard = plan ? el("div", { class: "card" },
+    const handoffCard = d.run?.plan_locked && isLive ? el("div", { class: "card" },
       el("div", { class: "section-title" }, el("h3", { text: "Delivery Handoff" }),
         el("span", { class: "hint", text: "Portable, per-team packages — no .claude/ tooling" })),
       el("div", { class: "actions-row", style: "gap:8px; flex-wrap:wrap" },

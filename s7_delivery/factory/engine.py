@@ -584,6 +584,12 @@ class Engine:
         roles.require("route_requirement", role)
         if self.run().mode is not DemoMode.LIVE:
             raise EngineError("Requirement routing runs in live mode only")
+        current = self._routing()
+        if current and current.get("overridden_by"):
+            raise EngineError(
+                "The routing verdict was overridden by a human — reset the "
+                "run or clear the override before re-routing"
+            )
         import time
 
         from s7_delivery.factory import live_intake

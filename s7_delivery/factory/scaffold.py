@@ -12,6 +12,7 @@ tests.
 """
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -66,9 +67,15 @@ JSON exactly matching:
 
 
 def _git(repo: Path, *args: str) -> None:
-    subprocess.run(
-        ["git", "-C", str(repo), *args], check=True, capture_output=True, text=True,
-    )
+    try:
+        subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True, capture_output=True, text=True, timeout=120,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise RepoConnectError((exc.stderr or str(exc)).strip()) from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RepoConnectError(f"git {' '.join(args)} timed out in {repo}") from exc
 
 
 def write_scaffold_locally(name: str, files: dict[str, str], dest_root: Path) -> Path:
@@ -76,14 +83,18 @@ def write_scaffold_locally(name: str, files: dict[str, str], dest_root: Path) ->
     repo = dest_root / name
     if repo.exists():
         raise RepoConnectError(f"{name} scaffold already exists locally")
-    for filename, content in files.items():
-        target = repo / filename
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(content, encoding="utf-8")
-    ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
-    _git(repo, "init", "-q")
-    _git(repo, "add", "-A")
-    _git(repo, *ident, "commit", "-qm", "Initial application scaffold")
+    try:
+        for filename, content in files.items():
+            target = repo / filename
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+        ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
+        _git(repo, "init", "-q")
+        _git(repo, "add", "-A")
+        _git(repo, *ident, "commit", "-qm", "Initial application scaffold")
+    except RepoConnectError:
+        shutil.rmtree(repo, ignore_errors=True)
+        raise
     return repo
 
 

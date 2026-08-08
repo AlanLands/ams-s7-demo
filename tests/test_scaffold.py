@@ -1,4 +1,6 @@
 """Scaffold generation — canned model JSON, offline."""
+import subprocess
+
 import pytest
 
 from common.llm import LLMError
@@ -40,3 +42,30 @@ def test_generate_scaffold_rejects_empty_architecture(monkeypatch):
     monkeypatch.setattr(scaffold, "complete", fake_complete(bad))
     with pytest.raises(LLMError, match="empty"):
         scaffold.generate_scaffold("name", "desc", "stack")
+
+
+def test_write_scaffold_locally_cleans_up_on_git_failure_and_allows_retry(tmp_path, monkeypatch):
+    from s7_delivery.factory.repos import RepoConnectError
+
+    dest_root = tmp_path / "dest"
+    dest_root.mkdir()
+    name = "maplesure-eligibility-check"
+    files = {"architecture.md": "# arch\n", "README.md": "# readme\n"}
+
+    def fail_git_init(cmd, *args, **kwargs):
+        if "init" in cmd:
+            raise subprocess.CalledProcessError(1, cmd, stderr="git init failed")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(scaffold.subprocess, "run", fail_git_init)
+    with pytest.raises(RepoConnectError, match="git init failed"):
+        scaffold.write_scaffold_locally(name, files, dest_root)
+
+    # Cleanup happened: retry with the same name and dest_root must not
+    # hit the "already exists locally" guard.
+    assert not (dest_root / name).exists()
+
+    monkeypatch.undo()
+    repo = scaffold.write_scaffold_locally(name, files, dest_root)
+    assert repo == dest_root / name
+    assert (repo / "architecture.md").read_text(encoding="utf-8") == "# arch\n"

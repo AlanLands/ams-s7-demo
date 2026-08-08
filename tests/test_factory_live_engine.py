@@ -276,6 +276,21 @@ def test_intake_override_route_records_provenance(tmp_path, monkeypatch):
     assert route_events[-1]["action"] == "override"
 
 
+def test_intake_route_after_override_is_an_error(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "route_requirement",
+        lambda req, packs: (
+            RoutingVerdict(verdict="new_application_needed", reasoning="r",
+                           provenance=Provenance.LIVE_AI), {},
+        ),
+    )
+    eng.intake_route(Role.PRODUCT_ANALYST)
+    eng.intake_override_route(Role.DELIVERY_LEAD, "routable")
+    with pytest.raises(EngineError, match="overridden"):
+        eng.intake_route(Role.PRODUCT_ANALYST)
+
+
 # --- new-app setup tests -------------------------------------------------------
 
 
