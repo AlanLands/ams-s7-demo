@@ -211,6 +211,9 @@ def _validate_route(data: dict, repo_names: set[str]) -> "RoutingVerdict":
             f"route verdict must be 'routable' or 'new_application_needed', "
             f"got {verdict!r}"
         )
+    reasoning = data.get("reasoning")
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        raise LLMError("route reasoning must be a non-empty string")
     candidates = data.get("candidate_repos") or []
     if not isinstance(candidates, list):
         raise LLMError("candidate_repos must be a list")
@@ -221,7 +224,7 @@ def _validate_route(data: dict, repo_names: set[str]) -> "RoutingVerdict":
         raise LLMError("verdict is routable but candidate_repos is empty")
     return RoutingVerdict(
         verdict=verdict,
-        reasoning=str(data.get("reasoning", "")),
+        reasoning=reasoning,
         candidate_repos=candidates,
         confidence=data.get("confidence"),
         provenance=provenance_now(),

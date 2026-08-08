@@ -283,3 +283,10 @@ def test_route_requirement_rejects_routable_with_no_candidates(monkeypatch):
     monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
     with pytest.raises(LLMError, match="routable"):
         live_intake.route_requirement(REQUIREMENT, PACKS)
+
+
+def test_route_requirement_rejects_missing_reasoning(monkeypatch):
+    bad = dict(GOOD_ROUTE_ROUTABLE, reasoning="")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    with pytest.raises(LLMError, match="reasoning"):
+        live_intake.route_requirement(REQUIREMENT, PACKS)
