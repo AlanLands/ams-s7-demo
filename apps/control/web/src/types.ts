@@ -227,37 +227,101 @@ export interface DesignRecord {
   version: number
 }
 
-export interface AcceptanceCriterion {
+// --- planning (Epic to Stories / Dependency Map / Routing by Team / Plan
+// Summary / Plan Sign-off) --------------------------------------------------
+// Canonical shape every planning-stage page reads `data.planning` through.
+// Established by consensus across five independently-ported planning pages
+// (depGraph.ts's PlanStory, planningHelpers.ts's SignedPlan/PlanConfidence) —
+// this promotes those local copies to the shared contract; the pages
+// themselves still import from ./depGraph and ./planningHelpers today and can
+// be pointed at these instead in a later cleanup pass without any field
+// changes, since the shapes are identical.
+
+export interface PlanAcceptanceCriterion {
   ac_id: string
   text: string
+  covered_by_code?: boolean
+  covered_by_test?: boolean
 }
 
-export interface StoryRecord {
+export interface PlanFeatureFlag {
+  name: string
+  default_state: string
+}
+
+export interface PlanRollbackPlan {
+  method: string
+  tested: boolean
+}
+
+export interface PlanStory {
   story_id: string
+  epic_id: string
   title: string
-  purpose?: string
-  acceptance_criteria: AcceptanceCriterion[]
-  accountable_team?: string
-  contributing_teams?: string[]
-  target_component?: string
-  rollback_plan?: string
-  task_type?: string
+  purpose: string
+  accountable_team: string
+  contributing_teams: string[]
+  owner?: string
+  target_application: string
+  target_component: string
+  target_repository: string
+  acceptance_criteria: PlanAcceptanceCriterion[]
+  dependencies: string[]
+  impacts: string[]
+  feature_flag: PlanFeatureFlag | null
+  rollback_plan: PlanRollbackPlan | null
+  task_type: string
+  estimate: number
+  sprint: number
+  status: string
+  risk: string
+  version?: number
+  traces_to?: string[]
+  provenance: Provenance
 }
 
-export interface PlanRecord {
+export interface SignedPlan {
   plan_version: number
+  signed_by: string
+  signed_at: string
+  note: string
   story_ids: string[]
+  story_versions?: Record<string, number>
+}
+
+export interface PlanConfidence {
+  value: number
+  basis: string
+  provenance?: Provenance
+}
+
+export interface PlanRationale {
+  text: string
+  provenance?: Provenance
+}
+
+export interface PlanningFile {
+  name: string
+  bytes: number
 }
 
 export interface PlanningState {
-  plan?: PlanRecord
-  stories?: StoryRecord[]
+  plan?: SignedPlan
+  stories?: PlanStory[]
+  confidence?: PlanConfidence
+  rationale?: PlanRationale
 }
 
+// --- build (Build Work Queue / Dev Progress / Test Evidence / Independent
+// Review) --------------------------------------------------------------------
+
 export interface TaskTestResult {
-  ac_id: string
+  test_id: string
   name: string
+  ac_id: string
+  initial_result: string
   current_result: string
+  evidence_ref?: string
 }
 
 export interface BuildTask {
@@ -269,16 +333,18 @@ export interface BuildTask {
   accountable_team?: string
   dependencies?: string[]
   progress_pct: number
+  current_activity?: string
   files_changed: number
-  coverage_pct?: number | null
+  lines_added?: number
+  lines_removed?: number
   tests?: TaskTestResult[]
+  coverage_pct?: number | null
   last_activity?: string
   changed_files?: string[]
   change_summary?: string
   commit_ref?: string
   pr_ref?: string
-  lines_added?: number
-  lines_removed?: number
+  version?: number
   provenance?: Provenance
 }
 

@@ -14,6 +14,15 @@ import { Reports } from './pages/Reports'
 import { Approvals } from './pages/Approvals'
 import { Risks } from './pages/Risks'
 import { Settings } from './pages/Settings'
+import { EpicToStories } from './pages/planning/EpicToStories'
+import { DependencyMap } from './pages/planning/DependencyMap'
+import { RoutingByTeam } from './pages/planning/RoutingByTeam'
+import { PlanSummary } from './pages/planning/PlanSummary'
+import { PlanSignoff } from './pages/planning/PlanSignoff'
+import { BuildWorkQueue } from './pages/build/BuildWorkQueue'
+import { DevProgress } from './pages/build/DevProgress'
+import { TestEvidence } from './pages/build/TestEvidence'
+import { IndependentReview } from './pages/build/IndependentReview'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
@@ -26,8 +35,16 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   approvals: Approvals,
   risks: Risks,
   settings: Settings,
-  // epic_to_stories: EpicToStories,   — wired in Phase 3
-  // ...remaining Phase-3 pages wired as each is ported
+  epic_to_stories: EpicToStories,
+  dependency_map: DependencyMap,
+  routing_by_team: RoutingByTeam,
+  plan_summary: PlanSummary,
+  plan_signoff: PlanSignoff,
+  build_work_queue: BuildWorkQueue,
+  dev_progress: DevProgress,
+  test_evidence: TestEvidence,
+  independent_review: IndependentReview,
+  // stories/quality/release wired once their codex ports land
 }
 
 function Shell() {
