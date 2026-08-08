@@ -9,7 +9,7 @@ portability requirement.
 Content is the same eight slides as the original build (title, one-sentence
 pitch, pipeline flow, five gates, traceability, ten building blocks, next
 steps, takeaway) — this version only changes the *skin*, to match the S3
-console's ported design system (theme.css / apps/control/static/styles.css):
+console's ported design system (theme.css / apps/control/web/src/theme.css):
 warm near-black ink, cream surface, crimson accent, square corners
 everywhere, Source Sans typography. See CLAUDE.md hard rule 2 — MapleSure
 only, the end client is never named.
@@ -29,7 +29,7 @@ from pptx.util import Emu, Pt
 
 OUT = Path(__file__).resolve().parent.parent / "docs" / "s7-leadership-overview.pptx"
 
-# --- palette, ported from apps/control/static/styles.css ------------------
+# --- palette, ported from apps/control/web/src/theme.css ------------------
 INK = RGBColor(0x36, 0x36, 0x2F)
 INK_SOFT = RGBColor(0x52, 0x51, 0x46)
 BG = RGBColor(0xF0, 0xF0, 0xEC)
