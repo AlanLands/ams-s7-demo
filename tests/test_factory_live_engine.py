@@ -131,3 +131,16 @@ def test_clarify_in_simulation_mode_is_an_error(tmp_path):
     eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="live"):
         eng.intake_clarify(Role.PRODUCT_ANALYST)
+
+
+def test_clarify_answer_count_mismatch_is_an_error(tmp_path, monkeypatch):
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "run_clarification",
+        lambda req, packs, transcript: (["Q one?", "Q two?"], {}),
+    )
+    eng.intake_clarify(Role.PRODUCT_ANALYST)
+    with pytest.raises(EngineError, match="Expected 2 answers"):
+        eng.intake_clarify_answer(Role.PRODUCT_ANALYST, ["only one answer"])
+    # Pending questions remain unanswered after the failed submit.
+    assert eng.state()["intake"]["clarifications"]["pending"] == ["Q one?", "Q two?"]
