@@ -31,6 +31,10 @@ class Provenance(StrEnum):
     REPLAYED_AI = "replayed_ai"
     STAGED = "staged"
     SIMULATED = "simulated"
+    # A real, deterministic, non-AI parse of real input (CLAUDE.md § Staged
+    # output) — neither fabricated (SIMULATED/STAGED) nor a model call
+    # (LIVE_AI/REPLAYED_AI). Used by the rule-based intake extraction parser.
+    RULE_BASED = "rule_based"
 
 
 class DemoMode(StrEnum):
@@ -160,6 +164,23 @@ class EpicRecord(BaseModel):
     created_by: str
     created_at: str = Field(default_factory=now_iso)
     provenance: Provenance = Provenance.SIMULATED
+
+
+class RequirementExtraction(BaseModel):
+    """The upload/paste intake front door's output — title, objective,
+    summary and numbered requirement bullets pulled from real source text.
+    `method` is "rule_based" (simulation) or "live_llm" (live mode); the UI
+    labels each honestly and never calls the rule-based path "AI"."""
+
+    epic_title: str
+    business_objective: str
+    requirement_summary: str
+    extracted_requirements: list[dict]  # [{"rule_id": "REQ-01", "text": "..."}]
+    method: str
+    provenance: Provenance
+    generated_at: str = Field(default_factory=now_iso)
+    edited_by: str | None = None
+    edited_at: str | None = None
 
 
 # --- planning --------------------------------------------------------------
