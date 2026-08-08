@@ -188,6 +188,44 @@ export interface ActivityEvent {
   details?: string
 }
 
+export interface ApprovalRecord {
+  approval_id: string
+  subject: string
+  role: string
+  approver: string
+  decision: string
+  note?: string
+  decided_at: string
+}
+
+export interface QualityRisk {
+  risk_id: string
+  severity: string
+  description: string
+}
+
+export interface StaleArtifact {
+  artifact_id: string
+  artifact_type: string
+  version: number
+  reason: string
+}
+
+export interface Amendment {
+  amendment_id: string
+  reason: string
+  implementation_status: string
+  initiator: string
+  impact_assessment: string
+  affected_artifacts?: string[]
+  required_changes?: string[]
+  verification_status: string
+}
+
+export interface DesignRecord {
+  version: number
+}
+
 export interface RunState {
   run: RunRecord
   scenario?: { title: string; description: string; epic_source: string }
@@ -198,6 +236,11 @@ export interface RunState {
   activity?: ActivityEvent[]
   activity_summary?: { counters?: Record<string, number>; total_events?: number; stage_time_s?: Record<string, number> }
   traceability?: TraceRow[]
+  approvals?: ApprovalRecord[]
+  quality?: { risks?: QualityRisk[] }
+  staleness?: StaleArtifact[]
+  amendments?: Amendment[]
+  design?: DesignRecord
   [section: string]: unknown
 }
 

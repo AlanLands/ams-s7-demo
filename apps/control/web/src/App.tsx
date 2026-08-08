@@ -11,6 +11,8 @@ import { Artifacts } from './pages/Artifacts'
 import { Provenance } from './pages/Provenance'
 import { Activity } from './pages/Activity'
 import { Reports } from './pages/Reports'
+import { Approvals } from './pages/Approvals'
+import { Risks } from './pages/Risks'
 
 const PAGES: Record<string, () => React.ReactElement | null> = {
   overview: Overview,
@@ -20,6 +22,8 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   provenance: Provenance,
   activity: Activity,
   reports: Reports,
+  approvals: Approvals,
+  risks: Risks,
   // epic_to_stories: EpicToStories,   — wired in Phase 3
   // ...remaining Phase-3 pages wired as each is ported
 }
