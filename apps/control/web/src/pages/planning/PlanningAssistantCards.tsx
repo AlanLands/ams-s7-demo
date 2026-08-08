@@ -8,11 +8,11 @@ import { planningOf } from './planningHelpers'
 export function PlanningAssistantCards({ stories }: { stories: PlanStory[] }) {
   const { data } = useRun()
   const conf = planningOf(data).confidence
-  // `PlanningSection` (./planningHelpers) has no `rationale` field yet — the
-  // same "not centrally typed" gap `confidence` was in before that helper
-  // existed. Cast locally, consistent with how every planning page casts
-  // through `data.planning` until the shared shape lands; see this port's
-  // report for the exact types.ts addition needed.
+  // `types.ts`'s `PlanningState.rationale` (`PlanRationale`) already covers
+  // this field. Cast locally instead of importing it, consistent with how
+  // every planning page casts through `data.planning` rather than the shared
+  // type — centralizing on it is a deliberate, still-open cleanup deferred to
+  // a follow-up, not a blocker.
   const rationale = (data?.planning as { rationale?: { text: string } } | undefined)?.rationale
 
   const allSimulated = stories.every((s) => s.provenance === 'simulated')

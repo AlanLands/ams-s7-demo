@@ -3,14 +3,13 @@ import { SectionTitle } from '../../components/SectionTitle'
 import { useRun } from '../../state/RunContext'
 
 // --- local shapes -----------------------------------------------------
-// `types.ts` is under concurrent edit by other pages in this migration and
-// its `Task`/`Story`/`ActivityEvent` shapes have changed underneath this
-// page more than once while porting it. Kept fully local (mirroring
-// `s7_delivery/factory/models.py`: TaskRecord, TestCaseRecord, Story,
-// AcceptanceCriterion) so this file's correctness does not depend on that
-// churn. See the report back to the integrator for the consolidated
-// `types.ts` additions this page (and likely sibling build/* pages) need
-// centrally — reconcile against whatever shape `types.ts` has landed on.
+// `types.ts` now has typed `BuildState`/`BuildTask`/`TaskTestResult`/
+// `PlanStory` sections, matching the local shapes below field-for-field
+// (mirroring `s7_delivery/factory/models.py`: TaskRecord, TestCaseRecord,
+// Story, AcceptanceCriterion). This page still defines its own local copy
+// rather than importing from types.ts — the same pattern every other
+// build/planning page uses. Centralizing on the shared types is a
+// deliberate, still-open cleanup deferred to a follow-up, not a blocker.
 
 interface TestCaseEvidence {
   test_id: string
