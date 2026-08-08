@@ -47,7 +47,7 @@ export function StoriesPanel({ stories, editable = false }: { stories: PlanStory
           <option value="">All teams</option>
           {teams.map((t) => <option value={t} key={t}>{t}</option>)}
         </select>
-        <button type="button" className="outline" onClick={() => exportStories(shown)}>⬇ Export</button>
+        <button type="button" className="outline" onClick={() => { exportStories(shown); notify('Stories exported as plan-stories.json') }}>⬇ Export</button>
         <span className="view-toggle">
           <button type="button" className={view === 'table' ? 'on' : ''} onClick={() => setView('table')}>Table View</button>
           <button type="button" className={view === 'board' ? 'on' : ''} onClick={() => setView('board')}>Board View</button>

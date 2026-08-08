@@ -103,10 +103,11 @@ export interface BuildReview {
   provenance?: Provenance
 }
 
-// ActivityEvent in types.ts does not yet carry `artifact` / `skill` /
-// `duration_s` — the shared server-side ActivityEvent model has all three
-// (s7_delivery/factory/models.py), but the React port of the shared type
-// hasn't picked them up yet. Extended locally; see this page's port report.
+// ActivityEvent in types.ts does not yet carry `skill` / `duration_s`
+// (it already has `artifact`) — the shared server-side ActivityEvent model
+// has all three (s7_delivery/factory/models.py), but the React port of the
+// shared type hasn't picked up `skill`/`duration_s` yet. Extended locally;
+// see this page's port report.
 export interface TaskActivityEvent extends ActivityEvent {
   artifact?: string
   skill?: string
@@ -292,7 +293,7 @@ function PauseButton() {
 }
 
 export function DevProgress() {
-  const { data, role, act, goTo } = useRun()
+  const { data, role, act, goTo, notify } = useRun()
   const [taskId, setTaskId] = useState<string | null>(null)
   const [showTechnicalDetail, setShowTechnicalDetail] = useState(false)
 
@@ -361,7 +362,10 @@ export function DevProgress() {
                 : 'Available to engineering lead / QA lead roles — switch role to view.'
             }
             onClick={() => {
-              if (!isTechnicalRole) return
+              if (!isTechnicalRole) {
+                notify('Technical detail is available to engineering lead / QA lead roles', true)
+                return
+              }
               setShowTechnicalDetail(true)
             }}
           >

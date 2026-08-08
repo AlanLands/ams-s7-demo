@@ -78,13 +78,9 @@ interface PlanningStateLocal {
   plan?: { story_ids?: string[] } | null
 }
 
-// ActivityEvent in types.ts does not yet carry `artifact` — the server-side
-// model has it (s7_delivery/factory/models.py::ActivityEvent), but the React
-// port of the shared type hasn't picked it up. Extended locally; see the port
-// report.
-interface TaskActivityEvent extends ActivityEvent {
-  artifact?: string
-}
+// ActivityEvent in types.ts already carries `artifact`; kept as a local alias
+// since nothing else here needs a full import-and-rename.
+type TaskActivityEvent = ActivityEvent
 
 const WORKFLOW_LABELS: Record<string, string> = {
   'task-start': 'Workspace created and context analysed',
@@ -186,7 +182,7 @@ function AgentPipelineCard() {
       </div>
       <div className="agent-flow">
         {AGENT_PIPELINE.map(([ico, name, desc], i) => (
-          <Fragment key={name}>
+          <Fragment key={i}>
             {i > 0 ? <span className="agent-arrow">→</span> : null}
             <div className={`agent-box ${i === AGENT_PIPELINE.length - 1 ? 'human' : ''}`}>
               <span className="agent-ico">{ico}</span>
