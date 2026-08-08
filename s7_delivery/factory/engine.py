@@ -638,10 +638,19 @@ class Engine:
         illegal = set(patch) - self.EDITABLE_EXTRACTION_FIELDS
         if illegal:
             raise EngineError(f"Fields not editable: {', '.join(sorted(illegal))}")
+        blank = sorted(
+            field for field in ("epic_title", "business_objective", "requirement_summary")
+            if field in patch and isinstance(patch[field], str) and not patch[field].strip()
+        )
+        if blank:
+            raise EngineError(f"Fields cannot be blank: {', '.join(blank)}")
         data.update(patch)
         data["edited_by"] = role.value
         data["edited_at"] = now_iso()
-        record = RequirementExtraction.model_validate(data)
+        try:
+            record = RequirementExtraction.model_validate(data)
+        except Exception as exc:  # pydantic ValidationError -> engine's own error type
+            raise EngineError(f"Invalid extraction patch: {exc}") from exc
         self.store.write_json(record, "intake", "extraction.json")
         self._record(
             artifact_id="EXT-001", artifact_type="requirement_extraction",

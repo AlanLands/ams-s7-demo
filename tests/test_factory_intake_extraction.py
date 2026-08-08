@@ -157,6 +157,27 @@ def test_edit_extraction_requires_extraction_first(eng):
         eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": "x"})
 
 
+def test_edit_extraction_rejects_malformed_requirements_as_engine_error(eng):
+    """A pydantic ValidationError (extracted_requirements must be a list of
+    {rule_id, text} dicts, not plain strings) must surface as EngineError,
+    not escape as a raw pydantic exception (final review finding 2)."""
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    with pytest.raises(EngineError, match="Invalid extraction patch"):
+        eng.intake_edit_extraction(
+            Role.BUSINESS_OWNER, {"extracted_requirements": ["just a string"]}
+        )
+
+
+def test_edit_extraction_rejects_blank_title(eng):
+    """A blank epic_title is valid `str` for pydantic and would otherwise be
+    silently accepted (final review finding 2) — reject it explicitly."""
+    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.PRODUCT_ANALYST)
+    with pytest.raises(EngineError, match="blank"):
+        eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": ""})
+
+
 def test_finalize_runs_analysis_when_missing_then_creates_epic(eng):
     eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
     eng.intake_extract(Role.PRODUCT_ANALYST)
