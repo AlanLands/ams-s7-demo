@@ -40,7 +40,17 @@ PERMISSIONS: dict[str, set[Role]] = {
     "export_artifacts": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST, Role.ENGINEERING_LEAD},
     "write_delivery_clone": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "push_delivery_branch": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
-    # build & review
+    # build & review — governed context generation and handoff
+    # Generation is performed by the service/simulation actor; these roles may
+    # trigger it. Acceptance is a *human* checkpoint held by the Engineering
+    # Lead — the generator (the service) never accepts its own blueprint.
+    "generate_architecture": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
+    "revise_architecture": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
+    "accept_architecture": {Role.ENGINEERING_LEAD},
+    "generate_delivery_packs": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
+    "publish_delivery_pack": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
+    "assign_developer": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
+    # build & review — developer execution evidence
     "start_task": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "run_development": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "submit_for_review": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},

@@ -27,6 +27,7 @@ from pydantic import BaseModel
 
 from common.llm import LLMError
 from s7_delivery.factory import extraction, roles, seed
+from s7_delivery.factory.build_phases import PhaseError
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 from s7_delivery.factory.roles import PermissionError_, actions_for
@@ -43,6 +44,13 @@ app = FastAPI(
 
 @app.exception_handler(EngineError)
 async def _engine_error(_req: Any, exc: EngineError) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
+
+
+@app.exception_handler(PhaseError)
+async def _phase_error(_req: Any, exc: PhaseError) -> JSONResponse:
+    # An out-of-order Build & Review action is the same class of refusal as
+    # any other engine rule violation.
     return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 

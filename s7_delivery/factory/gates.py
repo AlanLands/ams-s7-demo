@@ -36,10 +36,23 @@ def intake_gate(requirement: dict | None, analysis: dict | None, epic: dict | No
     ]
 
 
-def plan_signoff_gate(stories: list[dict], approver: str = "") -> list[dict]:
-    """G1 — spec §8G. Every story complete, every dependency resolvable."""
+def plan_signoff_gate(
+    stories: list[dict],
+    approver: str = "",
+    *,
+    epic: dict | None = None,
+    analysis: dict | None = None,
+) -> list[dict]:
+    """G1 — approve and lock the delivery plan, authorising architecture,
+    delivery-pack and workspace generation. G1 deliberately does NOT require
+    architecture.md to exist — the blueprint is generated *after* approval.
+    It also does not mean "AI may develop application code": developers own
+    implementation; G1 only opens governed context generation.
+    """
     conditions: list[dict] = []
-    conditions.append(_c("Plan generated", bool(stories),
+    conditions.append(_c("Epic defined", epic is not None,
+                         epic["epic_id"] if epic else "no epic on file"))
+    conditions.append(_c("Stories reviewed and plan generated", bool(stories),
                          f"{len(stories)} stories" if stories else "no stories yet"))
     incomplete: list[str] = []
     for s in stories:
@@ -54,11 +67,31 @@ def plan_signoff_gate(stories: list[dict], approver: str = "") -> list[dict]:
         f"{s['story_id']}→{d}" for s in stories for d in s.get("dependencies", [])
         if d not in ids
     ]
-    conditions.append(_c("All dependencies resolve within the plan", not dangling,
+    conditions.append(_c("All dependencies mapped and resolvable", not dangling,
                          ", ".join(dangling) if dangling else ""))
+    no_team = [s["story_id"] for s in stories if not s.get("accountable_team")]
     teams = {s["accountable_team"] for s in stories if s.get("accountable_team")}
-    conditions.append(_c("One accountable team per story", bool(stories) and len(teams) > 0,
-                         f"{len(teams)} teams involved"))
+    conditions.append(_c("One accountable team per story", bool(stories) and not no_team,
+                         f"unassigned: {', '.join(no_team)}" if no_team
+                         else f"{len(teams)} teams involved"))
+    no_estimate = [s["story_id"] for s in stories if not s.get("estimate")]
+    conditions.append(_c("Estimates defined for every story", bool(stories) and not no_estimate,
+                         f"unestimated: {', '.join(no_estimate)}" if no_estimate else ""))
+    no_sprint = [s["story_id"] for s in stories if not s.get("sprint")]
+    conditions.append(_c("Every story planned into a sprint", bool(stories) and not no_sprint,
+                         f"unplanned: {', '.join(no_sprint)}" if no_sprint else ""))
+    conditions.append(_c("Risks and assumptions reviewed", analysis is not None,
+                         f"{len(analysis.get('risks', []))} risks, "
+                         f"{len(analysis.get('assumptions', []))} assumptions on file"
+                         if analysis else "no intake analysis on file"))
+    unmapped = [s["story_id"] for s in stories
+                if not (s.get("target_repository") and s.get("target_application"))]
+    conditions.append(_c("Repository and application mapping sufficient",
+                         bool(stories) and not unmapped,
+                         f"unmapped: {', '.join(unmapped)}" if unmapped else
+                         "every story names its target application and repository"))
+    conditions.append(_c("No critical planning blockers", True,
+                         "none raised in this run"))
     conditions.append(_c("Named approver", bool(approver.strip()),
                          approver or "sign-off requires a named human"))
     return conditions

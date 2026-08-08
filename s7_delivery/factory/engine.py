@@ -16,12 +16,13 @@ import os
 import re
 from typing import Any
 
-from s7_delivery.factory import gates, roles, seed
+from s7_delivery.factory import build_phases, gates, roles, seed
 from s7_delivery.factory.models import (
     STAGE_ORDER,
     AcceptanceCriterion,
     ActivityEvent,
     Approval,
+    BuildReviewPhase,
     DeliveryRun,
     DemoMode,
     EpicRecord,
@@ -303,10 +304,7 @@ class Engine:
                 "confidence": self.store.read_json_or(None, "planning", "confidence.json"),
                 "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
             },
-            "build": {
-                "tasks": self.store.read_json_or([], "build", "tasks.json"),
-                "reviews": self.store.read_json_or([], "review", "reviews.json"),
-            },
+            "build": self._build_state(run),
             "quality": self.store.read_json_or(None, "quality", "quality-report.json"),
             "release": self.store.read_json_or(None, "release", "release-record.json"),
             "staleness": stale,
@@ -318,6 +316,23 @@ class Engine:
             "provenance_ledger": provenance,
             "activity": activity,
             "activity_summary": self._activity_summary(activity),
+        }
+
+    def _build_state(self, run: DeliveryRun) -> dict[str, Any]:
+        """The Build & Review section of `state()` — control-plane view:
+        phase, canonical architecture, delivery packs, workspaces, publication
+        records and developer-execution evidence. Extended per implementation
+        phase; sections read as None/[] until their capability has run."""
+        phase = build_phases.read_phase(self.store, plan_locked=run.plan_locked)
+        return {
+            "phase": phase.value if phase else None,
+            "phase_history": build_phases.history(self.store),
+            "tasks": self.store.read_json_or([], "build", "tasks.json"),
+            "reviews": self.store.read_json_or([], "review", "reviews.json"),
+            "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
+            "delivery_packs": self.store.read_json_or([], "build", "packs", "meta.json"),
+            "workspaces": self.store.read_json_or([], "build", "workspaces.json"),
+            "publications": self.store.read_ledger("publications.jsonl"),
         }
 
     @staticmethod
@@ -1470,7 +1485,12 @@ class Engine:
     def planning_sign_off(self, role: Role, approver: str, note: str = "") -> None:
         roles.require("sign_off_plan", role)
         stories = self._stories()
-        conditions = gates.plan_signoff_gate(stories, approver)
+        conditions = gates.plan_signoff_gate(
+            stories,
+            approver,
+            epic=self.store.read_json_or(None, "intake", "epic.json"),
+            analysis=self.store.read_json_or(None, "intake", "analysis.json"),
+        )
         gate = self.gate(GateId.PLAN_SIGNOFF)
         gate.conditions = conditions
         if not gates.all_met(conditions):
@@ -1527,10 +1547,16 @@ class Engine:
         run = self.run()
         self._advance_stage(run, Stage.PLANNING)
         self._seed_tasks(stories)
+        # G1 means: plan locked, architecture / delivery-pack / workspace
+        # generation authorised. It does NOT mean "AI develops the code".
+        build_phases.advance(
+            self.store, None, BuildReviewPhase.GATE1_APPROVED, actor=approver
+        )
         self._activity(
             stage=Stage.PLANNING, actor=approver, actor_type="human",
             workflow="plan-signoff-approval", outcome="passed",
-            details=f"plan v{plan['plan_version']} locked; downstream work opened",
+            details=f"plan v{plan['plan_version']} locked; architecture and "
+                    "delivery-pack generation enabled",
         )
 
     # --- build & independent review (spec §9) ------------------------------

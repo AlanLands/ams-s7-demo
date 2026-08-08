@@ -277,8 +277,109 @@ class TaskRecord(BaseModel):
     changed_files: list[str] = []
     commit_ref: str = ""
     pr_ref: str = ""
+    ci_status: str = ""
     version: int = 1
     last_activity: str = Field(default_factory=now_iso)
+    provenance: Provenance = Provenance.SIMULATED
+
+
+class BuildReviewPhase(StrEnum):
+    """Coarse Build & Review progression (implementation plan §6).
+
+    Gates the *new* capabilities (architecture → packs → publish) in order;
+    per-entity states (task status, review result, pack publication status,
+    workspace development status) stay on their own records. Absent phase file
+    means the run has not passed G1 yet.
+    """
+
+    GATE1_APPROVED = "gate1_approved"
+    ARCHITECTURE_READY = "architecture_ready"
+    ARCHITECTURE_ACCEPTED = "architecture_accepted"
+    DELIVERY_PACKS_READY = "delivery_packs_ready"
+    WORKSPACES_READY = "workspaces_ready"
+    DEVELOPER_EXECUTION = "developer_execution"
+    BUILD_COMPLETE = "build_complete"
+
+
+class ArchitectureMeta(BaseModel):
+    """Run-level engineering blueprint metadata. Files live in immutable
+    `architecture/v<version>/` directories; this record names the current
+    version so a task context referencing v1 stays resolvable after v2."""
+
+    artifact_id: str = "ARCH-001"
+    version: int = 1
+    status: str = "generated"  # generated | accepted
+    generated_at: str = Field(default_factory=now_iso)
+    generated_by: str = ""
+    accepted_by: str = ""
+    accepted_at: str = ""
+    revision_note: str = ""
+    files: list[str] = []
+    provenance: Provenance = Provenance.SIMULATED
+
+
+class DeliveryPack(BaseModel):
+    """Per-team governed engineering context (spec §27). References canonical
+    artifacts by version — it never copies the canonical architecture tree."""
+
+    delivery_pack_id: str
+    run_id: str
+    team: str
+    team_slug: str
+    version: int = 1
+    story_ids: list[str] = []
+    task_ids: list[str] = []
+    architecture_version: int = 1
+    plan_version: int = 1
+    repository: str = ""
+    status: str = "generated"
+    publication_status: str = "not_published"  # not_published | published | failed
+    content_hash: str = ""
+    created_at: str = Field(default_factory=now_iso)
+    published_at: str = ""
+    provenance: Provenance = Provenance.SIMULATED
+
+
+class DeveloperWorkspace(BaseModel):
+    """A human developer's execution surface for one story. S7 provides the
+    governed context and collects evidence; the developer owns implementation
+    (Human Controlled · AI Assisted)."""
+
+    workspace_id: str
+    run_id: str
+    team: str
+    story_id: str
+    repository: str = ""
+    branch: str = ""
+    developer: str = ""
+    delivery_pack_id: str = ""
+    delivery_pack_version: int = 1
+    base_commit: str = ""
+    current_commit: str = ""
+    pull_request: str = ""
+    ci_status: str = ""
+    development_status: str = "provisioned"
+    artifact_status: str = "current"  # current | stale
+    last_sync_at: str = Field(default_factory=now_iso)
+    provenance: Provenance = Provenance.SIMULATED
+
+
+class GitPublication(BaseModel):
+    """One publish of a delivery pack into a developer repository. Canonical
+    artifacts always remain in the S7 artifact store — published, not moved.
+    `simulated` is the honesty flag: simulation/replay never touch git."""
+
+    publication_id: str
+    delivery_pack_id: str
+    repository: str
+    branch: str
+    commit: str = ""
+    published_paths: list[str] = []
+    status: str = "published"  # published | failed
+    simulated: bool = True
+    created_at: str = Field(default_factory=now_iso)
+    published_at: str = ""
+    error_message: str = ""
     provenance: Provenance = Provenance.SIMULATED
 
 
