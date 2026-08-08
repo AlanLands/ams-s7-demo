@@ -24,6 +24,7 @@ from s7_delivery.factory.models import (
     Approval,
     ArchitectureMeta,
     BuildReviewPhase,
+    DeliveryPack,
     DeliveryRun,
     DemoMode,
     EpicRecord,
@@ -1701,6 +1702,129 @@ class Engine:
             outcome="passed",
             details=f"Architecture v{meta['version']} accepted; "
                     "delivery-pack generation enabled",
+        )
+
+    # --- delivery packs (Build & Review: governed context per team) ---------
+
+    def _packs(self) -> list[dict]:
+        return self.store.read_json_or([], "build", "packs", "meta.json")
+
+    def _save_packs(self, packs: list[dict]) -> None:
+        self.store.write_json(packs, "build", "packs", "meta.json")
+
+    def _pack(self, pack_id: str) -> dict:
+        pack = next(
+            (p for p in self._packs() if p["delivery_pack_id"] == pack_id), None
+        )
+        if pack is None:
+            raise EngineError(f"Unknown delivery pack {pack_id}")
+        return pack
+
+    def _write_files(self, files: dict[str, object], *segments: str) -> None:
+        for name, payload in files.items():
+            if isinstance(payload, str):
+                self.store.write_text(payload, *segments, name)
+            else:
+                self.store.write_json(payload, *segments, name)
+
+    def delivery_packs_generate(self, role: Role) -> None:
+        """One governed pack per accountable team, layered: canonical story
+        and task packs are shared; the team pack references them. Regeneration
+        bumps versions and resets publication status — a new version needs a
+        new publish (spec §22 refresh, never a silent overwrite)."""
+        roles.require("generate_delivery_packs", role)
+        from s7_delivery.factory import delivery_packs as dp
+
+        phase = self._build_phase()
+        build_phases.require_at_least(
+            phase, BuildReviewPhase.ARCHITECTURE_ACCEPTED,
+            "Delivery pack generation",
+        )
+        arch_meta = self._architecture_meta()
+        plan = self.store.read_json_or(None, "planning", "plan.json")
+        if plan is None:
+            raise EngineError("No signed plan on file")
+        stories = self._stories()
+        tasks = self._tasks()
+        prov = self._blueprint_provenance()
+        prev = {p["delivery_pack_id"]: p for p in self._packs()}
+
+        # canonical story + task packs (Levels 3 and 4), shared across teams
+        for story in stories:
+            self._write_files(
+                dp.render_story_pack(
+                    story,
+                    plan_version=plan["plan_version"],
+                    architecture_version=arch_meta["version"],
+                ),
+                "build", "stories", story["story_id"],
+            )
+        teams: list[str] = []
+        for s in stories:
+            if s.get("accountable_team") and s["accountable_team"] not in teams:
+                teams.append(s["accountable_team"])
+
+        packs: list[dict] = []
+        for team in teams:
+            t_stories = [s for s in stories if s.get("accountable_team") == team]
+            t_story_ids = {s["story_id"] for s in t_stories}
+            t_tasks = [t for t in tasks if t["story_id"] in t_story_ids]
+            pack_id = dp.pack_id_for(team)
+            version = prev.get(pack_id, {}).get("version", 0) + 1
+            for task in t_tasks:
+                story = next(s for s in t_stories if s["story_id"] == task["story_id"])
+                self._write_files(
+                    dp.render_task_pack(
+                        task, story,
+                        plan_version=plan["plan_version"],
+                        architecture_version=arch_meta["version"],
+                        team_pack_version=version,
+                    ),
+                    "build", "tasks", task["task_id"],
+                )
+            files = dp.render_team_pack(
+                run_id=self.run_id, team=team, stories=t_stories,
+                tasks=t_tasks, all_stories=stories, pack_version=version,
+                plan_version=plan["plan_version"],
+                architecture_version=arch_meta["version"],
+            )
+            slug = files["workspace-manifest.json"]["team_slug"]
+            self._write_files(files, "build", "packs", slug)
+            pack = DeliveryPack(
+                delivery_pack_id=pack_id,
+                run_id=self.run_id,
+                team=team,
+                team_slug=slug,
+                version=version,
+                story_ids=sorted(t_story_ids),
+                task_ids=[t["task_id"] for t in t_tasks],
+                architecture_version=arch_meta["version"],
+                plan_version=plan["plan_version"],
+                repository=files["workspace-manifest.json"]["repository"],
+                content_hash=sha256_of(files),
+                provenance=prov,
+            ).model_dump(mode="json")
+            packs.append(pack)
+            self._record(
+                artifact_id=pack_id, artifact_type="delivery_pack",
+                payload=pack, author="pack-service",
+                stage=Stage.BUILD_REVIEW, action="generate",
+                outcome="created" if version == 1 else "amended",
+                inputs=["ARCH-001", "PLAN-001", *sorted(t_story_ids)],
+                version=version,
+                previous_version=version - 1 if version > 1 else None,
+            )
+        self._save_packs(packs)
+        build_phases.advance(
+            self.store, phase, BuildReviewPhase.DELIVERY_PACKS_READY,
+            actor=role.value,
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="pack-service",
+            actor_type="simulation" if prov is Provenance.SIMULATED else "service",
+            workflow="delivery-pack-generation", artifact="delivery-packs",
+            duration_s=5.0, outcome="created",
+            details=f"{len(packs)} team packs over {len(stories)} stories",
         )
 
     # --- build & independent review (spec §9) ------------------------------

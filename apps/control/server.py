@@ -552,6 +552,61 @@ def get_artifact_file(run_id: str, rel_path: str) -> FileResponse:
     return FileResponse(path, media_type=media, filename=path.name)
 
 
+# --- delivery packs ----------------------------------------------------------
+
+
+@app.post("/api/runs/{run_id}/delivery-packs/generate")
+def post_delivery_packs_generate(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.delivery_packs_generate(_role(body.role))
+    return eng.state()
+
+
+@app.get("/api/runs/{run_id}/delivery-packs/{pack_id}/download.zip")
+def get_delivery_pack_zip(run_id: str, pack_id: str) -> StreamingResponse:
+    """Portable per-team package (spec §8) assembled from the canonical
+    artifact tree — download changes no state, canonical files stay put."""
+    eng = _engine(run_id)
+    pack = next(
+        (p for p in eng.store.read_json_or([], "build", "packs", "meta.json")
+         if p["delivery_pack_id"] == pack_id),
+        None,
+    )
+    if pack is None:
+        raise HTTPException(status_code=404, detail=f"Unknown delivery pack {pack_id}")
+    slug = pack["team_slug"]
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        team_dir = eng.store.path("build", "packs", slug)
+        for path in sorted(team_dir.rglob("*")):
+            if path.is_file():
+                name = path.name
+                # spec §8 layout: team-dependencies.json ships as dependencies.json
+                arcname = "dependencies.json" if name == "team-dependencies.json" else name
+                zf.write(path, f"{slug}/{arcname}")
+        arch_dir = eng.store.path("architecture", f"v{pack['architecture_version']}")
+        for name in ("architecture.md", "engineering-rules.md"):
+            p = arch_dir / name
+            if p.is_file():
+                zf.write(p, f"{slug}/architecture/{name}")
+        for story_id in pack["story_ids"]:
+            sdir = eng.store.path("build", "stories", story_id)
+            for path in sorted(sdir.rglob("*")):
+                if path.is_file():
+                    zf.write(path, f"{slug}/stories/{story_id}/{path.name}")
+        for task_id in pack["task_ids"]:
+            tdir = eng.store.path("build", "tasks", task_id)
+            for path in sorted(tdir.rglob("*")):
+                if path.is_file():
+                    zf.write(path, f"{slug}/tasks/{task_id}/{path.name}")
+    buf.seek(0)
+    filename = f"{slug}-delivery-pack-v{pack['version']}.zip"
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 
