@@ -700,7 +700,11 @@ class Engine:
         root = self.store.path("intake", "scaffold", name)
         if not root.is_dir():
             return {}
-        return {p.name: p.read_text(encoding="utf-8") for p in sorted(root.iterdir()) if p.is_file()}
+        return {
+            p.name: p.read_text(encoding="utf-8")
+            for p in sorted(root.iterdir())
+            if p.is_file()
+        }
 
     def _scaffold_files(self, name: str) -> dict[str, str]:
         files = self._scaffold_dir_files(name)
@@ -736,6 +740,7 @@ class Engine:
         repo — §B needs no special case because of this."""
         roles.require("create_new_application_repo", role)
         import shutil
+
         from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
         from s7_delivery.factory.scaffold import push_new_repo, write_scaffold_locally
 

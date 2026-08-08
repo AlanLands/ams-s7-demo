@@ -7,6 +7,7 @@ import pytest
 from common.llm import LLMError
 from demo.create_target_repos import PORTAL_FILES, write_repo
 from s7_delivery.factory import live_intake
+from s7_delivery.factory import scaffold as scaffold_mod
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import (
     AcceptanceCriterion,
@@ -314,9 +315,6 @@ def test_new_app_setup_in_simulation_mode_is_an_error(tmp_path):
 # --- scaffold generation tests -------------------------------------------------
 
 
-from s7_delivery.factory import scaffold as scaffold_mod
-
-
 def test_generate_scaffold_writes_files(tmp_path, monkeypatch):
     eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
     monkeypatch.setattr(
@@ -357,7 +355,11 @@ def _settled_new_app(eng, monkeypatch, name="maplesure-eligibility-check"):
     eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
     monkeypatch.setattr(
         scaffold_mod, "generate_scaffold",
-        lambda n, d, s: ({"architecture.md": "# arch\n\nWhat this application does NOT do\n- nothing yet\n", "README.md": "# readme\n"}, {}),
+        lambda n, d, s: (
+            {"architecture.md": "# arch\n\nWhat this application does NOT do\n- nothing yet\n",
+             "README.md": "# readme\n"},
+            {},
+        ),
     )
     eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
 

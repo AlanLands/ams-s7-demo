@@ -5,6 +5,7 @@ import pytest
 
 from common.llm import LLMError
 from s7_delivery.factory import live_intake
+from s7_delivery.factory.models import RoutingVerdict
 
 REQUIREMENT = {
     "request_id": "REQ-2026-114",
@@ -218,8 +219,6 @@ def test_run_plan_cache_key_ignores_epic_timestamp(monkeypatch):
 
 
 # --- routing tests ---------------------------------------------------------
-
-from s7_delivery.factory.models import RoutingVerdict
 
 GOOD_ROUTE_ROUTABLE = {
     "verdict": "routable",

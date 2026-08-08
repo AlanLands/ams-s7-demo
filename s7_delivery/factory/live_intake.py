@@ -15,7 +15,7 @@ import re
 
 from common.llm import LLMError, complete, parse_json_response
 from common.prompt import PromptLayers
-from s7_delivery.factory.models import IntakeAnalysis, Provenance
+from s7_delivery.factory.models import IntakeAnalysis, Provenance, RoutingVerdict
 
 MAX_CLARIFICATION_ROUNDS = 2
 
@@ -187,9 +187,7 @@ _ROUTE_SHAPE = """{
 
 def route_requirement(
     requirement: dict, packs: dict[str, str]
-) -> tuple["RoutingVerdict", dict]:
-    from s7_delivery.factory.models import RoutingVerdict
-
+) -> tuple[RoutingVerdict, dict]:
     if not packs:
         # Deterministic: zero connected repos always means a new application
         # is needed. No model call — cheaper and more honest than asking a
@@ -218,9 +216,7 @@ exactly matching:
     return _validate_route(data, set(packs)), usage
 
 
-def _validate_route(data: dict, repo_names: set[str]) -> "RoutingVerdict":
-    from s7_delivery.factory.models import RoutingVerdict
-
+def _validate_route(data: dict, repo_names: set[str]) -> RoutingVerdict:
     verdict = data.get("verdict")
     if verdict not in {"routable", "new_application_needed"}:
         raise LLMError(
