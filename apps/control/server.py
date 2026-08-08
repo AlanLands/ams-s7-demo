@@ -240,6 +240,13 @@ def post_new_app_answer(run_id: str, body: NewAppAnswerBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/intake/generate-scaffold")
+def post_generate_scaffold(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_generate_scaffold(_role(body.role))
+    return eng.state()
+
+
 # --- planning (spec §8) -----------------------------------------------------
 
 

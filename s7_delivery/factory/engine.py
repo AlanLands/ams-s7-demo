@@ -269,6 +269,11 @@ class Engine:
         stale_ids = {s["artifact_id"] for s in stale}
         for row in current:
             row["stale"] = row["artifact_id"] in stale_ids
+        new_app = self.store.read_json_or(None, "intake", "new_app.json")
+        scaffold = None
+        if new_app and new_app.get("name"):
+            files = self._scaffold_dir_files(new_app["name"])
+            scaffold = files or None
         return {
             "run": run.model_dump(mode="json"),
             "scenario": self.store.read_json("scenario.json"),
@@ -280,7 +285,8 @@ class Engine:
                 "repos": self.store.read_json_or([], "intake", "repos.json"),
                 "clarifications": self.store.read_json_or(None, "intake", "clarifications.json"),
                 "routing": self.store.read_json_or(None, "intake", "routing.json"),
-                "new_app": self.store.read_json_or(None, "intake", "new_app.json"),
+                "new_app": new_app,
+                "scaffold": scaffold,
             },
             "planning": {
                 "stories": self.store.read_json_or([], "planning", "stories.json"),
@@ -688,6 +694,40 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="new-app-setup", outcome="answered",
             details=f"{len(answers)} answers recorded",
+        )
+
+    def _scaffold_dir_files(self, name: str) -> dict[str, str]:
+        root = self.store.path("intake", "scaffold", name)
+        if not root.is_dir():
+            return {}
+        return {p.name: p.read_text(encoding="utf-8") for p in sorted(root.iterdir()) if p.is_file()}
+
+    def _scaffold_files(self, name: str) -> dict[str, str]:
+        files = self._scaffold_dir_files(name)
+        if not files:
+            raise EngineError(f"No scaffold generated for {name!r} yet")
+        return files
+
+    def intake_generate_scaffold(self, role: Role) -> None:
+        roles.require("setup_new_application", role)
+        import time
+
+        from s7_delivery.factory import scaffold as scaffold_mod
+
+        setup = self._new_app()
+        if not setup["name"]:
+            raise EngineError("Complete the new-application setup conversation first")
+        t0 = time.monotonic()
+        files, usage = scaffold_mod.generate_scaffold(
+            setup["name"], setup["description"], setup["stack"]
+        )
+        for filename, content in files.items():
+            self.store.write_text(content, "intake", "scaffold", setup["name"], filename)
+        self._activity(
+            stage=Stage.INTAKE, actor="requirement-routing", actor_type="live_ai",
+            workflow="new-app-scaffold", duration_s=round(time.monotonic() - t0, 2),
+            outcome="created",
+            details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
     def intake_pass_gate(self, role: Role) -> None:

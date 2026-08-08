@@ -309,3 +309,36 @@ def test_new_app_setup_in_simulation_mode_is_an_error(tmp_path):
     eng = Engine.create(DemoMode.SIMULATION, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="live"):
         eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+
+
+# --- scaffold generation tests -------------------------------------------------
+
+
+from s7_delivery.factory import scaffold as scaffold_mod
+
+
+def test_generate_scaffold_writes_files(tmp_path, monkeypatch):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    monkeypatch.setattr(
+        live_intake, "run_new_app_setup",
+        lambda req, transcript: (
+            {"done": True, "name": "maplesure-eligibility-check",
+             "description": "d", "stack": "FastAPI"}, {},
+        ),
+    )
+    eng.intake_new_app_setup(Role.PRODUCT_ANALYST)
+    monkeypatch.setattr(
+        scaffold_mod, "generate_scaffold",
+        lambda name, description, stack: (
+            {"architecture.md": "# arch\n", "README.md": "# readme\n"}, {},
+        ),
+    )
+    eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
+    scaffold_state = eng.state()["intake"]["scaffold"]
+    assert scaffold_state["architecture.md"] == "# arch\n"
+
+
+def test_generate_scaffold_before_setup_is_an_error(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="setup"):
+        eng.intake_generate_scaffold(Role.PRODUCT_ANALYST)
