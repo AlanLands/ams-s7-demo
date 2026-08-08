@@ -112,11 +112,11 @@ real client in code, data, commits, generated UI, screenshots, or docs.
 4. Keep the project portable to a locked-down sandbox: plain Python,
    CSV/SQLite, pinned dependencies, no Docker-required flow, no
    machine-specific paths. **Amended 2026-08-08:** the Control Centre frontend
-   (`apps/control/web/`) is migrating to React + TypeScript + Vite (in
-   progress) with a pinned, committed-lockfile build step, matching
-   `../ams-s3-demo/apps/console/web/`. Node is a build-time tool; once the
-   migration lands, the sandbox will run the committed `dist/` output, not
-   `npm`. Full rationale in `CLAUDE.md` hard rule 4.
+   (`apps/control/web/`) is React + TypeScript + Vite with a pinned,
+   committed-lockfile build step, matching `../ams-s3-demo/apps/console/web/`.
+   The old vanilla-JS app (`apps/control/static/`) is retired. Node is a
+   build-time tool; the sandbox runs the committed `dist/` output, not `npm`.
+   Full rationale in `CLAUDE.md` hard rule 4.
 5. Demo reliability beats cleverness. Once a beat is rehearsed, prefer
    deterministic replay over a live call.
 

@@ -531,8 +531,8 @@ language. Rewrite to the MapleSure fiction first — see hard rule 2.
    no OS-specific hacks. Pin dependencies.
 
    **Amended 2026-08-08 for the Control Centre frontend.** The Control Centre
-   (`apps/control/`) is migrating to React + TypeScript + Vite (in progress;
-   see docs/SPRINT-PLAN.md § Sprint naming, `.superpowers/plans/
+   (`apps/control/`) moved from a hand-rolled vanilla-JS single file to
+   React + TypeScript + Vite (see `docs/superpowers/plans/
    2026-08-08-control-centre-react-migration.md`), matching the sibling S3
    console's own `apps/console/web/` precedent (`../ams-s3-demo`), which already
    carried this exact stack under the identically-worded rule without either
@@ -540,16 +540,15 @@ language. Rewrite to the MapleSure fiction first — see hard rule 2.
    this rule because: dependencies are pinned (`package-lock.json` committed),
    the build has no network dependency at build time beyond the initial `npm
    install` (same class of one-time setup as `pip install -r
-   requirements.txt`). Once the migration's cutover lands (Task 4.1), the
-   **built output** (`apps/control/web/dist/`) will be what the locked-down
-   environment runs — `apps/control/server.py` will then serve those static
-   files instead of the current `apps/control/static/`. Until then,
-   `apps/control/server.py` still serves the old vanilla-JS application. When
-   complete: no CDN imports, no fonts fetched at runtime
-   (`public/fonts/*.woff2` stays self-hosted). If the target sandbox cannot run
-   `npm install`/`npm run build` at all, the build must happen before the port
-   and the committed `dist/` output ships as-is — Node is then a build-time
-   tool, not a runtime dependency.
+   requirements.txt`), and the **built output** (`apps/control/web/dist/`) is
+   what the locked-down environment actually runs — `apps/control/server.py`
+   serves those static files directly, same as before, no CDN imports, no
+   fonts fetched at runtime (`public/fonts/*.woff2` stays self-hosted). The old
+   vanilla-JS app (`apps/control/static/`) is retired; `dist/` is committed, so
+   a fresh clone with no `npm install` still runs. If the target sandbox
+   cannot run `npm install`/`npm run build` at all, the build must happen
+   before the port and the committed `dist/` output ships as-is — Node is then
+   a build-time tool, not a runtime dependency.
 5. **Demo reliability beats cleverness.** Once a beat is rehearsed, prefer a
    deterministic replay over a live call. A beat that is impressive four times
    in five is worse than a beat that is adequate five times in five.
