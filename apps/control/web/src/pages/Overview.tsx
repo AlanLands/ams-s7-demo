@@ -1,5 +1,6 @@
 import { useRun } from '../state/RunContext'
 import { Badge } from '../components/Badge'
+import { FlowStrip } from '../components/FlowStrip'
 
 export function Overview() {
   const { data } = useRun()
@@ -15,6 +16,11 @@ export function Overview() {
         <h2>Delivery overview</h2>
         <span className="hint">{data.scenario?.title ?? ''}</span>
       </div>
+      <div className="section-title">
+        <h2>Delivery flow</h2>
+        <span className="hint">Requirement through transition to maintenance</span>
+      </div>
+      <FlowStrip />
       <div className="grid cols-4">
         <div className="card metric"><div className="v">{data.provenance?.length ?? 0}</div><div className="l">Artifacts</div></div>
         <div className="card metric"><div className="v">{counters.human_approvals ?? 0}</div><div className="l">Human approvals</div></div>

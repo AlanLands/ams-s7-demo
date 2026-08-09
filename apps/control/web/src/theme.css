@@ -440,6 +440,77 @@ td.mono, .mono { font-family: var(--mono); font-size: 12px; }
 .gate-card .gid { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: 0.06em; }
 .gate-card .glabel { font-weight: 600; color: var(--ink); font-size: 14px; margin: 2px 0 6px; }
 
+/* --- flow strip (Overview: requirement → transition to maintenance) -------*/
+
+.flow-strip-wrap {
+  overflow-x: auto;
+  margin: -2px -2px 4px;
+  padding: 2px;
+}
+
+.flow-strip {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  width: max-content;
+  min-width: 100%;
+}
+
+.flow-node {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.flow-node:hover { border-color: var(--red); color: var(--ink); }
+
+.flow-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex: none;
+}
+
+.flow-node.completed { color: var(--green); border-color: var(--green); }
+.flow-node.completed .flow-dot { background: var(--green); }
+
+.flow-node.current {
+  color: var(--red-dark);
+  border-color: var(--red);
+  background: var(--red-pale);
+}
+.flow-node.current .flow-dot {
+  background: var(--red);
+  animation: flow-pulse 1.6s ease-in-out infinite;
+}
+
+.flow-connector {
+  flex: 0 0 20px; width: 20px; height: 2px;
+  background: var(--border-strong);
+  position: relative;
+  margin: 0 4px;
+}
+.flow-connector::after {
+  content: ""; position: absolute; right: -1px; top: -3px;
+  border: 4px solid transparent; border-left-color: var(--border-strong);
+}
+.flow-connector.done { background: var(--green); }
+.flow-connector.done::after { border-left-color: var(--green); }
+
+@keyframes flow-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(162, 10, 41, 0.45); }
+  50% { box-shadow: 0 0 0 5px rgba(162, 10, 41, 0); }
+}
+
 /* --- forms ----------------------------------------------------------------*/
 
 input[type="text"], textarea {
