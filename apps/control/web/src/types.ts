@@ -531,6 +531,20 @@ export interface DeveloperWorkspace {
     branches: string[]
     merged: boolean
   } | null
+  ci_evidence?: {
+    run_id: number
+    status: string
+    conclusion: string
+    url: string
+    checked_at: string
+    tests_total?: number | null
+    tests_passed?: number | null
+    tests_failed?: number | null
+  } | null
+  ci_run_url?: string
+  ci_tests_total?: number | null
+  ci_tests_passed?: number | null
+  ci_tests_failed?: number | null
   last_sync_at: string
   provenance: Provenance
   // derived at state assembly from the story's task
