@@ -188,6 +188,92 @@ def test_late_publication_after_development_started_keeps_phase(eng):
     assert statuses[packs[1]["delivery_pack_id"]] == "published"
 
 
+def test_renderers_carry_assignments(eng):
+    """assigned-stories.json names the developer per story, and AGENTS.md
+    teaches a coding agent in the clone how to answer 'what is assigned to
+    me?' from the published artifacts."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory import delivery_packs as dp
+
+    stories = eng.state()["planning"]["stories"]
+    team = stories[0]["accountable_team"]
+    t_stories = [s for s in stories if s["accountable_team"] == team]
+    sid = t_stories[0]["story_id"]
+    files = dp.render_team_pack(
+        run_id=eng.run_id, team=team, stories=t_stories, tasks=[],
+        all_stories=stories, pack_version=1, plan_version=1,
+        architecture_version=1, assignments={sid: "Alex Morgan"},
+    )
+    rows = files["assigned-stories.json"]["stories"]
+    assert next(r for r in rows if r["story_id"] == sid)["assigned_to"] == (
+        "Alex Morgan"
+    )
+    assert all(
+        r["assigned_to"] == "" for r in rows if r["story_id"] != sid
+    )
+    agents = files["AGENTS.md"]
+    assert "## Story Assignments" in agents
+    assert "Alex Morgan" in agents
+    assert "What is assigned to me?" in agents
+    assert ".s7/shared/assigned-stories.json" in agents
+
+
+def test_assignment_refreshes_pack_and_travels_with_publication(eng):
+    """Assigning a developer changes pack content, so it follows the existing
+    refresh model: version bump + publication reset + explicit republish. The
+    republished file plan carries the assignment into the repository."""
+    from s7_delivery.factory import publication as pub
+
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    pid, slug = pack["delivery_pack_id"], pack["team_slug"]
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
+    sid = pack["story_ids"][0]
+    eng.workspace_assign_developer(Role.DELIVERY_LEAD, f"WS-{sid}", "Alex Morgan")
+
+    refreshed = next(
+        p for p in eng.state()["build"]["delivery_packs"]
+        if p["delivery_pack_id"] == pid
+    )
+    assert refreshed["version"] == pack["version"] + 1
+    assert refreshed["publication_status"] == "not_published"
+    stored = eng.store.read_json("build", "packs", slug, "assigned-stories.json")
+    row = next(s for s in stored["stories"] if s["story_id"] == sid)
+    assert row["assigned_to"] == "Alex Morgan"
+    agents = eng.store.path("build", "packs", slug, "AGENTS.md").read_text()
+    assert "Alex Morgan" in agents
+
+    # explicit republish is allowed again and the git file plan carries it
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
+    plan = pub.file_plan(eng.store, refreshed)
+    assert "Alex Morgan" in plan[".s7/shared/assigned-stories.json"]
+    assert "Alex Morgan" in plan["AGENTS.md"]
+    ws = next(
+        w for w in eng.state()["build"]["workspaces"] if w["story_id"] == sid
+    )
+    assert ws["developer"] == "Alex Morgan"
+    assert ws["delivery_pack_version"] == refreshed["version"]
+
+
+def test_generate_preserves_existing_assignments(eng):
+    """Regenerating packs (e.g. after an architecture revision) never silently
+    drops assignments already made."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack["delivery_pack_id"])
+    sid = pack["story_ids"][0]
+    eng.workspace_assign_developer(Role.DELIVERY_LEAD, f"WS-{sid}", "Alex Morgan")
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    stored = eng.store.read_json(
+        "build", "packs", pack["team_slug"], "assigned-stories.json"
+    )
+    row = next(s for s in stored["stories"] if s["story_id"] == sid)
+    assert row["assigned_to"] == "Alex Morgan"
+
+
 def test_task_evidence_zip_download(eng, tmp_path, monkeypatch):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)

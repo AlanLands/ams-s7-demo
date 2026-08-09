@@ -131,9 +131,11 @@ def render_task_pack(task: dict, story: dict, *, plan_version: int,
 
 
 def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
-                          *, architecture_version: int) -> str:
+                          *, architecture_version: int,
+                          assignments: dict[str, str] | None = None) -> str:
     """Developer/coding-agent guidance (spec §14). The developer owns
     implementation; a coding assistant may help — S7 provides the context."""
+    assignments = assignments or {}
     story_ids = [s["story_id"] for s in stories]
     components = sorted(
         {s.get("target_component", "") for s in stories if s.get("target_component")}
@@ -152,6 +154,27 @@ def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
         *[f"- {s['story_id']}: {s.get('title', '')}" for s in stories],
         *[f"- {t['task_id']} → {t['story_id']}: {t.get('summary', '')}"
           for t in tasks],
+        "",
+        "## Story Assignments",
+        "Assignment is a human decision made in the S7 Control Centre —"
+        " canonical copy in `.s7/shared/assigned-stories.json`.",
+        *[
+            f"- {s['story_id']} ({s.get('title', '')}): "
+            + (f"assigned to {assignments[s['story_id']]}"
+               if assignments.get(s["story_id"]) else "unassigned")
+            for s in stories
+        ],
+        "",
+        '## Coding Agent: "What is assigned to me?"',
+        "When a developer asks what they should work on: read"
+        " `.s7/shared/assigned-stories.json`, match their name against"
+        " `assigned_to`, then open `.s7/stories/<story>/` for that story —"
+        " `story.md` for context, `acceptance-criteria.md` for the checklist,"
+        " and `.s7/tasks/<task>/` for the executable task packs. Summarise"
+        " the story and its acceptance criteria before implementing, and"
+        " implement only within Allowed Components under the Engineering"
+        " Rules below. If no story carries their name, say so — never guess"
+        " an assignment.",
         "",
         "## Architecture Rules",
         "Respect the integration boundaries in"
@@ -206,7 +229,9 @@ def render_team_pack(
     pack_version: int,
     plan_version: int,
     architecture_version: int,
+    assignments: dict[str, str] | None = None,
 ) -> dict[str, object]:
+    assignments = assignments or {}
     slug = team_slug(team)
     repo = next((s.get("target_repository", "") for s in stories), "")
     story_ids = [s["story_id"] for s in stories]
@@ -277,7 +302,8 @@ def render_team_pack(
         "README.md": readme,
         "team-delivery-pack.md": pack_md,
         "AGENTS.md": render_team_agents_md(
-            team, stories, tasks, architecture_version=architecture_version
+            team, stories, tasks, architecture_version=architecture_version,
+            assignments=assignments,
         ),
         "assigned-stories.json": {
             "team": team,
@@ -287,6 +313,7 @@ def render_team_pack(
                     "title": s.get("title", ""),
                     "folder": story_folder_name(s),
                     "acceptance_criteria": len(s.get("acceptance_criteria", [])),
+                    "assigned_to": assignments.get(s["story_id"], ""),
                 }
                 for s in stories
             ],
