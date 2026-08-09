@@ -12,7 +12,7 @@
         padding: 0;
         width: 1920px;
         height: 1080px;
-        background-color: #101014;
+        background-color: #ffffff;
         overflow: hidden;
         font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
       }
@@ -20,7 +20,7 @@
         width: 1920px;
         height: 1080px;
         position: relative;
-        background: radial-gradient(1200px 800px at 50% 38%, #1a1a22 0%, #101014 62%);
+        background: radial-gradient(1400px 900px at 50% 36%, #ffffff 0%, #f7f1ea 70%, #f3ece3 100%);
       }
       #master-root .scene {
         position: absolute;
@@ -31,8 +31,18 @@
         inset: 0;
         z-index: 90;
         pointer-events: none;
-        background: radial-gradient(1600px 1000px at 50% 50%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.45) 100%);
+        background: radial-gradient(1700px 1100px at 50% 50%, rgba(0, 0, 0, 0) 62%, rgba(120, 60, 40, 0.10) 100%);
         opacity: 0;
+      }
+      #topbar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1920px;
+        height: 8px;
+        background: #d8232a;
+        z-index: 95;
+        transform-origin: left center;
       }
     </style>
   </head>
@@ -41,7 +51,7 @@
       id="master-root"
       data-composition-id="master"
       data-start="0"
-      data-duration="88"
+      data-duration="85"
       data-width="1920"
       data-height="1080"
     >
@@ -76,22 +86,12 @@
       ></div>
 
       <div
-        id="sc-task"
+        id="sc-vscode"
         class="scene"
-        data-composition-id="task"
-        data-composition-src="compositions/task.html"
+        data-composition-id="vscode"
+        data-composition-src="compositions/vscode.html"
         data-start="sc-clone"
-        data-duration="11"
-        data-track-index="0"
-      ></div>
-
-      <div
-        id="sc-work"
-        class="scene"
-        data-composition-id="work"
-        data-composition-src="compositions/work.html"
-        data-start="sc-task"
-        data-duration="19"
+        data-duration="27"
         data-track-index="0"
       ></div>
 
@@ -100,7 +100,7 @@
         class="scene"
         data-composition-id="pushpr"
         data-composition-src="compositions/pushpr.html"
-        data-start="sc-work"
+        data-start="sc-vscode"
         data-duration="11"
         data-track-index="0"
       ></div>
@@ -126,10 +126,12 @@
       ></div>
 
       <div id="vignette"></div>
+      <div id="topbar"></div>
 
       <script>
         const masterTL = gsap.timeline({ paused: true });
         masterTL.to("#vignette", { opacity: 1, duration: 1.2, ease: "power1.out" }, 0);
+        masterTL.from("#topbar", { scaleX: 0, duration: 1.0, ease: "power2.out" }, 0.2);
         window.__timelines["master"] = masterTL;
       </script>
     </div>

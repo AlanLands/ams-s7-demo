@@ -1,0 +1,311 @@
+<template id="vscode-template">
+  <div data-composition-id="vscode" data-width="1920" data-height="1080">
+    <div class="step-tag">STEP 3 · IN VS CODE — THE AI ASSISTANT WORKS FROM THE .S7 CONTEXT</div>
+
+    <div class="vsc">
+      <div class="vsc-titlebar">
+        <i class="d r"></i><i class="d y"></i><i class="d g"></i>
+        <span class="vsc-title">advisor-portal-signin — Visual Studio Code</span>
+      </div>
+      <div class="vsc-body">
+        <div class="vsc-activity">
+          <span class="act-ic">🗂</span>
+          <span class="act-ic">🔍</span>
+          <span class="act-ic">⎇</span>
+          <span class="act-ic">▷</span>
+          <span class="act-ic">⧉</span>
+        </div>
+        <div class="vsc-sidebar">
+          <div class="sb-head">EXPLORER · ADVISOR-PORTAL-SIGNIN</div>
+          <div class="sb-item f1">▸ <b>.s7</b> <span class="sb-note">read-only context</span></div>
+          <div class="sb-item f2 ind">shared/</div>
+          <div class="sb-item f3 ind">stories/US-1/</div>
+          <div class="sb-item f4">▸ app/</div>
+          <div class="sb-item f5">▸ tests/</div>
+          <div class="sb-item f6">AGENTS.md</div>
+          <div class="sb-item f7">README.md</div>
+        </div>
+        <div class="vsc-main">
+          <div class="vsc-tabs">
+            <span class="tab tab-main">app/main.py</span>
+          </div>
+          <div class="vsc-editor">
+            <pre class="code mono"><span class="cl"><span class="k">from</span> fastapi <span class="k">import</span> FastAPI</span>
+<span class="cl"></span>
+<span class="cl"><span class="cm"># US-1-AC2 — boots as the Advisor Portal Sign-In app</span></span>
+<span class="cl">app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)</span>
+<span class="cl"></span>
+<span class="cl"><span class="dec">@app.get</span>(<span class="s">"/health"</span>)</span>
+<span class="cl"><span class="k">def</span> <span class="fn">health</span>() -&gt; <span class="ty">dict</span>:</span>
+<span class="cl">    <span class="k">return</span> {<span class="s">"status"</span>: <span class="s">"ok"</span>}  <span class="cm"># US-1-AC1</span></span></pre>
+          </div>
+          <div class="vsc-term">
+            <div class="term-head">TERMINAL</div>
+            <div class="term-view">
+              <div class="term-scroll">
+                <div class="tline cmd l1" data-text="$ claude"></div>
+                <div class="tline sys l2">✻ AI coding assistant — session started in advisor-portal-signin</div>
+                <div class="tline user l3" data-text="&gt; What is my story? Read the .s7 context."></div>
+                <div class="tline tool l4"><span class="dot">●</span> Read(.s7/shared/assigned-stories.json)</div>
+                <div class="tline tool l5"><span class="dot">●</span> Read(.s7/stories/US-1/story.md)</div>
+                <div class="tline reply l6">You're assigned <b>US-1 — Create the base FastAPI application</b>.</div>
+                <div class="tline reply l7">Acceptance criteria: <span class="mono">GET /health</span> → 200 <span class="mono">{"status":"ok"}</span> · boots as <span class="mono">"Advisor Portal Sign-In"</span>.</div>
+                <div class="tline user l8" data-text="&gt; Create the code that satisfies the acceptance criteria."></div>
+                <div class="tline tool l9"><span class="dot">●</span> Bash(git checkout -b feature/us-1-base-fastapi origin/main)</div>
+                <div class="tline tool l10"><span class="dot">●</span> Write(tests/test_health.py) — the test comes first</div>
+                <div class="tline tool l11"><span class="dot">●</span> Write(app/main.py)</div>
+                <div class="tline tool l12"><span class="dot">●</span> Bash(pytest -q)</div>
+                <div class="tline reply l13"><span class="green">2 passed</span> in 0.41s — both criteria have passing tests.</div>
+                <div class="tline user l14" data-text="&gt; Great — commit it from here."></div>
+                <div class="tline tool l15"><span class="dot">●</span> Bash(git commit -am "US-1: base FastAPI app (TASK-001)")</div>
+                <div class="tline reply l16">[feature/us-1-base-fastapi <span class="hl">423f4c7</span>] committed with the story-id prefix — ready to push.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">The assistant works inside the developer's own repo and CLI — S7 only ever sees the git history.</div>
+
+    <style>
+      [data-composition-id="vscode"] {
+        position: absolute;
+        inset: 0;
+      }
+      [data-composition-id="vscode"] .step-tag {
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #d8232a;
+        letter-spacing: 5px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      [data-composition-id="vscode"] .vsc {
+        position: absolute;
+        top: 130px;
+        left: 150px;
+        width: 1620px;
+        height: 810px;
+        border-radius: 14px;
+        overflow: hidden;
+        background: #ffffff;
+        border: 1px solid #e2dcd2;
+        box-shadow: 0 28px 70px rgba(88, 60, 45, 0.22);
+        display: flex;
+        flex-direction: column;
+      }
+      [data-composition-id="vscode"] .vsc-titlebar {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: #f2ede6;
+        padding: 13px 18px;
+        flex: 0 0 auto;
+      }
+      [data-composition-id="vscode"] .d { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+      [data-composition-id="vscode"] .d.r { background: #ff5f57; }
+      [data-composition-id="vscode"] .d.y { background: #febc2e; }
+      [data-composition-id="vscode"] .d.g { background: #28c840; }
+      [data-composition-id="vscode"] .vsc-title {
+        flex: 1;
+        text-align: center;
+        color: #8a8578;
+        font-size: 17px;
+      }
+      [data-composition-id="vscode"] .vsc-body {
+        display: flex;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+      [data-composition-id="vscode"] .vsc-activity {
+        flex: 0 0 56px;
+        background: #f5f1ea;
+        border-right: 1px solid #e8e2d8;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 26px;
+        padding-top: 22px;
+        font-size: 21px;
+        color: #a49c8e;
+      }
+      [data-composition-id="vscode"] .vsc-sidebar {
+        flex: 0 0 300px;
+        background: #faf7f2;
+        border-right: 1px solid #e8e2d8;
+        padding: 18px 18px;
+      }
+      [data-composition-id="vscode"] .sb-head {
+        font-size: 14px;
+        letter-spacing: 1.2px;
+        color: #a49c8e;
+        margin-bottom: 16px;
+      }
+      [data-composition-id="vscode"] .sb-item {
+        font-size: 19px;
+        color: #4a4540;
+        padding: 7px 4px;
+        font-family: Menlo, monospace;
+      }
+      [data-composition-id="vscode"] .sb-item b { color: #d8232a; font-weight: 700; }
+      [data-composition-id="vscode"] .sb-item.ind { padding-left: 30px; color: #7a7469; }
+      [data-composition-id="vscode"] .sb-note {
+        font-family: "Avenir Next", Helvetica, sans-serif;
+        font-size: 14px;
+        color: #b01c22;
+        background: #fbeaea;
+        border-radius: 6px;
+        padding: 2px 8px;
+        margin-left: 6px;
+      }
+      [data-composition-id="vscode"] .vsc-main {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      [data-composition-id="vscode"] .vsc-tabs {
+        flex: 0 0 auto;
+        background: #f5f1ea;
+        border-bottom: 1px solid #e8e2d8;
+        padding: 0 16px;
+      }
+      [data-composition-id="vscode"] .tab {
+        display: inline-block;
+        font-family: Menlo, monospace;
+        font-size: 18px;
+        color: #a49c8e;
+        padding: 12px 18px 10px;
+        border-bottom: 2.5px solid transparent;
+      }
+      [data-composition-id="vscode"] .vsc-editor {
+        flex: 0 0 300px;
+        background: #ffffff;
+        overflow: hidden;
+      }
+      [data-composition-id="vscode"] .code {
+        margin: 0;
+        padding: 22px 28px;
+        font-family: Menlo, monospace;
+        font-size: 20px;
+        line-height: 1.72;
+        color: #2b2b2b;
+      }
+      [data-composition-id="vscode"] .code .cl { display: block; opacity: 0; }
+      [data-composition-id="vscode"] .k { color: #1c56cf; }
+      [data-composition-id="vscode"] .s { color: #a31515; }
+      [data-composition-id="vscode"] .dec { color: #795e26; }
+      [data-composition-id="vscode"] .fn { color: #795e26; }
+      [data-composition-id="vscode"] .ty { color: #267f99; }
+      [data-composition-id="vscode"] .cm { color: #008000; }
+      [data-composition-id="vscode"] .vsc-term {
+        flex: 1 1 auto;
+        border-top: 1px solid #e8e2d8;
+        background: #fffdfa;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      [data-composition-id="vscode"] .term-head {
+        flex: 0 0 auto;
+        font-size: 14px;
+        letter-spacing: 1.2px;
+        color: #a49c8e;
+        padding: 10px 24px 8px;
+        border-bottom: 1px solid #efe9df;
+      }
+      [data-composition-id="vscode"] .term-view {
+        flex: 1 1 auto;
+        overflow: hidden;
+        position: relative;
+      }
+      [data-composition-id="vscode"] .term-scroll {
+        padding: 14px 26px 20px;
+        font-family: Menlo, monospace;
+        font-size: 19px;
+        line-height: 1.78;
+      }
+      [data-composition-id="vscode"] .tline.cmd { color: #2b2b2b; font-weight: 700; }
+      [data-composition-id="vscode"] .tline.sys { color: #b06a10; }
+      [data-composition-id="vscode"] .tline.user { color: #2b2b2b; font-weight: 700; }
+      [data-composition-id="vscode"] .tline.tool { color: #7a7469; }
+      [data-composition-id="vscode"] .tline.reply { color: #4a4540; }
+      [data-composition-id="vscode"] .dot { color: #d8232a; margin-right: 8px; }
+      [data-composition-id="vscode"] .green { color: #1e7b3f; font-weight: 700; }
+      [data-composition-id="vscode"] .hl { color: #d8232a; font-weight: 700; }
+      [data-composition-id="vscode"] .mono { font-family: Menlo, monospace; color: #b01c22; }
+      [data-composition-id="vscode"] .callout {
+        position: absolute;
+        bottom: 44px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #4a4540;
+        font-size: 26px;
+      }
+    </style>
+
+    <script>
+      function vscType(tl, sel, at, speed) {
+        const el = document.querySelector(sel);
+        const text = el.dataset.text.replace(/&gt;/g, ">");
+        el.textContent = "";
+        const spans = [];
+        for (const ch of text) {
+          const s = document.createElement("span");
+          s.textContent = ch;
+          s.style.opacity = "0";
+          el.appendChild(s);
+          spans.push(s);
+        }
+        tl.to(spans, { opacity: 1, duration: 0.01, stagger: speed }, at);
+        return at + text.length * speed;
+      }
+      const C = "[data-composition-id='vscode'] ";
+      const tl = gsap.timeline({ paused: true });
+      tl.from(C + ".step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
+      tl.from(C + ".vsc", { opacity: 0, y: 40, scale: 0.985, duration: 0.7, ease: "power3.out" }, 0.3);
+      tl.from(C + ".sb-item", { opacity: 0, x: -14, duration: 0.3, stagger: 0.08 }, 0.9);
+
+      // Beat 1 — start the assistant, ask for the story
+      let t = vscType(tl, C + ".l1", 1.5, 0.05);
+      tl.from(C + ".l2", { opacity: 0, duration: 0.3 }, t + 0.3);
+      t = vscType(tl, C + ".l3", 2.7, 0.026);
+      tl.from(C + ".l4", { opacity: 0, duration: 0.25 }, t + 0.35);
+      tl.from(C + ".l5", { opacity: 0, duration: 0.25 }, t + 0.75);
+      tl.from(C + ".l6", { opacity: 0, duration: 0.3 }, t + 1.3);
+      tl.from(C + ".l7", { opacity: 0, duration: 0.3 }, t + 1.8);
+
+      // Beat 2 — create the code
+      t = vscType(tl, C + ".l8", 7.6, 0.024);
+      tl.to(C + ".term-scroll", { y: -76, duration: 0.35, ease: "power2.inOut" }, 7.4);
+      tl.from(C + ".l9", { opacity: 0, duration: 0.25 }, t + 0.4);
+      tl.from(C + ".l10", { opacity: 0, duration: 0.25 }, t + 1.0);
+      tl.from(C + ".l11", { opacity: 0, duration: 0.25 }, t + 1.6);
+      tl.to(C + ".tab-main", { color: "#2b2b2b", borderBottomColor: "#d8232a", duration: 0.3 }, t + 1.7);
+      tl.to(C + ".code .cl", { opacity: 1, duration: 0.22, stagger: 0.2 }, t + 2.0);
+      tl.to(C + ".term-scroll", { y: -152, duration: 0.35, ease: "power2.inOut" }, t + 2.2);
+      tl.from(C + ".l12", { opacity: 0, duration: 0.25 }, t + 3.9);
+      tl.from(C + ".l13", { opacity: 0, duration: 0.3 }, t + 4.7);
+
+      // Beat 3 — commit from the CLI
+      tl.to(C + ".term-scroll", { y: -252, duration: 0.35, ease: "power2.inOut" }, 15.9);
+      t = vscType(tl, C + ".l14", 16.3, 0.03);
+      tl.from(C + ".l15", { opacity: 0, duration: 0.25 }, t + 0.4);
+      tl.to(C + ".term-scroll", { y: -330, duration: 0.35, ease: "power2.inOut" }, t + 0.9);
+      tl.from(C + ".l16", { opacity: 0, duration: 0.3 }, t + 1.2);
+
+      tl.from(C + ".callout", { opacity: 0, y: 14, duration: 0.55 }, 21.0);
+
+      // Exit
+      tl.to(C + ".vsc", { opacity: 0, y: -30, duration: 0.5, ease: "power2.in" }, 26.2);
+      tl.to(C + ".callout", { opacity: 0, duration: 0.4 }, 26.3);
+      tl.to(C + ".step-tag", { opacity: 0, duration: 0.4 }, 26.3);
+      window.__timelines["vscode"] = tl;
+    </script>
+  </div>
+</template>
