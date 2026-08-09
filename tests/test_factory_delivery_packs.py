@@ -129,3 +129,17 @@ def test_pack_zip_layout(eng, tmp_path, monkeypatch):
     assert eng.state()["build"]["delivery_packs"][0]["publication_status"] == (
         "not_published"
     )
+
+
+def test_state_packs_carry_real_artifact_stats(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    packs = eng.state()["build"]["delivery_packs"]
+    assert packs
+    for pack in packs:
+        # counts and sizes are computed from the artifact store, mirroring
+        # the per-pack ZIP file set — never estimated
+        assert pack["artifact_count"] > 0
+        assert pack["size_bytes"] > 0
+    # a pack with stories+tasks has more artifacts than the 8 team files
+    assert max(p["artifact_count"] for p in packs) > 8

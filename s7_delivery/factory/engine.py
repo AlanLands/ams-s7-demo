@@ -346,7 +346,10 @@ class Engine:
             "tasks": tasks,
             "reviews": self.store.read_json_or([], "review", "reviews.json"),
             "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
-            "delivery_packs": self.store.read_json_or([], "build", "packs", "meta.json"),
+            "delivery_packs": [
+                {**p, **dict(zip(("artifact_count", "size_bytes"), self._pack_stats(p)))}
+                for p in self.store.read_json_or([], "build", "packs", "meta.json")
+            ],
             "workspaces": self._workspaces_view(),
             "publications": self.store.read_ledger("publications.jsonl"),
             "summary": self._build_summary(
@@ -1845,6 +1848,24 @@ class Engine:
 
     def _packs(self) -> list[dict]:
         return self.store.read_json_or([], "build", "packs", "meta.json")
+
+    def _pack_stats(self, pack: dict) -> tuple[int, int]:
+        """(artifact_count, size_bytes) computed from the artifact store —
+        the same file set the per-pack ZIP collects, never an estimate."""
+        roots = [self.store.path("build", "packs", pack["team_slug"])]
+        arch_dir = self.store.path("architecture", f"v{pack['architecture_version']}")
+        files = [
+            p for root in roots for p in root.rglob("*") if p.is_file()
+        ] + [
+            arch_dir / name
+            for name in ("architecture.md", "engineering-rules.md")
+            if (arch_dir / name).is_file()
+        ]
+        for story_id in pack.get("story_ids", []):
+            files += [p for p in self.store.path("build", "stories", story_id).rglob("*") if p.is_file()]
+        for task_id in pack.get("task_ids", []):
+            files += [p for p in self.store.path("build", "tasks", task_id).rglob("*") if p.is_file()]
+        return len(files), sum(p.stat().st_size for p in files)
 
     def _save_packs(self, packs: list[dict]) -> None:
         self.store.write_json(packs, "build", "packs", "meta.json")
