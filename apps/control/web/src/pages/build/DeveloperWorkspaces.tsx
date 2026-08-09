@@ -28,6 +28,7 @@ import {
   CONTROL_PLANE_GUIDANCE,
   DEV_STATUS_BADGE,
   DEV_STATUS_LABELS,
+  githubLinks,
   GuidanceCard,
   hhmm,
   relTime,
@@ -158,6 +159,7 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
   }
   const evidenced = new Set(tests.map((t) => t.ac_id))
   const simulated = data?.run.mode !== 'live'
+  const links = githubLinks(ws, data?.intake?.repos)
   const activity = (data?.activity ?? [])
     .filter((a) => a.artifact === task?.task_id || (a.details ?? '').includes(ws.story_id))
     .slice(-6)
@@ -215,15 +217,32 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
               <span>{ws.developer
                 ? <span className="dp-team"><DevAvatar name={ws.developer} />{ws.developer}</span>
                 : <span className="hint">Unassigned</span>}</span>
-              <b>Repository</b><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span>
-              <b>Branch</b><span className="repo-cell"><GitBranch /><span className="mono">{ws.branch || '—'}</span></span>
+              <b>Repository</b><span className="repo-cell"><Github />
+                {links.repoUrl
+                  ? <a className="mono" href={links.repoUrl} target="_blank" rel="noopener noreferrer">{ws.repository || '—'}</a>
+                  : <span className="mono">{ws.repository || '—'}</span>}
+              </span>
+              <b>Branch</b><span className="repo-cell"><GitBranch />
+                {links.branchUrl
+                  ? <a className="mono" href={links.branchUrl} target="_blank" rel="noopener noreferrer">{ws.branch || '—'}</a>
+                  : <span className="mono">{ws.branch || '—'}</span>}
+              </span>
               <b>Base Commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
               <b>Latest Commit</b>
               <span className="mono">
-                {ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}
+                {links.commitUrl
+                  ? <a href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws.current_commit.slice(0, 7)}</a>
+                  : (ws.current_commit ? ws.current_commit.slice(0, 7) : '—')}
                 {ws.current_commit ? <span className="hint">{`  ${relTime(ws.last_sync_at)}`}</span> : null}
               </span>
-              <b>Pull Request</b><span className="mono">{ws.pull_request || '—'}</span>
+              <b>Pull Request</b><span className="mono">
+                {links.prUrl
+                  ? <a href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws.pull_request}</a>
+                  : (ws.pull_request || '—')}
+                {!links.prUrl && ws.pull_request
+                  ? <span className="hint" title="Simulated PR — no remote to open"> (simulated)</span>
+                  : null}
+              </span>
               <b>CI Status</b><span><CiCell ws={ws} task={task} /></span>
               <b>Last Synced</b><span>{`${hhmm(ws.last_sync_at)}`}</span>
             </div>
@@ -300,12 +319,28 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
 
         <Section icon={Github} title="Git Handoff Status">
           <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
-            <b>Repository</b><span className="mono">{ws.repository || '—'}</span>
-            <b>Branch</b><span className="mono">{ws.branch || '—'}</span>
+            <b>Repository</b><span className="mono">
+              {links.repoUrl
+                ? <a href={links.repoUrl} target="_blank" rel="noopener noreferrer">{ws.repository || '—'}</a>
+                : (ws.repository || '—')}
+            </span>
+            <b>Branch</b><span className="mono">
+              {links.branchUrl
+                ? <a href={links.branchUrl} target="_blank" rel="noopener noreferrer">{ws.branch || '—'}</a>
+                : (ws.branch || '—')}
+            </span>
             <b>Pack Published</b><span><CircleCheck className="val-ico ok" />{` v${ws.delivery_pack_version}`}</span>
             <b>Publication Commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
-            <b>Developer Changes</b><span className="mono">{ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
-            <b>Pull Request</b><span className="mono">{ws.pull_request || '—'}</span>
+            <b>Developer Changes</b><span className="mono">
+              {links.commitUrl
+                ? <a href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws.current_commit.slice(0, 7)}</a>
+                : (ws.current_commit ? ws.current_commit.slice(0, 7) : '—')}
+            </span>
+            <b>Pull Request</b><span className="mono">
+              {links.prUrl
+                ? <a href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws.pull_request}</a>
+                : (ws.pull_request || '—')}
+            </span>
             <b>CI</b><span><CiCell ws={ws} task={task} /></span>
           </div>
           {ws.git_evidence?.commit_count ? (
@@ -411,12 +446,14 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
           <button type="button" className="outline" onClick={() => goTo('delivery_packs')}>
             <PackageOpen className="btn-ico" /> View Delivery Pack
           </button>
-          <button type="button" className="outline" disabled={simulated}
-            title={simulated ? 'No real repository in simulation' : undefined}>
+          <button type="button" className="outline" disabled={!links.repoUrl}
+            title={links.repoUrl ? undefined : 'No connected GitHub repository for this workspace'}
+            onClick={() => { if (links.repoUrl) window.open(links.repoUrl, '_blank', 'noopener,noreferrer') }}>
             <ExternalLink className="btn-ico" /> Open Repository
           </button>
-          <button type="button" className="outline" disabled={simulated || !ws.pull_request}
-            title={simulated ? 'Simulated PR — no remote to open' : undefined}>
+          <button type="button" className="outline" disabled={!links.prUrl}
+            title={links.prUrl ? undefined : 'Simulated PR — no remote to open'}
+            onClick={() => { if (links.prUrl) window.open(links.prUrl, '_blank', 'noopener,noreferrer') }}>
             <GitPullRequest className="btn-ico" /> View Pull Request
           </button>
           <button type="button" className="primary" onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>
@@ -638,6 +675,7 @@ export function DeveloperWorkspaces() {
                 const story = storyById.get(ws.story_id)
                 const stale = ws.artifact_status === 'stale'
                 const initials = ws.team.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+                const links = githubLinks(ws, data.intake?.repos)
                 return (
                   <tr key={ws.workspace_id}
                     className={openId === ws.workspace_id ? 'dp-row-selected' : ''}
@@ -655,9 +693,17 @@ export function DeveloperWorkspaces() {
                         <span className="hint dp-sub mono"><ListChecks className="dp-badge-ico" />{ws.task_id}</span>
                       ) : null}
                     </td>
-                    <td>
-                      <span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span>
-                      <span className="repo-cell dw-branch-line"><GitBranch /><span className="mono">{ws.branch || '—'}</span></span>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <span className="repo-cell"><Github />
+                        {links.repoUrl
+                          ? <a className="mono" href={links.repoUrl} target="_blank" rel="noopener noreferrer">{ws.repository || '—'}</a>
+                          : <span className="mono">{ws.repository || '—'}</span>}
+                      </span>
+                      <span className="repo-cell dw-branch-line"><GitBranch />
+                        {links.branchUrl
+                          ? <a className="mono" href={links.branchUrl} target="_blank" rel="noopener noreferrer">{ws.branch || '—'}</a>
+                          : <span className="mono">{ws.branch || '—'}</span>}
+                      </span>
                     </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {ws.developer ? (
@@ -681,19 +727,31 @@ export function DeveloperWorkspaces() {
                         : <span className="badge st-ready"><BadgeCheck className="dp-badge-ico" />CURRENT</span>}
                       <span className="hint dp-sub"><PackageCheck className="dp-badge-ico" />Published to Git</span>
                     </td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       {ws.current_commit ? (
                         <>
-                          <span className="repo-cell"><GitCommitHorizontal /><span className="mono">{ws.current_commit.slice(0, 7)}</span></span>
+                          <span className="repo-cell">
+                            <GitCommitHorizontal />
+                            {links.commitUrl
+                              ? <a className="mono" href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws.current_commit.slice(0, 7)}</a>
+                              : <span className="mono">{ws.current_commit.slice(0, 7)}</span>}
+                          </span>
                           <span className="hint dp-sub">{relTime(ws.last_sync_at)}</span>
                         </>
                       ) : <span className="hint">—</span>}
                     </td>
-                    <td>
+                    <td onClick={(e) => e.stopPropagation()}>
                       {ws.pull_request ? (
                         <>
-                          <span className="repo-cell"><GitPullRequest /><span className="mono">{ws.pull_request}</span></span>
-                          <span className="badge st-in_progress dp-sub" style={{ display: 'inline-block' }}>OPEN</span>
+                          <span className="repo-cell">
+                            <GitPullRequest />
+                            {links.prUrl
+                              ? <a className="mono" href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws.pull_request}</a>
+                              : <span className="mono">{ws.pull_request}</span>}
+                          </span>
+                          {links.prUrl
+                            ? <span className="badge st-in_progress dp-sub" style={{ display: 'inline-block' }}>OPEN</span>
+                            : <span className="hint dp-sub">simulated</span>}
                         </>
                       ) : <span className="hint">—</span>}
                     </td>
@@ -703,10 +761,13 @@ export function DeveloperWorkspaces() {
                       <div className="dp-actions">
                         <button className="icon-btn" aria-label={`View ${ws.story_id} workspace`} title="View Workspace"
                           onClick={() => setOpenId(ws.workspace_id)}><Eye className="btn-ico" /></button>
-                        <button className="icon-btn" aria-label="Open repository" disabled
-                          title="No real repository in simulation"><ExternalLink className="btn-ico" /></button>
-                        <button className="icon-btn" aria-label={`View ${ws.story_id} pull request`} disabled={!ws.pull_request}
-                          title={ws.pull_request ? 'Simulated PR — details in the workspace drawer' : 'No pull request yet'}>
+                        <button className="icon-btn" aria-label="Open repository" disabled={!links.repoUrl}
+                          title={links.repoUrl ? 'Open repository on GitHub' : 'No connected GitHub repository for this workspace'}
+                          onClick={() => { if (links.repoUrl) window.open(links.repoUrl, '_blank', 'noopener,noreferrer') }}>
+                          <ExternalLink className="btn-ico" /></button>
+                        <button className="icon-btn" aria-label={`View ${ws.story_id} pull request`} disabled={!links.prUrl}
+                          title={links.prUrl ? 'View pull request on GitHub' : (ws.pull_request ? 'Simulated PR — details in the workspace drawer' : 'No pull request yet')}
+                          onClick={() => { if (links.prUrl) window.open(links.prUrl, '_blank', 'noopener,noreferrer') }}>
                           <GitPullRequest className="btn-ico" /></button>
                         <button className="icon-btn" aria-label={`View ${ws.story_id} evidence`} title="View Evidence"
                           onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>

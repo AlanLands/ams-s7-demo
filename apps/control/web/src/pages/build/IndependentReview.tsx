@@ -27,6 +27,7 @@ import type {
 import {
   buildOf,
   CONTROL_PLANE_GUIDANCE,
+  githubLinks,
   GuidanceCard,
   hhmm,
   selectStory,
@@ -214,6 +215,7 @@ export function IndependentReview() {
   // --- selected item ---------------------------------------------------------
   const story = storyById.get(task.story_id)
   const ws = wsByStory.get(task.story_id)
+  const links = githubLinks(ws, data.intake?.repos)
   const review = latestFor(task.task_id)
   const history = reviewsFor(task.task_id)
   const pack = (build.delivery_packs ?? []).find((p) => p.team === teamOf(task))
@@ -413,10 +415,29 @@ export function IndependentReview() {
             <div className="kv" style={{ gridTemplateColumns: '105px 1fr' }}>
               <b>Reviewer</b><span><UserRound className="dp-badge-ico" />{reviewerLabel}</span>
               <b>Team</b><span>{teamOf(task)}</span>
-              <b>Repository</b><span className="repo-cell"><Github /><span className="mono">{ws?.repository || '—'}</span></span>
-              <b>Branch</b><span className="repo-cell"><GitBranch /><span className="mono">{ws?.branch || '—'}</span></span>
-              <b>Pull Request</b><span className="mono"><GitPullRequest className="dp-badge-ico" />{ws?.pull_request || '—'}</span>
-              <b>Commit</b><span className="mono"><GitCommitHorizontal className="dp-badge-ico" />{ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
+              <b>Repository</b><span className="repo-cell"><Github />
+                {links.repoUrl
+                  ? <a className="mono" href={links.repoUrl} target="_blank" rel="noopener noreferrer">{ws?.repository || '—'}</a>
+                  : <span className="mono">{ws?.repository || '—'}</span>}
+              </span>
+              <b>Branch</b><span className="repo-cell"><GitBranch />
+                {links.branchUrl
+                  ? <a className="mono" href={links.branchUrl} target="_blank" rel="noopener noreferrer">{ws?.branch || '—'}</a>
+                  : <span className="mono">{ws?.branch || '—'}</span>}
+              </span>
+              <b>Pull Request</b><span className="mono"><GitPullRequest className="dp-badge-ico" />
+                {links.prUrl
+                  ? <a href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws?.pull_request}</a>
+                  : (ws?.pull_request || '—')}
+                {!links.prUrl && ws?.pull_request
+                  ? <span className="hint" title="Simulated PR — no remote to open"> (simulated)</span>
+                  : null}
+              </span>
+              <b>Commit</b><span className="mono"><GitCommitHorizontal className="dp-badge-ico" />
+                {links.commitUrl
+                  ? <a href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'}</a>
+                  : (ws?.current_commit ? ws.current_commit.slice(0, 7) : '—')}
+              </span>
               <b>Delivery Pack</b>
               <span><PackageCheck className="dp-badge-ico" />{pack ? `v${pack.version}` : '—'}{' '}
                 {stale ? <span className="badge st-stale">STALE</span> : <span className="badge st-ready">CURRENT</span>}</span>

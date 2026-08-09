@@ -12,8 +12,10 @@ import type {
   BuildReviewPhase,
   BuildState,
   BuildSummaryRow,
+  DeveloperWorkspace,
   GitPublication,
   PlanStory,
+  RepoRecord,
   RunState,
 } from '../../types'
 
@@ -192,3 +194,65 @@ export const CONTROL_PLANE_GUIDANCE = [
   'S7 publishes context, collects evidence, orchestrates review.',
   'No code editor, terminal or chat surface is exposed here.',
 ]
+
+/* --- GitHub links, honesty gated (spec 2026-08-09-demo-rehearsal-fixes,
+ * task 4). A workspace only links out when its `repository` matches a
+ * connected repo carrying a real github.com `url` — the same join key the
+ * engine uses to resolve a workspace's repo (engine.py `_workspaces_view` /
+ * `workspaces_sync_git`: `repos[ws["repository"]]` against `intake/
+ * repos.json`'s `name`). Everything else stays plain text: simulation never
+ * connects a repo, so `repos` is empty and every link is null there; live
+ * mode's real git sync (`git_sync.story_evidence`) can prove commits and
+ * branches but never a PR, and `_workspaces_view` explicitly blanks
+ * `pull_request` once real `git_evidence` exists (nothing to invent) — so a
+ * PR link renders only for the pre-sync simulated-lifecycle value when it
+ * actually denotes a real PR (a `#<number>` ref or a full URL), never the
+ * simulated `PR-<n>` placeholder `task_develop`/`_task_develop_live`
+ * fabricate (`f"PR-{...}"` — neither a `#<number>` nor a URL, so it never
+ * matches). One function so IndependentReview and DeveloperWorkspaces
+ * cannot drift apart. */
+export interface GithubLinks {
+  repoUrl: string | null
+  branchUrl: string | null
+  commitUrl: string | null
+  prUrl: string | null
+}
+
+const EMPTY_GITHUB_LINKS: GithubLinks = {
+  repoUrl: null, branchUrl: null, commitUrl: null, prUrl: null,
+}
+
+export function githubLinks(
+  ws: Pick<DeveloperWorkspace, 'repository' | 'branch' | 'current_commit' | 'pull_request'> | undefined,
+  repos: RepoRecord[] | undefined,
+): GithubLinks {
+  if (!ws?.repository) return EMPTY_GITHUB_LINKS
+  const repo = (repos ?? []).find((r) => r.name === ws.repository)
+  if (!repo?.url) return EMPTY_GITHUB_LINKS
+  let host = ''
+  try {
+    host = new URL(repo.url).hostname
+  } catch {
+    return EMPTY_GITHUB_LINKS
+  }
+  if (host !== 'github.com') return EMPTY_GITHUB_LINKS
+  const repoUrl = repo.url.replace(/\/+$/, '')
+
+  const branch = ws.branch?.trim()
+  const branchUrl = branch ? `${repoUrl}/tree/${encodeURIComponent(branch)}` : null
+
+  const commit = ws.current_commit?.trim()
+  const commitUrl = commit ? `${repoUrl}/commit/${commit}` : null
+
+  const pr = ws.pull_request?.trim()
+  let prUrl: string | null = null
+  if (pr) {
+    if (/^https?:\/\//.test(pr)) {
+      prUrl = pr
+    } else {
+      const m = pr.match(/^#(\d+)$/)
+      if (m) prUrl = `${repoUrl}/pull/${m[1]}`
+    }
+  }
+  return { repoUrl, branchUrl, commitUrl, prUrl }
+}
