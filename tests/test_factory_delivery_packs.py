@@ -5,6 +5,7 @@ copied into task packs — `context.json` references it by version.
 """
 
 import io
+import json
 import zipfile
 
 import pytest
@@ -357,3 +358,26 @@ def test_task_evidence_zip_download(eng, tmp_path, monkeypatch):
     names = zipfile.ZipFile(io.BytesIO(resp.content)).namelist()
     assert any(n.endswith("task-evidence.json") for n in names)
     assert client.get(f"/api/runs/{eng.run_id}/tasks/TASK-nope/evidence.zip").status_code == 404
+
+
+def test_generation_writes_test_skeletons_and_manifest(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    stories = eng.state()["planning"]["stories"]
+    for s in stories:
+        mpath = eng.store.path("build", "tests", s["story_id"], "test-manifest.json")
+        assert mpath.is_file(), s["story_id"]
+        manifest = json.loads(mpath.read_text(encoding="utf-8"))
+        assert manifest["provenance"] == "rule_based"
+        assert [t["ac_id"] for t in manifest["tests"]] == [
+            ac["ac_id"] for ac in s["acceptance_criteria"]
+        ]
+        for t in manifest["tests"]:
+            assert eng.store.path("build", "tests", s["story_id"], t["file"]).is_file()
+
+
+def test_new_pack_test_plan_starts_generated(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    packs = eng.state()["build"]["delivery_packs"]
+    assert packs and all(p["test_plan_status"] == "generated" for p in packs)

@@ -1883,6 +1883,15 @@ class Engine:
                 p["published_version"] = (
                     p["version"] if p["publication_status"] == "published" else 0
                 )
+            if "test_plan_status" not in p:
+                # legacy rows predate the test-plan checkpoint: a pack that
+                # already reached the repository was implicitly accepted
+                p["test_plan_status"] = (
+                    "approved" if p["publication_status"] == "published"
+                    else "generated"
+                )
+                p.setdefault("test_plan_approved_by", "")
+                p.setdefault("test_plan_approved_at", "")
         return packs
 
     def _pack_stats(self, pack: dict) -> tuple[int, int]:
@@ -1928,6 +1937,7 @@ class Engine:
         new publish (spec §22 refresh, never a silent overwrite)."""
         roles.require("generate_delivery_packs", role)
         from s7_delivery.factory import delivery_packs as dp
+        from s7_delivery.factory import test_skeletons
 
         phase = self._build_phase()
         build_phases.require_at_least(
@@ -1952,6 +1962,19 @@ class Engine:
                     architecture_version=arch_meta["version"],
                 ),
                 "build", "stories", story["story_id"],
+            )
+            repo = next(
+                (r for r in self._connected_repos()
+                 if r["name"] == story.get("target_repository", "")),
+                None,
+            )
+            stack = test_skeletons.resolve_stack(
+                repo, self.store.path("repos", story.get("target_repository", "") or "-")
+            )
+            t_files, t_manifest = test_skeletons.render_story_tests(story, stack)
+            self._write_files(
+                {**t_files, "test-manifest.json": t_manifest},
+                "build", "tests", story["story_id"],
             )
         teams: list[str] = []
         for s in stories:
