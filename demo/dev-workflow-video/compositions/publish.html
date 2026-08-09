@@ -1,0 +1,169 @@
+<template id="publish-template">
+  <div data-composition-id="publish" data-width="1920" data-height="1080">
+    <div class="step-tag">STEP 1 · THE CONTROL CENTRE PUBLISHES CONTEXT</div>
+
+    <div class="pack-card">
+      <div class="pack-head">
+        <span class="pt">PT</span>
+        <div>
+          <div class="pack-title">Portal Team — Delivery Pack <span class="mono">v2.0</span></div>
+          <div class="pack-sub">Governed engineering context · references plan v1 &amp; architecture v1</div>
+        </div>
+        <span class="chip current">CURRENT</span>
+      </div>
+      <ul class="pack-rows">
+        <li><span>📖 Stories + acceptance criteria</span><b>4 · 12</b></li>
+        <li><span>🗂 AGENTS.md team guidance</span><b>1</b></li>
+        <li><span>⚖ Engineering rules &amp; test strategy</span><b>shared</b></li>
+        <li><span>🔀 git-workflow.md — pull / commit / push protocol</span><b>1</b></li>
+      </ul>
+      <div class="publish-btn">☁ Publish to Git</div>
+    </div>
+
+    <div class="git-panel">
+      <svg width="760" height="360" viewBox="0 0 760 360">
+        <line id="main-line" x1="60" y1="120" x2="700" y2="120" stroke="#4a4754" stroke-width="4" />
+        <circle class="main-dot" cx="140" cy="120" r="11" fill="#4a4754" />
+        <circle class="main-dot" cx="330" cy="120" r="11" fill="#4a4754" />
+        <path id="branch-path" d="M 330 120 C 400 120 400 250 470 250 L 640 250" stroke="#8f1f2e" stroke-width="4" fill="none" />
+        <circle id="branch-dot" cx="640" cy="250" r="12" fill="#8f1f2e" />
+        <text x="66" y="92" fill="#9d9aa8" font-size="22" font-family="Menlo, monospace">main</text>
+        <text id="branch-label" x="380" y="300" fill="#e8d8db" font-size="22" font-family="Menlo, monospace">s7/s7-00002-portal-team</text>
+      </svg>
+      <div class="branch-note">Only <span class="mono">AGENTS.md</span> + <span class="mono">.s7/**</span> · a read-only context branch — never the default branch</div>
+    </div>
+
+    <style>
+      [data-composition-id="publish"] {
+        position: absolute;
+        inset: 0;
+      }
+      [data-composition-id="publish"] .step-tag {
+        position: absolute;
+        top: 84px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #c9a44c;
+        letter-spacing: 5px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      [data-composition-id="publish"] .pack-card {
+        position: absolute;
+        top: 190px;
+        left: 160px;
+        width: 700px;
+        background: #f7f5f0;
+        border-radius: 14px;
+        padding: 34px 38px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+      }
+      [data-composition-id="publish"] .pack-head {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      [data-composition-id="publish"] .pt {
+        display: inline-flex;
+        width: 52px;
+        height: 52px;
+        border-radius: 12px;
+        background: #ece6f7;
+        color: #6b4fa0;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 20px;
+      }
+      [data-composition-id="publish"] .pack-title {
+        font-size: 30px;
+        font-weight: 700;
+        color: #26232b;
+      }
+      [data-composition-id="publish"] .pack-sub {
+        font-size: 19px;
+        color: #6f6a78;
+        margin-top: 4px;
+      }
+      [data-composition-id="publish"] .chip.current {
+        margin-left: auto;
+        background: #e4f2e8;
+        color: #1e7b3f;
+        border: 1.5px solid #9fd0ae;
+        border-radius: 999px;
+        font-size: 17px;
+        padding: 7px 16px;
+        font-weight: 700;
+      }
+      [data-composition-id="publish"] .pack-rows {
+        list-style: none;
+        margin: 26px 0 0;
+        padding: 0;
+      }
+      [data-composition-id="publish"] .pack-rows li {
+        display: flex;
+        justify-content: space-between;
+        font-size: 23px;
+        color: #3b3742;
+        padding: 15px 4px;
+        border-top: 1px solid #e4e0d8;
+      }
+      [data-composition-id="publish"] .publish-btn {
+        margin-top: 28px;
+        background: #8f1f2e;
+        color: #fff;
+        text-align: center;
+        border-radius: 10px;
+        font-size: 25px;
+        font-weight: 600;
+        padding: 18px 0;
+      }
+      [data-composition-id="publish"] .git-panel {
+        position: absolute;
+        top: 260px;
+        right: 130px;
+        width: 760px;
+      }
+      [data-composition-id="publish"] .branch-note {
+        margin-top: 8px;
+        color: #9d9aa8;
+        font-size: 23px;
+        text-align: center;
+        line-height: 1.5;
+      }
+      [data-composition-id="publish"] .mono {
+        font-family: Menlo, monospace;
+        color: #d8b4ba;
+      }
+      [data-composition-id="publish"] .pack-title .mono {
+        color: #8f1f2e;
+      }
+    </style>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='publish'] .step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
+      tl.from("[data-composition-id='publish'] .pack-card", { opacity: 0, x: -60, duration: 0.7, ease: "power3.out" }, 0.4);
+      tl.from("[data-composition-id='publish'] .pack-rows li", { opacity: 0, x: -24, duration: 0.4, stagger: 0.16 }, 1.0);
+      tl.from("[data-composition-id='publish'] .publish-btn", { opacity: 0, scale: 0.92, duration: 0.4, ease: "back.out(2)" }, 1.9);
+      tl.to("[data-composition-id='publish'] .publish-btn", { scale: 0.96, duration: 0.12, yoyo: true, repeat: 1 }, 2.9);
+
+      tl.from("[data-composition-id='publish'] .git-panel", { opacity: 0, duration: 0.4 }, 3.3);
+      const bp = document.querySelector("[data-composition-id='publish'] #branch-path");
+      const bpLen = 520;
+      gsap.set(bp, { strokeDasharray: bpLen, strokeDashoffset: bpLen });
+      tl.from("[data-composition-id='publish'] #main-line", { scaleX: 0, transformOrigin: "left center", duration: 0.7, ease: "power2.out" }, 3.4);
+      tl.from("[data-composition-id='publish'] .main-dot", { opacity: 0, duration: 0.3, stagger: 0.15 }, 3.8);
+      tl.to(bp, { strokeDashoffset: 0, duration: 1.0, ease: "power2.inOut" }, 4.3);
+      tl.from("[data-composition-id='publish'] #branch-dot", { opacity: 0, scale: 0, transformOrigin: "center", duration: 0.4, ease: "back.out(3)" }, 5.2);
+      tl.from("[data-composition-id='publish'] #branch-label", { opacity: 0, duration: 0.4 }, 5.4);
+      tl.from("[data-composition-id='publish'] .branch-note", { opacity: 0, y: 14, duration: 0.5 }, 5.9);
+
+      tl.to("[data-composition-id='publish'] .pack-card", { opacity: 0, x: -50, duration: 0.5, ease: "power2.in" }, 8.3);
+      tl.to("[data-composition-id='publish'] .git-panel", { opacity: 0, x: 50, duration: 0.5, ease: "power2.in" }, 8.35);
+      tl.to("[data-composition-id='publish'] .step-tag", { opacity: 0, duration: 0.4 }, 8.4);
+      window.__timelines["publish"] = tl;
+    </script>
+  </div>
+</template>

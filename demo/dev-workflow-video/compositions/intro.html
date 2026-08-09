@@ -1,0 +1,103 @@
+<template id="intro-template">
+  <div data-composition-id="intro" data-width="1920" data-height="1080">
+    <div class="wrap">
+      <div class="brand">
+        <span class="ms">MS</span>
+        <span class="brand-name">MAPLESURE INSURANCE · S7 DELIVERY</span>
+      </div>
+      <h1 class="title">The Developer Loop</h1>
+      <p class="sub">From a published delivery pack to independent review</p>
+      <div class="badges">
+        <span class="badge">👤 Human Controlled</span>
+        <span class="badge">✨ AI Assisted</span>
+      </div>
+    </div>
+    <div class="rule"></div>
+
+    <style>
+      [data-composition-id="intro"] {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      [data-composition-id="intro"] .wrap {
+        text-align: center;
+      }
+      [data-composition-id="intro"] .brand {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        margin-bottom: 34px;
+      }
+      [data-composition-id="intro"] .ms {
+        display: inline-flex;
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        background: #8f1f2e;
+        color: #fff;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 22px;
+        letter-spacing: 0.5px;
+      }
+      [data-composition-id="intro"] .brand-name {
+        color: #c9a44c;
+        letter-spacing: 4px;
+        font-size: 20px;
+        font-weight: 600;
+      }
+      [data-composition-id="intro"] .title {
+        color: #f5f2ec;
+        font-size: 108px;
+        margin: 0 0 18px;
+        font-weight: 700;
+        letter-spacing: -1px;
+      }
+      [data-composition-id="intro"] .sub {
+        color: #9d9aa8;
+        font-size: 32px;
+        margin: 0 0 42px;
+        font-weight: 400;
+      }
+      [data-composition-id="intro"] .badges {
+        display: flex;
+        gap: 18px;
+        justify-content: center;
+      }
+      [data-composition-id="intro"] .badge {
+        border: 1.5px solid #3c3a46;
+        color: #d8d5e0;
+        border-radius: 999px;
+        padding: 12px 28px;
+        font-size: 22px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      [data-composition-id="intro"] .rule {
+        position: absolute;
+        left: 760px;
+        bottom: 200px;
+        width: 400px;
+        height: 3px;
+        background: #8f1f2e;
+        transform-origin: center;
+      }
+    </style>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='intro'] .brand", { opacity: 0, y: -24, duration: 0.7, ease: "power2.out" }, 0.2);
+      tl.from("[data-composition-id='intro'] .title", { opacity: 0, y: 40, duration: 0.9, ease: "power3.out" }, 0.55);
+      tl.from("[data-composition-id='intro'] .sub", { opacity: 0, y: 24, duration: 0.7, ease: "power2.out" }, 1.0);
+      tl.from("[data-composition-id='intro'] .rule", { scaleX: 0, duration: 0.8, ease: "power2.inOut" }, 1.2);
+      tl.from("[data-composition-id='intro'] .badge", { opacity: 0, y: 16, duration: 0.5, stagger: 0.18, ease: "power2.out" }, 1.5);
+      tl.to("[data-composition-id='intro'] .wrap", { opacity: 0, y: -30, duration: 0.6, ease: "power2.in" }, 5.2);
+      tl.to("[data-composition-id='intro'] .rule", { opacity: 0, duration: 0.5 }, 5.3);
+      window.__timelines["intro"] = tl;
+    </script>
+  </div>
+</template>

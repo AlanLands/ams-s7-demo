@@ -1,0 +1,65 @@
+<template id="outro-template">
+  <div data-composition-id="outro" data-width="1920" data-height="1080">
+    <div class="wrap">
+      <h1 class="line1">S7 observes development.</h1>
+      <h1 class="line2">It never performs it.</h1>
+      <div class="badges">
+        <span class="badge">👤 Human Controlled</span>
+        <span class="badge">✨ AI Assisted</span>
+        <span class="badge gov">🛡 Governed · Traceable · Audit-ready</span>
+      </div>
+      <div class="brand">MAPLESURE INSURANCE · S7 DELIVERY CONTROL CENTRE</div>
+    </div>
+
+    <style>
+      [data-composition-id="outro"] {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      [data-composition-id="outro"] .wrap { text-align: center; }
+      [data-composition-id="outro"] h1 {
+        color: #f5f2ec;
+        font-size: 76px;
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      [data-composition-id="outro"] .line2 { color: #c9a44c; margin-top: 6px; }
+      [data-composition-id="outro"] .badges {
+        display: flex;
+        gap: 16px;
+        justify-content: center;
+        margin-top: 48px;
+      }
+      [data-composition-id="outro"] .badge {
+        border: 1.5px solid #3c3a46;
+        color: #d8d5e0;
+        border-radius: 999px;
+        padding: 12px 26px;
+        font-size: 21px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+      [data-composition-id="outro"] .badge.gov { border-color: #8f1f2e; color: #e8c9ce; }
+      [data-composition-id="outro"] .brand {
+        margin-top: 60px;
+        color: #6f6a78;
+        letter-spacing: 4px;
+        font-size: 17px;
+        font-weight: 600;
+      }
+    </style>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='outro'] .line1", { opacity: 0, y: 30, duration: 0.7, ease: "power3.out" }, 0.3);
+      tl.from("[data-composition-id='outro'] .line2", { opacity: 0, y: 30, duration: 0.7, ease: "power3.out" }, 0.8);
+      tl.from("[data-composition-id='outro'] .badge", { opacity: 0, y: 16, duration: 0.45, stagger: 0.15, ease: "power2.out" }, 1.6);
+      tl.from("[data-composition-id='outro'] .brand", { opacity: 0, duration: 0.6 }, 2.4);
+      tl.to("[data-composition-id='outro'] .wrap", { opacity: 0, duration: 0.7, ease: "power2.in" }, 5.1);
+      window.__timelines["outro"] = tl;
+    </script>
+  </div>
+</template>

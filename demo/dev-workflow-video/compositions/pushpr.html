@@ -1,0 +1,156 @@
+<template id="pushpr-template">
+  <div data-composition-id="pushpr" data-width="1920" data-height="1080">
+    <div class="step-tag">STEP 4 · PUSH THE STORY BRANCH &amp; OPEN THE PR</div>
+
+    <div class="term">
+      <div class="term-bar"><i class="d r"></i><i class="d y"></i><i class="d g"></i><span class="term-title">priya@dev — zsh</span></div>
+      <div class="term-body">
+        <div class="tline cmd c1" data-text="$ git push -u origin feature/us-1-base-fastapi"></div>
+        <div class="tline out o1">branch 'feature/us-1-base-fastapi' set up to track 'origin/…'</div>
+        <div class="tline out o1b">Never <span class="red">main</span>, never <span class="red">s7/**</span>, never <span class="red">--force</span>.</div>
+      </div>
+    </div>
+
+    <div class="pr-card">
+      <div class="pr-head">
+        <span class="pr-icon">⇄</span>
+        <div class="pr-title">US-1: Create base FastAPI application <span class="pr-num">#7</span></div>
+      </div>
+      <div class="pr-branches">
+        <span class="chip base">base: main</span>
+        <span class="arrow">←</span>
+        <span class="chip compare">feature/us-1-base-fastapi</span>
+      </div>
+      <ul class="pr-checks">
+        <li class="ck ck1"><span class="tick">✓</span> Every acceptance criterion mapped to test evidence</li>
+        <li class="ck ck2"><span class="tick">✓</span> CI green on the story branch</li>
+        <li class="ck ck3"><span class="lock">✋</span> The author never merges their own PR</li>
+      </ul>
+      <div class="pr-note">Merging is always a human action — the Control Centre only observes it.</div>
+    </div>
+
+    <style>
+      [data-composition-id="pushpr"] {
+        position: absolute;
+        inset: 0;
+      }
+      [data-composition-id="pushpr"] .step-tag {
+        position: absolute;
+        top: 84px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #c9a44c;
+        letter-spacing: 5px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      [data-composition-id="pushpr"] .term {
+        position: absolute;
+        top: 210px;
+        left: 130px;
+        width: 880px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+        background: #17161c;
+        border: 1px solid #2c2a34;
+      }
+      [data-composition-id="pushpr"] .term-bar { display: flex; align-items: center; gap: 9px; background: #211f28; padding: 14px 18px; }
+      [data-composition-id="pushpr"] .d { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
+      [data-composition-id="pushpr"] .d.r { background: #ff5f57; }
+      [data-composition-id="pushpr"] .d.y { background: #febc2e; }
+      [data-composition-id="pushpr"] .d.g { background: #28c840; }
+      [data-composition-id="pushpr"] .term-title { margin-left: 14px; color: #8b8794; font-size: 18px; font-family: Menlo, monospace; }
+      [data-composition-id="pushpr"] .term-body { padding: 30px 34px 38px; font-family: Menlo, monospace; font-size: 24px; line-height: 2.0; }
+      [data-composition-id="pushpr"] .tline.cmd { color: #e8e6ee; }
+      [data-composition-id="pushpr"] .tline.out { color: #7f8b7f; }
+      [data-composition-id="pushpr"] .red { color: #e06c75; font-weight: 700; }
+      [data-composition-id="pushpr"] .pr-card {
+        position: absolute;
+        top: 480px;
+        right: 130px;
+        width: 800px;
+        background: #f7f5f0;
+        border-radius: 14px;
+        padding: 34px 38px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+      }
+      [data-composition-id="pushpr"] .pr-head { display: flex; align-items: center; gap: 16px; }
+      [data-composition-id="pushpr"] .pr-icon {
+        display: inline-flex;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: #e4f2e8;
+        color: #1e7b3f;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        font-weight: 700;
+      }
+      [data-composition-id="pushpr"] .pr-title { font-size: 28px; font-weight: 700; color: #26232b; }
+      [data-composition-id="pushpr"] .pr-num { color: #8b8794; font-weight: 400; }
+      [data-composition-id="pushpr"] .pr-branches { margin: 20px 0 6px; display: flex; align-items: center; gap: 14px; }
+      [data-composition-id="pushpr"] .chip {
+        font-family: Menlo, monospace;
+        font-size: 19px;
+        border-radius: 8px;
+        padding: 8px 14px;
+      }
+      [data-composition-id="pushpr"] .chip.base { background: #e8eef8; color: #2b5da8; }
+      [data-composition-id="pushpr"] .chip.compare { background: #f3e7e9; color: #8f1f2e; }
+      [data-composition-id="pushpr"] .arrow { color: #6f6a78; font-size: 24px; }
+      [data-composition-id="pushpr"] .pr-checks { list-style: none; margin: 18px 0 0; padding: 0; }
+      [data-composition-id="pushpr"] .pr-checks li {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 23px;
+        color: #3b3742;
+        padding: 12px 4px;
+        border-top: 1px solid #e4e0d8;
+      }
+      [data-composition-id="pushpr"] .tick { color: #1e7b3f; font-weight: 700; font-size: 26px; }
+      [data-composition-id="pushpr"] .lock { font-size: 24px; }
+      [data-composition-id="pushpr"] .pr-note {
+        margin-top: 20px;
+        font-size: 21px;
+        color: #8f1f2e;
+        font-weight: 600;
+      }
+    </style>
+
+    <script>
+      function prType(tl, sel, at, speed) {
+        const el = document.querySelector(sel);
+        const text = el.dataset.text;
+        el.textContent = "";
+        const spans = [];
+        for (const ch of text) {
+          const s = document.createElement("span");
+          s.textContent = ch;
+          s.style.opacity = "0";
+          el.appendChild(s);
+          spans.push(s);
+        }
+        tl.to(spans, { opacity: 1, duration: 0.01, stagger: speed }, at);
+        return at + text.length * speed;
+      }
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='pushpr'] .step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
+      tl.from("[data-composition-id='pushpr'] .term", { opacity: 0, y: 34, duration: 0.6, ease: "power3.out" }, 0.3);
+      let t = prType(tl, "[data-composition-id='pushpr'] .c1", 1.0, 0.024);
+      tl.from("[data-composition-id='pushpr'] .o1", { opacity: 0, duration: 0.3 }, t + 0.25);
+      tl.from("[data-composition-id='pushpr'] .o1b", { opacity: 0, duration: 0.3 }, t + 0.7);
+      tl.from("[data-composition-id='pushpr'] .pr-card", { opacity: 0, y: 60, duration: 0.7, ease: "power3.out" }, 4.4);
+      tl.from("[data-composition-id='pushpr'] .pr-branches .chip, [data-composition-id='pushpr'] .arrow", { opacity: 0, y: 12, duration: 0.4, stagger: 0.12 }, 5.1);
+      tl.from("[data-composition-id='pushpr'] .pr-checks li", { opacity: 0, x: -20, duration: 0.4, stagger: 0.3 }, 5.8);
+      tl.from("[data-composition-id='pushpr'] .pr-note", { opacity: 0, duration: 0.5 }, 7.3);
+      tl.to("[data-composition-id='pushpr'] .term", { opacity: 0, x: -50, duration: 0.5, ease: "power2.in" }, 10.3);
+      tl.to("[data-composition-id='pushpr'] .pr-card", { opacity: 0, y: 40, duration: 0.5, ease: "power2.in" }, 10.35);
+      tl.to("[data-composition-id='pushpr'] .step-tag", { opacity: 0, duration: 0.4 }, 10.4);
+      window.__timelines["pushpr"] = tl;
+    </script>
+  </div>
+</template>

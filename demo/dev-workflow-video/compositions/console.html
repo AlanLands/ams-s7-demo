@@ -1,0 +1,198 @@
+<template id="console-template">
+  <div data-composition-id="console" data-width="1920" data-height="1080">
+    <div class="step-tag">STEP 5 · PROGRESS FLOWS BACK — S7 OBSERVES, IT NEVER PERFORMS</div>
+
+    <div class="console-card">
+      <div class="con-head">
+        <span class="ms">MS</span>
+        <div class="con-title">S7 Delivery Control Centre <span class="con-sub">· Developer Workspaces</span></div>
+        <div class="sync-btn">⇅ Sync from Git</div>
+      </div>
+      <div class="ws-table">
+        <div class="ws-row ws-header">
+          <span>STORY</span><span>DEVELOPER</span><span>LATEST COMMIT</span><span>STATUS</span>
+        </div>
+        <div class="ws-row ws-data">
+          <span class="ws-story">US-1 · Base FastAPI application</span>
+          <span class="ws-dev"><i class="avatar">PR</i> Priya Raman</span>
+          <span class="ws-commit mono">423f4c7</span>
+          <span class="ws-status"><span class="badge dev">IN DEVELOPMENT</span></span>
+        </div>
+      </div>
+      <div class="review-strip">
+        <span class="rev-label">Independent review</span>
+        <span class="badge appr">APPROVED · REV-001</span>
+        <span class="badge quality">READY FOR QUALITY</span>
+      </div>
+    </div>
+
+    <div class="chain">
+      <div class="chain-title">One unbroken chain of custody</div>
+      <div class="chain-nodes">
+        <span class="node">REQ-2026-114</span><i class="link">→</i>
+        <span class="node">PLAN v1</span><i class="link">→</i>
+        <span class="node">ARCH v1</span><i class="link">→</i>
+        <span class="node">PACK v2</span><i class="link">→</i>
+        <span class="node">US-1</span><i class="link">→</i>
+        <span class="node mono">423f4c7</span><i class="link">→</i>
+        <span class="node gold">REV-001</span>
+      </div>
+    </div>
+
+    <style>
+      [data-composition-id="console"] {
+        position: absolute;
+        inset: 0;
+      }
+      [data-composition-id="console"] .step-tag {
+        position: absolute;
+        top: 84px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #c9a44c;
+        letter-spacing: 5px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      [data-composition-id="console"] .console-card {
+        position: absolute;
+        top: 190px;
+        left: 240px;
+        width: 1440px;
+        background: #f7f5f0;
+        border-radius: 14px;
+        padding: 30px 38px 34px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+      }
+      [data-composition-id="console"] .con-head {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e4e0d8;
+      }
+      [data-composition-id="console"] .ms {
+        display: inline-flex;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: #8f1f2e;
+        color: #fff;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 18px;
+      }
+      [data-composition-id="console"] .con-title { font-size: 27px; font-weight: 700; color: #26232b; }
+      [data-composition-id="console"] .con-sub { color: #8b8794; font-weight: 400; }
+      [data-composition-id="console"] .sync-btn {
+        margin-left: auto;
+        border: 1.5px solid #8f1f2e;
+        color: #8f1f2e;
+        border-radius: 10px;
+        padding: 11px 24px;
+        font-size: 21px;
+        font-weight: 600;
+        background: #fff;
+      }
+      [data-composition-id="console"] .ws-table { margin-top: 8px; }
+      [data-composition-id="console"] .ws-row {
+        display: grid;
+        grid-template-columns: 460px 330px 280px 1fr;
+        align-items: center;
+        padding: 17px 8px;
+      }
+      [data-composition-id="console"] .ws-header {
+        font-size: 17px;
+        letter-spacing: 1.5px;
+        color: #8b8794;
+        border-bottom: 1px solid #e4e0d8;
+      }
+      [data-composition-id="console"] .ws-data { font-size: 24px; color: #3b3742; }
+      [data-composition-id="console"] .avatar {
+        display: inline-flex;
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #ece6f7;
+        color: #6b4fa0;
+        align-items: center;
+        justify-content: center;
+        font-style: normal;
+        font-weight: 700;
+        font-size: 16px;
+        margin-right: 10px;
+        vertical-align: middle;
+      }
+      [data-composition-id="console"] .mono { font-family: Menlo, monospace; }
+      [data-composition-id="console"] .badge {
+        border-radius: 999px;
+        font-size: 18px;
+        font-weight: 700;
+        padding: 8px 18px;
+        white-space: nowrap;
+      }
+      [data-composition-id="console"] .badge.dev { background: #fdecec; color: #b3352c; border: 1.5px solid #eab6b1; }
+      [data-composition-id="console"] .badge.appr { background: #e4f2e8; color: #1e7b3f; border: 1.5px solid #9fd0ae; }
+      [data-composition-id="console"] .badge.quality { background: #e8eef8; color: #2b5da8; border: 1.5px solid #a9c3e8; }
+      [data-composition-id="console"] .review-strip {
+        margin-top: 18px;
+        padding-top: 20px;
+        border-top: 1px solid #e4e0d8;
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      [data-composition-id="console"] .rev-label { font-size: 22px; color: #6f6a78; }
+      [data-composition-id="console"] .chain {
+        position: absolute;
+        bottom: 130px;
+        left: 0;
+        right: 0;
+        text-align: center;
+      }
+      [data-composition-id="console"] .chain-title {
+        color: #9d9aa8;
+        font-size: 22px;
+        margin-bottom: 18px;
+        letter-spacing: 1px;
+      }
+      [data-composition-id="console"] .chain-nodes {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+      }
+      [data-composition-id="console"] .node {
+        border: 1.5px solid #3c3a46;
+        color: #d8d5e0;
+        border-radius: 8px;
+        padding: 9px 16px;
+        font-size: 19px;
+        background: rgba(255, 255, 255, 0.04);
+        font-family: Menlo, monospace;
+      }
+      [data-composition-id="console"] .node.gold { border-color: #c9a44c; color: #c9a44c; }
+      [data-composition-id="console"] .link { color: #6f6a78; font-style: normal; font-size: 20px; }
+    </style>
+
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='console'] .step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
+      tl.from("[data-composition-id='console'] .console-card", { opacity: 0, y: 40, duration: 0.7, ease: "power3.out" }, 0.4);
+      tl.to("[data-composition-id='console'] .sync-btn", { scale: 0.94, duration: 0.12, yoyo: true, repeat: 1 }, 1.6);
+      tl.from("[data-composition-id='console'] .ws-data > span", { opacity: 0, x: -18, duration: 0.4, stagger: 0.22 }, 2.2);
+      tl.from("[data-composition-id='console'] .review-strip .rev-label", { opacity: 0, duration: 0.4 }, 4.1);
+      tl.from("[data-composition-id='console'] .badge.appr", { opacity: 0, scale: 0.7, duration: 0.45, ease: "back.out(2.2)" }, 4.5);
+      tl.from("[data-composition-id='console'] .badge.quality", { opacity: 0, scale: 0.7, duration: 0.45, ease: "back.out(2.2)" }, 5.2);
+      tl.from("[data-composition-id='console'] .chain-title", { opacity: 0, duration: 0.4 }, 6.4);
+      tl.from("[data-composition-id='console'] .chain-nodes .node", { opacity: 0, y: 16, duration: 0.35, stagger: 0.28, ease: "power2.out" }, 6.8);
+      tl.from("[data-composition-id='console'] .chain-nodes .link", { opacity: 0, duration: 0.25, stagger: 0.28 }, 7.0);
+      tl.to("[data-composition-id='console'] .console-card", { opacity: 0, y: -30, duration: 0.5, ease: "power2.in" }, 12.3);
+      tl.to("[data-composition-id='console'] .chain", { opacity: 0, duration: 0.5 }, 12.35);
+      tl.to("[data-composition-id='console'] .step-tag", { opacity: 0, duration: 0.4 }, 12.4);
+      window.__timelines["console"] = tl;
+    </script>
+  </div>
+</template>

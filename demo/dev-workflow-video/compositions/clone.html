@@ -1,0 +1,159 @@
+<template id="clone-template">
+  <div data-composition-id="clone" data-width="1920" data-height="1080">
+    <div class="step-tag">STEP 2 · THE DEVELOPER PULLS THE CONTEXT</div>
+
+    <div class="term">
+      <div class="term-bar"><i class="d r"></i><i class="d y"></i><i class="d g"></i><span class="term-title">priya@dev — zsh</span></div>
+      <div class="term-body">
+        <div class="tline cmd" data-text="$ git clone https://github.com/maplesure/advisor-portal-signin.git"></div>
+        <div class="tline out o1">Cloning into 'advisor-portal-signin'… done.</div>
+        <div class="tline cmd c2" data-text="$ git fetch origin s7/s7-00002-portal-team"></div>
+        <div class="tline out o2">* branch  s7/s7-00002-portal-team → FETCH_HEAD</div>
+        <div class="tline cmd c3" data-text="$ git show origin/s7/s7-00002-portal-team:.s7/shared/assigned-stories.json"></div>
+        <div class="tline out o3">"story_id": "US-1"  ·  "assigned_to": <span class="hl">"Priya Raman"</span></div>
+      </div>
+    </div>
+
+    <div class="tree-card">
+      <div class="tree-title">📦 The context branch</div>
+      <pre class="tree mono">.s7/
+├─ shared/
+│  ├─ architecture.md
+│  ├─ engineering-rules.md
+│  ├─ git-workflow.md
+│  └─ assigned-stories.json
+└─ stories/US-1/
+   ├─ story.md
+   └─ acceptance-criteria.md</pre>
+      <div class="tree-note">Read-only. Work branches off <span class="mono">main</span> — never off the context branch.</div>
+    </div>
+
+    <style>
+      [data-composition-id="clone"] {
+        position: absolute;
+        inset: 0;
+      }
+      [data-composition-id="clone"] .step-tag {
+        position: absolute;
+        top: 84px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #c9a44c;
+        letter-spacing: 5px;
+        font-size: 24px;
+        font-weight: 600;
+      }
+      [data-composition-id="clone"] .term {
+        position: absolute;
+        top: 200px;
+        left: 130px;
+        width: 1010px;
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+        background: #17161c;
+        border: 1px solid #2c2a34;
+      }
+      [data-composition-id="clone"] .term-bar {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        background: #211f28;
+        padding: 14px 18px;
+      }
+      [data-composition-id="clone"] .d {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      [data-composition-id="clone"] .d.r { background: #ff5f57; }
+      [data-composition-id="clone"] .d.y { background: #febc2e; }
+      [data-composition-id="clone"] .d.g { background: #28c840; }
+      [data-composition-id="clone"] .term-title {
+        margin-left: 14px;
+        color: #8b8794;
+        font-size: 18px;
+        font-family: Menlo, monospace;
+      }
+      [data-composition-id="clone"] .term-body {
+        padding: 30px 34px 38px;
+        font-family: Menlo, monospace;
+        font-size: 24px;
+        line-height: 2.0;
+      }
+      [data-composition-id="clone"] .tline.cmd { color: #e8e6ee; }
+      [data-composition-id="clone"] .tline.out { color: #7f8b7f; }
+      [data-composition-id="clone"] .hl { color: #c9a44c; }
+      [data-composition-id="clone"] .tree-card {
+        position: absolute;
+        top: 230px;
+        right: 130px;
+        width: 560px;
+        background: #f7f5f0;
+        border-radius: 14px;
+        padding: 30px 34px;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+      }
+      [data-composition-id="clone"] .tree-title {
+        font-size: 26px;
+        font-weight: 700;
+        color: #26232b;
+        margin-bottom: 16px;
+      }
+      [data-composition-id="clone"] .tree {
+        font-family: Menlo, monospace;
+        font-size: 22px;
+        line-height: 1.75;
+        color: #3b3742;
+        margin: 0;
+      }
+      [data-composition-id="clone"] .tree-note {
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid #e4e0d8;
+        font-size: 21px;
+        color: #8f1f2e;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+      [data-composition-id="clone"] .tree-note .mono {
+        font-family: Menlo, monospace;
+      }
+    </style>
+
+    <script>
+      function cloneType(tl, sel, at, speed) {
+        const el = document.querySelector(sel);
+        const text = el.dataset.text;
+        el.textContent = "";
+        const spans = [];
+        for (const ch of text) {
+          const s = document.createElement("span");
+          s.textContent = ch;
+          s.style.opacity = "0";
+          el.appendChild(s);
+          spans.push(s);
+        }
+        tl.to(spans, { opacity: 1, duration: 0.01, stagger: speed }, at);
+        return at + text.length * speed;
+      }
+      const tl = gsap.timeline({ paused: true });
+      tl.from("[data-composition-id='clone'] .step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
+      tl.from("[data-composition-id='clone'] .term", { opacity: 0, y: 34, duration: 0.6, ease: "power3.out" }, 0.3);
+      let t = cloneType(tl, "[data-composition-id='clone'] .tline.cmd:not(.c2):not(.c3)", 1.0, 0.022);
+      tl.from("[data-composition-id='clone'] .o1", { opacity: 0, duration: 0.3 }, t + 0.25);
+      t = cloneType(tl, "[data-composition-id='clone'] .c2", t + 0.7, 0.022);
+      tl.from("[data-composition-id='clone'] .o2", { opacity: 0, duration: 0.3 }, t + 0.25);
+      t = cloneType(tl, "[data-composition-id='clone'] .c3", t + 0.7, 0.02);
+      tl.from("[data-composition-id='clone'] .o3", { opacity: 0, duration: 0.3 }, t + 0.3);
+      tl.from("[data-composition-id='clone'] .tree-card", { opacity: 0, x: 60, duration: 0.7, ease: "power3.out" }, 7.6);
+      tl.from("[data-composition-id='clone'] .tree-note", { opacity: 0, y: 12, duration: 0.5 }, 8.6);
+      tl.to("[data-composition-id='clone'] .term", { opacity: 0, x: -50, duration: 0.5, ease: "power2.in" }, 12.3);
+      tl.to("[data-composition-id='clone'] .tree-card", { opacity: 0, x: 50, duration: 0.5, ease: "power2.in" }, 12.35);
+      tl.to("[data-composition-id='clone'] .step-tag", { opacity: 0, duration: 0.4 }, 12.4);
+      window.__timelines["clone"] = tl;
+    </script>
+  </div>
+</template>

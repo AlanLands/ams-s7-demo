@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S7 Delivery — The Developer Loop</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        width: 1920px;
+        height: 1080px;
+        background-color: #101014;
+        overflow: hidden;
+        font-family: "Avenir Next", "Helvetica Neue", Helvetica, Arial, sans-serif;
+      }
+      #master-root {
+        width: 1920px;
+        height: 1080px;
+        position: relative;
+        background: radial-gradient(1200px 800px at 50% 38%, #1a1a22 0%, #101014 62%);
+      }
+      #master-root .scene {
+        position: absolute;
+        inset: 0;
+      }
+      #vignette {
+        position: absolute;
+        inset: 0;
+        z-index: 90;
+        pointer-events: none;
+        background: radial-gradient(1600px 1000px at 50% 50%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.45) 100%);
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="master-root"
+      data-composition-id="master"
+      data-start="0"
+      data-duration="72"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="sc-intro"
+        class="scene"
+        data-composition-id="intro"
+        data-composition-src="compositions/intro.html"
+        data-start="0"
+        data-duration="6"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-publish"
+        class="scene"
+        data-composition-id="publish"
+        data-composition-src="compositions/publish.html"
+        data-start="sc-intro"
+        data-duration="9"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-clone"
+        class="scene"
+        data-composition-id="clone"
+        data-composition-src="compositions/clone.html"
+        data-start="sc-publish"
+        data-duration="13"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-work"
+        class="scene"
+        data-composition-id="work"
+        data-composition-src="compositions/work.html"
+        data-start="sc-clone"
+        data-duration="14"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-pushpr"
+        class="scene"
+        data-composition-id="pushpr"
+        data-composition-src="compositions/pushpr.html"
+        data-start="sc-work"
+        data-duration="11"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-console"
+        class="scene"
+        data-composition-id="console"
+        data-composition-src="compositions/console.html"
+        data-start="sc-pushpr"
+        data-duration="13"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="sc-outro"
+        class="scene"
+        data-composition-id="outro"
+        data-composition-src="compositions/outro.html"
+        data-start="sc-console"
+        data-duration="6"
+        data-track-index="0"
+      ></div>
+
+      <div id="vignette"></div>
+
+      <script>
+        const masterTL = gsap.timeline({ paused: true });
+        masterTL.to("#vignette", { opacity: 1, duration: 1.2, ease: "power1.out" }, 0);
+        window.__timelines["master"] = masterTL;
+      </script>
+    </div>
+  </body>
+</html>
