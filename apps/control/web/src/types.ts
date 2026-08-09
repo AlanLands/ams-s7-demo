@@ -524,6 +524,12 @@ export interface DeveloperWorkspace {
   ci_status: string
   development_status: string
   artifact_status: 'current' | 'stale'
+  git_evidence?: {
+    commit_count: number
+    latest: { sha: string; author: string; when: string; subject: string } | null
+    branches: string[]
+    merged: boolean
+  } | null
   last_sync_at: string
   provenance: Provenance
   // derived at state assembly from the story's task

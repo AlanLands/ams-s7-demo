@@ -21,7 +21,7 @@ import { useRun } from '../../state/RunContext'
 import { Prov } from '../../components/Badge'
 import { Modal } from '../../components/Modal'
 import { StatCard } from '../../components/StatCard'
-import { apiPatch } from '../../api'
+import { apiPatch, apiPost } from '../../api'
 import type { ActivityEvent, BuildTask, DeliveryPack, DeveloperWorkspace, PlanStory } from '../../types'
 import {
   buildOf,
@@ -306,6 +306,29 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
             <b>Pull Request</b><span className="mono">{ws.pull_request || '—'}</span>
             <b>CI</b><span><CiCell ws={ws} task={task} /></span>
           </div>
+          {ws.git_evidence?.commit_count ? (
+            <div className="kv" style={{ gridTemplateColumns: '130px 1fr', marginTop: '8px' }}>
+              <b>Pushed Commits</b>
+              <span>{`${ws.git_evidence.commit_count} referencing ${ws.story_id}`}</span>
+              <b>Latest Push</b>
+              <span className="clamp-2">
+                <span className="mono">{ws.git_evidence.latest?.sha.slice(0, 7)}</span>
+                {` — ${ws.git_evidence.latest?.subject} (${ws.git_evidence.latest?.author})`}
+              </span>
+              <b>Developer Branch</b>
+              <span className="mono">{ws.git_evidence.branches.join(', ') || '—'}</span>
+              <b>Merged to Default</b>
+              <span>{ws.git_evidence.merged
+                ? <><CircleCheck className="val-ico ok" /> Yes — merged by a human</>
+                : 'Not yet — merging stays a human action'}</span>
+            </div>
+          ) : null}
+          {ws.git_evidence ? (
+            <p className="hint">
+              Real pushed work read from the repository (git fetch, read-only); commits matched by
+              story/task id in the message. Last synced {hhmm(ws.last_sync_at)}.
+            </p>
+          ) : null}
           {simulated ? (
             <p className="hint"><Prov provenance="simulated" /> Simulated publication — no git remote is touched in this mode.</p>
           ) : null}
@@ -407,6 +430,7 @@ export function DeveloperWorkspaces() {
   const { data, runId, role, refresh, notify, goTo } = useRun()
   const [openId, setOpenId] = useState<string | null>(null)
   const [assignFor, setAssignFor] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
   const [assignName, setAssignName] = useState('')
   const [query, setQuery] = useState('')
   const [fTeam, setFTeam] = useState('all')
@@ -457,6 +481,20 @@ export function DeveloperWorkspaces() {
   const pageRows = filtered.slice((safePage - 1) * perPage, safePage * perPage)
   const open = openId ? workspaces.find((w) => w.workspace_id === openId) : undefined
 
+  const doSyncGit = async () => {
+    if (!runId) return
+    setSyncing(true)
+    try {
+      await apiPost(`/api/runs/${runId}/workspaces/sync-git`, { role })
+      await refresh()
+      notify('Synced from Git — showing real pushed commits (story id matched in commit messages)')
+    } catch (err) {
+      notify((err as Error).message, true)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   const doAssign = async () => {
     const developer = assignName.trim()
     const ws = workspaces.find((w) => w.workspace_id === assignFor)
@@ -503,6 +541,19 @@ export function DeveloperWorkspaces() {
         <h2>Developer Workspaces</h2>
         <span className="chip own-human"><UserCheck className="dp-badge-ico" />Human Controlled</span>
         <span className="chip own-ai"><Sparkles className="dp-badge-ico" />AI Assisted</span>
+        <button
+          className="ghost"
+          style={{ marginLeft: 'auto' }}
+          disabled={data.run.mode !== 'live' || syncing}
+          title={data.run.mode !== 'live'
+            ? 'Live runs only — simulation has no real repository clone'
+            : 'git fetch + read-only inspection; commits are matched by story/task id in the message'}
+          onClick={() => void doSyncGit()}
+        >
+          {syncing
+            ? <LoaderCircle className="btn-ico spin" />
+            : <GitCommitHorizontal className="btn-ico" />} Sync from Git
+        </button>
         <span className="hint" style={{ flexBasis: '100%' }}>
           Human-controlled engineering workspaces provisioned from approved S7 delivery packs. Developers
           implement using their normal IDE, CLI and Git workflows.

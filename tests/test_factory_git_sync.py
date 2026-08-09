@@ -85,7 +85,9 @@ def test_task_id_mention_counts_and_s7_branches_ignored(remote_and_clone):
                        filename="ctx.md")
     git_sync.fetch(clone)
     ev = git_sync.story_evidence(clone, "US-1", ["TASK-001"], "main")
-    assert ev["commit_count"] >= 1
+    # the publication commit on the s7/ branch mentions the id too — it must
+    # not count as developer progress
+    assert ev["commit_count"] == 1
     assert "dev-work" in ev["branches"]
     assert not any(b.startswith("s7/") for b in ev["branches"])
 
@@ -99,6 +101,23 @@ def test_merged_when_reachable_from_default(remote_and_clone):
     git_sync.fetch(clone)
     ev = git_sync.story_evidence(clone, "US-1", [], "main")
     assert ev["merged"] is True
+
+
+def test_single_branch_clone_still_sees_new_branches(remote_and_clone, tmp_path):
+    """Connected repos are cloned shallow/single-branch — fetch must still
+    discover developer feature branches (the refspec regression)."""
+    remote, seed, _ = remote_and_clone
+    narrow = tmp_path / "narrow"
+    subprocess.run(
+        ["git", "clone", "-q", "--depth", "1", "--single-branch",
+         "--branch", "main", str(remote), str(narrow)],
+        check=True, capture_output=True,
+    )
+    _push_story_commit(seed, "feature/us-1", "US-1: implement login")
+    git_sync.fetch(narrow)
+    ev = git_sync.story_evidence(narrow, "US-1", [], "main")
+    assert ev["commit_count"] == 1
+    assert "feature/us-1" in ev["branches"]
 
 
 # --- engine integration -----------------------------------------------------

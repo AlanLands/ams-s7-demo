@@ -30,14 +30,39 @@ def _git(repo_dir: Path, *args: str) -> str:
 
 
 def fetch(repo_dir: Path) -> None:
-    """Bring origin/* refs up to date. The only network call in this module."""
-    _git(repo_dir, "fetch", "--all", "--prune", "--quiet")
+    """Bring origin/* refs up to date. The only network call in this module.
+
+    The refspec is explicit because connected repos are cloned shallow and
+    single-branch — a plain `fetch --all` would never see the developer's
+    feature branches."""
+    _git(
+        repo_dir, "fetch", "origin",
+        "+refs/heads/*:refs/remotes/origin/*", "--prune", "--quiet",
+    )
+
+
+def _developer_refs(repo_dir: Path) -> list[str]:
+    """Remote refs that can carry developer work — everything except the
+    S7-published `s7/**` context branches (their publication commits mention
+    story ids too and must never count as developer progress)."""
+    out = _git(repo_dir, "branch", "-r", "--format=%(refname:short)")
+    refs = []
+    for line in out.splitlines():
+        name = line.strip()
+        short = name.removeprefix("origin/")
+        if not name or short == "HEAD" or short.startswith("s7/"):
+            continue
+        refs.append(name)
+    return refs
 
 
 def _matching_shas(repo_dir: Path, ids: list[str]) -> list[str]:
-    """Commit shas on any remote ref whose message mentions any id,
-    newest first (ledger order comes from git's own date ordering)."""
-    args = ["log", "--remotes=origin", "--format=%H", "--regexp-ignore-case"]
+    """Commit shas on developer-reachable remote refs whose message mentions
+    any id, newest first (git's own date ordering)."""
+    refs = _developer_refs(repo_dir)
+    if not refs:
+        return []
+    args = ["log", *refs, "--format=%H", "--regexp-ignore-case"]
     for artifact_id in ids:
         args.append(f"--grep={artifact_id}")
     out = _git(repo_dir, *args)
