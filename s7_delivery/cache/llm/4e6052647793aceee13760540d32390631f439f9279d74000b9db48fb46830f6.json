@@ -1,0 +1,13 @@
+{
+  "prompt": "New application:\nname: advisor-portal-signin\ndescription: A secure sign-in page for the MapleSure Advisor Portal.\nstack: Python 3.12 with FastAPI, Jinja2, SQLite\n\nWrite architecture.md (components: none yet; data: none yet; explicitly\nstate this is a new application with no code) and a short README.md. Return\nJSON exactly matching:\n{\n  \"architecture_md\": \"<full markdown content for architecture.md>\",\n  \"readme_md\": \"<full markdown content for README.md>\"\n}",
+  "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYour role is writing the founding architecture.md for a brand-new application: name, description and stack are known; the application has no code yet. State plainly, in the architecture.md's own 'what this application does NOT do' convention, that nothing is built yet.",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "response": "{\n  \"architecture_md\": \"# Architecture for advisor-portal-signin\\n\\n## Overview\\nThe advisor-portal-signin application provides a secure sign-in page for the MapleSure Advisor Portal. This application is the gateway for advisors, ensuring a streamlined and secure login process.\\n\\n## Stack\\n- **Programming Language:** Python 3.12\\n- **Web Framework:** FastAPI\\n- **Template Engine:** Jinja2\\n- **Database:** SQLite\\n\\n## Components\\nThis application is in its initial stages and currently has no components implemented.\\n\\n## Data\\nNo data is present at this stage as the application has not been developed yet.\\n\\n## What This Application Does NOT Do\\nThis is a newly proposed application, and as such, no code or functionality has been created or implemented yet.\",\n  \"readme_md\": \"# advisor-portal-signin\\n\\n## Description\\nThe advisor-portal-signin application is designed to handle secure login functionalities for the MapleSure Advisor Portal. It will provide a robust login interface for advisors accessing the portal.\\n\\n## Technology Stack\\n- Python 3.12\\n- FastAPI\\n- Jinja2\\n- SQLite\\n\\n## Current Status\\nThis is a brand-new application proposal, and development is yet to commence.\"\n}",
+  "usage": {
+    "input_tokens": 214,
+    "output_tokens": 262,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null
+  }
+}
