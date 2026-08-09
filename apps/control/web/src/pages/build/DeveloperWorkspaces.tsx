@@ -414,6 +414,8 @@ export function DeveloperWorkspaces() {
   const [fStatus, setFStatus] = useState('all')
   const [fArtifact, setFArtifact] = useState('all')
   const [fCi, setFCi] = useState('all')
+  const [perPage, setPerPage] = useState(10)
+  const [page, setPage] = useState(1)
 
   const build = buildOf(data)
   const workspaces = build.workspaces ?? []
@@ -450,6 +452,9 @@ export function DeveloperWorkspaces() {
     return true
   })
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / perPage))
+  const safePage = Math.min(page, pageCount)
+  const pageRows = filtered.slice((safePage - 1) * perPage, safePage * perPage)
   const open = openId ? workspaces.find((w) => w.workspace_id === openId) : undefined
 
   const doAssign = async () => {
@@ -562,10 +567,10 @@ export function DeveloperWorkspaces() {
         <div className="table-wrap">
           <table className="dp-table dw-table">
             <colgroup>
-              <col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} />
-              <col style={{ width: '12%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} />
-              <col style={{ width: '7%' }} /><col style={{ width: '7%' }} /><col style={{ width: '7%' }} />
-              <col style={{ width: '10%' }} /><col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} />
+              <col style={{ width: '11%' }} /><col style={{ width: '10%' }} /><col style={{ width: '9%' }} />
+              <col style={{ width: '7%' }} /><col style={{ width: '7%' }} /><col style={{ width: '8%' }} />
+              <col style={{ width: '8%' }} /><col style={{ width: '9%' }} />
             </colgroup>
             <thead>
               <tr>
@@ -575,7 +580,7 @@ export function DeveloperWorkspaces() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((ws) => {
+              {pageRows.map((ws) => {
                 const task = wsTask(ws)
                 const story = storyById.get(ws.story_id)
                 const stale = ws.artifact_status === 'stale'
@@ -585,20 +590,26 @@ export function DeveloperWorkspaces() {
                     className={openId === ws.workspace_id ? 'dp-row-selected' : ''}
                     onClick={() => setOpenId(ws.workspace_id)}>
                     <td>
-                      <span className="dp-team">
+                      <span className="dw-team-stack">
                         <span className={`team-avatar ${['tc-0', 'tc-1', 'tc-2', 'tc-3', 'tc-4'][ws.team.length % 5]}`}>{initials}</span>
                         <b>{ws.team}</b>
                       </span>
                     </td>
-                    <td title={story?.title ?? ''}>
-                      <b className="mono">{ws.story_id}</b>
-                      {ws.task_id ? <span className="hint dp-sub mono">{ws.task_id}</span> : null}
+                    <td>
+                      <b className="mono dw-story-id">{ws.story_id}</b>
+                      <span className="hint dp-sub dw-title clamp-2">{story?.title ?? ''}</span>
+                      {ws.task_id ? (
+                        <span className="hint dp-sub mono"><ListChecks className="dp-badge-ico" />{ws.task_id}</span>
+                      ) : null}
                     </td>
                     <td><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span></td>
                     <td><span className="repo-cell"><GitBranch /><span className="mono dp-stories">{ws.branch || '—'}</span></span></td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {ws.developer ? (
-                        <span className="dp-team"><DevAvatar name={ws.developer} />{ws.developer}</span>
+                        <>
+                          <span className="dp-team"><DevAvatar name={ws.developer} />{ws.developer}</span>
+                          <span className="hint dp-sub">{relTime(ws.last_sync_at)}</span>
+                        </>
                       ) : (
                         <>
                           <span className="hint">Unassigned</span>
@@ -639,6 +650,9 @@ export function DeveloperWorkspaces() {
                           onClick={() => setOpenId(ws.workspace_id)}><Eye className="btn-ico" /></button>
                         <button className="icon-btn" aria-label="Open repository" disabled
                           title="No real repository in simulation"><ExternalLink className="btn-ico" /></button>
+                        <button className="icon-btn" aria-label={`View ${ws.story_id} pull request`} disabled={!ws.pull_request}
+                          title={ws.pull_request ? 'Simulated PR — details in the workspace drawer' : 'No pull request yet'}>
+                          <GitPullRequest className="btn-ico" /></button>
                         <button className="icon-btn" aria-label={`View ${ws.story_id} evidence`} title="View Evidence"
                           onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>
                           <ClipboardCheck className="btn-ico" /></button>
@@ -653,7 +667,26 @@ export function DeveloperWorkspaces() {
             </tbody>
           </table>
         </div>
-        <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${workspaces.length} workspaces`}</div>
+        <div className="dw-pager">
+          <span className="hint">
+            {filtered.length
+              ? `Showing ${(safePage - 1) * perPage + 1} to ${Math.min(safePage * perPage, filtered.length)} of ${filtered.length} entries`
+              : 'No entries'}
+          </span>
+          <span className="dw-pager-controls">
+            <select value={perPage} aria-label="Rows per page"
+              onChange={(e) => { setPerPage(Number(e.target.value)); setPage(1) }}>
+              <option value={10}>10 per page</option>
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+            </select>
+            <button className="icon-btn" aria-label="Previous page" disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}>‹</button>
+            <span className="dw-page-chip">{safePage}</span>
+            <button className="icon-btn" aria-label="Next page" disabled={safePage >= pageCount}
+              onClick={() => setPage(safePage + 1)}>›</button>
+          </span>
+        </div>
       </div>
 
       <div className="card info-banner" style={{ marginTop: '10px' }}>

@@ -1571,3 +1571,15 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .dw-table .dp-actions { gap: 3px; }
 .dw-table .icon-btn { padding: 2px 5px; }
 .dw-table .dp-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Reference-exact workspaces table: roomy rows, stacked team cell, pager. */
+.dw-table td { padding: 12px 8px; vertical-align: middle; }
+.dw-team-stack { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.dw-team-stack .team-avatar { width: 32px; height: 32px; font-size: 11px; }
+.dw-team-stack b { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.dw-story-id { font-size: 13px; }
+.dw-table .dw-title { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: clip; line-height: 1.35; }
+.dw-pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 10px; flex-wrap: wrap; }
+.dw-pager-controls { display: inline-flex; align-items: center; gap: 6px; }
+.dw-pager-controls select { font-size: 12px; padding: 5px 8px; }
+.dw-page-chip { display: inline-grid; place-items: center; min-width: 26px; height: 26px; border-radius: var(--radius-sm); background: var(--red); color: #fff; font-size: 12px; font-weight: 650; }
+.dw-table .icon-btn .btn-ico { width: 12px; height: 12px; }
