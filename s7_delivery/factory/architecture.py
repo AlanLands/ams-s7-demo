@@ -89,6 +89,82 @@ def dependency_map(stories: list[dict]) -> dict:
     }
 
 
+def landscape(stories: list[dict], analysis: dict | None, repos: list[dict]) -> dict:
+    """Customer-safe diagram data, derived by a stated classification rule —
+    application names only, no invented middleware, nothing the run's own
+    plan does not name.
+
+    Layer rule: portal/web/mobile in the name ⇒ client; store/db/data ⇒ data;
+    no repository mapped to the app ⇒ external; otherwise core. Edges: one
+    sync edge per cross-team story dependency (between the two apps), plus a
+    data edge from each core app to each data store in the delivery."""
+    connected = {r["name"] for r in repos}
+    by_id = {s["story_id"]: s for s in stories}
+
+    nodes: list[dict] = []
+
+    def node_for(app: str) -> dict:
+        existing = next((n for n in nodes if n["application"] == app), None)
+        if existing:
+            return existing
+        n = {"application": app, "layer": "external", "repository": "", "teams": []}
+        nodes.append(n)
+        return n
+
+    for s in stories:
+        app = s.get("target_application", "")
+        if not app:
+            continue
+        n = node_for(app)
+        repo = s.get("target_repository", "")
+        if repo and not n["repository"]:
+            n["repository"] = repo
+        team = s.get("accountable_team", "")
+        if team and team not in n["teams"]:
+            n["teams"].append(team)
+    for app in (analysis or {}).get("affected_applications", []):
+        node_for(app)
+
+    for n in nodes:
+        name = n["application"].lower()
+        has_repo = bool(n["repository"]) and n["repository"] in connected
+        if any(w in name for w in ("portal", "web", "mobile")) and has_repo:
+            n["layer"] = "client"
+        elif any(w in name for w in ("store", " db", "database", "data ")) and has_repo:
+            n["layer"] = "data"
+        elif has_repo:
+            n["layer"] = "core"
+        else:
+            n["layer"] = "external"
+
+    edges: list[dict] = []
+
+    def add_edge(a: str, b: str, kind: str) -> None:
+        if a == b:
+            return
+        if not any(e["from_app"] == a and e["to_app"] == b for e in edges):
+            edges.append({"from_app": a, "to_app": b, "kind": kind})
+
+    for s in stories:
+        for dep in s.get("dependencies", []):
+            other = by_id.get(dep)
+            if not other:
+                continue
+            if other.get("accountable_team") != s.get("accountable_team"):
+                add_edge(
+                    other.get("target_application", ""),
+                    s.get("target_application", ""),
+                    "sync",
+                )
+    data_apps = [n["application"] for n in nodes if n["layer"] == "data"]
+    for n in nodes:
+        if n["layer"] == "core":
+            for d in data_apps:
+                add_edge(n["application"], d, "data")
+
+    return {"nodes": nodes, "edges": edges}
+
+
 def architecture_md(
     *,
     epic: dict | None,
