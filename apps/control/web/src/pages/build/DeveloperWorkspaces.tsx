@@ -567,14 +567,14 @@ export function DeveloperWorkspaces() {
         <div className="table-wrap">
           <table className="dp-table dw-table">
             <colgroup>
-              <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '11%' }} />
-              <col style={{ width: '11%' }} /><col style={{ width: '10%' }} /><col style={{ width: '9%' }} />
-              <col style={{ width: '7%' }} /><col style={{ width: '7%' }} /><col style={{ width: '8%' }} />
-              <col style={{ width: '8%' }} /><col style={{ width: '9%' }} />
+              <col style={{ width: '8%' }} /><col style={{ width: '13%' }} /><col style={{ width: '16%' }} />
+              <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '8%' }} />
+              <col style={{ width: '7%' }} /><col style={{ width: '9%' }} /><col style={{ width: '8%' }} />
+              <col style={{ width: '11%' }} />
             </colgroup>
             <thead>
               <tr>
-                <th>Team</th><th>Story / Task</th><th>Repository</th><th>Branch</th><th>Developer</th>
+                <th>Team</th><th>Story / Task</th><th>Repository / Branch</th><th>Developer</th>
                 <th>Delivery Pack</th><th>Latest Commit</th><th>Pull Request</th><th>CI Status</th>
                 <th>Dev Status</th><th>Actions</th>
               </tr>
@@ -602,8 +602,10 @@ export function DeveloperWorkspaces() {
                         <span className="hint dp-sub mono"><ListChecks className="dp-badge-ico" />{ws.task_id}</span>
                       ) : null}
                     </td>
-                    <td><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span></td>
-                    <td><span className="repo-cell"><GitBranch /><span className="mono dp-stories">{ws.branch || '—'}</span></span></td>
+                    <td>
+                      <span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span>
+                      <span className="repo-cell dw-branch-line"><GitBranch /><span className="mono">{ws.branch || '—'}</span></span>
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       {ws.developer ? (
                         <>
@@ -662,7 +664,7 @@ export function DeveloperWorkspaces() {
                 )
               })}
               {filtered.length === 0 ? (
-                <tr><td colSpan={11}><span className="hint">No workspaces match the current filters.</span></td></tr>
+                <tr><td colSpan={10}><span className="hint">No workspaces match the current filters.</span></td></tr>
               ) : null}
             </tbody>
           </table>
