@@ -247,6 +247,30 @@ Docs: `docs/BUILD_REVIEW_IMPLEMENTATION_PLAN.md`, `ARTIFACT_MODEL.md`,
 `DEVELOPER_WORKSPACE_MODEL.md`, `GIT_PUBLICATION_MODEL.md`,
 `BUILD_REVIEW_STATE_MACHINE.md`, `BUILD_REVIEW_DEMO_SCRIPT.md`.
 
+**AC test-plan checkpoint before publication, added 2026-08-09.** Delivery
+packs carry rule-based test skeletons — one deliberately-failing test per
+acceptance criterion, rendered stack-aware (pytest or JUnit) from the
+target repo's bootstrap record, badged `RULE_BASED`, never presented as AI
+output (`factory/test_skeletons.py`; name derivation shared with
+`simulate.py` so simulated and real evidence agree on names). A QA Lead
+approval per pack (`test_plan_approve`, role `approve_test_plan`) gates
+`delivery_pack_publish` — unapproved 409s; regeneration resets approval.
+Publication carries runnable skeletons at governed test roots (`tests/s7/`,
+`src/test/java/s7/`, added to `MANAGED_ROOTS` with the same foreign-content
+refusal), so the s7/ context-branch push produces a real red CI baseline,
+captured by git evidence sync as `red_baseline`; both bootstrapped
+workflows emit per-test results in `ci-summary.json`, joined by sync into
+per-AC evidence. Simulation is unchanged end to end: skeletons generate, QA
+approves, publish stays a pseudo-commit, no git and no network.
+
+**Known-repository memory and repo removal, added 2026-08-10.** A global
+`artifacts/known_repos.json` registry (gitignored) remembers every
+successfully connected repository across runs, so a fresh run after a
+reset never asks for a URL twice. Intake offers one-click reconnect chips
+for known repos, plus per-repo remove (blocked once the plan is signed —
+repositories are load-bearing after G1) and forget-from-registry. Engine
+method `intake_remove_repo` and registry helpers live in `factory/repos.py`.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** Intake
 now opens with an extraction front door: upload `.txt`/`.md`/`.pdf`/`.docx`
 or paste text, and the requirement's title, objective, summary and numbered

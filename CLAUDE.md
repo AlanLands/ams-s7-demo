@@ -251,6 +251,36 @@ Summary (old ids alias). Docs: `docs/BUILD_REVIEW_IMPLEMENTATION_PLAN.md`,
 `GIT_PUBLICATION_MODEL.md`, `BUILD_REVIEW_STATE_MACHINE.md`,
 `BUILD_REVIEW_DEMO_SCRIPT.md`.
 
+**AC test-plan checkpoint before publication, added 2026-08-09.** Delivery
+packs now carry rule-based test skeletons — one deliberately-failing test
+per acceptance criterion, rendered stack-aware (pytest or JUnit) from the
+target repo's bootstrap record, badged `RULE_BASED` and never presented as
+AI output (`factory/test_skeletons.py`; name derivation shared with
+`simulate.py` so simulated and real evidence agree on names). A QA Lead
+approval per pack (`test_plan_approve`, role `approve_test_plan`) gates
+`delivery_pack_publish` — an unapproved pack 409s; regeneration resets the
+approval. Publication carries runnable skeletons at governed test roots
+(`tests/s7/`, `src/test/java/s7/`, added to `MANAGED_ROOTS` with the same
+foreign-content refusal), so the s7/ context-branch push produces a real
+red CI baseline, captured by git evidence sync as `red_baseline`; both
+bootstrapped workflows now emit per-test results in `ci-summary.json`,
+which sync joins by test name into per-AC evidence. Simulation mode is
+unchanged end to end: skeletons generate, QA approves, publish stays a
+pseudo-commit, no git and no network.
+
+**Known-repository memory and repo removal, added 2026-08-10.** A global
+`artifacts/known_repos.json` registry (gitignored) remembers every
+successfully connected repository across runs, keyed by URL and written on
+every successful `connect-repo` — so resetting or starting a new run never
+means retyping a URL already proven to work. The Intake page offers
+one-click **reconnect chips** for known repos alongside the URL field, plus
+per-repo **remove** (disconnects the repo from the current run only —
+refused once the plan is signed, since repositories are load-bearing for
+the downstream lane after G1) and **forget-from-registry** (drops the
+registry entry itself, independent of any run). Engine method
+`intake_remove_repo` and registry helpers `known_repos`/`remember_repo`/
+`forget_repo` live in `factory/repos.py`.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** The
 Intake stage now opens with a genuine extraction front door: upload a file
 (`.txt`/`.md`/`.pdf`/`.docx`) or paste text, and the requirement's title,
