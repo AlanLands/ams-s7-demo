@@ -502,6 +502,9 @@ export interface DeliveryPack {
   created_at: string
   published_at: string
   provenance: Provenance
+  // computed at state assembly from the artifact store (never estimated)
+  artifact_count?: number
+  size_bytes?: number
 }
 
 export interface DeveloperWorkspace {

@@ -6,7 +6,7 @@ export function StatCard({ icon, value, label, sub, accent }: {
   value: string
   label: string
   sub?: string
-  accent: 'green' | 'blue' | 'orange' | 'purple' | 'violet' | 'red'
+  accent: 'green' | 'blue' | 'orange' | 'purple' | 'violet' | 'red' | 'teal'
 }) {
   return (
     <div className={`stat-card sc-${accent}`}>
