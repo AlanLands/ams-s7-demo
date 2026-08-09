@@ -505,6 +505,9 @@ export interface DeliveryPack {
   created_at: string
   published_at: string
   provenance: Provenance
+  test_plan_status?: 'generated' | 'approved'
+  test_plan_approved_by?: string
+  test_plan_approved_at?: string
   // computed at state assembly from the artifact store (never estimated)
   artifact_count?: number
   size_bytes?: number

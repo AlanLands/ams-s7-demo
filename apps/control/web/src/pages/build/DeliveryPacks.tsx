@@ -59,6 +59,11 @@ function dmy(iso?: string): string {
 
 type PubDisplay = { cls: string; label: string; sub: string }
 
+/** Local shape for `build/tests/{storyId}/test-manifest.json` — rule-based
+ * skeletons rendered from each story's acceptance criteria (Task 4). */
+interface TestManifestRow { ac_id: string; test_name: string; file: string }
+interface TestManifest { story_id: string; stack: string; runnable: boolean; provenance: string; tests: TestManifestRow[] }
+
 /** Display mapping over stored status + staleness — see spec: no invented
  * enum is persisted; PUBLISHING is a transient client-side state. */
 function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: boolean): PubDisplay {
@@ -78,7 +83,19 @@ function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: 
     }
   }
   if (pack.publication_status === 'failed') return { cls: 'st-blocked', label: 'FAILED', sub: 'See publication record' }
+  if (pack.test_plan_status !== 'approved') {
+    return { cls: 'st-planned', label: 'AWAITING TEST PLAN', sub: 'QA Lead approval required before publish' }
+  }
   return { cls: 'st-planned', label: 'READY TO PUBLISH', sub: 'Not published' }
+}
+
+/** Why the publish action is currently blocked for this pack, if at all —
+ * shared between the table row and the rail inspector so the hint text and
+ * the disabled condition never drift apart. */
+function publishBlockReason(p: DeliveryPack, stale: boolean): string | null {
+  if (stale) return 'Refresh via amendment first'
+  if (p.test_plan_status !== 'approved') return 'Test plan awaiting QA approval'
+  return null
 }
 
 const PREVIEW_TABS = [
@@ -123,6 +140,8 @@ export function DeliveryPacks() {
   const [preview, setPreview] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState<PreviewTab>('overview')
   const [tabText, setTabText] = useState('')
+  const [manifests, setManifests] = useState<Record<string, TestManifest | null>>({})
+  const [approving, setApproving] = useState(false)
 
   const storyById = useMemo(() => new Map(stories.map((s) => [s.story_id, s])), [stories])
   const staleIds = useMemo(() => new Set((data?.staleness ?? []).map((s) => s.artifact_id)), [data])
@@ -143,6 +162,21 @@ export function DeliveryPacks() {
       .catch((err: Error) => setTabText(`Could not load ${tabFile}: ${err.message}`))
   }, [runId, previewSlug, tabFile])
 
+  // Rule-based AC test skeletons — one manifest per story in the selected
+  // pack, fetched from the artifact store (Task 4) and cached by story id.
+  useEffect(() => {
+    if (!runId || !selectedPack) return
+    selectedPack.story_ids.forEach((sid) => {
+      if (manifests[sid] !== undefined) return
+      fetch(`/api/runs/${runId}/artifact-file/build/tests/${sid}/test-manifest.json`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((m: TestManifest | null) => setManifests((prev) => ({ ...prev, [sid]: m })))
+        .catch(() => setManifests((prev) => ({ ...prev, [sid]: null })))
+    })
+  }, [runId, selectedPack, manifests])
+  // (`manifests` is a dep because the guard inside reads it; each sid only
+  // ever fetches once — the guard makes this converge, not loop.)
+
   if (!data) return null
 
   // --- derived ---------------------------------------------------------------
@@ -154,6 +188,10 @@ export function DeliveryPacks() {
   const readyPacks = packs.filter(
     (p) => p.publication_status !== 'published' || (p.published_version ?? 0) < p.version,
   )
+  // Publish (single or all) fails server-side for any pack whose test plan
+  // isn't QA-approved — surface that up front rather than letting Publish
+  // All partially run and then error out mid-batch.
+  const unapprovedReady = readyPacks.filter((p) => p.test_plan_status !== 'approved')
   const canGenerate = phaseAtLeast(phase, 'architecture_accepted')
   const allStories = stories.length
 
@@ -202,6 +240,12 @@ export function DeliveryPacks() {
     setGenerating(true)
     await act('/delivery-packs/generate', {}, 'Delivery packs generated')
     setGenerating(false)
+  }
+
+  const doApproveTestPlan = async (p: DeliveryPack) => {
+    setApproving(true)
+    await act(`/delivery-packs/${p.delivery_pack_id}/approve-test-plan`, {}, 'Test plan approved')
+    setApproving(false)
   }
 
   const successPack = packs.find((p) => p.delivery_pack_id === successFor) ?? null
@@ -271,12 +315,20 @@ export function DeliveryPacks() {
             </button>
             <button
               className="primary"
-              disabled={readyPacks.length === 0}
+              disabled={readyPacks.length === 0 || unapprovedReady.length > 0}
+              title={unapprovedReady.length > 0
+                ? `${unapprovedReady.length} pack${unapprovedReady.length === 1 ? '' : 's'} awaiting QA test plan approval`
+                : undefined}
               onClick={() => setConfirmAll(true)}
             >
               <CloudUpload className="btn-ico" /> Publish All Packs to Git
             </button>
           </span>
+          {unapprovedReady.length > 0 ? (
+            <span className="hint">
+              {`${unapprovedReady.length} of ${readyPacks.length} ready ${unapprovedReady.length === 1 ? 'pack needs' : 'packs need'} QA Lead test plan approval before bulk publish.`}
+            </span>
+          ) : null}
         </div>
 
         <div className="stat-row">
@@ -436,14 +488,16 @@ export function DeliveryPacks() {
                           <button
                             className="icon-btn dp-publish-ico"
                             aria-label={published ? `Republish ${p.team} pack` : `Publish ${p.team} pack to Git`}
-                            title={published ? 'Republish / Sync Pack' : 'Publish to Git'}
-                            disabled={busy || stale}
+                            title={publishBlockReason(p, stale) ?? (published ? 'Republish / Sync Pack' : 'Publish to Git')}
+                            disabled={busy || stale || p.test_plan_status !== 'approved'}
                             onClick={() => setConfirmPublish(p.delivery_pack_id)}
                           >
                             {busy ? <LoaderCircle className="btn-ico spin" /> : published ? <RefreshCw className="btn-ico" /> : <CloudUpload className="btn-ico" />}
                           </button>
                         </div>
-                        {stale ? <span className="hint dp-sub">Refresh via amendment first</span> : null}
+                        {!busy && publishBlockReason(p, stale) ? (
+                          <span className="hint dp-sub">{publishBlockReason(p, stale)}</span>
+                        ) : null}
                       </td>
                     </tr>
                   )
@@ -527,6 +581,62 @@ export function DeliveryPacks() {
                   ))}
                 </ul>
               </div>
+              <div className="dp-ins-block">
+                <span className="as-label">Test Plan — Acceptance Criteria</span>
+                <span className="hint">
+                  Rule-based test skeletons generated from each acceptance criterion. QA Lead
+                  approves before the pack can publish. <Prov provenance="rule_based" /> not AI output.
+                </span>
+                {selectedPack.story_ids.map((sid) => {
+                  const story = storyById.get(sid)
+                  const m = manifests[sid]
+                  return (
+                    <details key={sid} className="dp-tp-story">
+                      <summary>
+                        {sid}
+                        {story?.title ? ` — ${story.title}` : ''}
+                        {m ? ` · ${m.tests.length} tests · ${m.runnable ? m.stack : 'reference only'}`
+                          : m === null ? ' · no test manifest for this pack version' : ' · loading…'}
+                      </summary>
+                      <div className="table-wrap">
+                        <table className="dp-tp-table">
+                          <thead><tr><th>AC</th><th>Criterion</th><th>Test</th></tr></thead>
+                          <tbody>
+                            {(m?.tests ?? []).map((t) => (
+                              <tr key={t.ac_id}>
+                                <td className="mono">{t.ac_id}</td>
+                                <td>{story?.acceptance_criteria?.find((a) => a.ac_id === t.ac_id)?.text ?? ''}</td>
+                                <td><code>{t.test_name}</code></td>
+                              </tr>
+                            ))}
+                            {m && m.tests.length === 0 ? (
+                              <tr><td colSpan={3}><span className="hint">No acceptance criteria to cover.</span></td></tr>
+                            ) : null}
+                          </tbody>
+                        </table>
+                      </div>
+                    </details>
+                  )
+                })}
+                <div className="dp-tp-approve">
+                  {selectedPack.test_plan_status === 'approved' ? (
+                    <span className="hint">
+                      <CircleCheck className="val-ico ok" /> Approved by{' '}
+                      {selectedPack.test_plan_approved_by || 'QA Lead'}
+                      {selectedPack.test_plan_approved_at ? ` on ${dmy(selectedPack.test_plan_approved_at)}` : ''}
+                    </span>
+                  ) : (
+                    <button
+                      className="primary block"
+                      disabled={approving}
+                      onClick={() => void doApproveTestPlan(selectedPack)}
+                    >
+                      {approving ? <LoaderCircle className="btn-ico spin" /> : <SquareCheckBig className="btn-ico" />}
+                      Approve Test Plan (QA Lead)
+                    </button>
+                  )}
+                </div>
+              </div>
               <div className="dp-ins-actions">
                 <button className="outline block" onClick={() => { setPreview(selectedPack.delivery_pack_id); setPreviewTab('overview') }}>
                   <Eye className="btn-ico" /> Preview Pack
@@ -539,13 +649,16 @@ export function DeliveryPacks() {
                 </button>
                 <button
                   className="primary block"
-                  disabled={busy || stale}
+                  disabled={busy || stale || selectedPack.test_plan_status !== 'approved'}
                   onClick={() => setConfirmPublish(selectedPack.delivery_pack_id)}
                 >
                   {busy ? <LoaderCircle className="btn-ico spin" /> : <CloudUpload className="btn-ico" />}
                   {published ? ' Republish to Git' : ' Publish to Git'}
                 </button>
                 {stale ? <p className="hint">Pack is stale — refresh through the amendment process before publishing.</p> : null}
+                {!stale && selectedPack.test_plan_status !== 'approved' ? (
+                  <p className="hint">Test plan awaiting QA Lead approval before this pack can publish.</p>
+                ) : null}
               </div>
             </div>
           )
@@ -628,19 +741,30 @@ export function DeliveryPacks() {
             {`${packs.length} packs total · ${packs.length - readyPacks.length} already published · ${readyPacks.length} ready to publish`}
           </p>
           <ul className="plain" style={{ margin: '8px 0' }}>
-            {packs.map((p) => (
-              <li key={p.delivery_pack_id} className="dp-all-row">
-                <TeamAvatar team={p.team} /> {p.team}
-                <span className={`badge ${p.publication_status === 'published' ? 'st-passed' : 'st-planned'}`} style={{ marginLeft: 'auto' }}>
-                  {p.publication_status === 'published' ? 'PUBLISHED' : 'READY'}
-                </span>
-              </li>
-            ))}
+            {packs.map((p) => {
+              const awaitingTestPlan = p.publication_status !== 'published' && p.test_plan_status !== 'approved'
+              const label = p.publication_status === 'published' ? 'PUBLISHED' : awaitingTestPlan ? 'AWAITING TEST PLAN' : 'READY'
+              return (
+                <li key={p.delivery_pack_id} className="dp-all-row">
+                  <TeamAvatar team={p.team} /> {p.team}
+                  <span className={`badge ${p.publication_status === 'published' ? 'st-passed' : 'st-planned'}`} style={{ marginLeft: 'auto' }}>
+                    {label}
+                  </span>
+                </li>
+              )
+            })}
           </ul>
+          {unapprovedReady.length > 0 ? (
+            <p className="hint dp-safe-note">
+              <TriangleAlert className="btn-ico" style={{ color: 'var(--red)' }} />
+              {`${unapprovedReady.length} of these packs will fail to publish until their test plan is QA Lead approved.`}
+            </p>
+          ) : null}
           <div className="actions-row">
             <button className="ghost" onClick={() => setConfirmAll(false)}>Cancel</button>
             <button
               className="primary"
+              disabled={unapprovedReady.length > 0}
               onClick={async () => {
                 setConfirmAll(false)
                 setPublishing(new Set(readyPacks.map((p) => p.delivery_pack_id)))
