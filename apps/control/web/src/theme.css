@@ -1396,14 +1396,36 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .arch-head-actions button { white-space: nowrap; }
 .btn-ico { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 
-.info-banner { background: #eef4fb; border-color: #b9cfe4; font-size: 12px; color: #204566; padding: 8px 12px; margin-bottom: 8px; }
+.info-banner {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: #eef4fb; border: 0; border-left: 3px solid #2c5f8f;
+  font-size: 12px; color: #204566; padding: 8px 12px; margin-bottom: 8px;
+  border-radius: var(--radius-sm);
+}
+.info-banner .ib-ico { font-weight: 650; flex: none; }
 
-.arch-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; margin-bottom: 8px; }
-.arch-strip .as-cell { border-right: 1px solid var(--border); padding-right: 10px; }
+.arch-strip {
+  display: grid; grid-template-columns: 1.2fr 1fr repeat(5, minmax(0, 0.95fr));
+  gap: 0; margin-bottom: 8px; padding: 10px 0;
+  align-items: start;
+}
+.arch-strip .as-cell {
+  display: flex; flex-direction: column; gap: 5px;
+  border-right: 1px solid var(--border);
+  padding: 2px 16px; min-height: 58px;
+}
 .arch-strip .as-cell:last-child { border-right: 0; }
-.as-label { font-size: 10px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); margin-bottom: 3px; }
-.as-value { font-size: 18px; font-weight: 650; line-height: 1.2; }
+.as-label {
+  font-size: 10px; font-weight: 650; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--muted); line-height: 1.25;
+  min-height: 25px;
+}
+.as-main { display: flex; align-items: center; gap: 8px; flex-wrap: nowrap; }
+.as-value { font-size: 20px; font-weight: 650; line-height: 1.1; white-space: nowrap; }
 .as-value.ok { color: var(--green); }
+.as-value.warn { color: var(--amber-text); }
+.as-meta { font-size: 10.5px; color: var(--muted); font-weight: 600; }
+.arch-strip .badge { font-size: 9.5px; padding: 2px 8px; }
 
 .landscape-wrap { overflow-x: auto; }
 .landscape { width: 100%; min-width: 640px; height: auto; display: block; }

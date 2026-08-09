@@ -316,28 +316,37 @@ export function Architecture() {
         ) : (
           <>
             <div className="card info-banner">
-              ⓘ This architecture is generated from the locked plan
-              {arch.plan_version ? ` (v${arch.plan_version})` : ''} after Gate 1 approval and is the shared
-              context for all team delivery packs — packs reference it by version, they never copy it.
+              <span className="ib-ico">ⓘ</span>
+              <span>
+                This architecture is generated from the locked plan
+                {arch.plan_version ? ` (v${arch.plan_version})` : ''} after Gate 1 approval and is the shared
+                context for all team delivery packs — packs reference it by version, they never copy it.
+              </span>
             </div>
 
             <div className="card arch-strip">
               <div className="as-cell">
                 <div className="as-label">Architecture Version</div>
-                <div className="as-value mono">{`v${arch.version}`}</div>
-                <Badge status={statusBadge} label={statusLabel} />
+                <div className="as-main">
+                  <span className="as-value mono">{`v${arch.version}`}</span>
+                  <Badge status={statusBadge} label={statusLabel} />
+                </div>
+                <div className="as-meta">
+                  <Prov provenance={arch.provenance} />
+                </div>
               </div>
               <div className="as-cell">
                 <div className="as-label">Status</div>
-                <div className={`as-value ${accepted ? 'ok' : ''}`}>{accepted ? 'READY' : 'IN REVIEW'}</div>
-                <span className="hint">{`Generated ${hhmm(arch.generated_at)}`}</span>{' '}
-                <Prov provenance={arch.provenance} />
+                <div className="as-main">
+                  <span className={`as-value ${accepted ? 'ok' : 'warn'}`}>{accepted ? 'READY' : 'IN REVIEW'}</span>
+                </div>
+                <div className="as-meta hint">{`Generated ${hhmm(arch.generated_at)}`}</div>
               </div>
-              <div className="as-cell"><div className="as-label">Affected Applications</div><div className="as-value">{String(apps.size)}</div></div>
-              <div className="as-cell"><div className="as-label">Repositories</div><div className="as-value">{String(repos.size)}</div></div>
-              <div className="as-cell"><div className="as-label">Teams</div><div className="as-value">{String(teams.size)}</div></div>
-              <div className="as-cell"><div className="as-label">Integration Points</div><div className="as-value">{String(integrationRows.length)}</div></div>
-              <div className="as-cell"><div className="as-label">Dependencies</div><div className="as-value">{String(depEdges)}</div></div>
+              <div className="as-cell"><div className="as-label">Affected Applications</div><div className="as-main"><span className="as-value">{String(apps.size)}</span></div></div>
+              <div className="as-cell"><div className="as-label">Repositories</div><div className="as-main"><span className="as-value">{String(repos.size)}</span></div></div>
+              <div className="as-cell"><div className="as-label">Teams</div><div className="as-main"><span className="as-value">{String(teams.size)}</span></div></div>
+              <div className="as-cell"><div className="as-label">Integration Points</div><div className="as-main"><span className="as-value">{String(integrationRows.length)}</span></div></div>
+              <div className="as-cell"><div className="as-label">Dependencies</div><div className="as-main"><span className="as-value">{String(depEdges)}</span></div></div>
             </div>
 
             <div className="card">
