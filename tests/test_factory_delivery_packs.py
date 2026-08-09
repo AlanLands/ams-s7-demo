@@ -143,3 +143,22 @@ def test_state_packs_carry_real_artifact_stats(eng):
         assert pack["size_bytes"] > 0
     # a pack with stories+tasks has more artifacts than the 8 team files
     assert max(p["artifact_count"] for p in packs) > 8
+
+
+def test_download_all_zip_bundles_every_team(eng, tmp_path, monkeypatch):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+    resp = client.get(f"/api/runs/{eng.run_id}/delivery-packs/download-all.zip")
+    assert resp.status_code == 200
+    names = zipfile.ZipFile(io.BytesIO(resp.content)).namelist()
+    for pack in eng.state()["build"]["delivery_packs"]:
+        assert f"delivery-packs/{pack['team_slug']}/AGENTS.md" in names
+
+
+def test_download_all_zip_404_when_no_packs(eng, tmp_path, monkeypatch):
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+    resp = client.get(f"/api/runs/{eng.run_id}/delivery-packs/download-all.zip")
+    assert resp.status_code == 404
