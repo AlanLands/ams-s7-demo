@@ -23,9 +23,16 @@ with a real GitHub repo and real CI in the loop.
       intend to actually push (step 7) rather than narrate over a rehearsed
       run. `git status` should also be clean on the target repo's local
       clone.
-- [ ] **Target repository:** `maplesure-sponsor-portal` (one of the two
-      synthetic MapleSure repos provisioned by `demo/create_target_repos.py
-      --push`). Confirm it exists on GitHub and is reachable.
+- [ ] **Target repository:** the rehearsed run creates
+      `advisor-signin-enhancements` through the app's own new-application
+      flow — **delete it from GitHub before the demo** (`gh repo delete
+      AlanLands/advisor-signin-enhancements`) if you want the create-repo
+      beat live again, or keep it and use the one-click reconnect beat
+      instead. Both were rehearsed on 2026-08-10.
+- [ ] **Replay accuracy:** the LLM recordings match the EXACT texts in the
+      copy-paste blocks below. In `LLM_MODE=replay`, paste them verbatim —
+      a changed word is a changed prompt, and replay will refuse rather
+      than improvise (that refusal is honest, but it's not the demo).
 - [ ] **Browser:** open `http://127.0.0.1:8720` once before the room fills,
       confirm the page loads and a run exists in the Run ID picker.
 - [ ] **Rehearse once, start to finish, the day before.** A beat that's
@@ -80,9 +87,34 @@ head commit and file count — a real shallow clone, not a mock.
 ## Step 2 — Intake: upload, extract, route, create the epic
 
 **Do:** Intake page, card **1. Source Requirement** → **Paste Text** tab.
-Paste a short requirement (2–3 sentences is enough — e.g. a plan sponsor
-needs to see submission status for a disability claim online instead of
-calling in). Click **Extract with AI**.
+Paste the rehearsed requirement below **verbatim** (it matches the committed
+replay recordings), then click **Extract with AI**.
+
+```
+Advisor Portal Sign-In — Remember This Device and Account Lockout
+
+Business objective: reduce advisor friction at sign-in while strengthening account safety for MapleSure's advisor portal.
+
+Summary: Advisors sign in several times a day and currently answer a security question on every attempt. At the same time, the portal has no defence against repeated failed sign-ins. This change adds a remembered-device option and an account lockout policy with auditable evidence.
+
+Requirements:
+1. Advisors can choose "Remember this device" at sign-in; a remembered device skips the security question for 30 days.
+2. After 5 consecutive failed sign-in attempts, the account locks for 15 minutes and the advisor sees a clear lockout message with the retry time.
+3. Every failed attempt and every lockout event is recorded in an audit log entry carrying a timestamp and the masked username.
+```
+
+**If you route with zero repos connected** (the rehearsed path), the verdict
+short-circuits to **New application needed** with no AI call; **Start New
+Application Setup** then asks for the stack — answer verbatim:
+
+```
+Java 21 with Spring Boot and Maven; JUnit 5 for tests. The application is the advisor-portal-sign-in service handling advisor authentication for the MapleSure advisor portal.
+```
+
+The AI names the app `advisor-signin-enhancements`, you review the scaffold
+(README.md + architecture.md) and click **Create Repository** — a real GitHub
+repo, created and connected, CI workflow bootstrapped as **maven** from your
+stated stack.
 
 Card **2. AI Extraction** fills in — title, business objective, summary,
 numbered requirement bullets. Then open **Requirement Routing** → click
