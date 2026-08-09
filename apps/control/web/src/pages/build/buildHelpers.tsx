@@ -196,21 +196,37 @@ export const CONTROL_PLANE_GUIDANCE = [
 ]
 
 /* --- GitHub links, honesty gated (spec 2026-08-09-demo-rehearsal-fixes,
- * task 4). A workspace only links out when its `repository` matches a
- * connected repo carrying a real github.com `url` — the same join key the
- * engine uses to resolve a workspace's repo (engine.py `_workspaces_view` /
- * `workspaces_sync_git`: `repos[ws["repository"]]` against `intake/
- * repos.json`'s `name`). Everything else stays plain text: simulation never
- * connects a repo, so `repos` is empty and every link is null there; live
- * mode's real git sync (`git_sync.story_evidence`) can prove commits and
- * branches but never a PR, and `_workspaces_view` explicitly blanks
- * `pull_request` once real `git_evidence` exists (nothing to invent) — so a
- * PR link renders only for the pre-sync simulated-lifecycle value when it
- * actually denotes a real PR (a `#<number>` ref or a full URL), never the
- * simulated `PR-<n>` placeholder `task_develop`/`_task_develop_live`
- * fabricate (`f"PR-{...}"` — neither a `#<number>` nor a URL, so it never
- * matches). One function so IndependentReview and DeveloperWorkspaces
- * cannot drift apart. */
+ * task 4, amended after review). A workspace only links out when its
+ * `repository` matches a connected repo carrying a real github.com `url` —
+ * the same join key the engine uses to resolve a workspace's repo
+ * (engine.py `_workspaces_view` / `workspaces_sync_git`:
+ * `repos[ws["repository"]]` against `intake/repos.json`'s `name`).
+ * Everything else stays plain text: simulation never connects a repo, so
+ * `repos` is empty and every link is null there; live mode's real git sync
+ * (`git_sync.story_evidence`) can prove commits and branches but never a
+ * PR, and `_workspaces_view` explicitly blanks `pull_request` once real
+ * `git_evidence` exists (nothing to invent) — so a PR link renders only for
+ * the pre-sync simulated-lifecycle value when it actually denotes a real PR
+ * (a `#<number>` ref or a full URL), never the simulated `PR-<n>`
+ * placeholder `task_develop`/`_task_develop_live` fabricate
+ * (`f"PR-{...}"` — neither a `#<number>` nor a URL, so it never matches).
+ *
+ * Two honesty gates added after the first review found real 404s:
+ * - `commitUrl` requires `ws.git_evidence?.commit_count` to be truthy — i.e.
+ *   a real "Sync from Git" has actually proven a commit. Before that, live
+ *   mode's `current_commit` is `task_develop`'s fabricated `c<7 digits>`
+ *   value (engine.py:2678) for every story except the S7_LIVE_STORY
+ *   opt-in, which is the *default* state of a live walkthrough — linking it
+ *   would 404 for most workspaces most of the time.
+ * - Branch segments are percent-encoded individually and rejoined with a
+ *   literal `/`, not run through a single `encodeURIComponent` — every real
+ *   workspace branch is `s7/<run-id>-<team-slug>` (publication.py:83,178),
+ *   which contains a literal `/` that `encodeURIComponent` would turn into
+ *   `%2F`, 404ing on GitHub's `/tree/<ref>` route for essentially every
+ *   real branch.
+ *
+ * One function so IndependentReview and DeveloperWorkspaces cannot drift
+ * apart. */
 export interface GithubLinks {
   repoUrl: string | null
   branchUrl: string | null
@@ -223,7 +239,10 @@ const EMPTY_GITHUB_LINKS: GithubLinks = {
 }
 
 export function githubLinks(
-  ws: Pick<DeveloperWorkspace, 'repository' | 'branch' | 'current_commit' | 'pull_request'> | undefined,
+  ws: Pick<
+    DeveloperWorkspace,
+    'repository' | 'branch' | 'current_commit' | 'pull_request' | 'git_evidence'
+  > | undefined,
   repos: RepoRecord[] | undefined,
 ): GithubLinks {
   if (!ws?.repository) return EMPTY_GITHUB_LINKS
@@ -239,9 +258,15 @@ export function githubLinks(
   const repoUrl = repo.url.replace(/\/+$/, '')
 
   const branch = ws.branch?.trim()
-  const branchUrl = branch ? `${repoUrl}/tree/${encodeURIComponent(branch)}` : null
+  // Encode each ref segment on its own — a literal `/` (every real
+  // published workspace branch is `s7/<run-id>-<team-slug>`) must survive
+  // as a path separator, not become `%2F`.
+  const branchUrl = branch
+    ? `${repoUrl}/tree/${branch.split('/').map(encodeURIComponent).join('/')}`
+    : null
 
-  const commit = ws.current_commit?.trim()
+  // Only a real git sync can prove a commit exists — see block comment.
+  const commit = ws.git_evidence?.commit_count ? ws.current_commit?.trim() : ''
   const commitUrl = commit ? `${repoUrl}/commit/${commit}` : null
 
   const pr = ws.pull_request?.trim()

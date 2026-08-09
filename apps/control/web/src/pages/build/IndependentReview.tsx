@@ -435,7 +435,7 @@ export function IndependentReview() {
               </span>
               <b>Commit</b><span className="mono"><GitCommitHorizontal className="dp-badge-ico" />
                 {links.commitUrl
-                  ? <a href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'}</a>
+                  ? <a href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws!.current_commit.slice(0, 7)}</a>
                   : (ws?.current_commit ? ws.current_commit.slice(0, 7) : '—')}
               </span>
               <b>Delivery Pack</b>
