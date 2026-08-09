@@ -103,6 +103,51 @@ def test_merged_when_reachable_from_default(remote_and_clone):
     assert ev["merged"] is True
 
 
+def test_prefix_id_preferred_over_mid_message_mention(remote_and_clone):
+    """A summary commit that lists several ids mid-message (no id in its own
+    subject prefix) must not steal attribution from the commit whose subject
+    is actually prefixed with the id."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(seed, "feature/us-1", "US-1: implement device recognition")
+    _push_story_commit(
+        seed, "feature/us-4",
+        "US-4: automated verification of device recognition, "
+        "lockout and the US-1..US-3 regression suite (TASK-004)",
+        filename="verify.py",
+    )
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert ev["commit_count"] == 1
+    assert ev["latest"]["subject"] == "US-1: implement device recognition"
+
+
+def test_merge_style_prefix_attributes_to_both_ids(remote_and_clone):
+    """'US-1 / US-2: ...' names both ids in its subject prefix and must
+    attribute to both stories."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(
+        seed, "feature/us-1-2", "US-1 / US-2: device recognition and lockout"
+    )
+    git_sync.fetch(clone)
+    ev1 = git_sync.story_evidence(clone, "US-1", [], "main")
+    ev2 = git_sync.story_evidence(clone, "US-2", [], "main")
+    assert ev1["commit_count"] == 1
+    assert ev1["latest"]["subject"] == "US-1 / US-2: device recognition and lockout"
+    assert ev2["commit_count"] == 1
+    assert ev2["latest"]["subject"] == "US-1 / US-2: device recognition and lockout"
+
+
+def test_falls_back_to_mid_message_mention_when_no_prefixed_commit(remote_and_clone):
+    """No commit has US-7 in its subject prefix, so the broad (mid-message)
+    tier is used as a fallback — the id is still found, not dropped."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(seed, "feature/us-7", "touches US-7 stuff")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-7", [], "main")
+    assert ev["commit_count"] == 1
+    assert ev["latest"]["subject"] == "touches US-7 stuff"
+
+
 def test_single_branch_clone_still_sees_new_branches(remote_and_clone, tmp_path):
     """Connected repos are cloned shallow/single-branch — fetch must still
     discover developer feature branches (the refspec regression)."""
