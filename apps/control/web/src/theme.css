@@ -471,7 +471,7 @@ td.mono, .mono { font-family: var(--mono); font-size: 12px; }
   cursor: pointer;
   transition: border-color .15s, background .15s, color .15s;
 }
-.flow-node:hover { border-color: var(--red); color: var(--ink); }
+.flow-node:hover:not(.completed):not(.current):not(.skipped) { border-color: var(--red); color: var(--ink); }
 
 .flow-dot {
   width: 8px; height: 8px;
@@ -492,6 +492,18 @@ td.mono, .mono { font-family: var(--mono); font-size: 12px; }
   background: var(--red);
   animation: flow-pulse 1.6s ease-in-out infinite;
 }
+
+/* Skipped: an optional step (e.g. no document was ever uploaded, or — in
+   live mode — no design.json is ever written) that the flow has verifiably
+   moved past without it firing. Visually distinct from "pending" (grey
+   solid pill, hasn't been reached yet) so a finished run doesn't read as
+   stuck on a step that was simply never exercised. */
+.flow-node.skipped {
+  color: var(--border-strong);
+  border-style: dashed;
+  background: transparent;
+}
+.flow-node.skipped .flow-dot { background: transparent; border: 1px solid var(--border-strong); }
 
 .flow-connector {
   flex: 0 0 20px; width: 20px; height: 2px;
