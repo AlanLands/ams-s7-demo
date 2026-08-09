@@ -463,7 +463,17 @@ label.fld { display: block; font-size: 12.5px; font-weight: 600; color: var(--in
   gap: 18px;
   align-items: start;
 }
-.rail { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 14px; }
+.rail {
+  position: sticky;
+  /* pinned just below the sticky stepper; its own scrollbar keeps long
+     inspectors reachable without scrolling the main column */
+  top: 64px;
+  max-height: calc(100vh - 140px); /* stepper above + sticky footer below */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 14px;
+  padding-right: 2px;
+}
 
 .page-head h2 { font-size: 24px; }
 .page-head .hint { font-size: 13.5px; color: var(--muted); font-weight: 600; }
