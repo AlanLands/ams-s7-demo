@@ -27,7 +27,7 @@ function pickTask(tasks: BuildTask[], sel: string | null): BuildTask {
 }
 
 const OVERALL_BADGE: Record<BuildSummaryRow['overall'], [string, string]> = {
-  ready_for_quality: ['st-passed', 'READY FOR QUALITY'],
+  ready_for_quality: ['st-passed', 'READY FOR FINAL GATING'],
   blocked: ['st-blocked', 'BLOCKED'],
   complete: ['st-completed', 'COMPLETE'],
   in_development: ['st-in_progress', 'IN DEVELOPMENT'],
@@ -239,7 +239,7 @@ export function BuildSummaryPage() {
             type="button"
             className="approve"
             disabled={!readyIds.length}
-            title={readyIds.length ? 'Open the quality handoff' : 'No story has met the handoff conditions yet'}
+            title={readyIds.length ? 'Open Final Gating' : 'No story has met the handoff conditions yet'}
             onClick={() => goTo('quality')}
           >
             ✓ View Final Gating
