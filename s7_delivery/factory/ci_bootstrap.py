@@ -33,7 +33,7 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import glob, json, xml.etree.ElementTree as ET
+          import glob, json, os, xml.etree.ElementTree as ET
           tests = []
           for path in sorted(glob.glob("target/surefire-reports/TEST-*.xml")):
               for case in ET.parse(path).getroot().iter("testcase"):
@@ -45,8 +45,23 @@ jobs:
                   tests.append({"name": case.get("name", ""), "outcome": outcome})
           counted = [t for t in tests if t["outcome"] != "skipped"]
           failed = sum(1 for t in counted if t["outcome"] == "failed")
+          # jacoco.xml line coverage: the LINE counter at the report root
+          # (a direct child of <report>, not a package/class one) is the
+          # whole-run total. Absent file/counter means unset, never a guess.
+          coverage_pct = None
+          jacoco_path = "target/site/jacoco/jacoco.xml"
+          if os.path.exists(jacoco_path):
+              jroot = ET.parse(jacoco_path).getroot()
+              line_counters = [c for c in jroot.findall("counter") if c.get("type") == "LINE"]
+              if line_counters:
+                  jc = line_counters[-1]
+                  missed = int(jc.get("missed", 0))
+                  covered = int(jc.get("covered", 0))
+                  total = missed + covered
+                  if total:
+                      coverage_pct = round(covered / total * 100, 1)
           summary = {"tests_total": len(counted), "tests_passed": len(counted) - failed,
-                     "tests_failed": failed, "coverage_pct": None, "tests": tests}
+                     "tests_failed": failed, "coverage_pct": coverage_pct, "tests": tests}
           json.dump(summary, open("ci-summary.json", "w"))
           PY
       - uses: actions/upload-artifact@v4
@@ -92,8 +107,16 @@ jobs:
                   tests.append({"name": case.get("name", ""), "outcome": outcome})
           counted = [t for t in tests if t["outcome"] != "skipped"]
           failed = sum(1 for t in counted if t["outcome"] == "failed")
+          # coverage.xml (cobertura format): line-rate is a 0..1 fraction on
+          # the report root. Absent file/attribute means unset, never a guess.
+          coverage_pct = None
+          if os.path.exists("coverage.xml"):
+              cov_root = ET.parse("coverage.xml").getroot()
+              line_rate = cov_root.get("line-rate")
+              if line_rate is not None:
+                  coverage_pct = round(float(line_rate) * 100, 1)
           summary = {"tests_total": len(counted), "tests_passed": len(counted) - failed,
-                     "tests_failed": failed, "coverage_pct": None, "tests": tests}
+                     "tests_failed": failed, "coverage_pct": coverage_pct, "tests": tests}
           json.dump(summary, open("ci-summary.json", "w"))
           PY
       - uses: actions/upload-artifact@v4

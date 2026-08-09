@@ -2,7 +2,9 @@
 repo, so a real developer push produces a real run for ci_sync to read.
 Git operations run for real against local bare remotes — no gh, no network.
 """
+import json
 import subprocess
+import sys
 
 import pytest
 
@@ -139,3 +141,93 @@ def test_pytest_workflow_collects_per_test_results():
 def test_maven_workflow_collects_per_test_results():
     from s7_delivery.factory.ci_bootstrap import MAVEN_WORKFLOW
     assert "surefire-reports" in MAVEN_WORKFLOW
+
+
+def test_maven_workflow_parses_jacoco_coverage():
+    from s7_delivery.factory.ci_bootstrap import MAVEN_WORKFLOW
+    assert "target/site/jacoco/jacoco.xml" in MAVEN_WORKFLOW
+    assert 'type") == "LINE"' in MAVEN_WORKFLOW
+
+
+def test_pytest_workflow_parses_cobertura_coverage():
+    from s7_delivery.factory.ci_bootstrap import PYTEST_WORKFLOW
+    assert "coverage.xml" in PYTEST_WORKFLOW
+    assert "line-rate" in PYTEST_WORKFLOW
+
+
+def _extract_summarize_script(workflow: str) -> str:
+    """Pull the embedded `python3 - <<'PY' ... PY` body out of a workflow
+    template and de-indent it, so the actual summarize logic can be run and
+    verified directly rather than trusted from a string search."""
+    start = workflow.index("<<'PY'\n") + len("<<'PY'\n")
+    end = workflow.index("\n          PY", start)
+    body = workflow[start:end]
+    return "\n".join(
+        line[10:] if line.startswith(" " * 10) else line
+        for line in body.splitlines()
+    )
+
+
+def test_maven_summarize_script_computes_jacoco_line_coverage(tmp_path):
+    """The real embedded script, run against a real jacoco.xml: the report
+    root's own LINE counter (not a package/class one) drives coverage_pct."""
+    from s7_delivery.factory.ci_bootstrap import MAVEN_WORKFLOW
+
+    jacoco_dir = tmp_path / "target" / "site" / "jacoco"
+    jacoco_dir.mkdir(parents=True)
+    (jacoco_dir / "jacoco.xml").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<report name="demo">\n'
+        '  <package name="com/example">\n'
+        '    <class name="com/example/Foo">\n'
+        '      <counter type="LINE" missed="1" covered="9"/>\n'
+        "    </class>\n"
+        '    <counter type="LINE" missed="1" covered="9"/>\n'
+        "  </package>\n"
+        '  <counter type="INSTRUCTION" missed="10" covered="90"/>\n'
+        '  <counter type="LINE" missed="5" covered="35"/>\n'
+        "</report>\n"
+    )
+    script = _extract_summarize_script(MAVEN_WORKFLOW)
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True,
+                    capture_output=True, text=True)
+    summary = json.loads((tmp_path / "ci-summary.json").read_text())
+    # the report-root LINE counter (5 missed, 35 covered), not the nested
+    # package/class-level ones with the same type
+    assert summary["coverage_pct"] == 87.5
+
+
+def test_maven_summarize_script_leaves_coverage_none_without_jacoco(tmp_path):
+    from s7_delivery.factory.ci_bootstrap import MAVEN_WORKFLOW
+
+    script = _extract_summarize_script(MAVEN_WORKFLOW)
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True,
+                    capture_output=True, text=True)
+    summary = json.loads((tmp_path / "ci-summary.json").read_text())
+    assert summary["coverage_pct"] is None
+
+
+def test_pytest_summarize_script_computes_cobertura_line_coverage(tmp_path):
+    from s7_delivery.factory.ci_bootstrap import PYTEST_WORKFLOW
+
+    (tmp_path / "coverage.xml").write_text(
+        '<?xml version="1.0"?>\n'
+        '<coverage line-rate="0.875" branch-rate="0.5">\n'
+        "  <packages/>\n"
+        "</coverage>\n"
+    )
+    script = _extract_summarize_script(PYTEST_WORKFLOW)
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True,
+                    capture_output=True, text=True)
+    summary = json.loads((tmp_path / "ci-summary.json").read_text())
+    assert summary["coverage_pct"] == 87.5
+
+
+def test_pytest_summarize_script_leaves_coverage_none_without_report(tmp_path):
+    from s7_delivery.factory.ci_bootstrap import PYTEST_WORKFLOW
+
+    script = _extract_summarize_script(PYTEST_WORKFLOW)
+    subprocess.run([sys.executable, "-c", script], cwd=tmp_path, check=True,
+                    capture_output=True, text=True)
+    summary = json.loads((tmp_path / "ci-summary.json").read_text())
+    assert summary["coverage_pct"] is None

@@ -2398,6 +2398,7 @@ class Engine:
             # Review" can never unlock.
             if not git_ev.get("commit_count"):
                 continue
+            coverage_pct = ci.get("coverage_pct")
             for task in story_tasks:
                 if task.get("status") in _protected_statuses:
                     continue
@@ -2417,14 +2418,25 @@ class Engine:
                         "Real CI green — evidence complete, ready to submit "
                         "for review"
                     )
+                # Real line coverage (jacoco.xml / coverage.xml, parsed in
+                # the workflow itself) flows straight into the task's own
+                # coverage_pct — the same field QC-05 already reads — so the
+                # Final Gating coverage check sees genuine numbers instead
+                # of the None a live run produced before any tooling parsed
+                # a report. Never lowers a coverage figure already recorded.
+                new_coverage = task.get("coverage_pct")
+                if coverage_pct is not None:
+                    new_coverage = max(task.get("coverage_pct") or 0, coverage_pct)
                 if (
                     new_status != task.get("status")
                     or new_progress != task.get("progress_pct")
                     or new_activity != task.get("current_activity")
+                    or new_coverage != task.get("coverage_pct")
                 ):
                     task["status"] = new_status
                     task["progress_pct"] = new_progress
                     task["current_activity"] = new_activity
+                    task["coverage_pct"] = new_coverage
                     task["last_activity"] = now_iso()
                     tasks_changed = True
         if tasks_changed:
@@ -2516,6 +2528,7 @@ class Engine:
                 evidence["tests_total"] = summary.get("tests_total")
                 evidence["tests_passed"] = summary.get("tests_passed")
                 evidence["tests_failed"] = summary.get("tests_failed")
+                evidence["coverage_pct"] = summary.get("coverage_pct")
                 if summary.get("tests"):
                     evidence["tests"] = summary["tests"]
         return evidence

@@ -481,6 +481,66 @@ def test_git_evidence_sync_does_not_regress_a_task_already_submitted(
     assert task["current_activity"] == "Evidence submitted for independent review"
 
 
+def test_git_evidence_sync_writes_real_coverage_onto_task(
+    live_eng_with_github_repo, monkeypatch
+):
+    """Real line coverage parsed by the CI workflow (jacoco.xml / coverage.xml)
+    flows through ci_evidence into the task's own coverage_pct — the same
+    field Final Gating's QC-05 check reads — closing the gap where a live
+    run's coverage_pct was always None for lack of tooling."""
+    e = live_eng_with_github_repo
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 31, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/31",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 0, "tests_passed": 0,
+                                    "tests_failed": 0, "coverage_pct": 87.5},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["coverage_pct"] == 87.5
+
+    # QC-05 ("Code coverage", the Final Gating check this fix unblocks) sees
+    # real data instead of "no data"
+    story = {"story_id": "US-1", "acceptance_criteria": [], "traces_to": ["REQ-1"]}
+    row = next(c for c in e._compute_checks([story], [task], {})
+               if c["check_id"] == "QC-05")
+    assert row["status"] == "passed"
+    assert "87.5" in row["evidence"]
+
+
+def test_git_evidence_sync_never_lowers_an_existing_coverage_figure(
+    live_eng_with_github_repo, monkeypatch
+):
+    """`coverage_pct` only ever moves up via max(existing, value) — a later
+    sync with a lower reported figure (e.g. a partial re-run) must not erase
+    a genuinely higher coverage figure already recorded."""
+    e = live_eng_with_github_repo
+    tasks = e.store.read_json_or([], "build", "tasks.json")
+    tasks[0]["coverage_pct"] = 95.0
+    e.store.write_json(tasks, "build", "tasks.json")
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 32, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/32",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 0, "tests_passed": 0,
+                                    "tests_failed": 0, "coverage_pct": 60.0},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["coverage_pct"] == 95.0
+
+
 def test_red_baseline_from_publication_commit(live_eng_with_github_repo, monkeypatch):
     eng = live_eng_with_github_repo
     eng.store.append(
