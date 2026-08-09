@@ -674,6 +674,13 @@ def post_delivery_packs_publish_all(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/delivery-packs/{pack_id}/approve-test-plan")
+def post_test_plan_approve(run_id: str, pack_id: str, body: AcceptBody) -> dict:
+    eng = _engine(run_id)
+    eng.test_plan_approve(_role(body.role), pack_id, body.approver)
+    return eng.state()
+
+
 class DeveloperBody(BaseModel):
     role: str
     developer: str

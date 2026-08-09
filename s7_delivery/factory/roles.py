@@ -48,6 +48,9 @@ PERMISSIONS: dict[str, set[Role]] = {
     "revise_architecture": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "accept_architecture": {Role.ENGINEERING_LEAD},
     "generate_delivery_packs": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
+    # QA approves the AC test plan; the service that generated it never
+    # approves its own tests — same separation as architecture acceptance.
+    "approve_test_plan": {Role.QA_LEAD},
     "publish_delivery_pack": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "assign_developer": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "sync_git_evidence": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},

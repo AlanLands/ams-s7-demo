@@ -14,8 +14,9 @@ from fastapi.testclient import TestClient
 import s7_delivery.factory.store as store_module
 from apps.control.server import app
 from s7_delivery.factory.build_phases import PhaseError
-from s7_delivery.factory.engine import Engine
+from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
+from s7_delivery.factory.roles import PermissionError_
 
 
 @pytest.fixture
@@ -381,3 +382,39 @@ def test_new_pack_test_plan_starts_generated(eng):
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
     packs = eng.state()["build"]["delivery_packs"]
     assert packs and all(p["test_plan_status"] == "generated" for p in packs)
+
+
+def test_qa_approves_test_plan(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack_id = eng.state()["build"]["delivery_packs"][0]["delivery_pack_id"]
+    eng.test_plan_approve(Role.QA_LEAD, pack_id, "R. Osei")
+    pack = next(p for p in eng.state()["build"]["delivery_packs"]
+                if p["delivery_pack_id"] == pack_id)
+    assert pack["test_plan_status"] == "approved"
+    assert pack["test_plan_approved_by"] == "R. Osei"
+    assert pack["test_plan_approved_at"]
+
+
+def test_only_qa_lead_approves_test_plan(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack_id = eng.state()["build"]["delivery_packs"][0]["delivery_pack_id"]
+    with pytest.raises(PermissionError_):
+        eng.test_plan_approve(Role.ENGINEERING_LEAD, pack_id)
+
+
+def test_double_approval_rejected(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack_id = eng.state()["build"]["delivery_packs"][0]["delivery_pack_id"]
+    eng.test_plan_approve(Role.QA_LEAD, pack_id)
+    with pytest.raises(EngineError, match="already approved"):
+        eng.test_plan_approve(Role.QA_LEAD, pack_id)
+
+
+def test_approve_unknown_pack_rejected(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    with pytest.raises(EngineError, match="Unknown delivery pack"):
+        eng.test_plan_approve(Role.QA_LEAD, "PACK-nope")

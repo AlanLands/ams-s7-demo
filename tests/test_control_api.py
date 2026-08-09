@@ -491,3 +491,24 @@ def test_workspace_assignment_requires_permitted_role(client, signed_run):
         json={"role": "business_owner", "developer": "X"},
     )
     assert res.status_code == 403
+
+
+def test_approve_test_plan_route(client, signed_run):
+    run_id = signed_run
+    client.post(f"/api/runs/{run_id}/architecture/generate", json={"role": "engineering_lead"})
+    client.post(
+        f"/api/runs/{run_id}/architecture/accept",
+        json={"role": "engineering_lead", "approver": "Sam Whitfield"},
+    )
+    state = client.post(
+        f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"}
+    ).json()
+    pack_id = state["build"]["delivery_packs"][0]["delivery_pack_id"]
+    r = client.post(
+        f"/api/runs/{run_id}/delivery-packs/{pack_id}/approve-test-plan",
+        json={"role": "qa_lead", "approver": "R. Osei"},
+    )
+    assert r.status_code == 200
+    pack = next(p for p in r.json()["build"]["delivery_packs"]
+                if p["delivery_pack_id"] == pack_id)
+    assert pack["test_plan_status"] == "approved"

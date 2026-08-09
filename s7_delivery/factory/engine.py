@@ -2016,6 +2016,47 @@ class Engine:
             details=f"{len(packs)} team packs over {len(stories)} stories",
         )
 
+    def test_plan_approve(self, role: Role, pack_id: str, approver: str = "") -> None:
+        """Human checkpoint on the AC-derived test skeletons: QA approves a
+        pack's test plan before it may publish. The generator (the service)
+        never approves its own tests."""
+        roles.require("approve_test_plan", role)
+        phase = self._build_phase()
+        build_phases.require_at_least(
+            phase, BuildReviewPhase.DELIVERY_PACKS_READY, "Test plan approval"
+        )
+        packs = self._packs()
+        pack = next((p for p in packs if p["delivery_pack_id"] == pack_id), None)
+        if pack is None:
+            raise EngineError(f"Unknown delivery pack {pack_id}")
+        if pack["test_plan_status"] == "approved":
+            raise EngineError(
+                f"{pack_id} v{pack['version']} test plan is already approved"
+            )
+        who = approver.strip() or role.value
+        pack["test_plan_status"] = "approved"
+        pack["test_plan_approved_by"] = who
+        pack["test_plan_approved_at"] = now_iso()
+        self._save_packs(packs)
+        approvals = self.store.read_ledger("approvals.jsonl")
+        self.store.append(
+            Approval(
+                approval_id=f"APR-{len(approvals) + 1:03d}",
+                subject=f"test-plan:{pack_id}",
+                role=role,
+                approver=who,
+                decision="approved",
+                note=f"AC test plan for {pack['team']} pack v{pack['version']}",
+            ),
+            "approvals.jsonl",
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=who, actor_type="human",
+            workflow="test-plan-approval", artifact=pack_id, outcome="passed",
+            details=f"Test plan for {pack['team']} pack v{pack['version']}"
+                    " approved; publication enabled",
+        )
+
     def _assignments(self) -> dict[str, str]:
         """story_id → developer, from provisioned workspaces. Assignment is
         human state that must survive pack regeneration."""
