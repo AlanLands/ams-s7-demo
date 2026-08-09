@@ -1556,3 +1556,18 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .dw-drawer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
 .dw-drawer-actions button { justify-content: center; display: inline-flex; align-items: center; white-space: nowrap; }
 .dw-drawer .drawer-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+/* Workspaces table fits the viewport — fixed layout, truncating cells, no
+ * horizontal scroll. Full values live in the drawer / title tooltips. */
+.dw-table { table-layout: fixed; width: 100%; }
+.dw-table th, .dw-table td { overflow: hidden; }
+.dw-table .mono, .dw-table .repo-cell { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-table .repo-cell { display: flex; min-width: 0; }
+.dw-table .repo-cell .mono { flex: 1; min-width: 0; }
+.dw-table td { padding: 6px 8px; }
+.dw-table .dp-team b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dw-table .badge { white-space: nowrap; }
+.dw-table .badge { font-size: 9.5px; padding: 2px 6px; letter-spacing: 0; }
+.dw-table .cell-status { font-size: 10.5px; }
+.dw-table .dp-actions { gap: 3px; }
+.dw-table .icon-btn { padding: 2px 5px; }
+.dw-table .dp-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

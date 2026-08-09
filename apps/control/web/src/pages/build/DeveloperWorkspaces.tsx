@@ -560,7 +560,13 @@ export function DeveloperWorkspaces() {
 
       <div className="card">
         <div className="table-wrap">
-          <table className="dp-table">
+          <table className="dp-table dw-table">
+            <colgroup>
+              <col style={{ width: '10%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11%' }} />
+              <col style={{ width: '12%' }} /><col style={{ width: '10%' }} /><col style={{ width: '10%' }} />
+              <col style={{ width: '7%' }} /><col style={{ width: '7%' }} /><col style={{ width: '7%' }} />
+              <col style={{ width: '10%' }} /><col style={{ width: '8%' }} />
+            </colgroup>
             <thead>
               <tr>
                 <th>Team</th><th>Story / Task</th><th>Repository</th><th>Branch</th><th>Developer</th>
@@ -584,9 +590,8 @@ export function DeveloperWorkspaces() {
                         <b>{ws.team}</b>
                       </span>
                     </td>
-                    <td>
+                    <td title={story?.title ?? ''}>
                       <b className="mono">{ws.story_id}</b>
-                      <span className="hint dp-sub clamp-2">{story?.title ?? ''}</span>
                       {ws.task_id ? <span className="hint dp-sub mono">{ws.task_id}</span> : null}
                     </td>
                     <td><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span></td>
