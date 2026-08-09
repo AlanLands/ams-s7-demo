@@ -444,6 +444,26 @@ export type BuildReviewPhase =
   | 'developer_execution'
   | 'build_complete'
 
+export interface ArchCheck {
+  check_id: string
+  label: string
+  result: 'passed' | 'warning' | 'failed'
+  detail: string
+  mandatory: boolean
+}
+
+export interface ArchLandscapeNode {
+  application: string
+  layer: 'client' | 'core' | 'data' | 'external'
+  repository: string
+  teams: string[]
+}
+
+export interface ArchLandscape {
+  nodes: ArchLandscapeNode[]
+  edges: { from_app: string; to_app: string; kind: 'sync' | 'data' }[]
+}
+
 export interface ArchitectureMeta {
   artifact_id: string
   version: number
@@ -455,6 +475,11 @@ export interface ArchitectureMeta {
   revision_note: string
   files: string[]
   provenance: Provenance
+  plan_version: number
+  content_hash: string
+  file_sizes: Record<string, number>
+  validations: ArchCheck[]
+  landscape: ArchLandscape
 }
 
 export interface DeliveryPack {
