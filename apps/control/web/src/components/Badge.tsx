@@ -1,6 +1,6 @@
-export function Badge({ status }: { status?: string }) {
-  const label = String(status ?? 'not_started')
-  return <span className={`badge st-${label}`}>{label.replaceAll('_', ' ')}</span>
+export function Badge({ status, label }: { status?: string; label?: string }) {
+  const st = String(status ?? 'not_started')
+  return <span className={`badge st-${st}`}>{label ?? st.replaceAll('_', ' ')}</span>
 }
 
 export function Prov({ provenance }: { provenance?: string }) {

@@ -3,13 +3,13 @@
 // local copy in RoutingByTeam.tsx) rather than promoted to `components/` —
 // no shared team-chip component exists yet and this page shouldn't be the one
 // to invent it while sibling planning pages are still mid-port.
-export function TeamChip({ name }: { name?: string }) {
+export function TeamChip({ name, compact }: { name?: string; compact?: boolean }) {
   if (!name) return <span>—</span>
   const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
   return (
-    <span className="team-chip">
+    <span className="team-chip" title={compact ? name : undefined}>
       <span className="avatar">{initials}</span>
-      {name}
+      {compact ? null : name}
     </span>
   )
 }

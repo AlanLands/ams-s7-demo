@@ -1,21 +1,35 @@
+import type { ReactNode } from 'react'
+import {
+  Boxes, Building2, CircleAlert, CircleCheck, CircleDashed, CircleDot,
+  FileText, FlaskConical, GitCommitHorizontal, Github, Hammer, LoaderCircle,
+  MessageSquareText, Package, ShieldCheck,
+} from 'lucide-react'
 import { useRun } from '../../state/RunContext'
 import { Badge } from '../../components/Badge'
+import { StatCard } from '../../components/StatCard'
 import { TeamChip } from '../planning/TeamChip'
 import {
+  activityTeam,
+  blockerSeverity,
   buildOf,
-  PHASE_ORDER,
-  PHASE_LABELS,
-  GuidanceCard,
   CONTROL_PLANE_GUIDANCE,
-  OwnershipChips,
+  gitIntegrationState,
+  GuidanceCard,
   hhmm,
+  OwnershipChips,
+  PHASE_LABELS,
+  PHASE_ORDER,
   selectStory,
+  teamDependencyCount,
+  teamRisk,
 } from './buildHelpers'
 import type { BuildSummaryRow } from '../../types'
 
-// Build & Review landing page. S7 is the governed control plane: this page
-// aggregates delivery evidence per team — it never pretends to be an IDE or
-// to show live git. All progress states derive from the engine's summary.
+// Build & Review landing page — the control tower for post-planning
+// execution. S7 is the governed control plane: this page aggregates delivery
+// evidence per team — it never pretends to be an IDE or to show live git.
+// All progress states derive from the engine's summary; the risk/severity
+// chips are stated rules in buildHelpers, not stored (or invented) data.
 
 interface TeamGroup {
   team: string
@@ -44,7 +58,7 @@ function testWorst(rows: BuildSummaryRow[]): string {
   if (rows.some((r) => r.testing === 'failing')) return 'failed'
   const total = rows.reduce((n, r) => n + r.tests_total, 0)
   if (total > 0 && rows.every((r) => r.testing === 'passed')) return 'passed'
-  if (total > 0) return 'in_progress'
+  if (total > 0) return 'running'
   return 'not_started'
 }
 
@@ -54,11 +68,21 @@ function reviewWorst(rows: BuildSummaryRow[]): string {
   return 'waiting_for_approval'
 }
 
-function overallWorst(rows: BuildSummaryRow[]): string {
-  if (rows.some((r) => r.overall === 'blocked')) return 'blocked'
-  if (rows.every((r) => r.overall === 'complete' || r.overall === 'ready_for_quality')) return 'ready'
-  if (rows.some((r) => r.overall !== 'not_started')) return 'in_progress'
-  return 'not_started'
+/** Icon + word for a table status cell, mockup-style. */
+function StatusCell({ status }: { status: string }) {
+  const MAP: Record<string, { cls: string; icon: ReactNode; word: string }> = {
+    completed: { cls: 'cs-ok', icon: <CircleCheck />, word: 'Complete' },
+    passed: { cls: 'cs-ok', icon: <CircleCheck />, word: 'Passed' },
+    ready: { cls: 'cs-ok', icon: <CircleCheck />, word: 'Ready' },
+    in_progress: { cls: 'cs-warn', icon: <LoaderCircle />, word: 'In Progress' },
+    running: { cls: 'cs-run', icon: <LoaderCircle />, word: 'Running' },
+    waiting_for_approval: { cls: 'cs-idle', icon: <CircleDashed />, word: 'Pending' },
+    not_started: { cls: 'cs-idle', icon: <CircleDashed />, word: 'Waiting' },
+    failed: { cls: 'cs-bad', icon: <CircleAlert />, word: 'Failing' },
+    blocked: { cls: 'cs-bad', icon: <CircleAlert />, word: 'Blocked' },
+  }
+  const m = MAP[status] ?? { cls: 'cs-idle', icon: <CircleDot />, word: status }
+  return <span className={`cell-status ${m.cls}`}>{m.icon}{m.word}</span>
 }
 
 export function BuildOverview() {
@@ -69,14 +93,26 @@ export function BuildOverview() {
   const summary = build.summary
   const workspaces = build.workspaces ?? []
   const packs = build.delivery_packs ?? []
+  const pubs = build.publications ?? []
   const phase = build.phase ?? null
   const totals = summary?.totals
   const blockers = summary?.blockers ?? []
-  const teams = groupByTeam(summary?.stories ?? [])
+  const rows = summary?.stories ?? []
+  const teams = groupByTeam(rows)
+  const planStories = data.planning?.stories ?? []
   const arch = build.architecture
   const published = packs.filter((p) => p.publication_status === 'published').length
   const phaseIdx = phase ? PHASE_ORDER.indexOf(phase) : -1
   const activity = (data.activity ?? []).filter((a) => a.stage === 'build_review').slice(-6).reverse()
+  const teamNames = teams.map((t) => t.team)
+  const git = gitIntegrationState(pubs)
+  const qualityReady = (build.quality_handoff ?? []).filter((q) => q.ready).length
+
+  const total = totals?.total ?? 0
+  const pct = (n: number) => (total > 0 ? `${Math.round((n / total) * 100)}% of stories` : '0%')
+  const testingCount = rows.filter((r) => r.tests_total > 0).length
+  const reviewedCount = rows.filter((r) => r.review === 'passed').length
+  const wsReady = workspaces.length > 0 && workspaces.every((w) => w.artifact_status === 'current')
 
   // Honest next action, derived from state — never a decorative button.
   let nextAction: { label: string; go: () => void }
@@ -92,8 +128,6 @@ export function BuildOverview() {
   } else nextAction = { label: 'Proceed to Quality', go: () => goTo('quality') }
 
   const repoOf = (team: string) => packs.find((p) => p.team === team)?.repository ?? '—'
-  const completeCount = (rows: BuildSummaryRow[], pred: (r: BuildSummaryRow) => boolean) =>
-    `${rows.filter(pred).length}/${rows.length} complete`
 
   return (
     <section className="page-with-rail">
@@ -101,7 +135,7 @@ export function BuildOverview() {
         <div className="page-head" style={{ marginBottom: '14px' }}>
           <h2>Build &amp; Review — Overview</h2>
           <span className="hint">
-            Track delivery across teams, stories and gates. S7 prepares and governs; developers execute in their own workspaces.
+            Real-time view of delivery execution across teams and quality gates. S7 governs; developers execute in their own workspaces.
           </span>
           <OwnershipChips />
         </div>
@@ -128,118 +162,92 @@ export function BuildOverview() {
           )}
         </div>
 
-        <div className="tiles">
-          <div className="tile">
-            <div className="v">{String(workspaces.length)}</div>
-            <div className="l">Workspaces · provisioned</div>
-          </div>
-          <div className="tile">
-            <div className="v">{String(totals?.total ?? 0)}</div>
-            <div className="l">Stories</div>
-          </div>
-          <div className="tile t-amber">
-            <div className="v">{String(totals?.in_progress ?? 0)}</div>
-            <div className="l">In Progress</div>
-          </div>
-          <div className="tile t-red">
-            <div className="v">{String(totals?.blocked ?? 0)}</div>
-            <div className="l">Blocked</div>
-          </div>
-          <div className="tile t-green">
-            <div className="v">{String(totals?.ready_for_quality ?? 0)}</div>
-            <div className="l">Ready for Quality</div>
-          </div>
-          <div className="tile">
-            <div className="v">{`${totals?.tests_passed ?? 0}/${totals?.tests_total ?? 0}`}</div>
-            <div className="l">Tests</div>
-          </div>
+        <div className="stat-row">
+          <StatCard accent="green" icon={<Boxes />} value={String(workspaces.length)} label="Workspaces" sub={wsReady ? 'Ready' : workspaces.length ? 'Provisioning' : '—'} />
+          <StatCard accent="blue" icon={<FileText />} value={String(total)} label="Stories" sub="Total" />
+          <StatCard accent="orange" icon={<Hammer />} value={String(totals?.in_progress ?? 0)} label="In Development" sub={pct(totals?.in_progress ?? 0)} />
+          <StatCard accent="purple" icon={<FlaskConical />} value={String(testingCount)} label="Testing" sub={pct(testingCount)} />
+          <StatCard accent="violet" icon={<MessageSquareText />} value={String(reviewedCount)} label="In Review" sub={pct(reviewedCount)} />
+          <StatCard accent="red" icon={<CircleAlert />} value={String(totals?.blocked ?? 0)} label="Blocked" sub={pct(totals?.blocked ?? 0)} />
         </div>
 
         <div className="card">
-          <div className="card-head">
-            <h3>Delivery Progress by Team</h3>
-          </div>
+          <div className="card-head"><h3>Delivery Progress by Team</h3></div>
           {teams.length === 0 ? (
             <p className="hint">No stories in the build yet — teams appear once delivery packs are generated.</p>
           ) : (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Team</th>
-                    <th>Stories</th>
-                    <th>Workspace</th>
-                    <th>Development</th>
-                    <th>Testing</th>
-                    <th>Review</th>
-                    <th>Status</th>
-                    <th>Dependencies</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {teams.map((g) => {
-                    const blockedIds = g.rows.filter((r) => r.overall === 'blocked').map((r) => r.story_id)
-                    const testsPassed = g.rows.reduce((n, r) => n + r.tests_passed, 0)
-                    const testsTotal = g.rows.reduce((n, r) => n + r.tests_total, 0)
-                    return (
+            <>
+              <div className="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Team</th>
+                      <th>Stories</th>
+                      <th>Workspace / Repo</th>
+                      <th>Development</th>
+                      <th>Testing</th>
+                      <th>Review</th>
+                      <th>Status</th>
+                      <th>Dependencies</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {teams.map((g) => (
                       <tr key={g.team}>
                         <td><TeamChip name={g.team} /></td>
                         <td>{String(g.rows.length)}</td>
-                        <td className="mono">{repoOf(g.team)}</td>
+                        <td><span className="repo-cell"><Github /><span className="mono">{repoOf(g.team)}</span></span></td>
+                        <td><StatusCell status={devWorst(g.rows)} /></td>
+                        <td><StatusCell status={testWorst(g.rows)} /></td>
+                        <td><StatusCell status={reviewWorst(g.rows)} /></td>
                         <td>
-                          <span className="hint">{completeCount(g.rows, (r) => r.development === 'complete')}</span>{' '}
-                          <Badge status={devWorst(g.rows)} />
+                          <span className={`risk-chip ${teamRisk(g.rows)}`}>
+                            {teamRisk(g.rows) === 'at_risk' ? 'At Risk' : 'On Track'}
+                          </span>
                         </td>
-                        <td>
-                          <span className="hint">{`${testsPassed}/${testsTotal} passed`}</span>{' '}
-                          <Badge status={testWorst(g.rows)} />
-                        </td>
-                        <td>
-                          <span className="hint">{completeCount(g.rows, (r) => r.review === 'passed')}</span>{' '}
-                          <Badge status={reviewWorst(g.rows)} />
-                        </td>
-                        <td><Badge status={overallWorst(g.rows)} /></td>
-                        <td>
-                          {blockedIds.length ? (
-                            <span className="mono" style={{ color: 'var(--red)' }}>{blockedIds.join(', ')}</span>
-                          ) : '—'}
-                        </td>
+                        <td>{String(teamDependencyCount(g.team, planStories))}</td>
                       </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="table-foot">
+                <button type="button" className="table-foot-link" onClick={() => goTo('build_summary')}>View all teams →</button>
+              </div>
+            </>
           )}
         </div>
 
-        <div className="grid cols-3" style={{ marginTop: '14px' }}>
-          <div className="card">
-            <h3>▤ Architecture</h3>
-            {arch ? (
-              <p>
-                <span className="mono">{`v${arch.version}`}</span>{' '}
-                <Badge status={arch.status} />
-              </p>
-            ) : (
-              <p className="hint">Not generated yet.</p>
-            )}
-            <button type="button" className="outline" onClick={() => goTo('architecture')}>View</button>
-          </div>
-          <div className="card">
-            <h3>▣ Delivery Packs</h3>
-            <p>{packs.length ? `${published} published / ${packs.length} total` : 'None generated yet.'}</p>
-            <button type="button" className="outline" onClick={() => goTo('delivery_packs')}>View</button>
-          </div>
-          <div className="card">
-            <h3>▥ Build Summary</h3>
-            <p>
-              {totals
-                ? `${totals.complete}/${totals.total} complete · ${totals.blocked} blocked · ${totals.ready_for_quality} ready for quality`
-                : 'No summary yet.'}
-            </p>
-            <button type="button" className="outline" onClick={() => goTo('build_summary')}>View</button>
-          </div>
+        <div className="readiness-row">
+          <button type="button" className="readiness-card" onClick={() => goTo('architecture')}>
+            <div className="ic sc-blue-ic"><Building2 /></div>
+            <h4>Architecture Status</h4>
+            <div className="m">{arch ? <Badge status={arch.status} /> : <span className="hint">Not generated</span>}</div>
+            <div className="s">{arch ? `v${arch.version}.0` : '—'}</div>
+          </button>
+          <button type="button" className="readiness-card" onClick={() => goTo('delivery_packs')}>
+            <div className="ic"><Github /></div>
+            <h4>Git Integration</h4>
+            <div className="m">
+              <Badge
+                status={git.state === 'connected' ? 'completed' : git.state === 'simulated' ? 'planned' : 'not_started'}
+                label={git.label}
+              />
+            </div>
+            <div className="s">{git.sub}</div>
+          </button>
+          <button type="button" className="readiness-card" onClick={() => goTo('delivery_packs')}>
+            <div className="ic sc-orange-ic"><Package /></div>
+            <h4>Delivery Packs</h4>
+            <div className="m">{packs.length ? `${published} / ${packs.length}` : '—'}</div>
+            <div className="s">{packs.length && published === packs.length ? 'Ready' : packs.length ? 'Publishing' : 'None generated yet'}</div>
+          </button>
+          <button type="button" className="readiness-card" onClick={() => goTo('quality')}>
+            <div className="ic sc-green-ic"><ShieldCheck /></div>
+            <h4>Quality Ready</h4>
+            <div className="m">{String(qualityReady)}</div>
+            <div className="s">Stories</div>
+          </button>
         </div>
       </div>
 
@@ -249,44 +257,55 @@ export function BuildOverview() {
           {activity.length === 0 ? (
             <p className="hint">No build activity yet.</p>
           ) : (
-            <ul className="checklist">
-              {activity.map((a, i) => (
-                <li key={`${a.timestamp}-${i}`}>
-                  <span className="mono hint" style={{ marginRight: '6px' }}>{hhmm(a.timestamp)}</span>
-                  <span className="clamp-2">
-                    {[a.outcome, a.artifact, a.details].filter(Boolean).join(' · ')}
-                  </span>
-                </li>
-              ))}
+            <ul className="plain">
+              {activity.map((a, i) => {
+                const team = activityTeam(a, teamNames)
+                return (
+                  <li key={`${a.timestamp}-${i}`} className="act-row" style={{ marginBottom: '8px' }}>
+                    <span className="t">{hhmm(a.timestamp)}</span>
+                    <GitCommitHorizontal />
+                    <span className="x clamp-2">
+                      {[a.outcome, a.artifact, a.details].filter(Boolean).join(' · ')}
+                    </span>
+                    {team ? <TeamChip name={team} compact /> : null}
+                  </li>
+                )
+              })}
             </ul>
           )}
+          <button type="button" className="rail-link" onClick={() => goTo('activity')}>View all activity</button>
         </div>
 
         <div className="card rail-card">
-          <h3>Blocked Items</h3>
+          <h3>Top Blockers</h3>
           {blockers.length === 0 ? (
             <p className="hint">Nothing is blocked.</p>
           ) : (
-            <ul className="checklist">
-              {blockers.map((b) => (
-                <li key={b.story_id}>
-                  <div>
-                    <b className="mono">{b.story_id}</b>{' '}
-                    <span className="hint">{`${b.team} — ${b.reason}`}</span>
-                    <div>
+            <ul className="plain">
+              {blockers.slice(0, 3).map((b) => {
+                const row = rows.find((r) => r.story_id === b.story_id)
+                const sev = blockerSeverity(b.reason, row)
+                return (
+                  <li key={b.story_id} style={{ marginBottom: '10px' }}>
+                    <div className="actions-row" style={{ justifyContent: 'space-between' }}>
                       <button
                         type="button"
-                        className="link-btn"
+                        className="link-btn mono"
                         onClick={() => { selectStory(b.story_id); goTo('independent_review') }}
                       >
-                        Open in Independent Review
+                        {b.story_id}
                       </button>
+                      <span className={`sev-chip ${sev}`}>
+                        {sev === 'critical' ? 'Critical' : sev === 'high' ? 'High' : 'Medium'}
+                      </span>
                     </div>
-                  </div>
-                </li>
-              ))}
+                    <div className="hint clamp-2">{`${b.team} — ${b.reason}`}</div>
+                  </li>
+                )
+              })}
             </ul>
           )}
+          <button type="button" className="rail-link" onClick={() => goTo('independent_review')}>View all blockers</button>
         </div>
 
         <div className="card rail-card">
