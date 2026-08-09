@@ -142,8 +142,13 @@ export function TestEvidence() {
 
   const taskActivity = (data.activity ?? []).filter((a) => a.artifact === task.task_id)
   const at = (wf: string) => taskActivity.find((a) => a.workflow === wf)?.timestamp
+  const rb = ws?.red_baseline
+  const redTs = rb?.checked_at ?? at('test-first')
+  const redSub = rb
+    ? `${rb.tests_failed ?? '?'} failing on branch — real CI baseline`
+    : `${initialFailures} failures expected`
   const timelineSteps: Array<[string, string, string | undefined, string]> = [
-    ['red', 'Red', at('test-first'), `${initialFailures} failures expected`],
+    ['red', 'Red', redTs, redSub],
     ['code', 'Code', at('development'), 'Developer implements'],
     ['green', 'Green', at('developer-verification'), `${passes}/${tests.length} passing`],
   ]
@@ -375,7 +380,7 @@ export function TestEvidence() {
                 {ws?.ci_evidence ? `Run #${ws.ci_evidence.run_id}` : task.task_id.replace('TASK', 'BUILD')}
               </span>
               <b>CI System</b><span>
-                {ws?.ci_evidence
+                {(ws?.ci_evidence || ws?.red_baseline)
                   ? <>GitHub Actions <Prov provenance="human" /></>
                   : <>Simulated CI <Prov provenance="simulated" /></>}
               </span>
@@ -467,7 +472,9 @@ export function TestEvidence() {
                   {i > 0 ? <span className="rcg-line" /> : null}
                   <div className={`rcg-node ${cls} ${ts ? '' : 'pending'}`}>
                     <span className="rcg-dot" />
-                    <b>{label}</b>
+                    {cls === 'red' && rb?.url
+                      ? <a href={rb.url} target="_blank" rel="noopener noreferrer"><b>{label}</b></a>
+                      : <b>{label}</b>}
                     <span className="mono hint">{ts ? hhmm(ts) : 'pending'}</span>
                     <span className="hint">{note}</span>
                   </div>

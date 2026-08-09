@@ -549,6 +549,17 @@ export interface DeveloperWorkspace {
   ci_tests_total?: number | null
   ci_tests_passed?: number | null
   ci_tests_failed?: number | null
+  red_baseline?: {
+    run_id?: number
+    status?: string
+    conclusion?: string
+    url?: string
+    checked_at?: string
+    tests_total?: number
+    tests_passed?: number
+    tests_failed?: number
+    tests?: unknown
+  } | null
   last_sync_at: string
   provenance: Provenance
   // derived at state assembly from the story's task
