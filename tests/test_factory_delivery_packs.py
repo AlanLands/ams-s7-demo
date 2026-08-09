@@ -246,6 +246,8 @@ def test_assignment_refreshes_pack_and_travels_with_publication(eng):
     # the branch still carries v1 (development continues); v2 is pending
     assert refreshed["publication_status"] == "published"
     assert refreshed["published_version"] == pack["version"]
+    # assignment is human metadata, not test-plan content — approval survives
+    assert refreshed["test_plan_status"] == "approved"
     stored = eng.store.read_json("build", "packs", slug, "assigned-stories.json")
     row = next(s for s in stored["stories"] if s["story_id"] == sid)
     assert row["assigned_to"] == "Alex Morgan"
@@ -254,8 +256,8 @@ def test_assignment_refreshes_pack_and_travels_with_publication(eng):
     # metadata-only amendment: nothing downstream becomes stale
     assert eng.store.read_json_or([], "staleness.json") == []
 
-    # explicit republish is allowed again and the git file plan carries it
-    eng.test_plan_approve(Role.QA_LEAD, pid)
+    # explicit republish is allowed again (no re-approval needed) and the
+    # git file plan carries it
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     republished = next(
         p for p in eng.state()["build"]["delivery_packs"]
@@ -453,3 +455,26 @@ def test_regeneration_resets_test_plan_approval(eng):
     assert pack["test_plan_status"] == "generated", "re-approval required"
     with pytest.raises(EngineError, match="test plan is not approved"):
         eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)
+
+
+def test_assignment_only_regeneration_preserves_approval(eng):
+    """Assigning a developer is human metadata, not test-plan content — it
+    must not force a pointless re-approval the way an explicit content
+    regeneration (delivery_packs_generate) correctly does."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    pack_id = pack["delivery_pack_id"]
+    eng.test_plan_approve(Role.QA_LEAD, pack_id)
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)  # provisions workspaces
+    sid = pack["story_ids"][0]
+    eng.workspace_assign_developer(Role.DELIVERY_LEAD, f"WS-{sid}", "Alex Morgan")
+    refreshed = next(
+        p for p in eng.state()["build"]["delivery_packs"]
+        if p["delivery_pack_id"] == pack_id
+    )
+    assert refreshed["version"] == pack["version"] + 1
+    assert refreshed["test_plan_status"] == "approved"
+    assert refreshed["test_plan_approved_by"]
+    assert refreshed["test_plan_approved_at"]
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)  # no re-approval needed

@@ -22,6 +22,8 @@ def eng(tmp_path):
     e.architecture_generate(Role.ENGINEERING_LEAD)
     e.architecture_accept(Role.ENGINEERING_LEAD, "Sam Whitfield")
     e.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    for p in e.state()["build"]["delivery_packs"]:
+        e.test_plan_approve(Role.QA_LEAD, p["delivery_pack_id"])
     e.delivery_packs_publish_all(Role.DELIVERY_LEAD)
     return e
 

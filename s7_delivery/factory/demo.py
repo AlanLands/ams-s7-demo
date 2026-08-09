@@ -32,6 +32,11 @@ def _intake_and_plan(eng: Engine) -> None:
     eng.architecture_generate(Role.ENGINEERING_LEAD)
     eng.architecture_accept(Role.ENGINEERING_LEAD, "A. Osei")
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    # Publication is gated on QA sign-off of the AC-derived test plan; a
+    # scripted demo run plays the QA Lead's approval the same as a presenter
+    # clicking it would.
+    for pack in eng.state()["build"]["delivery_packs"]:
+        eng.test_plan_approve(Role.QA_LEAD, pack["delivery_pack_id"], "R. Osei")
     eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
     for ws in eng.state()["build"]["workspaces"]:
         developer = _DEVELOPERS.get(ws["team"])

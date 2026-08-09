@@ -2582,6 +2582,21 @@ class Engine:
         pack["publication_status"] = old["publication_status"]
         pack["published_version"] = old.get("published_version", 0)
         pack["published_at"] = old.get("published_at", "")
+        # Assignment is human metadata (who is on the story), never test-plan
+        # content — it doesn't touch acceptance criteria or the rendered test
+        # skeletons. So unlike a real content regeneration (which always
+        # resets test_plan_status to force re-approval), carry the QA
+        # approval forward here as long as nothing the test plan actually
+        # covers moved: same stories, same plan, same architecture.
+        if (
+            old.get("test_plan_status") == "approved"
+            and old.get("story_ids") == pack.get("story_ids")
+            and old.get("plan_version") == pack.get("plan_version")
+            and old.get("architecture_version") == pack.get("architecture_version")
+        ):
+            pack["test_plan_status"] = old["test_plan_status"]
+            pack["test_plan_approved_by"] = old.get("test_plan_approved_by", "")
+            pack["test_plan_approved_at"] = old.get("test_plan_approved_at", "")
         packs[idx] = pack
         self._save_packs(packs)
         self._activity(

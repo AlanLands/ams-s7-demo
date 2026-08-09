@@ -26,11 +26,22 @@ def eng(tmp_path):
     e.architecture_generate(Role.ENGINEERING_LEAD)
     e.architecture_accept(Role.ENGINEERING_LEAD, "Sam Whitfield")
     e.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    approve_all(e)
     return e
 
 
 def first_pack(e: Engine) -> dict:
     return e.state()["build"]["delivery_packs"][0]
+
+
+def approve_all(e: Engine) -> Engine:
+    """QA-approve every current pack's test plan — publishing is gated on it.
+    A fresh `delivery_packs_generate` call resets the flag per pack, so tests
+    that regenerate mid-test call this again for whichever packs they intend
+    to publish next."""
+    for p in e.state()["build"]["delivery_packs"]:
+        e.test_plan_approve(Role.QA_LEAD, p["delivery_pack_id"])
+    return e
 
 
 # --- simulation mode --------------------------------------------------------
@@ -79,6 +90,7 @@ def test_double_publish_refused_but_new_version_republishable(eng):
         eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     # regeneration produces v2 (not_published) which can be published again
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    approve_all(eng)
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     ledger = eng.state()["build"]["publications"]
     assert [p["publication_id"] for p in ledger] == ["PUB-001", "PUB-002"]
@@ -136,6 +148,7 @@ def test_developer_assignment_survives_republication(eng):
     ws_id = f"WS-{pack['story_ids'][0]}"
     eng.workspace_assign_developer(Role.DELIVERY_LEAD, ws_id, "Priya Raman")
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    approve_all(eng)
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     ws = next(
         w for w in eng.state()["build"]["workspaces"]

@@ -441,7 +441,15 @@ def test_full_build_review_flow_over_http(client, signed_run):
         f"/api/runs/{run_id}/architecture/accept",
         json={"role": "engineering_lead", "approver": "Sam Whitfield"},
     )
-    client.post(f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"})
+    gen_state = client.post(
+        f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"}
+    ).json()
+    for pack in gen_state["build"]["delivery_packs"]:
+        res = client.post(
+            f"/api/runs/{run_id}/delivery-packs/{pack['delivery_pack_id']}/approve-test-plan",
+            json={"role": "qa_lead", "approver": "R. Osei"},
+        )
+        assert res.status_code == 200
     state = client.post(
         f"/api/runs/{run_id}/delivery-packs/publish-all", json={"role": "delivery_lead"}
     ).json()
@@ -481,7 +489,14 @@ def test_workspace_assignment_requires_permitted_role(client, signed_run):
         f"/api/runs/{run_id}/architecture/accept",
         json={"role": "engineering_lead", "approver": "Sam Whitfield"},
     )
-    client.post(f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"})
+    gen_state = client.post(
+        f"/api/runs/{run_id}/delivery-packs/generate", json={"role": "engineering_lead"}
+    ).json()
+    for pack in gen_state["build"]["delivery_packs"]:
+        client.post(
+            f"/api/runs/{run_id}/delivery-packs/{pack['delivery_pack_id']}/approve-test-plan",
+            json={"role": "qa_lead", "approver": "R. Osei"},
+        )
     state = client.post(
         f"/api/runs/{run_id}/delivery-packs/publish-all", json={"role": "delivery_lead"}
     ).json()
