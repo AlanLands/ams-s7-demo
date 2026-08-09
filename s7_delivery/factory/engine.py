@@ -2353,9 +2353,17 @@ class Engine:
             )
         tasks = self._tasks()
         tasks_changed = False
+        # A task's status/progress is never regressed once it's past
+        # developer work in progress — a re-sync must not undo a human
+        # approval, a completion or a block.
+        _protected_statuses = {
+            Status.WAITING_APPROVAL.value, Status.COMPLETED.value,
+            Status.BLOCKED.value,
+        }
         for ws in workspaces:
             ci = ws.get("ci_evidence") or {}
             red = ws.get("red_baseline") or {}
+            git_ev = ws.get("git_evidence") or {}
             story_tasks = [t for t in tasks if t["story_id"] == ws["story_id"]]
             # In a live run nobody calls task_generate_tests — the published
             # rule-based skeletons ARE the test plan. Without this seeding the
@@ -2374,15 +2382,51 @@ class Engine:
                         task["tests"] = [dict(r) for r in seeded]
                     tasks_changed = True
             results = {t["name"]: t["outcome"] for t in ci.get("tests", [])}
-            if not results:
+            if results:
+                for task in story_tasks:
+                    for t in task.get("tests", []):
+                        if t["name"] in results:
+                            new = "passed" if results[t["name"]] == "passed" else "failed"
+                            if t.get("current_result") != new:
+                                t["current_result"] = new
+                                tasks_changed = True
+            # Real evidence advances the task lifecycle honestly — the
+            # simulated pipeline (task_start/task_verify/...) never runs in a
+            # live demo, so without this a task sits at 0%/not_started
+            # forever even once a developer has genuinely pushed commits and
+            # CI has genuinely gone green, and "Submit for Independent
+            # Review" can never unlock.
+            if not git_ev.get("commit_count"):
                 continue
             for task in story_tasks:
-                for t in task.get("tests", []):
-                    if t["name"] in results:
-                        new = "passed" if results[t["name"]] == "passed" else "failed"
-                        if t.get("current_result") != new:
-                            t["current_result"] = new
-                            tasks_changed = True
+                if task.get("status") in _protected_statuses:
+                    continue
+                new_status = task.get("status")
+                if new_status in (Status.NOT_STARTED.value, Status.READY.value):
+                    new_status = Status.IN_PROGRESS.value
+                new_progress = max(task.get("progress_pct") or 0, 60)
+                new_activity = "Developer work synced from Git (real commits)"
+                task_tests = task.get("tests") or []
+                if (
+                    ci.get("conclusion") == "success"
+                    and task_tests
+                    and all(t.get("current_result") == "passed" for t in task_tests)
+                ):
+                    new_progress = max(new_progress, 95)
+                    new_activity = (
+                        "Real CI green — evidence complete, ready to submit "
+                        "for review"
+                    )
+                if (
+                    new_status != task.get("status")
+                    or new_progress != task.get("progress_pct")
+                    or new_activity != task.get("current_activity")
+                ):
+                    task["status"] = new_status
+                    task["progress_pct"] = new_progress
+                    task["current_activity"] = new_activity
+                    task["last_activity"] = now_iso()
+                    tasks_changed = True
         if tasks_changed:
             self._save_tasks(tasks)
         self._save_workspaces(workspaces)

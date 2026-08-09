@@ -7,7 +7,7 @@ import subprocess
 import pytest
 
 from s7_delivery.factory import ci_sync
-from s7_delivery.factory.engine import Engine
+from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 
 
@@ -379,6 +379,106 @@ def test_ci_evidence_stays_none_when_branch_tip_also_has_no_run(
     e.workspaces_sync_git(Role.DELIVERY_LEAD)
     ws = e.state()["build"]["workspaces"][0]
     assert ws.get("ci_evidence") is None
+
+
+def test_git_evidence_advances_task_to_submit_ready_when_ci_is_green(
+    live_eng_with_github_repo, monkeypatch
+):
+    """The simulated pipeline (task_start/task_verify/...) never runs in a
+    live demo, so without this fix a task sits at 0%/not_started forever
+    even once a developer has genuinely pushed commits and CI has genuinely
+    gone green — and "Submit for Independent Review" can never unlock. Real
+    commits plus real green per-test evidence must advance the task far
+    enough that the submit gate opens for real."""
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        {"story_id": "US-1", "stack": "pytest", "runnable": True,
+         "provenance": "rule_based",
+         "tests": [{"ac_id": "US-1-AC1", "test_name": "test_a", "file": "test_us_1.py"},
+                   {"ac_id": "US-1-AC2", "test_name": "test_b", "file": "test_us_1.py"}]},
+        "build", "tests", "US-1", "test-manifest.json",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 21, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/21",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {
+            "tests_total": 2, "tests_passed": 2, "tests_failed": 0,
+            "tests": [{"name": "test_a", "outcome": "passed"},
+                      {"name": "test_b", "outcome": "passed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["status"] == "in_progress"
+    assert task["progress_pct"] >= 95
+    assert task["current_activity"].startswith("Real CI green")
+    assert task["last_activity"]
+    # the gate this fix exists to unlock actually opens now
+    e.task_submit_review(Role.ENGINEERING_LEAD, "TASK-001")
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["status"] == "waiting_for_approval"
+
+
+def test_git_evidence_advances_task_but_submit_stays_refused_when_tests_fail(
+    live_eng_with_github_repo, monkeypatch
+):
+    """Real commits alone earn "in progress" honestly, but a failing test
+    suite must never cross the 90% submit threshold — the gate stays real."""
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        {"story_id": "US-1", "stack": "pytest", "runnable": True,
+         "provenance": "rule_based",
+         "tests": [{"ac_id": "US-1-AC1", "test_name": "test_a", "file": "test_us_1.py"},
+                   {"ac_id": "US-1-AC2", "test_name": "test_b", "file": "test_us_1.py"}]},
+        "build", "tests", "US-1", "test-manifest.json",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 22, "status": "completed",
+                                 "conclusion": "failure",
+                                 "url": "https://x/actions/runs/22",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {
+            "tests_total": 2, "tests_passed": 1, "tests_failed": 1,
+            "tests": [{"name": "test_a", "outcome": "passed"},
+                      {"name": "test_b", "outcome": "failed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["status"] == "in_progress"
+    assert task["progress_pct"] < 90
+    with pytest.raises(EngineError):
+        e.task_submit_review(Role.ENGINEERING_LEAD, "TASK-001")
+
+
+def test_git_evidence_sync_does_not_regress_a_task_already_submitted(
+    live_eng_with_github_repo, monkeypatch
+):
+    """A re-sync must never undo a human's already-recorded submission — the
+    protected statuses (waiting_for_approval/completed/blocked) stay put."""
+    e = live_eng_with_github_repo
+    tasks = e.store.read_json_or([], "build", "tasks.json")
+    tasks[0]["status"] = "waiting_for_approval"
+    tasks[0]["progress_pct"] = 90
+    tasks[0]["current_activity"] = "Evidence submitted for independent review"
+    e.store.write_json(tasks, "build", "tasks.json")
+
+    monkeypatch.setattr(ci_sync, "latest_run", lambda owner_repo, sha: None)
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["status"] == "waiting_for_approval"
+    assert task["progress_pct"] == 90
+    assert task["current_activity"] == "Evidence submitted for independent review"
 
 
 def test_red_baseline_from_publication_commit(live_eng_with_github_repo, monkeypatch):
