@@ -164,7 +164,11 @@ export function TestEvidence() {
           <h2>Build &amp; Test Evidence</h2>
           <span className="hint">Engineering evidence collected from CI pipelines, automated tests and quality checks.</span>
           <span className="arch-head-actions">
-            <button className="outline" disabled={syncing} onClick={() => void doSync()}>
+            <button className="outline" disabled={data.run.mode !== 'live' || syncing}
+              title={data.run.mode !== 'live'
+                ? 'Git evidence sync needs a live run — simulation has no real repository clone'
+                : 'Pull real commits and CI results from the connected repositories'}
+              onClick={() => void doSync()}>
               {syncing ? <LoaderCircle className="btn-ico spin" /> : <RefreshCw className="btn-ico" />} Sync Now
             </button>
             <button className="primary" disabled={!(task.tests ?? []).length && !task.files_changed}

@@ -45,7 +45,9 @@ function DevBadge({ status }: { status: string }) {
 function CiCell({ ws, task }: { ws: DeveloperWorkspace; task?: BuildTask }) {
   const tests = task?.tests ?? []
   const passed = tests.filter((t) => t.current_result === 'passed').length
-  const sub = tests.length ? `${passed} / ${tests.length} tests` : ''
+  const sub = ws.ci_evidence && ws.ci_tests_total != null
+    ? `${ws.ci_tests_passed ?? 0} / ${ws.ci_tests_total} tests (real)`
+    : tests.length ? `${passed} / ${tests.length} tests` : ''
   if (!ws.ci_status) {
     return (
       <>
