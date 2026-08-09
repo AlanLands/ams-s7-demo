@@ -322,3 +322,43 @@ def test_interleaved_team_republish_stays_pushable(tmp_path):
     ).stdout
     assert ".s7/shared/a2.md" in files
     assert ".s7/shared/a1.md" not in files
+
+
+# --- AC test skeletons at governed test roots --------------------------------
+
+
+def _write_skeletons(store, story_id, runnable=True, stack="pytest",
+                      filename="test_us_1.py"):
+    store.write_text("import pytest\n", "build", "tests", story_id, filename)
+    store.write_json(
+        {"story_id": story_id, "stack": stack, "runnable": runnable,
+         "provenance": "rule_based", "generated_at": "2026-08-09T00:00:00+00:00",
+         "tests": [{"ac_id": f"{story_id}-AC1", "test_name": "test_x",
+                    "file": filename}]},
+        "build", "tests", story_id, "test-manifest.json",
+    )
+
+
+def test_file_plan_places_runnable_pytest_skeletons(eng):
+    pack = first_pack(eng)
+    sid = pack["story_ids"][0]
+    _write_skeletons(eng.store, story_id=sid)
+    plan = pub.file_plan(eng.store, pack)
+    assert any(k.startswith("tests/s7/") for k in plan)
+    assert f".s7/stories/{sid}/test-manifest.json" in plan
+
+
+def test_file_plan_places_reference_only_under_s7(eng):
+    pack = first_pack(eng)
+    sid = pack["story_ids"][0]
+    _write_skeletons(eng.store, story_id=sid, runnable=False, stack="")
+    plan = pub.file_plan(eng.store, pack)
+    assert any(k.startswith(f".s7/tests/{sid}/") for k in plan)
+    assert not any(k.startswith("tests/s7/") for k in plan)
+
+
+def test_foreign_test_root_conflicts(tmp_path):
+    (tmp_path / "tests" / "s7").mkdir(parents=True)
+    (tmp_path / "tests" / "s7" / "existing.py").write_text("x")
+    with pytest.raises(pub.PublicationConflict, match="tests/s7"):
+        pub.check_conflicts(tmp_path, republish=False)

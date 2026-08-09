@@ -18,13 +18,18 @@ artifacts always stay in the S7 artifact store — published, not moved.
 
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 
 from s7_delivery.factory.delivery_packs import S7_MARKER
 from s7_delivery.factory.store import RunStore
+from s7_delivery.factory.test_skeletons import runnable_root
 
-MANAGED_ROOTS = ("AGENTS.md", ".s7")
+PYTEST_ROOT = "tests/s7"
+JUNIT_ROOT = "src/test/java/s7"
+MANAGED_ROOTS = ("AGENTS.md", ".s7", PYTEST_ROOT, JUNIT_ROOT)
+_TEST_ROOTS = (PYTEST_ROOT, JUNIT_ROOT)
 
 # task-evidence.json is runtime evidence, not developer context — it stays in
 # the control plane (spec §10 publishes task.md / context.json / test-plan.md).
@@ -68,8 +73,26 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
             p = store.path("build", "tasks", task_id, name)
             if p.is_file():
                 plan[f".s7/tasks/{task_id}/{name}"] = p.read_text(encoding="utf-8")
+    for story_id in pack["story_ids"]:
+        tdir = store.path("build", "tests", story_id)
+        mpath = tdir / "test-manifest.json"
+        if not mpath.is_file():
+            continue  # packs generated before the test-plan checkpoint
+        manifest = json.loads(mpath.read_text(encoding="utf-8"))
+        plan[f".s7/stories/{story_id}/test-manifest.json"] = mpath.read_text(
+            encoding="utf-8"
+        )
+        if manifest.get("runnable"):
+            root = runnable_root(manifest["stack"])
+        else:
+            root = f".s7/tests/{story_id}"
+        for p in sorted(tdir.iterdir()):
+            if p.is_file() and p.name != "test-manifest.json":
+                plan[f"{root}/{p.name}"] = p.read_text(encoding="utf-8")
     for dest in plan:
-        assert dest == "AGENTS.md" or dest.startswith(".s7/"), dest
+        assert dest == "AGENTS.md" or dest.startswith(
+            (".s7/", PYTEST_ROOT + "/", JUNIT_ROOT + "/")
+        ), dest
     return plan
 
 
@@ -101,6 +124,13 @@ def check_conflicts(repo_dir: Path, *, republish: bool) -> None:
             raise PublicationConflict(
                 "AGENTS.md already exists in the repository and is not"
                 " S7-managed — resolve deliberately before publishing"
+            )
+    for root in _TEST_ROOTS:
+        if (repo_dir / root).exists() and not republish:
+            raise PublicationConflict(
+                f"{root}/ already exists in the repository and was not"
+                " published by this run — resolve deliberately before"
+                " publishing"
             )
     s7dir = repo_dir / ".s7"
     if s7dir.exists() and not republish:
@@ -153,7 +183,8 @@ def publish_to_clone(
         target = repo_dir / dest
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-    _git(repo_dir, "add", "--", *MANAGED_ROOTS)
+    roots = [r for r in MANAGED_ROOTS if (repo_dir / r).exists()]
+    _git(repo_dir, "add", "--", *roots)
     status = _git(repo_dir, "status", "--porcelain")
     if status:
         _git(repo_dir, *ident, "commit", "-m",
