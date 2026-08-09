@@ -283,6 +283,66 @@ def test_generate_preserves_existing_assignments(eng):
     assert row["assigned_to"] == "Alex Morgan"
 
 
+def test_regeneration_during_developer_execution_keeps_phase(eng):
+    """Regenerating packs once developers are executing is a refresh (same
+    class as late publication) — it must not regress the phase (it 409'd in
+    the wild rolling out git-workflow.md to a run in developer_execution)."""
+    from s7_delivery.factory import build_phases
+    from s7_delivery.factory.models import BuildReviewPhase
+
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
+    build_phases.advance(
+        eng.store, BuildReviewPhase.WORKSPACES_READY,
+        BuildReviewPhase.DEVELOPER_EXECUTION, actor="test",
+    )
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    assert eng.state()["build"]["phase"] == "developer_execution"
+    for p in eng.state()["build"]["delivery_packs"]:
+        assert p["version"] == 2
+
+
+def test_git_workflow_rules_rendered_and_concrete(eng):
+    """git-workflow.md is a team pack file with the push/pull rules made
+    concrete: real story ids, real branch names, the completion trigger."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    slug = pack["team_slug"]
+    md = eng.store.path("build", "packs", slug, "git-workflow.md").read_text()
+    from s7_delivery.factory.delivery_packs import branch_name
+
+    # concrete, not generic
+    assert branch_name(eng.run_id, pack["team"]) in md
+    sid = pack["story_ids"][0]
+    assert sid in md
+    assert f"feature/{sid.lower()}-" in md
+    # the load-bearing rules
+    assert "development completed: please push the code" in md
+    assert "read-only" in md.lower()
+    assert "never" in md.lower() and "--force" in md
+    assert "Red suite" in md or "red suite" in md
+    # AGENTS.md points the agent at it and names the trigger
+    agents = eng.store.path("build", "packs", slug, "AGENTS.md").read_text()
+    assert "## Git Workflow" in agents
+    assert "git-workflow.md" in agents
+    assert "development completed: please push the code" in agents
+
+
+def test_git_workflow_published_to_repo(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory import publication as pub
+
+    pack = eng.state()["build"]["delivery_packs"][0]
+    plan = pub.file_plan(eng.store, pack)
+    assert ".s7/shared/git-workflow.md" in plan
+    assert "development completed: please push the code" in plan[
+        ".s7/shared/git-workflow.md"
+    ]
+
+
 def test_task_evidence_zip_download(eng, tmp_path, monkeypatch):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)

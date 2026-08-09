@@ -1946,10 +1946,17 @@ class Engine:
             pack["published_version"] = old.get("published_version", 0)
             packs.append(pack)
         self._save_packs(packs)
-        build_phases.advance(
-            self.store, phase, BuildReviewPhase.DELIVERY_PACKS_READY,
-            actor=role.value,
-        )
+        # Regeneration once developers are executing is a refresh (same class
+        # as late publication) — never regress the phase from there.
+        if phase in (
+            BuildReviewPhase.ARCHITECTURE_ACCEPTED,
+            BuildReviewPhase.DELIVERY_PACKS_READY,
+            BuildReviewPhase.WORKSPACES_READY,
+        ):
+            build_phases.advance(
+                self.store, phase, BuildReviewPhase.DELIVERY_PACKS_READY,
+                actor=role.value,
+            )
         self._activity(
             stage=Stage.BUILD_REVIEW, actor="pack-service",
             actor_type="simulation" if prov is Provenance.SIMULATED else "service",
@@ -1991,12 +1998,21 @@ class Engine:
                 ),
                 "build", "tasks", task["task_id"],
             )
+        repo_name = next(
+            (s.get("target_repository", "") for s in t_stories), ""
+        )
+        default_branch = next(
+            (r.get("default_branch") or "main"
+             for r in self._connected_repos() if r["name"] == repo_name),
+            "main",
+        )
         files = dp.render_team_pack(
             run_id=self.run_id, team=team, stories=t_stories,
             tasks=t_tasks, all_stories=all_stories, pack_version=version,
             plan_version=plan_version,
             architecture_version=architecture_version,
             assignments=assignments,
+            default_branch=default_branch,
         )
         slug = files["workspace-manifest.json"]["team_slug"]
         self._write_files(files, "build", "packs", slug)

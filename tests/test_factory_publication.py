@@ -246,3 +246,66 @@ def test_foreign_s7_dir_is_a_conflict(tmp_path):
         repo, {"AGENTS.md": S7_MARKER + "\nx\n"},
         branch="s7/run-team", default_branch="main", republish=True,
     )
+
+
+# --- real-git republish semantics (local bare remote, no network) -----------
+
+
+def _sh(cwd, *args):
+    subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True,
+        env={"GIT_AUTHOR_NAME": "T", "GIT_AUTHOR_EMAIL": "t@t",
+             "GIT_COMMITTER_NAME": "T", "GIT_COMMITTER_EMAIL": "t@t",
+             "PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd)},
+    )
+
+
+def test_interleaved_team_republish_stays_pushable(tmp_path):
+    """Two teams share one clone. Publishing A, then B, then A again must
+    keep every branch based on the default branch (no cross-team stacking)
+    and every push must succeed (it went non-fast-forward in the wild)."""
+    remote = tmp_path / "remote.git"
+    remote.mkdir()
+    _sh(remote, "init", "--bare", "--initial-branch=main")
+    clone = tmp_path / "clone"
+    clone.mkdir()
+    _sh(clone, "init", "--initial-branch=main")
+    (clone / "README.md").write_text("app\n")
+    _sh(clone, "add", ".")
+    _sh(clone, "commit", "-m", "initial")
+    _sh(clone, "remote", "add", "origin", str(remote))
+    _sh(clone, "push", "-q", "origin", "main")
+
+    def publish(team_branch, marker):
+        files = {
+            "AGENTS.md": f"{S7_MARKER}\n# ctx {marker}\n",
+            f".s7/shared/{marker}.md": marker,
+        }
+        pub.publish_to_clone(
+            clone, files, branch=team_branch, default_branch="main",
+            republish=True,
+        )
+        pub.push_branch(clone, team_branch, "main")
+
+    publish("s7/run-team-a", "a1")
+    publish("s7/run-team-b", "b1")
+    publish("s7/run-team-a", "a2")  # republish after b — the failing case
+
+    # every branch parents directly off main's tip, no cross-team stacking
+    main_sha = subprocess.run(
+        ["git", "rev-parse", "main"], cwd=clone,
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    for b in ("s7/run-team-a", "s7/run-team-b"):
+        parent = subprocess.run(
+            ["git", "rev-parse", f"origin/{b}^"], cwd=clone,
+            capture_output=True, text=True, check=True,
+        ).stdout.strip()
+        assert parent == main_sha, b
+    # team A's remote branch carries a2, not a1
+    files = subprocess.run(
+        ["git", "ls-tree", "-r", "--name-only", "origin/s7/run-team-a"],
+        cwd=clone, capture_output=True, text=True, check=True,
+    ).stdout
+    assert ".s7/shared/a2.md" in files
+    assert ".s7/shared/a1.md" not in files

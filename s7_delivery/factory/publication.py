@@ -55,6 +55,9 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
     plan[".s7/shared/assigned-stories.json"] = read(
         "build", "packs", slug, "assigned-stories.json"
     )
+    plan[".s7/shared/git-workflow.md"] = read(
+        "build", "packs", slug, "git-workflow.md"
+    )
     for story_id in pack["story_ids"]:
         sdir = store.path("build", "stories", story_id)
         for p in sorted(sdir.iterdir()):
@@ -129,7 +132,23 @@ def publish_to_clone(
     check_branch(branch, default_branch)
     check_conflicts(repo_dir, republish=republish)
     ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
-    _git(repo_dir, "checkout", "-B", branch)
+    # Deterministic base: the default branch, not whatever HEAD happens to be
+    # (two teams share one clone — basing on HEAD stacked one team's context
+    # on another's and made republish pushes non-fast-forward).
+    base = None
+    for candidate in (f"origin/{default_branch}", default_branch):
+        if not default_branch:
+            break
+        try:
+            _git(repo_dir, "rev-parse", "--verify", "--quiet", candidate)
+            base = candidate
+            break
+        except subprocess.CalledProcessError:
+            continue
+    if base:
+        _git(repo_dir, "checkout", "-B", branch, base)
+    else:
+        _git(repo_dir, "checkout", "-B", branch)
     for dest, content in files.items():
         target = repo_dir / dest
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -150,5 +169,11 @@ def has_remote(repo_dir: Path) -> bool:
 
 
 def push_branch(repo_dir: Path, branch: str, default_branch: str) -> None:
+    """Push the context branch. Force is deliberate and safe here — and only
+    here: the branch is rebuilt from the default branch on every publish, so
+    "the remote branch equals the latest publication" is the contract. The
+    assert confines forcing to the S7-owned s7/** namespace; developer
+    branches and default branches are never pushed by this module at all."""
     check_branch(branch, default_branch)
-    _git(repo_dir, "push", "origin", f"HEAD:refs/heads/{branch}")
+    assert branch.startswith("s7/"), branch
+    _git(repo_dir, "push", "--force", "origin", f"HEAD:refs/heads/{branch}")

@@ -29,6 +29,7 @@ TEAM_FILES = (
     "team-dependencies.json",
     "test-strategy.md",
     "rollback-guidance.md",
+    "git-workflow.md",
     "workspace-manifest.json",
 )
 
@@ -130,6 +131,95 @@ def render_task_pack(task: dict, story: dict, *, plan_version: int,
 # --- Level 2: team pack -----------------------------------------------------
 
 
+def render_git_workflow_md(
+    *, run_id: str, team: str, stories: list[dict],
+    default_branch: str = "main",
+) -> str:
+    """Git push/pull rules for the workspace, made concrete: real branch
+    names and story ids, and the exact "development completed" protocol a
+    coding agent must run before any push. Published to
+    `.s7/shared/git-workflow.md` alongside the rest of the governed context."""
+    context_branch = branch_name(run_id, team)
+    branch_rows = [
+        f"- {s['story_id']}: `feature/{s['story_id'].lower()}-<short-slug>`"
+        f" (e.g. `feature/{story_folder_name(s).lower()}`)"
+        for s in stories
+    ]
+    return "\n".join([
+        S7_MARKER,
+        f"# Git workflow — {team}",
+        "",
+        f"Rules for working against `{next((s.get('target_repository', '') for s in stories), '')}`."
+        " The Control Centre reads progress from this repository, so the"
+        " conventions below are load-bearing, not style.",
+        "",
+        "## Pull rules — starting work",
+        "",
+        f"1. The context branch `{context_branch}` is **read-only** — read"
+        " `AGENTS.md` and `.s7/**` from it, never commit to it.",
+        f"2. Create your working branch from `origin/{default_branch}`,"
+        f" **not** from `{context_branch}` — branching off the context branch"
+        " would drag `.s7/**` files into your pull request.",
+        "3. One branch per story:",
+        *branch_rows,
+        f"4. Before starting and before any push: fetch and rebase on"
+        f" `origin/{default_branch}`.",
+        "5. If S7 republishes (assignment or architecture changes), re-fetch"
+        f" `{context_branch}` and re-read"
+        " `.s7/shared/assigned-stories.json` before continuing.",
+        "",
+        "## Commit rules",
+        "",
+        "6. Every commit message starts with the story id (task id where"
+        " relevant): `US-1: add sign-in form (TASK-001)`. The Control Centre"
+        " matches progress by exactly this convention.",
+        "7. Small commits that leave the tests passing; no secrets, no"
+        " `.env`, no generated artifacts.",
+        "8. Never modify `AGENTS.md` or anything under `.s7/` — S7-managed;"
+        " they change only via a Control Centre republish.",
+        "",
+        '## Push protocol — "development completed: please push the code"',
+        "",
+        "When the developer says this, run the checklist **in order** and"
+        " refuse to push if any step fails:",
+        "",
+        "9. **Scope check** — only files inside Allowed Components changed;"
+        " nothing staged under `.s7/` or `AGENTS.md`.",
+        "10. **Acceptance check** — every criterion in"
+        " `.s7/stories/<story>/acceptance-criteria.md` has a passing test;"
+        " run the full suite. **Red suite = no push** — report the failures"
+        " instead.",
+        "11. **Traceability check** — every commit on the branch references"
+        " the story id; working tree clean.",
+        f"12. **Freshness check** — rebase on latest"
+        f" `origin/{default_branch}`, re-run the tests after the rebase.",
+        "13. **Push the story branch only** —"
+        " `git push -u origin feature/<story-id>-…`. Never push to"
+        f" `{default_branch}`, never push to `s7/**`, never `--force` a"
+        " shared branch.",
+        "14. **Report back** — branch, commit list, test summary; the"
+        " developer opens the pull request, and the Control Centre's"
+        " *Sync from Git* shows the progress.",
+        "",
+        "## Pull request & merge rules",
+        "",
+        "15. PR title starts with the story id; the body maps each"
+        " acceptance criterion to its test evidence; target is"
+        f" `{default_branch}`.",
+        "16. The author never merges their own PR — no self-approval.",
+        "17. Merging is always a human action. After the merge, *Sync from"
+        " Git* marks the workspace complete — that is the only way a story"
+        " completes.",
+        "",
+        "## Prohibited, always",
+        "",
+        f"18. Pushing to `{default_branch}` directly; pushing to any"
+        " `s7/**` branch; force-pushing shared branches; deleting branches"
+        " you do not own; committing credentials; declaring done with"
+        " failing tests.",
+    ]) + "\n"
+
+
 def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
                           *, architecture_version: int,
                           assignments: dict[str, str] | None = None) -> str:
@@ -175,6 +265,13 @@ def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
         " implement only within Allowed Components under the Engineering"
         " Rules below. If no story carries their name, say so — never guess"
         " an assignment.",
+        "",
+        "## Git Workflow",
+        "All push/pull rules live in `.s7/shared/git-workflow.md` — branch"
+        " naming, commit conventions, and the push protocol. When the"
+        ' developer says "development completed: please push the code", run'
+        " that file's checklist in order and refuse to push if any step"
+        " fails.",
         "",
         "## Architecture Rules",
         "Respect the integration boundaries in"
@@ -233,6 +330,7 @@ def render_team_pack(
     plan_version: int,
     architecture_version: int,
     assignments: dict[str, str] | None = None,
+    default_branch: str = "main",
 ) -> dict[str, object]:
     assignments = assignments or {}
     slug = team_slug(team)
@@ -324,5 +422,9 @@ def render_team_pack(
         "team-dependencies.json": {"team": team, "cross_team": team_deps},
         "test-strategy.md": test_strategy,
         "rollback-guidance.md": "\n".join(rollback_lines) + "\n",
+        "git-workflow.md": render_git_workflow_md(
+            run_id=run_id, team=team, stories=stories,
+            default_branch=default_branch,
+        ),
         "workspace-manifest.json": manifest,
     }
