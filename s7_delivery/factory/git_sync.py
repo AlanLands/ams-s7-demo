@@ -144,6 +144,18 @@ def _commit_meta(repo_dir: Path, sha: str) -> dict:
     return {"sha": full, "author": author, "when": when, "subject": subject}
 
 
+def branch_tip(repo_dir: Path, branch: str) -> str | None:
+    """The current commit sha at the tip of `origin/<branch>`, or None if it
+    cannot be resolved. Never raises — this backs a best-effort CI-evidence
+    fallback, not a correctness-critical read."""
+    try:
+        out = _git(repo_dir, "rev-parse", f"origin/{branch}")
+    except GitSyncError:
+        return None
+    sha = out.strip()
+    return sha or None
+
+
 def _reachable_from(repo_dir: Path, sha: str, branch: str) -> bool:
     proc = subprocess.run(
         ["git", "merge-base", "--is-ancestor", sha, f"origin/{branch}"],

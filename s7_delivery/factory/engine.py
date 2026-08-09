@@ -2341,7 +2341,9 @@ class Engine:
                 )
             except git_sync.GitSyncError as exc:
                 raise EngineError(str(exc)) from exc
-            ws["ci_evidence"] = self._sync_ci_evidence(repo, ws["git_evidence"])
+            ws["ci_evidence"] = self._sync_ci_evidence(
+                repo, ws["git_evidence"], repo_dir
+            )
             ws["red_baseline"] = self._sync_red_baseline(repo, ws)
             ws["last_sync_at"] = now_iso()
             synced += 1
@@ -2474,11 +2476,37 @@ class Engine:
                     evidence["tests"] = summary["tests"]
         return evidence
 
-    def _sync_ci_evidence(self, repo: dict, git_evidence: dict) -> dict | None:
+    def _sync_ci_evidence(
+        self, repo: dict, git_evidence: dict, repo_dir
+    ) -> dict | None:
+        """Real CI evidence for a story's latest attributed commit.
+
+        The latest commit is not always a branch tip — another story's
+        commit can land after it on the same feature branch, so no run was
+        ever recorded against that exact sha even though the branch itself
+        was fully exercised by CI. When the direct lookup (including the
+        any-workflow fallback inside `_ci_run_evidence`) comes up empty,
+        fall back to the run for the tip of the first branch that contains
+        the commit, and mark the result `from_branch_tip` so callers can
+        tell it is not the commit's own run."""
         latest = git_evidence.get("latest")
         if not latest:
             return None
-        return self._ci_run_evidence(repo, latest["sha"], fallback_any=True)
+        evidence = self._ci_run_evidence(repo, latest["sha"], fallback_any=True)
+        if evidence is not None:
+            return evidence
+        branches = git_evidence.get("branches") or []
+        if not branches:
+            return None
+        from s7_delivery.factory import git_sync
+
+        tip_sha = git_sync.branch_tip(repo_dir, branches[0])
+        if not tip_sha or tip_sha == latest["sha"]:
+            return None
+        evidence = self._ci_run_evidence(repo, tip_sha, fallback_any=True)
+        if evidence is not None:
+            evidence["from_branch_tip"] = tip_sha
+        return evidence
 
     def _sync_red_baseline(self, repo: dict, ws: dict) -> dict | None:
         """The S7 CI run for this workspace's *first* real publication commit

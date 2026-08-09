@@ -304,6 +304,83 @@ def test_sync_gh_binary_missing_degrades_to_none(
         assert ws.get("ci_evidence") is None
 
 
+def _push_second_branch_commit(repo_dir, tmp_path, message, filename="lockout.py"):
+    """Push one more commit onto `feature/us-1` from a fresh clone, so the
+    branch tip advances past the story's own commit without mentioning it —
+    simulating another story's work landing on the same feature branch."""
+    remote_url = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=repo_dir,
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    dev = tmp_path / "dev-clone"
+    subprocess.run(["git", "clone", "-q", remote_url, str(dev)],
+                    check=True, capture_output=True)
+    _git(dev, "checkout", "feature/us-1")
+    (dev / filename).write_text(f"# {message}\n")
+    _git(dev, "add", ".")
+    _git(dev, "commit", "-m", message)
+    _git(dev, "push", "-q", "origin", "feature/us-1")
+    return subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=dev,
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+
+
+def test_ci_evidence_falls_back_to_branch_tip_when_latest_commit_has_no_run(
+    live_eng_with_github_repo, monkeypatch, tmp_path
+):
+    """US-1's own commit is not the branch tip once US-2's work lands after
+    it on the same feature branch. No CI run exists for that exact non-tip
+    sha, but the tip's run genuinely exercised the whole branch (including
+    US-1's code) — the sync must surface that run rather than showing no CI
+    evidence at all, and must mark it as coming from the branch tip."""
+    e = live_eng_with_github_repo
+    repo_dir = e.store.path("repos", "advisor-portal-signin")
+    tip_sha = _push_second_branch_commit(
+        repo_dir, tmp_path, "US-2: wire lockout"
+    )
+
+    def fake_latest_run(owner_repo, sha):
+        if sha == tip_sha:
+            return {"databaseId": 65, "status": "completed",
+                     "conclusion": "success",
+                     "url": "https://x/actions/runs/65", "workflowName": "S7 CI"}
+        return None
+
+    monkeypatch.setattr(ci_sync, "latest_run", fake_latest_run)
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 3, "tests_passed": 3,
+                                    "tests_failed": 0},
+    )
+
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["git_evidence"]["latest"]["subject"] == "US-1: implement sign-in page"
+    assert ws["ci_evidence"]["run_id"] == 65
+    assert ws["ci_evidence"]["from_branch_tip"] == tip_sha
+    assert ws["ci_status"] == "passed"
+
+
+def test_ci_evidence_stays_none_when_branch_tip_also_has_no_run(
+    live_eng_with_github_repo, monkeypatch, tmp_path
+):
+    """The branch-tip fallback is best-effort, not a guarantee: when neither
+    the story's own commit nor the branch tip has a run, ci_evidence stays
+    None exactly as before — the fallback never fabricates evidence."""
+    e = live_eng_with_github_repo
+    repo_dir = e.store.path("repos", "advisor-portal-signin")
+    _push_second_branch_commit(repo_dir, tmp_path, "US-2: wire lockout")
+
+    monkeypatch.setattr(ci_sync, "latest_run", lambda owner_repo, sha: None)
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws.get("ci_evidence") is None
+
+
 def test_red_baseline_from_publication_commit(live_eng_with_github_repo, monkeypatch):
     eng = live_eng_with_github_repo
     eng.store.append(
