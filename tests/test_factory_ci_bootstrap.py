@@ -110,3 +110,19 @@ def test_bootstrap_push_failure_raises(tmp_path):
                     check=True, capture_output=True)
     with pytest.raises(ci_bootstrap.CiBootstrapError):
         ci_bootstrap.bootstrap(clone, "main", "maven")
+
+
+def test_bootstrap_idempotent_on_repeated_calls(bare_remote_and_clone):
+    _, clone = bare_remote_and_clone
+    # First bootstrap call
+    status1 = ci_bootstrap.bootstrap(clone, "main", "maven")
+    assert status1 == "bootstrapped:maven"
+    workflow = clone / ".github" / "workflows" / "s7-ci.yml"
+    assert workflow.exists()
+    first_content = workflow.read_text()
+
+    # Second bootstrap call with same stack — must not fail despite nothing new to commit
+    status2 = ci_bootstrap.bootstrap(clone, "main", "maven")
+    assert status2 == "bootstrapped:maven"
+    # Verify file unchanged
+    assert workflow.read_text() == first_content

@@ -135,12 +135,24 @@ def bootstrap(repo_dir: Path, default_branch: str, stack: str | None) -> str:
     default branch. Returns "unsupported_stack" (no-op, no git touched) when
     `stack` is None or unrecognized; otherwise "bootstrapped:<stack>" or
     raises CiBootstrapError if the push fails (caller decides how to record
-    that — it must not fail the repo connect/create action)."""
+    that — it must not fail the repo connect/create action).
+
+    Idempotent: if the workflow file already exists with identical content,
+    returns immediately without git operations."""
     if stack is None or stack not in _WORKFLOWS:
         return "unsupported_stack"
     workflow_dir = repo_dir / ".github" / "workflows"
+    workflow_path = workflow_dir / "s7-ci.yml"
+    workflow_content = _WORKFLOWS[stack]
+
+    # Idempotent short-circuit: if workflow already exists with identical content, return
+    if workflow_path.exists():
+        existing = workflow_path.read_text(encoding="utf-8")
+        if existing == workflow_content:
+            return f"bootstrapped:{stack}"
+
     workflow_dir.mkdir(parents=True, exist_ok=True)
-    (workflow_dir / "s7-ci.yml").write_text(_WORKFLOWS[stack], encoding="utf-8")
+    workflow_path.write_text(workflow_content, encoding="utf-8")
     ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
     _git(repo_dir, "add", ".github/workflows/s7-ci.yml")
     _git(repo_dir, *ident, "commit", "-qm", "s7: bootstrap CI workflow")
