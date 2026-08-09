@@ -53,3 +53,37 @@ def test_unknown_stack_renders_reference_only():
     assert manifest["runnable"] is False
     assert manifest["stack"] == ""
     assert set(files) == {"test_us_1.py"}
+
+
+def test_junit_class_name():
+    assert ts.junit_class_name("US-1") == "US1AcceptanceTest"
+
+
+def test_render_junit_one_failing_test_per_ac():
+    files = ts.render_junit(STORY)
+    assert list(files) == ["US1AcceptanceTest.java"]
+    content = files["US1AcceptanceTest.java"]
+    assert "package s7;" in content
+    assert content.count("@Test") == 2
+    assert content.count('fail("Not implemented:') == 2
+    # method names identical to the pytest names — the join key
+    assert ts.slug_test_name(STORY["acceptance_criteria"][0]["text"]) in content
+
+
+def test_render_story_tests_maven_is_runnable_junit():
+    files, manifest = ts.render_story_tests(STORY, "maven")
+    assert set(files) == {"US1AcceptanceTest.java"}
+    assert manifest["runnable"] is True and manifest["stack"] == "maven"
+
+
+def test_runnable_root():
+    assert ts.runnable_root("pytest") == "tests/s7"
+    assert ts.runnable_root("maven") == "src/test/java/s7"
+
+
+def test_resolve_stack_prefers_bootstrap_record(tmp_path):
+    assert ts.resolve_stack({"ci_bootstrap_status": "bootstrapped:maven"}, tmp_path) == "maven"
+    assert ts.resolve_stack({"ci_bootstrap_status": "unsupported_stack"}, tmp_path) is None
+    (tmp_path / "requirements.txt").write_text("pytest\n")
+    assert ts.resolve_stack({}, tmp_path) == "pytest"
+    assert ts.resolve_stack(None, tmp_path / "missing") is None
