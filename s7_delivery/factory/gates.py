@@ -182,6 +182,7 @@ def release_gate(
     staleness: list[dict],
     required_approver_roles: tuple[str, ...] = (
         "business_owner", "engineering_lead", "qa_lead", "release_manager",
+        "support_lead",
     ),
 ) -> list[dict]:
     """G4 — spec §11. All prior gates green, all approvals present, nothing stale."""

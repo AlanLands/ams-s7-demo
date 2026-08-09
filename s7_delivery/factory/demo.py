@@ -69,6 +69,7 @@ def _approvals(eng: Engine) -> None:
     eng.release_approve(Role.ENGINEERING_LEAD, "A. Osei")
     eng.release_approve(Role.QA_LEAD, "R. Tanaka")
     eng.release_approve(Role.RELEASE_MANAGER, "S. Lindqvist")
+    eng.release_approve(Role.SUPPORT_LEAD, "N. Whitfield")
 
 
 def happy_path(eng: Engine) -> None:

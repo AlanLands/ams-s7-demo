@@ -74,9 +74,8 @@ def test_release_approval_split():
     """Each required role records its own approval; only the Release
     Manager holds the final, blocking deploy decision."""
     for role in (Role.BUSINESS_OWNER, Role.ENGINEERING_LEAD, Role.QA_LEAD,
-                 Role.RELEASE_MANAGER):
+                 Role.RELEASE_MANAGER, Role.SUPPORT_LEAD):
         assert allowed("approve_release", role)
-    assert not allowed("approve_release", Role.SUPPORT_LEAD)
     assert not allowed("approve_release", Role.PRODUCT_ANALYST)
     assert allowed("deploy", Role.RELEASE_MANAGER)
     for role in Role:

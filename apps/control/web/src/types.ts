@@ -244,6 +244,7 @@ export interface HandoverRecord {
   support_team: string
   runbook_ref: string
   knowledge_article_ref: string
+  knowledge_repository_update?: string
   monitoring_alerts: string[]
   escalation_path: string
   known_limitations: string[]

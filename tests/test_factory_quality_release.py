@@ -33,6 +33,7 @@ def approve_release_all(eng):
     eng.release_approve(Role.ENGINEERING_LEAD, "A. Osei")
     eng.release_approve(Role.QA_LEAD, "R. Tanaka")
     eng.release_approve(Role.RELEASE_MANAGER, "S. Lindqvist")
+    eng.release_approve(Role.SUPPORT_LEAD, "N. Whitfield")
 
 
 @pytest.fixture()
@@ -166,7 +167,37 @@ def test_approvals_ledger_is_append_only(rel):
     approve_release_all(rel)
     approvals = rel.state()["approvals"]
     release_rows = [a for a in approvals if a["subject"] == "release"]
-    assert len(release_rows) == 4
+    assert len(release_rows) == 5
     assert {a["role"] for a in release_rows} == {
         "business_owner", "engineering_lead", "qa_lead", "release_manager",
+        "support_lead",
     }
+
+
+def test_release_gate_lists_support_lead_as_missing_until_approved(rel):
+    rel.release_approve(Role.BUSINESS_OWNER, "P. Moreau")
+    rel.release_approve(Role.ENGINEERING_LEAD, "A. Osei")
+    rel.release_approve(Role.QA_LEAD, "R. Tanaka")
+    rel.release_approve(Role.RELEASE_MANAGER, "S. Lindqvist")
+    with pytest.raises(EngineError, match="unmet"):
+        rel.release_deploy(Role.RELEASE_MANAGER)
+    conditions = rel.gate(GateId.RELEASE).conditions
+    approvals_condition = next(
+        c for c in conditions if c["condition"] == "All required approvals completed"
+    )
+    assert not approvals_condition["met"]
+    assert "support_lead" in approvals_condition["detail"]
+
+    rel.release_approve(Role.SUPPORT_LEAD, "N. Whitfield")
+    rel.release_deploy(Role.RELEASE_MANAGER)
+    assert rel.gate(GateId.RELEASE).status == Status.PASSED
+
+
+def test_handover_carries_knowledge_repository_update(rel):
+    approve_release_all(rel)
+    rel.release_deploy(Role.RELEASE_MANAGER)
+    rel.release_handover(Role.SUPPORT_LEAD)
+    handover = rel.state()["release"]["handover"]
+    assert handover["knowledge_repository_update"]
+    assert "demonstration" in handover["knowledge_repository_update"].lower()
+    assert handover["knowledge_article_ref"] == "KB-2026-0473 (demonstration)"

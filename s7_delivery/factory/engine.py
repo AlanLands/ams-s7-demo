@@ -94,9 +94,14 @@ Team on-call if handoff failures persist beyond one retry cycle.
 
 _HANDOVER_DOC = """# Support handover — REL-2026R4-001 (demonstration)
 
+## Transition to maintenance
+
 Support team: MapleSure Application Support (S1–S6 scope).
 Hypercare: 7 days. Known limitations: provisional status vocabulary and
 partial-submission retention pending SME confirmation.
+
+- Knowledge repository: KB-2026-0473 updated — application documentation
+  refreshed for components changed by this release (demonstration).
 """
 
 
@@ -3187,6 +3192,7 @@ class Engine:
 
     RELEASE_APPROVER_ROLES = (
         "business_owner", "engineering_lead", "qa_lead", "release_manager",
+        "support_lead",
     )
 
     def _release(self) -> dict | None:
@@ -3339,14 +3345,24 @@ class Engine:
             )
 
     def release_handover(self, role: Role) -> None:
+        """Post-deploy transition to maintenance (spec §11): support accepts
+        the release, the knowledge repository update is recorded — a
+        labelled demonstration line, not a real repository write — and the
+        run completes."""
         roles.require("complete_handover", role)
         record = self._release()
         if not record or not record.get("deployment"):
-            raise EngineError("Deployment must complete before support handover")
+            raise EngineError(
+                "Deployment must complete before transition to maintenance"
+            )
         handover = {
             "support_team": "MapleSure Application Support (S1–S6 scope)",
             "runbook_ref": "release/runbook.md",
             "knowledge_article_ref": "KB-2026-0473 (demonstration)",
+            "knowledge_repository_update": (
+                "KB-2026-0473 updated — application documentation refreshed "
+                "for components changed by this release (demonstration)"
+            ),
             "monitoring_alerts": [
                 "submission-error-rate above baseline",
                 "intake-handoff retry queue depth",
@@ -3376,8 +3392,9 @@ class Engine:
         self._save_run(run)
         self._activity(
             stage=Stage.RELEASE, actor=role.value, actor_type="human",
-            workflow="support-handover-approval", outcome="accepted",
-            details="hypercare 7 days; run complete",
+            workflow="transition-to-maintenance", outcome="accepted",
+            details="transition to maintenance accepted; hypercare 7 days; "
+                    "run complete",
         )
 
     # --- staleness & self-correction (spec §15, §16) ------------------------

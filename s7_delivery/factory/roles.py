@@ -66,7 +66,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     # Each required role records its own release approval; the final,
     # blocking decision is `deploy`, which only the Release Manager holds.
     "approve_release": {Role.BUSINESS_OWNER, Role.ENGINEERING_LEAD,
-                        Role.QA_LEAD, Role.RELEASE_MANAGER},
+                        Role.QA_LEAD, Role.RELEASE_MANAGER, Role.SUPPORT_LEAD},
     "deploy": {Role.RELEASE_MANAGER},
     "complete_handover": {Role.SUPPORT_LEAD, Role.RELEASE_MANAGER},
     # governance

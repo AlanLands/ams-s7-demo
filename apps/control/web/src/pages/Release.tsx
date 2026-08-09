@@ -35,7 +35,7 @@ function GatePanel({ gateId, title, hint }: { gateId: string; title: string; hin
 function ApprovalMatrix() {
   const { data } = useRun()
   const releaseApprovals = (data?.approvals ?? []).filter((approval) => approval.subject === 'release')
-  const required = ['business_owner', 'engineering_lead', 'qa_lead', 'release_manager']
+  const required = ['business_owner', 'engineering_lead', 'qa_lead', 'release_manager', 'support_lead']
 
   return (
     <ul className="plain">
@@ -161,8 +161,8 @@ export function Release() {
         <div className="card">
           <h3>Required approvals</h3>
           <p className="hint">
-            Business Owner, Engineering Lead, QA Lead and Release Manager must each approve under their own role.
-            Switch the acting role in the header to record each one.
+            Business Owner, Engineering Lead, QA Lead, Release Manager and Support Lead must each approve under
+            their own role. Switch the acting role in the header to record each one.
           </p>
           <ApprovalMatrix />
           <ApprovalForm />
@@ -196,11 +196,17 @@ export function Release() {
 
       {h ? (
         <div className="card ok" style={{ marginTop: '14px' }}>
-          <h3>Support handover</h3>
+          <h3>Transition to maintenance</h3>
           <div className="kv" style={{ marginTop: '8px' }}>
             <b>Support team</b><span>{h.support_team}</span>
             <b>Runbook</b><code>{h.runbook_ref}</code>
             <b>Knowledge article</b><span>{h.knowledge_article_ref}</span>
+            {h.knowledge_repository_update ? (
+              <>
+                <b>Knowledge repository update</b>
+                <span>{h.knowledge_repository_update}</span>
+              </>
+            ) : null}
             <b>Monitoring alerts</b>
             <span>
               <ul className="plain">
@@ -233,9 +239,9 @@ export function Release() {
         </button>
         <button
           className="primary approve"
-          onClick={() => void act('/release/handover', {}, 'Handover accepted — run complete')}
+          onClick={() => void act('/release/handover', {}, 'Transition to maintenance complete — run complete')}
         >
-          Complete support handover
+          Complete transition to maintenance
         </button>
       </div>
       <GatePanel
