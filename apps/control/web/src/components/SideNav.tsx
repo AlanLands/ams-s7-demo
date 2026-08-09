@@ -22,7 +22,7 @@ const NAV: [string, string, string?][] = [
   ['intake', 'Intake', '⭳'],
   ['planning', 'Planning', '▤'],
   ['build_review', 'Build & Review', '⚒'],
-  ['quality', 'Quality', '✓'],
+  ['quality', 'Final Gating', '✓'],
   ['release', 'Release', '➤'],
   ['nav-detail', 'Detail'],
   ['stories', 'Epics & Stories', '❖'],

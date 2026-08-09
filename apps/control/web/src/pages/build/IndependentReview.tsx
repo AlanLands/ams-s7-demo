@@ -1,5 +1,5 @@
 /**
- * Independent Review — the governed review checkpoint before Quality. The
+ * Independent Review — the governed review checkpoint before Final Gating. The
  * review is executed by an ISOLATED reviewer (simulated in demo mode, a live
  * model in live mode) that never authored the implementation; its verdict is
  * recorded immutably and re-review creates a new version. Humans route
@@ -528,7 +528,7 @@ export function IndependentReview() {
               <p className="hint">
                 <CircleCheck className="dp-badge-ico" style={{ color: 'var(--green)' }} />
                 Approved by the isolated reviewer{review ? ` (${review.review_id})` : ''} — progresses to
-                Quality via the deterministic handoff conditions.
+                Final Gating via the deterministic handoff conditions.
               </p>
             ) : null}
           </div>

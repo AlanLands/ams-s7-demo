@@ -4,7 +4,7 @@ const STAGES: [string, string][] = [
   ['intake', 'Intake'],
   ['planning', 'Planning'],
   ['build_review', 'Build & Review'],
-  ['quality', 'Quality'],
+  ['quality', 'Final Gating'],
   ['release', 'Release'],
 ]
 

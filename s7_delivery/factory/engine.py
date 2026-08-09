@@ -58,7 +58,7 @@ GATE_LABELS = {
     GateId.INTAKE: "Intake complete",
     GateId.PLAN_SIGNOFF: "Plan sign-off",
     GateId.INDEPENDENT_REVIEW: "Independent review",
-    GateId.QUALITY: "Quality",
+    GateId.QUALITY: "Final Gating",
     GateId.RELEASE: "Release",
 }
 
@@ -374,7 +374,8 @@ class Engine:
         handoff: list[dict],
     ) -> dict[str, Any]:
         """Consolidated Build & Review outcome (spec §20): per-story rollup,
-        totals, blockers and Quality-ready stories — assembled, never stored."""
+        totals, blockers and Final-Gating-ready stories — assembled, never
+        stored."""
         tasks_by_story = {t["story_id"]: t for t in tasks}
         ready_ids = {h["story_id"] for h in handoff if h["ready"]}
         workspaces = {w["story_id"]: w for w in self._workspaces()}
@@ -3177,7 +3178,7 @@ class Engine:
                 stage=Stage.QUALITY, actor=role.value, actor_type="human",
                 workflow="quality-gate", outcome="failed", details=unmet,
             )
-            raise EngineError(f"Quality gate blocked — unmet: {unmet}")
+            raise EngineError(f"Final gate blocked — unmet: {unmet}")
         gate.status = Status.PASSED
         gate.decided_by = role.value
         gate.decided_at = now_iso()
@@ -3202,7 +3203,7 @@ class Engine:
     def release_request_approval(self, role: Role) -> None:
         roles.require("request_release_approval", role)
         if self.gate(GateId.QUALITY).status != Status.PASSED:
-            raise EngineError("Release opens after the quality gate (G3) passes")
+            raise EngineError("Release opens after the final gate (G3) passes")
         self._stage_in_progress(Stage.RELEASE)
         if self._release() is not None:
             raise EngineError("Release approval has already been requested")

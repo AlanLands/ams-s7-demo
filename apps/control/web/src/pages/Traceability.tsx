@@ -21,7 +21,7 @@ export function Traceability() {
     <section>
       <SectionTitle
         title="Traceability matrix"
-        hint="Requirement → design → story → criterion → task → change → test → review → quality → deployment → handover"
+        hint="Requirement → design → story → criterion → task → change → test → review → final gating → deployment → handover"
       />
       {selected ? (
         <div className="card highlight" style={{ marginBottom: '14px' }}>
@@ -47,7 +47,7 @@ export function Traceability() {
         <table>
           <thead>
             <tr>
-              {['Story', 'Criterion', 'Task', 'Change', 'Tests', 'Review', 'Quality', 'Deploy', 'Handover'].map((heading) => (
+              {['Story', 'Criterion', 'Task', 'Change', 'Tests', 'Review', 'Final Gating', 'Deploy', 'Handover'].map((heading) => (
                 <th key={heading}>{heading}</th>
               ))}
             </tr>

@@ -213,8 +213,9 @@ def quality_handoff_rows(
     latest_reviews: dict[str, dict],
     stale_ids: set[str],
 ) -> list[dict]:
-    """Per-story Quality handoff rule (spec §21) — a story moves to Quality
-    only when every named condition holds. Conditions, never a score."""
+    """Per-story Quality handoff rule (spec §21) — a story moves to Final
+    Gating only when every named condition holds. Conditions, never a
+    score."""
     tasks_by_story = {t["story_id"]: t for t in tasks}
     rows: list[dict] = []
     for s in stories:

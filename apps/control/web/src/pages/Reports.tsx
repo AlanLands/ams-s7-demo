@@ -5,7 +5,7 @@ const STAGE_LABELS = new Map([
   ['intake', 'Intake'],
   ['planning', 'Planning'],
   ['build_review', 'Build & Review'],
-  ['quality', 'Quality'],
+  ['quality', 'Final Gating'],
   ['release', 'Release'],
 ])
 

@@ -122,7 +122,7 @@ export function BuildSummaryPage() {
           <div className="tile t-green"><div className="v">{totals.complete}</div><div className="l">Completed</div></div>
           <div className="tile t-amber"><div className="v">{totals.in_progress}</div><div className="l">In Progress</div></div>
           <div className="tile t-red"><div className="v">{totals.blocked}</div><div className="l">Blocked</div></div>
-          <div className="tile t-green"><div className="v">{totals.ready_for_quality}</div><div className="l">Ready for Quality</div></div>
+          <div className="tile t-green"><div className="v">{totals.ready_for_quality}</div><div className="l">Ready for Final Gating</div></div>
           <div className="tile t-blue">
             <div className="v">{totals.review_pass_rate != null ? `${totals.review_pass_rate}%` : '—'}</div>
             <div className="l">Review Pass Rate</div>
@@ -324,7 +324,7 @@ export function BuildSummaryPage() {
             <>
               <p className="hint">Every story has met its handoff conditions.</p>
               <button type="button" className="approve block" onClick={() => goTo('quality')}>
-                Proceed to Quality →
+                Proceed to Final Gating →
               </button>
             </>
           ) : (

@@ -41,8 +41,8 @@ export function Quality() {
     return (
       <section>
         <SectionTitle
-          title="Stage 4 — Quality"
-          hint="Evidence aggregated across every story. The gate is explicit conditions, never the score."
+          title="Stage 4 — Final Gating"
+          hint="The per-AC checks generated at planning are the delivery's unit-level verification; broader regression/integration and performance execution hand off to the organisation's existing suites. This gate is the final checklist before release — evidence aggregated across every story, explicit conditions, never a score."
         />
         <div className="card">
           <p>Quality aggregation opens once the independent-review gate (G2) has passed for every task.</p>
@@ -62,8 +62,8 @@ export function Quality() {
   return (
     <section>
       <SectionTitle
-        title="Stage 4 — Quality"
-        hint="Evidence aggregated across every story. The gate is explicit conditions, never the score."
+        title="Stage 4 — Final Gating"
+        hint="The per-AC checks generated at planning are the delivery's unit-level verification; broader regression/integration and performance execution hand off to the organisation's existing suites. This gate is the final checklist before release — evidence aggregated across every story, explicit conditions, never a score."
       />
 
       <div className="grid cols-4">
@@ -145,16 +145,16 @@ export function Quality() {
           </button>
           <button
             className="primary approve"
-            onClick={() => void act('/quality/decide', {}, 'Quality gate decided')}
+            onClick={() => void act('/quality/decide', {}, 'Final gate decided')}
           >
-            Decide quality gate (QA Lead)
+            Decide final gate (QA Lead)
           </button>
         </div>
       </div>
 
       <GatePanel
         gateId="G3"
-        title="Gate 3 — Quality"
+        title="Gate 3 — Final Gating"
         hint="Conditions evaluate when the QA Lead decides the gate."
       />
     </section>

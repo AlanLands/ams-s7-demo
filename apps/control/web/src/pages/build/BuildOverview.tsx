@@ -125,7 +125,7 @@ export function BuildOverview() {
       label: 'Review blocked story',
       go: () => { selectStory(blockers[0].story_id); goTo('independent_review') },
     }
-  } else nextAction = { label: 'Proceed to Quality', go: () => goTo('quality') }
+  } else nextAction = { label: 'Proceed to Final Gating', go: () => goTo('quality') }
 
   const repoOf = (team: string) => packs.find((p) => p.team === team)?.repository ?? '—'
 
@@ -244,7 +244,7 @@ export function BuildOverview() {
           </button>
           <button type="button" className="readiness-card" onClick={() => goTo('quality')}>
             <div className="ic sc-green-ic"><ShieldCheck /></div>
-            <h4>Quality Ready</h4>
+            <h4>Final Gating Ready</h4>
             <div className="m">{String(qualityReady)}</div>
             <div className="s">Stories</div>
           </button>
