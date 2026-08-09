@@ -854,8 +854,18 @@ class Engine:
         except RepoConnectError as exc:
             raise EngineError(f"Repository clone failed: {exc}") from exc
 
+        from s7_delivery.factory import ci_bootstrap
+        repo_dir = self.store.path("repos", rec.name)
+        stack = ci_bootstrap.detect_stack_from_files(repo_dir)
+        try:
+            bootstrap_status = ci_bootstrap.bootstrap(repo_dir, rec.default_branch, stack)
+        except ci_bootstrap.CiBootstrapError:
+            bootstrap_status = "push_failed"
+
         repos = self.store.read_json_or([], "intake", "repos.json")
-        repos.append(rec.model_dump(mode="json"))
+        rec_dict = rec.model_dump(mode="json")
+        rec_dict["ci_bootstrap_status"] = bootstrap_status
+        repos.append(rec_dict)
         self.store.write_json(repos, "intake", "repos.json")
 
         pack = build_context_pack(self.store.path("repos", rec.name), rec.name)
@@ -1086,8 +1096,18 @@ class Engine:
             shutil.rmtree(repo_path, ignore_errors=True)
             raise EngineError(f"Cloning the newly created repo failed: {exc}") from exc
 
+        from s7_delivery.factory import ci_bootstrap
+        repo_dir = self.store.path("repos", rec.name)
+        stack = ci_bootstrap.detect_stack_from_text(setup["stack"])
+        try:
+            bootstrap_status = ci_bootstrap.bootstrap(repo_dir, rec.default_branch, stack)
+        except ci_bootstrap.CiBootstrapError:
+            bootstrap_status = "push_failed"
+
         repos = self.store.read_json_or([], "intake", "repos.json")
-        repos.append(rec.model_dump(mode="json"))
+        rec_dict = rec.model_dump(mode="json")
+        rec_dict["ci_bootstrap_status"] = bootstrap_status
+        repos.append(rec_dict)
         self.store.write_json(repos, "intake", "repos.json")
         pack = build_context_pack(self.store.path("repos", rec.name), rec.name)
         self.store.write_text(pack, "intake", "context", f"{rec.name}.md")
