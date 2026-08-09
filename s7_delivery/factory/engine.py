@@ -47,7 +47,7 @@ from s7_delivery.factory.models import (
     Story,
     now_iso,
 )
-from s7_delivery.factory.store import RunStore, next_run_id, sha256_of
+from s7_delivery.factory.store import RunStore, StoreError, next_run_id, sha256_of
 
 
 class EngineError(Exception):
@@ -1119,7 +1119,12 @@ class Engine:
         roles.require("create_new_application_repo", role)
         import shutil
 
-        from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
+        from s7_delivery.factory.repos import (
+            RepoConnectError,
+            build_context_pack,
+            clone_repo,
+            remember_repo,
+        )
         from s7_delivery.factory.scaffold import push_new_repo, write_scaffold_locally
 
         setup = self._new_app()
@@ -1171,6 +1176,13 @@ class Engine:
             workflow="create-new-application-repo", artifact=rec.name,
             outcome="created", details=f"{rec.url} @ {rec.head_sha[:10]}",
         )
+        # A repo created here is an ordinary connected repo from this point on
+        # — including in the global memory, so a reset offers it back like any
+        # other (it would otherwise be the one repo the app forgets).
+        remember_repo({
+            "url": rec.url, "name": rec.name,
+            "default_branch": rec.default_branch, "last_connected_at": now_iso(),
+        })
 
     def intake_pass_gate(self, role: Role) -> None:
         roles.require("pass_intake_gate", role)
@@ -1683,6 +1695,9 @@ class Engine:
             approver,
             epic=self.store.read_json_or(None, "intake", "epic.json"),
             analysis=self.store.read_json_or(None, "intake", "analysis.json"),
+            # live runs only: a simulation run has no clones to check against
+            connected_repos=self._connected_repos()
+            if self.run().mode is DemoMode.LIVE else None,
         )
         gate = self.gate(GateId.PLAN_SIGNOFF)
         gate.conditions = conditions
@@ -1925,8 +1940,11 @@ class Engine:
                     p["version"] if p["publication_status"] == "published" else 0
                 )
             if "test_plan_status" not in p:
-                # legacy rows predate the test-plan checkpoint: a pack that
-                # already reached the repository was implicitly accepted
+                # Legacy rows predate the test-plan checkpoint entirely: a pack
+                # that already reached the repository was implicitly accepted.
+                # Kept deliberately so historic runs stay viewable — it back-
+                # fills a *status field*, never a missing test plan, and
+                # test_plan_approve still refuses a pack with no manifests.
                 p["test_plan_status"] = (
                     "approved" if p["publication_status"] == "published"
                     else "generated"
@@ -1934,6 +1952,12 @@ class Engine:
                 p.setdefault("test_plan_approved_by", "")
                 p.setdefault("test_plan_approved_at", "")
         return packs
+
+    def _has_test_manifest(self, story_id: str) -> bool:
+        try:
+            return self.store.exists("build", "tests", story_id, "test-manifest.json")
+        except StoreError:  # a story id that is not a safe path segment
+            return False
 
     def _pack_stats(self, pack: dict) -> tuple[int, int]:
         """(artifact_count, size_bytes) computed from the artifact store —
@@ -1949,6 +1973,10 @@ class Engine:
         ]
         for story_id in pack.get("story_ids", []):
             files += [p for p in self.store.path("build", "stories", story_id).rglob("*") if p.is_file()]
+            # the AC test skeletons ship with the pack — they must be counted
+            # by the same walk that the ZIP collects, or the two disagree
+            tdir = self.store.path("build", "tests", story_id)
+            files += [p for p in tdir.rglob("*") if p.is_file()]
         for task_id in pack.get("task_ids", []):
             files += [p for p in self.store.path("build", "tasks", task_id).rglob("*") if p.is_file()]
         return len(files), sum(p.stat().st_size for p in files)
@@ -2004,14 +2032,23 @@ class Engine:
                 ),
                 "build", "stories", story["story_id"],
             )
+            # A story's target_repository is free text a human can type
+            # ("Claims API"). Only a name that matches a *connected* repo has
+            # a clone directory — and only such a name is a safe path segment.
+            # Anything else means "stack unknown": reference-only skeletons,
+            # never a StoreError that kills the whole generation.
             repo = next(
                 (r for r in self._connected_repos()
                  if r["name"] == story.get("target_repository", "")),
                 None,
             )
-            stack = test_skeletons.resolve_stack(
-                repo, self.store.path("repos", story.get("target_repository", "") or "-")
-            )
+            repo_dir = None
+            if repo is not None:
+                try:
+                    repo_dir = self.store.path("repos", repo["name"])
+                except StoreError:
+                    repo_dir = None
+            stack = test_skeletons.resolve_stack(repo, repo_dir)
             t_files, t_manifest = test_skeletons.render_story_tests(story, stack)
             self._write_files(
                 {**t_files, "test-manifest.json": t_manifest},
@@ -2073,6 +2110,16 @@ class Engine:
         if pack["test_plan_status"] == "approved":
             raise EngineError(
                 f"{pack_id} v{pack['version']} test plan is already approved"
+            )
+        # Approving nothing is not a checkpoint. A pack whose stories carry no
+        # test-manifest.json has no plan to review, and approving it would put
+        # a human signature on an empty artifact.
+        if not any(
+            self._has_test_manifest(sid) for sid in pack.get("story_ids", [])
+        ):
+            raise EngineError(
+                "No test plan generated for this pack — regenerate delivery"
+                " packs first"
             )
         who = approver.strip() or role.value
         pack["test_plan_status"] = "approved"
@@ -2305,15 +2352,29 @@ class Engine:
         tasks = self._tasks()
         tasks_changed = False
         for ws in workspaces:
-            results = {
-                t["name"]: t["outcome"]
-                for t in (ws.get("ci_evidence") or {}).get("tests", [])
-            }
+            ci = ws.get("ci_evidence") or {}
+            red = ws.get("red_baseline") or {}
+            story_tasks = [t for t in tasks if t["story_id"] == ws["story_id"]]
+            # In a live run nobody calls task_generate_tests — the published
+            # rule-based skeletons ARE the test plan. Without this seeding the
+            # per-AC join below has nothing to join to, so real CI outcomes
+            # never reach the per-story quality conditions.
+            if (
+                (ci.get("tests") or red.get("tests"))
+                and story_tasks
+                and not any(t.get("tests") for t in story_tasks)
+            ):
+                seeded = self._tests_from_manifest(
+                    ws["story_id"], ci.get("url") or red.get("url", "")
+                )
+                if seeded:
+                    for task in story_tasks:
+                        task["tests"] = [dict(r) for r in seeded]
+                    tasks_changed = True
+            results = {t["name"]: t["outcome"] for t in ci.get("tests", [])}
             if not results:
                 continue
-            for task in tasks:
-                if task["story_id"] != ws["story_id"]:
-                    continue
+            for task in story_tasks:
                 for t in task.get("tests", []):
                     if t["name"] in results:
                         new = "passed" if results[t["name"]] == "passed" else "failed"
@@ -2338,6 +2399,35 @@ class Engine:
                     " results (real pushed work, read-only)",
         )
         return synced
+
+    def _tests_from_manifest(self, story_id: str, run_url: str) -> list[dict]:
+        """The published test plan for one story, as TestCaseRecord dicts.
+
+        The rule-based skeletons are the live lane's red baseline: every one
+        of them was published deliberately failing, so `initial_result` and
+        `current_result` both start `failed` and only real CI evidence moves
+        them. Empty when the story has no manifest (packs generated before
+        the test-plan checkpoint)."""
+        try:
+            manifest = self.store.read_json_or(
+                None, "build", "tests", story_id, "test-manifest.json"
+            )
+        except StoreError:
+            return []
+        if not manifest:
+            return []
+        ref = run_url or f"build/tests/{story_id}/test-manifest.json"
+        return [
+            {
+                "test_id": f"TEST-{story_id[-3:]}-{i:02d}",
+                "name": row["test_name"],
+                "ac_id": row["ac_id"],
+                "initial_result": "failed",
+                "current_result": "failed",
+                "evidence_ref": ref,
+            }
+            for i, row in enumerate(manifest.get("tests", []), start=1)
+        ]
 
     def _ci_run_evidence(
         self, repo: dict, sha: str, *, fallback_any: bool = False
@@ -2391,9 +2481,12 @@ class Engine:
         return self._ci_run_evidence(repo, latest["sha"], fallback_any=True)
 
     def _sync_red_baseline(self, repo: dict, ws: dict) -> dict | None:
-        """The S7 CI run for this workspace's latest *real* publication
-        commit — the genuinely-failing skeletons on the s7/ context branch.
-        Simulated publications have no CI run and never invent one."""
+        """The S7 CI run for this workspace's *first* real publication commit
+        — the genuinely-failing skeletons as they were published, before any
+        developer work existed. The earliest publication, deliberately: a
+        republish after the work merged would put a green run behind the words
+        "red baseline", which is exactly the mislabelling the badge exists to
+        prevent. Simulated publications have no CI run and never invent one."""
         pubs = [
             p for p in self.store.read_ledger("publications.jsonl")
             if p["delivery_pack_id"] == ws.get("delivery_pack_id")
@@ -2401,7 +2494,7 @@ class Engine:
         ]
         if not pubs:
             return None
-        return self._ci_run_evidence(repo, pubs[-1]["commit"])
+        return self._ci_run_evidence(repo, pubs[0]["commit"])
 
     def _refresh_task_evidence_files(
         self, workspaces: list[dict], tasks_by_story: dict[str, dict]
@@ -2476,10 +2569,14 @@ class Engine:
         branch = dp.branch_name(self.run_id, pack["team"])
         files = pub.file_plan(self.store, pack)
         publications = self.store.read_ledger("publications.jsonl")
-        republish = any(
-            p["repository"] == pack["repository"] and p["status"] == "published"
-            for p in publications
-        )
+        prior = [
+            p for p in publications
+            if p["repository"] == pack["repository"] and p["status"] == "published"
+        ]
+        republish = bool(prior)
+        # Exactly what this run has written into that repository before —
+        # anything else under a managed root is somebody else's file.
+        prior_paths = {path for p in prior for path in p.get("published_paths", [])}
         live = self.run().mode is DemoMode.LIVE
         if live:
             repo = next(
@@ -2496,7 +2593,7 @@ class Engine:
                 commit = pub.publish_to_clone(
                     repo_dir, files, branch=branch,
                     default_branch=repo.get("default_branch", ""),
-                    republish=republish,
+                    republish=republish, published_paths=prior_paths,
                 )
                 if pub.has_remote(repo_dir):
                     pub.push_branch(repo_dir, branch, repo.get("default_branch", ""))
@@ -2599,16 +2696,44 @@ class Engine:
         self._save_workspaces(workspaces)
 
     def delivery_packs_publish_all(self, role: Role) -> int:
+        """Publish every pending pack — all of them or none of them.
+
+        The preflight below is not belt-and-braces over `delivery_pack_publish`:
+        without it the batch publishes packs one by one until the first
+        refusal, leaving half the teams' repositories written to and the run in
+        a state nobody asked for. Every failure it checks is *foreseeable*
+        before any mutation, so it is checked before any mutation."""
         roles.require("publish_delivery_pack", role)
         pending = [
-            p["delivery_pack_id"] for p in self._packs()
+            p for p in self._packs()
             if p["publication_status"] != "published"
             or p.get("published_version", 0) < p["version"]
         ]
         if not pending:
             raise EngineError("Every delivery pack is already published")
-        for pack_id in pending:
-            self.delivery_pack_publish(role, pack_id)
+        stale_ids = {
+            s["artifact_id"] for s in self.store.read_json_or([], "staleness.json")
+        }
+        problems: list[str] = []
+        for pack in pending:
+            pid = pack["delivery_pack_id"]
+            if pack.get("test_plan_status") != "approved":
+                problems.append(f"{pid}: test plan not approved by the QA Lead")
+            if pid in stale_ids:
+                problems.append(
+                    f"{pid}: stale — regenerate delivery packs before publishing"
+                )
+            if not any(
+                self._has_test_manifest(sid) for sid in pack.get("story_ids", [])
+            ):
+                problems.append(f"{pid}: no test plan generated")
+        if problems:
+            raise EngineError(
+                "Nothing published — the batch is refused whole: "
+                + "; ".join(problems)
+            )
+        for pack in pending:
+            self.delivery_pack_publish(role, pack["delivery_pack_id"])
         return len(pending)
 
     def workspace_assign_developer(

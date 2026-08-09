@@ -388,6 +388,27 @@ def test_generation_writes_test_skeletons_and_manifest(eng):
             assert eng.store.path("build", "tests", s["story_id"], t["file"]).is_file()
 
 
+def test_generation_survives_a_free_text_target_repository(eng):
+    """C1: `target_repository` is free text a human can type. A name that is
+    not a connected repo (and not a safe path segment) must degrade to
+    "stack unknown", never abort the whole generation."""
+    accepted(eng)
+    stories = eng.store.read_json("planning", "stories.json")
+    stories[0]["target_repository"] = "Claims API"
+    eng.store.write_json(stories, "planning", "stories.json")
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    assert eng.state()["build"]["delivery_packs"]
+    manifest = json.loads(
+        eng.store.path(
+            "build", "tests", stories[0]["story_id"], "test-manifest.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert manifest["runnable"] is False and manifest["stack"] == ""
+    # every other story still got its skeletons
+    for s in stories:
+        assert eng.store.exists("build", "tests", s["story_id"], "test-manifest.json")
+
+
 def test_new_pack_test_plan_starts_generated(eng):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
@@ -405,6 +426,91 @@ def test_qa_approves_test_plan(eng):
     assert pack["test_plan_status"] == "approved"
     assert pack["test_plan_approved_by"] == "R. Osei"
     assert pack["test_plan_approved_at"]
+
+
+def test_approval_refused_when_no_test_plan_exists(eng):
+    """I4: approving a pack with no manifests would put a human signature on
+    an empty artifact."""
+    import shutil
+
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    for sid in pack["story_ids"]:
+        shutil.rmtree(eng.store.path("build", "tests", sid))
+    with pytest.raises(EngineError, match="No test plan generated"):
+        eng.test_plan_approve(Role.QA_LEAD, pack["delivery_pack_id"])
+
+
+def test_legacy_published_pack_still_reads_approved(eng):
+    """I4: the backfill for rows written before the checkpoint stays — a
+    historic run must remain viewable, and it only fills in a status field."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    packs = eng.store.read_json("build", "packs", "meta.json")
+    for p in packs:
+        p["publication_status"] = "published"
+        p.pop("test_plan_status", None)
+        p.pop("test_plan_approved_by", None)
+        p.pop("test_plan_approved_at", None)
+    eng.store.write_json(packs, "build", "packs", "meta.json")
+    assert all(
+        p["test_plan_status"] == "approved"
+        for p in eng.state()["build"]["delivery_packs"]
+    )
+
+
+def test_pack_zip_and_stats_include_test_skeletons(eng, tmp_path, monkeypatch):
+    """I8: the skeletons publish with the pack, so the portable copy and the
+    artifact count must both include them."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+    pack = eng.state()["build"]["delivery_packs"][0]
+    sid = pack["story_ids"][0]
+    resp = client.get(
+        f"/api/runs/{eng.run_id}/delivery-packs/{pack['delivery_pack_id']}/download.zip"
+    )
+    names = zipfile.ZipFile(io.BytesIO(resp.content)).namelist()
+    slug = pack["team_slug"]
+    assert f"{slug}/tests/{sid}/test-manifest.json" in names
+    manifest = json.loads(
+        eng.store.path("build", "tests", sid, "test-manifest.json")
+        .read_text(encoding="utf-8")
+    )
+    assert f"{slug}/tests/{sid}/{manifest['tests'][0]['file']}" in names
+    # download-all carries them too
+    all_names = zipfile.ZipFile(io.BytesIO(
+        client.get(f"/api/runs/{eng.run_id}/delivery-packs/download-all.zip").content
+    )).namelist()
+    assert f"delivery-packs/{slug}/tests/{sid}/test-manifest.json" in all_names
+    # …and the pack's own artifact count agrees with what the ZIP collects
+    assert pack["artifact_count"] == len([
+        n for n in names if not n.endswith("/")
+    ])
+
+
+def test_publish_all_refuses_the_whole_batch_and_mutates_nothing(eng):
+    """M7: publishing pack by pack until the first refusal leaves half the
+    teams' repositories written to. Foreseeable failures are checked before
+    any mutation."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    packs = eng.state()["build"]["delivery_packs"]
+    assert len(packs) > 1, "need at least two teams for this to mean anything"
+    eng.test_plan_approve(Role.QA_LEAD, packs[0]["delivery_pack_id"])
+    with pytest.raises(EngineError, match="Nothing published"):
+        eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
+    assert all(
+        p["publication_status"] == "not_published"
+        for p in eng.state()["build"]["delivery_packs"]
+    )
+    assert eng.store.read_ledger("publications.jsonl") == []
+    # approving the rest lets the whole batch through
+    for p in eng.state()["build"]["delivery_packs"][1:]:
+        eng.test_plan_approve(Role.QA_LEAD, p["delivery_pack_id"])
+    assert eng.delivery_packs_publish_all(Role.DELIVERY_LEAD) == len(packs)
 
 
 def test_only_qa_lead_approves_test_plan(eng):

@@ -141,7 +141,9 @@ export function DeliveryPacks() {
   const [previewTab, setPreviewTab] = useState<PreviewTab>('overview')
   const [tabText, setTabText] = useState('')
   const [manifests, setManifests] = useState<Record<string, TestManifest | null>>({})
+  const [skeletons, setSkeletons] = useState<Record<string, string>>({})
   const [approving, setApproving] = useState(false)
+  const [approver, setApprover] = useState('')
 
   const storyById = useMemo(() => new Map(stories.map((s) => [s.story_id, s])), [stories])
   const staleIds = useMemo(() => new Set((data?.staleness ?? []).map((s) => s.artifact_id)), [data])
@@ -163,19 +165,39 @@ export function DeliveryPacks() {
   }, [runId, previewSlug, tabFile])
 
   // Rule-based AC test skeletons — one manifest per story in the selected
-  // pack, fetched from the artifact store (Task 4) and cached by story id.
+  // pack, fetched from the artifact store (Task 4). The cache key carries the
+  // pack version: regenerating a pack rewrites the manifests, and a key of
+  // story id alone would keep showing the previous version's test plan.
+  const packVersion = selectedPack?.version
+  const manifestKey = (sid: string) => `${sid}@v${packVersion}`
   useEffect(() => {
     if (!runId || !selectedPack) return
     selectedPack.story_ids.forEach((sid) => {
-      if (manifests[sid] !== undefined) return
+      const key = `${sid}@v${selectedPack.version}`
+      if (manifests[key] !== undefined) return
       fetch(`/api/runs/${runId}/artifact-file/build/tests/${sid}/test-manifest.json`)
         .then((r) => (r.ok ? r.json() : null))
-        .then((m: TestManifest | null) => setManifests((prev) => ({ ...prev, [sid]: m })))
-        .catch(() => setManifests((prev) => ({ ...prev, [sid]: null })))
+        .then((m: TestManifest | null) => setManifests((prev) => ({ ...prev, [key]: m })))
+        .catch(() => setManifests((prev) => ({ ...prev, [key]: null })))
     })
   }, [runId, selectedPack, manifests])
-  // (`manifests` is a dep because the guard inside reads it; each sid only
+  // (`manifests` is a dep because the guard inside reads it; each key only
   // ever fetches once — the guard makes this converge, not loop.)
+
+  /** The rendered skeleton file itself, fetched on demand when a story's
+   * preview is opened — reviewing a test plan means reading the tests, not
+   * only their names. Same artifact-file route, same version-aware key. */
+  const loadSkeleton = (sid: string, file: string) => {
+    const key = `${sid}@v${packVersion}/${file}`
+    if (!runId || skeletons[key] !== undefined) return
+    setSkeletons((prev) => ({ ...prev, [key]: 'Loading…' }))
+    fetch(`/api/runs/${runId}/artifact-file/build/tests/${sid}/${file}`)
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((text) => setSkeletons((prev) => ({ ...prev, [key]: text })))
+      .catch((err: Error) =>
+        setSkeletons((prev) => ({ ...prev, [key]: `Could not load ${file}: ${err.message}` })),
+      )
+  }
 
   if (!data) return null
 
@@ -244,7 +266,11 @@ export function DeliveryPacks() {
 
   const doApproveTestPlan = async (p: DeliveryPack) => {
     setApproving(true)
-    await act(`/delivery-packs/${p.delivery_pack_id}/approve-test-plan`, {}, 'Test plan approved')
+    await act(
+      `/delivery-packs/${p.delivery_pack_id}/approve-test-plan`,
+      { approver },
+      'Test plan approved',
+    )
     setApproving(false)
   }
 
@@ -589,7 +615,9 @@ export function DeliveryPacks() {
                 </span>
                 {selectedPack.story_ids.map((sid) => {
                   const story = storyById.get(sid)
-                  const m = manifests[sid]
+                  const m = manifests[manifestKey(sid)]
+                  const file = m?.tests?.[0]?.file
+                  const skeleton = file ? skeletons[`${sid}@v${packVersion}/${file}`] : undefined
                   return (
                     <details key={sid} className="dp-tp-story">
                       <summary>
@@ -615,6 +643,17 @@ export function DeliveryPacks() {
                           </tbody>
                         </table>
                       </div>
+                      {file ? (
+                        <details
+                          className="dp-tp-skeleton"
+                          onToggle={(e) => {
+                            if ((e.currentTarget as HTMLDetailsElement).open) loadSkeleton(sid, file)
+                          }}
+                        >
+                          <summary><code>{file}</code> — generated test file (read-only)</summary>
+                          <pre className="mono dp-tp-code">{skeleton ?? 'Loading…'}</pre>
+                        </details>
+                      ) : null}
                     </details>
                   )
                 })}
@@ -626,14 +665,22 @@ export function DeliveryPacks() {
                       {selectedPack.test_plan_approved_at ? ` on ${dmy(selectedPack.test_plan_approved_at)}` : ''}
                     </span>
                   ) : (
-                    <button
-                      className="primary block"
-                      disabled={approving}
-                      onClick={() => void doApproveTestPlan(selectedPack)}
-                    >
-                      {approving ? <LoaderCircle className="btn-ico spin" /> : <SquareCheckBig className="btn-ico" />}
-                      Approve Test Plan (QA Lead)
-                    </button>
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Approver name"
+                        value={approver}
+                        onChange={(e) => setApprover(e.target.value)}
+                      />
+                      <button
+                        className="primary block"
+                        disabled={approving}
+                        onClick={() => void doApproveTestPlan(selectedPack)}
+                      >
+                        {approving ? <LoaderCircle className="btn-ico spin" /> : <SquareCheckBig className="btn-ico" />}
+                        Approve Test Plan (QA Lead)
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

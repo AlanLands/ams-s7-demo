@@ -330,6 +330,131 @@ def test_red_baseline_from_publication_commit(live_eng_with_github_repo, monkeyp
     assert ev["conclusion"] == "failure" and ev["tests_failed"] == 2
 
 
+def test_live_sync_seeds_task_tests_from_the_published_manifest(
+    live_eng_with_github_repo, monkeypatch
+):
+    """I1: a live run never calls task_generate_tests — the published
+    rule-based skeletons are the test plan. Real CI outcomes must still reach
+    the per-AC quality conditions, so the sync seeds the task's tests from the
+    story's test-manifest.json and then joins by name."""
+    from s7_delivery.factory import gates
+
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        {"story_id": "US-1", "stack": "pytest", "runnable": True,
+         "provenance": "rule_based",
+         "tests": [{"ac_id": "US-1-AC1", "test_name": "test_a", "file": "test_us_1.py"},
+                   {"ac_id": "US-1-AC2", "test_name": "test_b", "file": "test_us_1.py"}]},
+        "build", "tests", "US-1", "test-manifest.json",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 11, "status": "completed",
+                                 "conclusion": "failure",
+                                 "url": "https://x/actions/runs/11",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {
+            "tests_total": 2, "tests_passed": 1, "tests_failed": 1,
+            "tests": [{"name": "test_a", "outcome": "passed"},
+                      {"name": "test_b", "outcome": "failed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    seeded = {t["name"]: t for t in task["tests"]}
+    assert set(seeded) == {"test_a", "test_b"}
+    assert seeded["test_a"]["ac_id"] == "US-1-AC1"
+    assert seeded["test_a"]["test_id"] == "TEST-S-1-01"
+    assert seeded["test_a"]["initial_result"] == "failed"
+    assert seeded["test_a"]["current_result"] == "passed"
+    assert seeded["test_b"]["current_result"] == "failed"
+    assert seeded["test_a"]["evidence_ref"] == "https://x/actions/runs/11"
+    # the per-AC gate rows now light up from real evidence
+    story = {"story_id": "US-1", "title": "Sign-in", "accountable_team": "Platform",
+             "acceptance_criteria": [{"ac_id": "US-1-AC1", "text": "a"},
+                                     {"ac_id": "US-1-AC2", "text": "b"}]}
+    rows = gates.quality_handoff_rows([story], [task], {}, set())
+    evidence = next(c for c in rows[0]["checks"]
+                    if c["condition"].startswith("Every acceptance criterion"))
+    assert evidence["met"] is True
+
+
+def test_live_sync_does_not_overwrite_existing_task_tests(
+    live_eng_with_github_repo, monkeypatch
+):
+    """Seeding fills a gap; it never replaces a test plan a task already has."""
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        [{"task_id": "TASK-001", "story_id": "US-1", "status": "ready",
+          "commit_ref": "", "pr_ref": "", "ci_status": "",
+          "tests": [{"test_id": "T1", "name": "test_a", "ac_id": "AC-1",
+                     "initial_result": "failed", "current_result": "failed",
+                     "evidence_ref": "own"}]}],
+        "build", "tasks.json",
+    )
+    e.store.write_json(
+        {"story_id": "US-1", "stack": "pytest", "runnable": True,
+         "provenance": "rule_based",
+         "tests": [{"ac_id": "US-1-AC9", "test_name": "test_z", "file": "f.py"}]},
+        "build", "tests", "US-1", "test-manifest.json",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 12, "status": "completed",
+                                 "conclusion": "success", "url": "http://run/12"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 1, "tests_passed": 1,
+                                    "tests_failed": 0,
+                                    "tests": [{"name": "test_a", "outcome": "passed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert [t["name"] for t in task["tests"]] == ["test_a"]
+    assert task["tests"][0]["evidence_ref"] == "own"
+
+
+def test_red_baseline_uses_the_earliest_real_publication(
+    live_eng_with_github_repo, monkeypatch
+):
+    """I2: after a post-merge republish the latest publication's commit can be
+    green. The red baseline is the *first* publication — the skeletons as
+    published, before any developer work — or the badge lies."""
+    eng = live_eng_with_github_repo
+    for n, commit in enumerate(("a" * 40, "b" * 40), start=1):
+        eng.store.append(
+            {"publication_id": f"PUB-{n:03d}",
+             "delivery_pack_id": "PACK-platform-team",
+             "repository": "advisor-portal-signin", "branch": "s7/x",
+             "commit": commit, "published_paths": [], "status": "published",
+             "simulated": False, "published_at": f"2026-08-0{n}T00:00:00+00:00",
+             "provenance": "human"},
+            "publications.jsonl",
+        )
+    runs = {
+        "a" * 40: {"databaseId": 1, "status": "completed", "conclusion": "failure",
+                   "url": "http://run/1"},
+        "b" * 40: {"databaseId": 2, "status": "completed", "conclusion": "success",
+                   "url": "http://run/2"},
+    }
+    monkeypatch.setattr(ci_sync, "latest_run", lambda owner_repo, sha: runs[sha])
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 2, "tests_passed": 0,
+                                    "tests_failed": 2} if run_id == 1 else
+        {"tests_total": 2, "tests_passed": 2, "tests_failed": 0},
+    )
+    ev = eng._sync_red_baseline(
+        {"url": "https://github.com/AlanLands/advisor-portal-signin"},
+        {"delivery_pack_id": "PACK-platform-team"},
+    )
+    assert ev["run_id"] == 1
+    assert ev["conclusion"] == "failure" and ev["tests_failed"] == 2
+
+
 def test_simulated_publication_yields_no_red_baseline(live_eng_with_github_repo):
     eng = live_eng_with_github_repo
     eng.store.append(

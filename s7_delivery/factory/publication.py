@@ -113,10 +113,25 @@ def check_branch(branch: str, default_branch: str) -> None:
         raise PublicationConflict(f"Refusing to publish to {branch!r}")
 
 
-def check_conflicts(repo_dir: Path, *, republish: bool) -> None:
-    """Stop, don't overwrite: existing AGENTS.md must carry the s7-managed
-    marker, and an existing .s7/ tree must belong to an earlier publication
-    of this run (`republish`)."""
+def check_conflicts(
+    repo_dir: Path,
+    *,
+    republish: bool,
+    published_paths: set[str] | frozenset[str] | tuple[str, ...] = (),
+) -> None:
+    """Stop, don't overwrite.
+
+    First publication: an existing AGENTS.md must carry the s7-managed marker,
+    and an existing `.s7/` or governed test root is somebody else's — refuse.
+
+    Republication: `republish` is not a blanket licence to overwrite. Every
+    file already present under a managed root must be one *we* published
+    (`published_paths`, read from this run's publication ledger). A file a
+    developer added under `tests/s7/` between publications is foreign content
+    and refuses just as loudly, because "we wrote here before" says nothing
+    about the file next to it.
+    """
+    known = set(published_paths)
     agents = repo_dir / "AGENTS.md"
     if agents.is_file():
         head = agents.read_text(encoding="utf-8", errors="replace").split("\n", 1)[0]
@@ -125,17 +140,31 @@ def check_conflicts(repo_dir: Path, *, republish: bool) -> None:
                 "AGENTS.md already exists in the repository and is not"
                 " S7-managed — resolve deliberately before publishing"
             )
-    for root in _TEST_ROOTS:
-        if (repo_dir / root).exists() and not republish:
-            raise PublicationConflict(
-                f"{root}/ already exists in the repository and was not"
-                " published by this run — resolve deliberately before"
-                " publishing"
-            )
-    s7dir = repo_dir / ".s7"
-    if s7dir.exists() and not republish:
+    if not republish:
+        for root in (*_TEST_ROOTS, ".s7"):
+            if (repo_dir / root).exists():
+                raise PublicationConflict(
+                    f"{root}/ already exists in the repository and was not"
+                    " published by this run — resolve deliberately before"
+                    " publishing"
+                )
+        return
+    foreign: list[str] = []
+    for root in (*_TEST_ROOTS, ".s7"):
+        base = repo_dir / root
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*")):
+            if path.is_file():
+                rel = path.relative_to(repo_dir).as_posix()
+                if rel not in known:
+                    foreign.append(rel)
+    if agents.is_file() and "AGENTS.md" not in known:
+        foreign.insert(0, "AGENTS.md")
+    if foreign:
+        shown = ", ".join(foreign[:5]) + ("…" if len(foreign) > 5 else "")
         raise PublicationConflict(
-            ".s7/ already exists in the repository and was not published by"
+            f"{shown} sits under an S7-managed path but was not published by"
             " this run — resolve deliberately before publishing"
         )
 
@@ -155,12 +184,12 @@ def publish_to_clone(
     branch: str,
     default_branch: str,
     republish: bool,
+    published_paths: set[str] | frozenset[str] | tuple[str, ...] = (),
 ) -> str:
     """Write the managed files on a fresh context branch and commit locally.
     Pushing is a separate, explicit step (the engine only pushes when a real
     remote exists). Returns the commit sha."""
     check_branch(branch, default_branch)
-    check_conflicts(repo_dir, republish=republish)
     ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=s7-delivery-factory"]
     # Deterministic base: the default branch, not whatever HEAD happens to be
     # (two teams share one clone — basing on HEAD stacked one team's context
@@ -179,6 +208,11 @@ def publish_to_clone(
         _git(repo_dir, "checkout", "-B", branch, base)
     else:
         _git(repo_dir, "checkout", "-B", branch)
+    # Deliberately after the checkout: the conflict check must inspect the
+    # tree we are about to write over, not whatever branch HEAD happened to
+    # be on (a foreign file merged into the default branch is invisible from
+    # the previous s7/ branch's tree).
+    check_conflicts(repo_dir, republish=republish, published_paths=published_paths)
     for dest, content in files.items():
         target = repo_dir / dest
         target.parent.mkdir(parents=True, exist_ok=True)

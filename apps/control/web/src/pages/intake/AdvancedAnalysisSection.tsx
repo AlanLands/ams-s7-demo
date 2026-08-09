@@ -6,7 +6,7 @@ import { apiGet, apiPost } from '../../api'
 import type { KnownRepo } from '../../types'
 
 export function AdvancedAnalysisSection() {
-  const { data, act, runId } = useRun()
+  const { data, act, runId, role } = useRun()
   const [open, setOpen] = useState(false)
   const [clarAnswers, setClarAnswers] = useState<string[]>([])
   const [newAppAnswers, setNewAppAnswers] = useState<string[]>([])
@@ -46,7 +46,10 @@ export function AdvancedAnalysisSection() {
   const scaffold = data.intake?.scaffold
   const newAppRepoCreated = Boolean(newApp?.name && repos.some((r) => r.name === newApp.name))
   const planLocked = Boolean(data.run?.plan_locked)
-  const reconnectable = knownRepos.filter((k) => !repos.some((r) => r.name === k.name))
+  // Matched by URL, not name: the repo name is only the last path segment, so
+  // two different remotes (a fork, or the same name under another org) share
+  // it and one would wrongly hide the other's reconnect chip.
+  const reconnectable = knownRepos.filter((k) => !repos.some((r) => r.url === k.url))
 
   return (
     <details
@@ -282,7 +285,7 @@ export function AdvancedAnalysisSection() {
                 onClick={async () => {
                   const url = confirmForgetUrl
                   setConfirmForgetUrl(null)
-                  await apiPost('/api/known-repos/forget', { url })
+                  await apiPost('/api/known-repos/forget', { role, url })
                   refreshKnownRepos()
                 }}
               >

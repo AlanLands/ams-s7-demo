@@ -573,15 +573,34 @@ def test_known_repos_forget_route(client, live_run_id, tmp_path):
         json={"role": "delivery_lead", "url": str(src)},
     )
 
-    res = client.post("/api/known-repos/forget", json={"url": str(src)})
+    res = client.post(
+        "/api/known-repos/forget",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
     assert res.status_code == 200
     assert res.json() == {"removed": True}
     assert client.get("/api/known-repos").json() == {"repos": []}
 
     # Forgetting an already-forgotten (or never-known) url is not an error.
-    res = client.post("/api/known-repos/forget", json={"url": str(src)})
+    res = client.post(
+        "/api/known-repos/forget",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
     assert res.status_code == 200
     assert res.json() == {"removed": False}
+
+
+def test_known_repos_forget_requires_a_permitted_role(client, tmp_path):
+    """M4: the one mutating route with no run scope still needs the same
+    permission as connecting."""
+    res = client.post(
+        "/api/known-repos/forget",
+        json={"role": "business_owner", "url": "https://x/a"},
+    )
+    assert res.status_code == 403
+    assert client.post(
+        "/api/known-repos/forget", json={"url": "https://x/a"}
+    ).status_code == 422
 
 
 def test_run_repo_remove_route(client, live_run_id, tmp_path):

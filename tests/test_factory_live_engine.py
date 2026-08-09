@@ -13,6 +13,7 @@ from s7_delivery.factory.models import (
     AcceptanceCriterion,
     DemoMode,
     FeatureFlag,
+    GateId,
     IntakeAnalysis,
     Provenance,
     Role,
@@ -68,6 +69,35 @@ def test_connect_repo_remembers_in_global_registry(tmp_path: Path, monkeypatch):
     assert [r["name"] for r in remembered] == ["maplesure-sponsor-portal"]
     assert remembered[0]["url"] == str(src)
     assert remembered[0]["last_connected_at"]
+
+
+def test_connect_repo_never_persists_a_credential_anywhere(tmp_path: Path, monkeypatch):
+    """I6: a token pasted into the connect box authenticates the clone and
+    stops there — the run record, the global registry and the API all carry
+    the stripped URL."""
+    from s7_delivery.factory import repos as repos_mod
+
+    registry_root = tmp_path / "registry"
+    monkeypatch.setattr(repos_mod, "_default_root", lambda: registry_root)
+
+    def fake_git(cwd, *args):
+        if "clone" in args:
+            Path(args[-1]).mkdir(parents=True)
+            return ""
+        return "main" if "--abbrev-ref" in args else "a" * 40
+
+    monkeypatch.setattr(repos_mod, "_git", fake_git)
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    eng.intake_connect_repo(
+        Role.DELIVERY_LEAD, "https://alan:ghp_secret@github.com/AlanLands/app.git"
+    )
+    stripped = "https://github.com/AlanLands/app.git"
+    assert eng.state()["intake"]["repos"][0]["url"] == stripped
+    assert repos_mod.known_repos(registry_root)[0]["url"] == stripped
+    # nothing anywhere in the run's artifact tree carries the token
+    for path in eng.store.root.rglob("*"):
+        if path.is_file():
+            assert "ghp_secret" not in path.read_text(encoding="utf-8", errors="ignore"), path
 
 
 def test_connect_repo_registry_survives_run_deletion(tmp_path: Path, monkeypatch):
@@ -259,8 +289,10 @@ def test_clarify_answer_count_mismatch_is_an_error(tmp_path, monkeypatch):
 def _fake_story() -> Story:
     return Story(
         story_id="US-001", epic_id="EPIC-S7-001", title="t", purpose="p",
-        accountable_team="Data Team", target_application="maplesure-claims-api",
-        target_component="c", target_repository="maplesure-claims-api",
+        accountable_team="Data Team", target_application="maplesure-sponsor-portal",
+        # the repo _live_engine_with_repo actually connects — G1 refuses a
+        # story naming a repository that is not connected (dangling reference)
+        target_component="c", target_repository="maplesure-sponsor-portal",
         acceptance_criteria=[AcceptanceCriterion(ac_id="US-001-AC1", text="x")],
         feature_flag=FeatureFlag(name="f"), rollback_plan=RollbackPlan(method="m"),
         estimate=5, sprint=1, traces_to=["BR-01"],
@@ -537,6 +569,62 @@ def test_create_new_app_repo_normalizes_into_connected_repos(tmp_path, monkeypat
     repos = eng.state()["intake"]["repos"]
     assert repos[-1]["name"] == "maplesure-eligibility-check"
     assert eng.store.exists("intake", "context", "maplesure-eligibility-check.md")
+
+
+def test_signoff_blocks_on_a_story_whose_repository_was_removed(tmp_path, monkeypatch):
+    """I7: removing a repo leaves every story that named it dangling —
+    everything downstream of G1 resolves that name against the connected set,
+    so the gate, not the pack generator, is where it must surface."""
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (_fake_analysis(), {}),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.planning_add_story(Role.DELIVERY_LEAD, {
+        "title": "Add disability claim submission endpoint",
+        "accountable_team": "Services Team",
+        "target_component": "main.py",
+        "target_repository": "maplesure-sponsor-portal",
+        "acceptance_criteria": [
+            "Given a sponsor, when they submit a claim, then it is stored."
+        ],
+    })
+    eng.intake_remove_repo(Role.DELIVERY_LEAD, "maplesure-sponsor-portal")
+    with pytest.raises(EngineError, match="Every named repository is still connected"):
+        eng.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Hale")
+    assert eng.run().plan_locked is False
+    blocked = next(
+        c for c in eng.gate(GateId.PLAN_SIGNOFF).conditions
+        if c["condition"] == "Every named repository is still connected"
+    )
+    assert "no longer connected" in blocked["detail"]
+    assert "maplesure-sponsor-portal" in blocked["detail"]
+
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    eng.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Hale")
+    assert eng.run().plan_locked is True
+
+
+def test_create_new_app_repo_is_remembered_globally(tmp_path, monkeypatch):
+    """M2: a repo created here is an ordinary connected repo from then on —
+    the global registry must know it, or it is the one repo a reset forgets."""
+    from s7_delivery.factory import repos as repos_mod
+
+    registry_root = tmp_path / "registry"
+    monkeypatch.setattr(repos_mod, "_default_root", lambda: registry_root)
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    _settled_new_app(eng, monkeypatch)
+    monkeypatch.setattr(scaffold_mod, "push_new_repo", lambda p, n: str(p))
+    eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+    remembered = repos_mod.known_repos(registry_root)
+    assert [r["name"] for r in remembered] == ["maplesure-eligibility-check"]
+    assert remembered[0]["default_branch"] and remembered[0]["last_connected_at"]
 
 
 def test_create_new_app_repo_before_setup_is_an_error(tmp_path):

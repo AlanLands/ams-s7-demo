@@ -106,10 +106,14 @@ def tests_for(story: dict, *, corrected: bool = False) -> list[TestCaseRecord]:
     its assertion mirrors the developer's `<` misreading, which is why it
     goes green over a defective build.
     """
+    from s7_delivery.factory.test_skeletons import story_test_names
+
     scripted = story.get("provenance", "simulated") == "simulated"
+    # One naming authority (test_skeletons) for the simulated records and the
+    # published skeletons alike — including duplicate-name disambiguation.
+    names = story_test_names(story)
     records: list[TestCaseRecord] = []
-    for i, ac in enumerate(story["acceptance_criteria"], start=1):
-        name = _test_name(story["story_id"], ac["ac_id"], ac["text"], scripted=scripted)
+    for i, (ac, name) in enumerate(zip(story["acceptance_criteria"], names), start=1):
         records.append(
             TestCaseRecord(
                 test_id=f"TEST-{story['story_id'][-3:]}-{i:02d}",
@@ -128,14 +132,13 @@ def tests_for(story: dict, *, corrected: bool = False) -> list[TestCaseRecord]:
 
 
 def _test_name(story_id: str, ac_id: str, text: str, *, scripted: bool = True) -> str:
-    if scripted and ac_id == "US-003-AC2":
-        return "test_accepts_first_day_absent_after_last_day_worked"
-    if scripted and ac_id == "US-003-AC3":
-        # The defective first version only checks strictly-before — the name
-        # honestly reflects what it asserts, which is how the reviewer spots it.
-        return "test_rejects_first_day_absent_before_last_day_worked"
-    from s7_delivery.factory.test_skeletons import slug_test_name
-    return slug_test_name(text)
+    """Kept for callers that have one criterion and no story dict. The naming
+    rules — scripted overrides included — live in test_skeletons."""
+    from s7_delivery.factory.test_skeletons import test_name_for
+    return test_name_for(
+        {"provenance": "simulated" if scripted else "human"},
+        {"ac_id": ac_id, "text": text},
+    )
 
 
 def change_summary(story_id: str, *, corrected: bool = False, provenance: str = "simulated") -> str:

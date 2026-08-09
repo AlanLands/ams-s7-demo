@@ -42,6 +42,7 @@ def plan_signoff_gate(
     *,
     epic: dict | None = None,
     analysis: dict | None = None,
+    connected_repos: list[dict] | None = None,
 ) -> list[dict]:
     """G1 — approve and lock the delivery plan, authorising architecture,
     delivery-pack and workspace generation. G1 deliberately does NOT require
@@ -90,6 +91,31 @@ def plan_signoff_gate(
                          bool(stories) and not unmapped,
                          f"unmapped: {', '.join(unmapped)}" if unmapped else
                          "every story names its target application and repository"))
+    # A story pointing at a repository that has since been disconnected is a
+    # dangling reference: everything downstream of G1 (packs, publication,
+    # workspaces) resolves that name against the connected set. `None` means
+    # "not applicable" — a simulation run has no clones at all and names
+    # fictional targets, so the check would be theatre there.
+    if connected_repos is None:
+        conditions.append(_c(
+            "Every named repository is still connected", True,
+            "simulated run — no repository is connected to check against",
+        ))
+    else:
+        connected_names = {r.get("name", "") for r in connected_repos}
+        dangling = [
+            (s["story_id"], s["target_repository"]) for s in stories
+            if s.get("target_repository")
+            and s["target_repository"] not in connected_names
+        ]
+        conditions.append(_c(
+            "Every named repository is still connected", not dangling,
+            "; ".join(
+                f"{sid}: repository {repo} is no longer connected —"
+                " reconnect it or edit the story"
+                for sid, repo in dangling
+            ) if dangling else f"{len(connected_names)} connected",
+        ))
     conditions.append(_c("No critical planning blockers", True,
                          "none raised in this run"))
     conditions.append(_c("Named approver", bool(approver.strip()),

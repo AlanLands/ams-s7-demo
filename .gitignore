@@ -24,6 +24,9 @@ target-apps/
 # Control Centre run state — recreated from seed on demand; a presenter's
 # local runs are not demo material to commit
 artifacts/runs/
+# …and any archived-off copy of them (demo rehearsals archive rather than
+# delete, and an archive is presenter state exactly like the live tree)
+artifacts/runs-archive-*/
 
 # Known-repos registry — deliberately outside artifacts/runs/ so it survives
 # run deletion, but it's still local presenter state (real clone URLs from

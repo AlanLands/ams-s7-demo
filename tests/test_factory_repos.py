@@ -122,3 +122,74 @@ def test_forget_repo_removes_and_reports_whether_it_existed(tmp_path: Path):
 
 def test_forget_repo_on_missing_file_returns_false(tmp_path: Path):
     assert forget_repo("https://x/never-connected", tmp_path) is False
+
+
+# --- credentials never reach disk (I6) ---------------------------------------
+
+
+def test_normalize_repo_url_strips_userinfo():
+    from s7_delivery.factory.repos import normalize_repo_url
+
+    assert normalize_repo_url(
+        "https://alan:ghp_secret@github.com/AlanLands/app.git"
+    ) == "https://github.com/AlanLands/app.git"
+    assert normalize_repo_url(
+        "https://github.com/AlanLands/app"
+    ) == "https://github.com/AlanLands/app"
+    assert normalize_repo_url("") == ""
+
+
+def test_clone_record_strips_credentials_but_git_still_gets_them(tmp_path, monkeypatch):
+    from s7_delivery.factory import repos as repos_mod
+
+    calls: list[tuple] = []
+
+    def fake_git(cwd, *args):
+        calls.append(args)
+        if "clone" in args:
+            Path(args[-1]).mkdir(parents=True)
+            return ""
+        return "main" if "--abbrev-ref" in args else "a" * 40
+
+    monkeypatch.setattr(repos_mod, "_git", fake_git)
+    rec = clone_repo(
+        "https://alan:ghp_secret@github.com/AlanLands/app.git", tmp_path / "dest"
+    )
+    assert rec.url == "https://github.com/AlanLands/app.git"
+    assert "ghp_secret" not in rec.model_dump_json()
+    # the credential still did its one job: authenticating the clone
+    assert any("ghp_secret" in " ".join(a) for a in calls)
+
+
+def test_clone_failure_message_is_redacted(tmp_path, monkeypatch):
+    import subprocess as sp
+
+    from s7_delivery.factory import repos as repos_mod
+
+    def boom(*args, **kwargs):
+        raise sp.CalledProcessError(
+            128, "git",
+            stderr="fatal: could not read from"
+                   " https://alan:ghp_secret@github.com/AlanLands/app.git",
+        )
+
+    monkeypatch.setattr(repos_mod.subprocess, "run", boom)
+    with pytest.raises(RepoConnectError) as exc:
+        clone_repo("https://alan:ghp_secret@github.com/AlanLands/app.git",
+                   tmp_path / "dest")
+    assert "ghp_secret" not in str(exc.value)
+
+
+def test_registry_never_stores_credentials(tmp_path: Path):
+    remember_repo(
+        {"url": "https://alan:ghp_secret@github.com/AlanLands/app.git",
+         "name": "app", "default_branch": "main", "last_connected_at": "t"},
+        tmp_path,
+    )
+    items = known_repos(tmp_path)
+    assert items[0]["url"] == "https://github.com/AlanLands/app.git"
+    assert "ghp_secret" not in (tmp_path / "known_repos.json").read_text()
+    # forgetting works from either form
+    assert forget_repo(
+        "https://alan:ghp_secret@github.com/AlanLands/app.git", tmp_path
+    ) is True

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -20,6 +21,24 @@ from s7_delivery.factory.store import REPO_ROOT
 # Extensions worth excerpting, in priority order after architecture.md.
 _SOURCE_EXTS = (".py", ".js", ".html", ".md", ".sql", ".toml", ".cfg")
 _SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv"}
+
+_USERINFO = re.compile(r"(https?://)[^/@\s]*@")
+
+
+def normalize_repo_url(url: str) -> str:
+    """`https://user:token@host/org/repo` → `https://host/org/repo`.
+
+    A personal access token pasted into the connect box is a credential: it is
+    fine for the one `git clone` that needs it and must never reach disk, a log
+    line, an activity detail, or the API. Normalizing here means the *record*
+    is the stripped form everywhere, so no caller has to remember."""
+    return _USERINFO.sub(r"\1", url or "")
+
+
+def _redact(text: str) -> str:
+    """Git echoes the remote URL in its error output — scrub credentials
+    before that text becomes an engine error message."""
+    return _USERINFO.sub(r"\1", text or "")
 
 
 class RepoConnectError(Exception):
@@ -33,9 +52,9 @@ def _git(cwd: Path | None, *args: str) -> str:
             check=True, capture_output=True, text=True, timeout=120,
         )
     except subprocess.CalledProcessError as exc:
-        raise RepoConnectError(exc.stderr.strip() or str(exc)) from exc
+        raise RepoConnectError(_redact(exc.stderr.strip() or str(exc))) from exc
     except subprocess.TimeoutExpired as exc:
-        raise RepoConnectError(f"git timed out: {args}") from exc
+        raise RepoConnectError(f"git timed out: {_redact(' '.join(args))}") from exc
     return out.stdout.strip()
 
 
@@ -62,7 +81,8 @@ def clone_repo(url: str, dest_root: Path) -> RepoRecord:
         shutil.rmtree(dest, ignore_errors=True)
         raise
     return RepoRecord(
-        url=url,
+        # the credential (if any) was used for the clone and stops there
+        url=normalize_repo_url(url),
         name=name,
         head_sha=_git(dest, "rev-parse", "HEAD"),
         default_branch=_git(dest, "rev-parse", "--abbrev-ref", "HEAD"),
@@ -153,14 +173,19 @@ def _write_registry(items: list[dict], root: Path | None) -> None:
 
 def remember_repo(rec: dict, root: Path | None = None) -> None:
     """Upsert by url: an existing entry is replaced (fields updated) and
-    moved to the front; a new one is inserted at the front. Newest-first."""
-    items = [i for i in known_repos(root) if i.get("url") != rec.get("url")]
+    moved to the front; a new one is inserted at the front. Newest-first.
+
+    The url is normalized on the way in — this registry outlives every run, so
+    a credential written here would outlive it too."""
+    rec = {**rec, "url": normalize_repo_url(rec.get("url", ""))}
+    items = [i for i in known_repos(root) if i.get("url") != rec["url"]]
     items.insert(0, rec)
     _write_registry(items, root)
 
 
 def forget_repo(url: str, root: Path | None = None) -> bool:
     """Remove by url. Returns whether an entry was actually removed."""
+    url = normalize_repo_url(url)
     items = known_repos(root)
     remaining = [i for i in items if i.get("url") != url]
     if len(remaining) == len(items):

@@ -210,11 +210,16 @@ def get_known_repos() -> dict:
 
 
 class ForgetRepoBody(BaseModel):
+    role: str
     url: str
 
 
 @app.post("/api/known-repos/forget")
 def post_forget_known_repo(body: ForgetRepoBody) -> dict:
+    """Forgetting is the mirror of connecting, so it takes the same
+    permission — this endpoint is run-independent, which made it the one
+    mutating route with no role check at all."""
+    roles.require("connect_repository", _role(body.role))
     return {"removed": repos.forget_repo(body.url)}
 
 
@@ -609,6 +614,13 @@ def _pack_zip_entries(eng, pack: dict, prefix: str) -> list[tuple[object, str]]:
         entries += [
             (path, f"{prefix}/stories/{story_id}/{path.name}")
             for path in sorted(sdir.rglob("*")) if path.is_file()
+        ]
+        # the AC test skeletons + manifest: published with the pack, so they
+        # belong in the portable copy of it too
+        tdir = eng.store.path("build", "tests", story_id)
+        entries += [
+            (path, f"{prefix}/tests/{story_id}/{path.name}")
+            for path in sorted(tdir.rglob("*")) if path.is_file()
         ]
     for task_id in pack["task_ids"]:
         tdir = eng.store.path("build", "tasks", task_id)

@@ -362,3 +362,54 @@ def test_foreign_test_root_conflicts(tmp_path):
     (tmp_path / "tests" / "s7" / "existing.py").write_text("x")
     with pytest.raises(pub.PublicationConflict, match="tests/s7"):
         pub.check_conflicts(tmp_path, republish=False)
+
+
+def test_republish_refuses_foreign_content_added_to_the_base_branch(tmp_path):
+    """I5: republish is not a blanket overwrite licence. A file a developer
+    added under a managed root between publications is foreign content, and
+    the check must see it — which means running after the checkout onto the
+    base branch, not before."""
+    repo = _local_repo(tmp_path)
+    files = {
+        "AGENTS.md": S7_MARKER + "\n# ctx\n",
+        "tests/s7/test_us_1.py": "import pytest\n",
+    }
+    pub.publish_to_clone(
+        repo, files, branch="s7/run-team", default_branch="main",
+        republish=False,
+    )
+    published = set(files)
+    # a developer merges their own file under the governed test root
+    _sh(repo, "checkout", "-q", "main")
+    (repo / "tests" / "s7").mkdir(parents=True, exist_ok=True)
+    (repo / "tests" / "s7" / "test_handwritten.py").write_text("# mine\n")
+    _sh(repo, "add", "-A")
+    _sh(repo, "commit", "-qm", "developer test")
+
+    with pytest.raises(pub.PublicationConflict, match="test_handwritten.py"):
+        pub.publish_to_clone(
+            repo, files, branch="s7/run-team", default_branch="main",
+            republish=True, published_paths=published,
+        )
+
+
+def test_normal_republish_over_our_own_files_still_works(tmp_path):
+    repo = _local_repo(tmp_path)
+    files = {
+        "AGENTS.md": S7_MARKER + "\n# ctx\n",
+        ".s7/shared/architecture.md": "# v1\n",
+        "tests/s7/test_us_1.py": "import pytest\n",
+    }
+    pub.publish_to_clone(
+        repo, files, branch="s7/run-team", default_branch="main", republish=False,
+    )
+    # merge our own publication into main, then republish over it
+    _sh(repo, "checkout", "-q", "main")
+    _sh(repo, "merge", "-q", "--no-edit", "s7/run-team")
+    files[".s7/shared/architecture.md"] = "# v2\n"
+    commit = pub.publish_to_clone(
+        repo, files, branch="s7/run-team", default_branch="main",
+        republish=True, published_paths=set(files),
+    )
+    assert len(commit) == 40
+    assert (repo / ".s7" / "shared" / "architecture.md").read_text() == "# v2\n"

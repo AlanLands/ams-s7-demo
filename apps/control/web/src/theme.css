@@ -1636,7 +1636,16 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .dp-tp-story summary { cursor: pointer; padding: 4px 0; font-weight: 650; color: var(--text); }
 .dp-tp-table { width: 100%; font-size: 11px; }
 .dp-tp-table th, .dp-tp-table td { padding: 4px 6px; text-align: left; vertical-align: top; }
+.dp-tp-skeleton { margin: 4px 0 2px; font-size: 11px; }
+.dp-tp-skeleton summary { cursor: pointer; padding: 3px 0; color: var(--muted); }
+.dp-tp-code {
+  max-height: 260px; overflow: auto; padding: 6px 8px; margin: 4px 0 0;
+  font-size: 10.5px; line-height: 1.45; white-space: pre;
+  background: var(--panel-2, rgba(127, 127, 127, 0.08));
+  border: 1px solid var(--border); border-radius: 4px;
+}
 .dp-tp-approve { margin-top: 6px; }
+.dp-tp-approve input { width: 100%; margin-bottom: 4px; }
 .dp-tp-approve .block { width: 100%; justify-content: center; display: inline-flex; align-items: center; }
 
 /* --- Developer Workspaces page (mockup rebuild, 2026-08-09) -------------- */
