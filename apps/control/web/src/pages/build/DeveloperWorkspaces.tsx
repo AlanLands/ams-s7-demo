@@ -693,15 +693,15 @@ export function DeveloperWorkspaces() {
                         <span className="hint dp-sub mono"><ListChecks className="dp-badge-ico" />{ws.task_id}</span>
                       ) : null}
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td>
                       <span className="repo-cell"><Github />
                         {links.repoUrl
-                          ? <a className="mono" href={links.repoUrl} target="_blank" rel="noopener noreferrer">{ws.repository || '—'}</a>
+                          ? <a className="mono" href={links.repoUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{ws.repository || '—'}</a>
                           : <span className="mono">{ws.repository || '—'}</span>}
                       </span>
                       <span className="repo-cell dw-branch-line"><GitBranch />
                         {links.branchUrl
-                          ? <a className="mono" href={links.branchUrl} target="_blank" rel="noopener noreferrer">{ws.branch || '—'}</a>
+                          ? <a className="mono" href={links.branchUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{ws.branch || '—'}</a>
                           : <span className="mono">{ws.branch || '—'}</span>}
                       </span>
                     </td>
@@ -727,30 +727,30 @@ export function DeveloperWorkspaces() {
                         : <span className="badge st-ready"><BadgeCheck className="dp-badge-ico" />CURRENT</span>}
                       <span className="hint dp-sub"><PackageCheck className="dp-badge-ico" />Published to Git</span>
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td>
                       {ws.current_commit ? (
                         <>
                           <span className="repo-cell">
                             <GitCommitHorizontal />
                             {links.commitUrl
-                              ? <a className="mono" href={links.commitUrl} target="_blank" rel="noopener noreferrer">{ws.current_commit.slice(0, 7)}</a>
+                              ? <a className="mono" href={links.commitUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{ws.current_commit.slice(0, 7)}</a>
                               : <span className="mono">{ws.current_commit.slice(0, 7)}</span>}
                           </span>
                           <span className="hint dp-sub">{relTime(ws.last_sync_at)}</span>
                         </>
                       ) : <span className="hint">—</span>}
                     </td>
-                    <td onClick={(e) => e.stopPropagation()}>
+                    <td>
                       {ws.pull_request ? (
                         <>
                           <span className="repo-cell">
                             <GitPullRequest />
                             {links.prUrl
-                              ? <a className="mono" href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws.pull_request}</a>
+                              ? <a className="mono" href={links.prUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>{ws.pull_request}</a>
                               : <span className="mono">{ws.pull_request}</span>}
                           </span>
                           {links.prUrl
-                            ? <span className="badge st-in_progress dp-sub" style={{ display: 'inline-block' }}>OPEN</span>
+                            ? <span className="badge st-in_progress dp-sub" style={{ display: 'inline-block' }}>on GitHub</span>
                             : <span className="hint dp-sub">simulated</span>}
                         </>
                       ) : <span className="hint">—</span>}

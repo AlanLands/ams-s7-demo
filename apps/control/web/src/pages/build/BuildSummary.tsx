@@ -242,7 +242,7 @@ export function BuildSummaryPage() {
             title={readyIds.length ? 'Open the quality handoff' : 'No story has met the handoff conditions yet'}
             onClick={() => goTo('quality')}
           >
-            ✓ View Quality Handoff
+            ✓ View Final Gating
           </button>
           {!readyIds.length ? (
             <span className="hint">Enabled once at least one story meets every handoff condition.</span>
@@ -273,7 +273,7 @@ export function BuildSummaryPage() {
         </div>
 
         <div className="card rail-card" style={{ borderColor: 'var(--green)' }}>
-          <h3>✓ Ready for Quality Handoff</h3>
+          <h3>✓ Ready for Final Gating</h3>
           {readyIds.length ? (
             <ul className="plain">
               {readyIds.map((id) => (

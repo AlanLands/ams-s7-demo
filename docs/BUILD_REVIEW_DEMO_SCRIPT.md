@@ -4,7 +4,7 @@ The story in one breath: *S7 plans and prepares. AI generates governed
 engineering context. Approved packs are published to Git. Human developers
 work normally in their own workspaces. S7 collects evidence, an isolated
 reviewer challenges the implementation, and only verified work proceeds to
-Quality.*
+Final Gating.*
 
 Run in **simulation mode** (the default — hard rule 5). Every simulated
 artifact is visibly badged `SIMULATED`; say so out loud once, early — the
@@ -51,10 +51,10 @@ as each step names its actor.
     commit, tests green.
 15. **Re-review passes.** A *new* review version — the blocked REV is never
     mutated. Read the review history aloud: blocked, then passed.
-16. **Build Summary shows the story ready for Quality.** The §21 handoff
+16. **Build Summary shows the story ready for Final Gating.** The §21 handoff
     rule as named conditions — current context, passing tests, evidenced
     ACs, passing review, no open majors, PR+CI evidence. Conditions, not a
-    score. Hand off to Quality.
+    score. Hand off to Final Gating.
 
 Shortcut for rehearsal: `POST /api/demo/review-failure` stages steps 1–12 in
 one call; `happy-path` stages the whole arc.
