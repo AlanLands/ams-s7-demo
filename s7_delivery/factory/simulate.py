@@ -134,10 +134,8 @@ def _test_name(story_id: str, ac_id: str, text: str, *, scripted: bool = True) -
         # The defective first version only checks strictly-before — the name
         # honestly reflects what it asserts, which is how the reviewer spots it.
         return "test_rejects_first_day_absent_before_last_day_worked"
-    slug = "".join(c if c.isalnum() else "_" for c in text.lower())[:48].strip("_")
-    while "__" in slug:
-        slug = slug.replace("__", "_")
-    return f"test_{slug}"
+    from s7_delivery.factory.test_skeletons import slug_test_name
+    return slug_test_name(text)
 
 
 def change_summary(story_id: str, *, corrected: bool = False, provenance: str = "simulated") -> str:
