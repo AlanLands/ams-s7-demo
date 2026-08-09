@@ -54,9 +54,9 @@
   --amber-text: #5c4610;
   --grey-status: #85847a;
 
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-pill: 0;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-pill: 999px;
 
   --shadow-sm: 0 1px 2px rgba(54, 54, 47, 0.07);
   --shadow: 0 12px 36px rgba(36, 36, 31, 0.32);
@@ -84,11 +84,11 @@ body {
 h1 { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); }
 h2 { font-size: 20px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
 h3 { font-size: 15px; font-weight: 600; color: var(--ink); }
-code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-2); padding: 1px 5px; border-radius: 0; }
+code { font-family: var(--mono); font-size: 0.9em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
 
 button { font: inherit; cursor: pointer; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
-:focus-visible { outline: 3px solid rgba(176, 36, 58, 0.4); outline-offset: 2px; border-radius: 0; }
+:focus-visible { outline: 3px solid rgba(176, 36, 58, 0.4); outline-offset: 2px; border-radius: 4px; }
 
 /* --- header ---------------------------------------------------------------*/
 
@@ -483,7 +483,7 @@ button.primary.sq { border-radius: var(--radius-sm); }
 .epic-grid .kv { grid-template-columns: 130px 1fr; align-content: start; }
 
 .chip {
-  display: inline-block; padding: 2px 10px; border-radius: 0;
+  display: inline-block; padding: 2px 10px; border-radius: var(--radius-pill);
   font-size: 11px; font-weight: 600;
 }
 .chip.priority-high { color: var(--red-dark); border: 1px solid var(--red); background: var(--red-pale); }
@@ -580,7 +580,7 @@ button.primary.sq { border-radius: var(--radius-sm); }
 
 .rail .primary.block, .rail .outline.block { width: 100%; justify-content: center; display: inline-flex; }
 
-.kebab { border: 0; background: none; font-size: 16px; color: var(--muted); padding: 2px 8px; border-radius: 0; }
+.kebab { border: 0; background: none; font-size: 16px; color: var(--muted); padding: 2px 8px; border-radius: var(--radius-sm); }
 .kebab:hover { background: var(--surface-2); color: var(--ink); }
 tr.edit-row td { background: var(--red-pale); }
 
@@ -645,7 +645,7 @@ tr.edit-row td { background: var(--red-pale); }
 .dep-card .dep-title { font-size: 12.5px; font-weight: 600; color: var(--ink); margin: 3px 0 6px; }
 .dep-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .sprint-chip, .pts-chip {
-  display: inline-block; padding: 1px 8px; border-radius: 0;
+  display: inline-block; padding: 1px 8px; border-radius: var(--radius-pill);
   font-size: 10.5px; font-weight: 600;
   background: var(--surface-2); border: 1px solid var(--border-strong); color: var(--muted);
 }
