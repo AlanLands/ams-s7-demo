@@ -176,11 +176,13 @@ def test_late_publication_after_development_started_keeps_phase(eng):
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
     packs = eng.state()["build"]["delivery_packs"]
     assert len(packs) >= 2
+    eng.test_plan_approve(Role.QA_LEAD, packs[0]["delivery_pack_id"])
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, packs[0]["delivery_pack_id"])
     build_phases.advance(
         eng.store, BuildReviewPhase.WORKSPACES_READY,
         BuildReviewPhase.DEVELOPER_EXECUTION, actor="test",
     )
+    eng.test_plan_approve(Role.QA_LEAD, packs[1]["delivery_pack_id"])
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, packs[1]["delivery_pack_id"])
     assert eng.state()["build"]["phase"] == "developer_execution"
     statuses = {
@@ -231,6 +233,7 @@ def test_assignment_refreshes_pack_and_travels_with_publication(eng):
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
     pack = eng.state()["build"]["delivery_packs"][0]
     pid, slug = pack["delivery_pack_id"], pack["team_slug"]
+    eng.test_plan_approve(Role.QA_LEAD, pid)
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     sid = pack["story_ids"][0]
     eng.workspace_assign_developer(Role.DELIVERY_LEAD, f"WS-{sid}", "Alex Morgan")
@@ -252,6 +255,7 @@ def test_assignment_refreshes_pack_and_travels_with_publication(eng):
     assert eng.store.read_json_or([], "staleness.json") == []
 
     # explicit republish is allowed again and the git file plan carries it
+    eng.test_plan_approve(Role.QA_LEAD, pid)
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
     republished = next(
         p for p in eng.state()["build"]["delivery_packs"]
@@ -274,6 +278,7 @@ def test_generate_preserves_existing_assignments(eng):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
     pack = eng.state()["build"]["delivery_packs"][0]
+    eng.test_plan_approve(Role.QA_LEAD, pack["delivery_pack_id"])
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack["delivery_pack_id"])
     sid = pack["story_ids"][0]
     eng.workspace_assign_developer(Role.DELIVERY_LEAD, f"WS-{sid}", "Alex Morgan")
@@ -294,6 +299,8 @@ def test_regeneration_during_developer_execution_keeps_phase(eng):
 
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    for p in eng.state()["build"]["delivery_packs"]:
+        eng.test_plan_approve(Role.QA_LEAD, p["delivery_pack_id"])
     eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
     build_phases.advance(
         eng.store, BuildReviewPhase.WORKSPACES_READY,
@@ -348,6 +355,8 @@ def test_git_workflow_published_to_repo(eng):
 def test_task_evidence_zip_download(eng, tmp_path, monkeypatch):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    for p in eng.state()["build"]["delivery_packs"]:
+        eng.test_plan_approve(Role.QA_LEAD, p["delivery_pack_id"])
     eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
     task = next(t for t in eng.state()["build"]["tasks"] if t["story_id"] == "US-001")
     eng.task_start(Role.ENGINEERING_LEAD, task["task_id"])
@@ -418,3 +427,29 @@ def test_approve_unknown_pack_rejected(eng):
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
     with pytest.raises(EngineError, match="Unknown delivery pack"):
         eng.test_plan_approve(Role.QA_LEAD, "PACK-nope")
+
+
+def test_publish_requires_test_plan_approval(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack_id = eng.state()["build"]["delivery_packs"][0]["delivery_pack_id"]
+    with pytest.raises(EngineError, match="test plan is not approved"):
+        eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)
+    eng.test_plan_approve(Role.QA_LEAD, pack_id)
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)  # now succeeds
+    pack = next(p for p in eng.state()["build"]["delivery_packs"]
+                if p["delivery_pack_id"] == pack_id)
+    assert pack["publication_status"] == "published"
+
+
+def test_regeneration_resets_test_plan_approval(eng):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    pack_id = eng.state()["build"]["delivery_packs"][0]["delivery_pack_id"]
+    eng.test_plan_approve(Role.QA_LEAD, pack_id)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)  # v2
+    pack = next(p for p in eng.state()["build"]["delivery_packs"]
+                if p["delivery_pack_id"] == pack_id)
+    assert pack["test_plan_status"] == "generated", "re-approval required"
+    with pytest.raises(EngineError, match="test plan is not approved"):
+        eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)

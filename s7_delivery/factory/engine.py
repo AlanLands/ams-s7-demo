@@ -2385,6 +2385,12 @@ class Engine:
                 f"{pack_id} is stale (its architecture or plan moved on) —"
                 " regenerate delivery packs before publishing"
             )
+        if pack.get("test_plan_status") != "approved":
+            raise EngineError(
+                f"{pack_id} test plan is not approved — the QA Lead must"
+                " approve the acceptance-criteria test plan before this pack"
+                " can publish"
+            )
         branch = dp.branch_name(self.run_id, pack["team"])
         files = pub.file_plan(self.store, pack)
         publications = self.store.read_ledger("publications.jsonl")
