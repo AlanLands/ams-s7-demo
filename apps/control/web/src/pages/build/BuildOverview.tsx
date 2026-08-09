@@ -103,7 +103,7 @@ export function BuildOverview() {
   const arch = build.architecture
   const published = packs.filter((p) => p.publication_status === 'published').length
   const phaseIdx = phase ? PHASE_ORDER.indexOf(phase) : -1
-  const activity = (data.activity ?? []).filter((a) => a.stage === 'build_review').slice(-6).reverse()
+  const activity = (data.activity ?? []).filter((a) => a.stage === 'build_review').slice(-5).reverse()
   const teamNames = teams.map((t) => t.team)
   const git = gitIntegrationState(pubs)
   const qualityReady = (build.quality_handoff ?? []).filter((q) => q.ready).length
@@ -130,9 +130,9 @@ export function BuildOverview() {
   const repoOf = (team: string) => packs.find((p) => p.team === team)?.repository ?? '—'
 
   return (
-    <section className="page-with-rail">
+    <section className="page-with-rail bo-compact">
       <div>
-        <div className="page-head" style={{ marginBottom: '14px' }}>
+        <div className="page-head" style={{ marginBottom: '8px' }}>
           <h2>Build &amp; Review — Overview</h2>
           <span className="hint">
             Real-time view of delivery execution across teams and quality gates. S7 governs; developers execute in their own workspaces.
@@ -140,7 +140,7 @@ export function BuildOverview() {
           <OwnershipChips />
         </div>
 
-        <div className="card" style={{ marginBottom: '14px' }}>
+        <div className="card" style={{ marginBottom: '8px' }}>
           {phase ? (
             <div className="phase-rail">
               {PHASE_ORDER.flatMap((p, i) => {

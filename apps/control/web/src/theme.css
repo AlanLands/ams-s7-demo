@@ -1285,3 +1285,90 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   .stat-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .readiness-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Compact density for the Build overview only — the control tower fits one
+ * viewport without scrolling (mockup parity). Scoped under .bo-compact so no
+ * other page changes. */
+.bo-compact .page-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.bo-compact .page-head h2 { font-size: 19px; margin-bottom: 0; }
+.bo-compact .page-head .hint { font-size: 11.5px; }
+.bo-compact .own-chips .chip { font-size: 10px; padding: 1px 8px; }
+.bo-compact .card { padding: 10px 14px; }
+.bo-compact .phase-rail .phase { font-size: 11px; }
+.bo-compact .phase-rail .phase .dot { width: 8px; height: 8px; }
+
+.bo-compact .stat-row { gap: 8px; margin: 10px 0; }
+.bo-compact .stat-card { display: grid; grid-template-columns: 28px 1fr; column-gap: 9px; row-gap: 0; padding: 8px 11px; align-items: center; }
+.bo-compact .stat-card .ic { grid-row: 1 / span 3; width: 28px; height: 28px; margin: 0; }
+.bo-compact .stat-card .ic svg { width: 15px; height: 15px; }
+.bo-compact .stat-card .v { font-size: 17px; line-height: 1.15; }
+.bo-compact .stat-card .l { font-size: 10.5px; margin: 0; }
+.bo-compact .stat-card .s { font-size: 10px; margin: 0; }
+
+.bo-compact .card-head h3, .bo-compact .rail-card h3 { font-size: 13px; }
+.bo-compact .card-head { margin-bottom: 4px; }
+.bo-compact th { padding: 6px 10px; font-size: 10px; }
+.bo-compact td { padding: 6px 10px; font-size: 12px; vertical-align: middle; }
+.bo-compact .team-chip { font-size: 12px; }
+.bo-compact .team-chip .avatar { width: 17px; height: 17px; font-size: 8px; }
+.bo-compact .repo-cell { white-space: nowrap; }
+.bo-compact .repo-cell .mono { font-size: 11px; }
+.bo-compact .cell-status { font-size: 11.5px; }
+.bo-compact .cell-status svg { width: 12px; height: 12px; }
+.bo-compact .risk-chip { font-size: 10px; padding: 1px 8px; }
+.bo-compact .table-foot { padding-top: 6px; }
+.bo-compact .table-foot-link, .bo-compact .rail-link { font-size: 11.5px; }
+
+.bo-compact .readiness-row { gap: 8px; margin-top: 10px; }
+.bo-compact .readiness-card { display: grid; grid-template-columns: 28px 1fr; column-gap: 9px; row-gap: 0; padding: 8px 11px; align-items: center; }
+.bo-compact .readiness-card .ic { grid-row: 1 / span 3; width: 28px; height: 28px; margin: 0; }
+.bo-compact .readiness-card .ic svg { width: 15px; height: 15px; }
+.bo-compact .readiness-card h4 { font-size: 11px; margin: 0; }
+.bo-compact .readiness-card .m { font-size: 12.5px; }
+.bo-compact .readiness-card .m .badge { font-size: 9.5px; padding: 1px 6px; }
+.bo-compact .readiness-card .s { font-size: 10px; margin: 0; }
+
+.bo-compact .rail { gap: 8px; }
+.bo-compact .rail-card { padding: 9px 12px; }
+.bo-compact .rail-card ul.plain li { padding: 4px 0; font-size: 11.5px; }
+.bo-compact .act-row { gap: 6px; margin-bottom: 4px !important; }
+.bo-compact .act-row .t { font-size: 10px; }
+.bo-compact .act-row .x { font-size: 11px; line-height: 1.35; -webkit-line-clamp: 1; }
+.bo-compact .sev-chip { font-size: 9.5px; }
+.bo-compact .rail-card .hint { font-size: 11px; }
+.bo-compact button.primary.sq { padding: 7px 12px; font-size: 12.5px; }
+.bo-compact .guidance { font-size: 11px; }
+.bo-compact .guidance ul.plain li { padding: 3px 0; font-size: 11px; }
+/* Second-pass compaction: the overview alone tightens main's frame so all
+ * content sits above the fold; :has() is fine — the demo targets Chromium. */
+main:has(.bo-compact) { padding: 14px 28px 20px; }
+.bo-compact > div > .card { padding: 7px 12px; }
+.bo-compact td { padding: 5px 10px; }
+.bo-compact .rail-card { padding: 8px 11px; }
+.bo-compact .rail-card ul.plain { margin-top: 2px; }
+.bo-compact .checklist { margin-top: 4px; }
+.bo-compact .rail-card ul.plain li { padding: 3px 0; }
+.bo-compact .guidance ul.plain li { padding: 2px 0; }
+.bo-compact .rail-card h3 { margin-bottom: 2px; }
+
+/* Slimmer global header bar (2026-08-09): more vertical room for content. */
+.top { padding: 6px clamp(16px, 3vw, 32px); gap: 12px; }
+.brand { gap: 9px; }
+.brand-mark { width: 30px; height: 30px; font-size: 11.5px; }
+.brand h1 { font-size: 15px; }
+.brand-kicker { font-size: 9px; }
+.hdr-fields { gap: 12px; }
+.hdr-label { font-size: 9px; }
+.top select { padding: 4px 8px; font-size: 12px; }
+.top .icon-btn { padding: 3px 7px; font-size: 12px; }
+.top .pill { font-size: 11px; padding: 3px 10px; }
+/* Slimmer stage stepper to match the slim header. */
+.stepper { padding: 7px clamp(16px, 3vw, 32px); }
+.step { padding: 5px 13px; font-size: 12px; gap: 7px; }
+.step .dot { width: 18px; height: 18px; font-size: 10px; }
+/* Final squeeze: keep the phase rail to one line and shave table rows. */
+.bo-compact .phase-rail { gap: 4px; }
+.bo-compact .phase-rail .phase { font-size: 10.5px; gap: 4px; }
+.bo-compact .phase-rail .phase-line { flex-basis: 9px; }
+.bo-compact td { padding: 4px 10px; }
+.bo-compact .stat-card { padding: 7px 10px; }
