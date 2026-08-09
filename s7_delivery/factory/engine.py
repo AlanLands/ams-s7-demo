@@ -2128,10 +2128,17 @@ class Engine:
                     f"{', simulated' if not live else ''})",
         )
         self._provision_workspaces(pack, branch, commit)
-        build_phases.advance(
-            self.store, self._build_phase(), BuildReviewPhase.WORKSPACES_READY,
-            actor=role.value,
-        )
+        # Late publications are legal once developers are executing — never
+        # regress the phase back to workspaces_ready from there.
+        phase = self._build_phase()
+        if phase in (
+            BuildReviewPhase.DELIVERY_PACKS_READY,
+            BuildReviewPhase.WORKSPACES_READY,
+        ):
+            build_phases.advance(
+                self.store, phase, BuildReviewPhase.WORKSPACES_READY,
+                actor=role.value,
+            )
 
     def _provision_workspaces(self, pack: dict, branch: str, commit: str) -> None:
         """One workspace per story in the pack. The developer field survives

@@ -162,3 +162,27 @@ def test_download_all_zip_404_when_no_packs(eng, tmp_path, monkeypatch):
     client = TestClient(app)
     resp = client.get(f"/api/runs/{eng.run_id}/delivery-packs/download-all.zip")
     assert resp.status_code == 404
+
+
+def test_late_publication_after_development_started_keeps_phase(eng):
+    """Publishing a remaining pack once developers are executing must not try
+    to regress the phase to workspaces_ready (it 409'd in the wild)."""
+    from s7_delivery.factory import build_phases
+    from s7_delivery.factory.models import BuildReviewPhase
+
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    packs = eng.state()["build"]["delivery_packs"]
+    assert len(packs) >= 2
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, packs[0]["delivery_pack_id"])
+    build_phases.advance(
+        eng.store, BuildReviewPhase.WORKSPACES_READY,
+        BuildReviewPhase.DEVELOPER_EXECUTION, actor="test",
+    )
+    eng.delivery_pack_publish(Role.DELIVERY_LEAD, packs[1]["delivery_pack_id"])
+    assert eng.state()["build"]["phase"] == "developer_execution"
+    statuses = {
+        p["delivery_pack_id"]: p["publication_status"]
+        for p in eng.state()["build"]["delivery_packs"]
+    }
+    assert statuses[packs[1]["delivery_pack_id"]] == "published"
