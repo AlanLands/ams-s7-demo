@@ -199,8 +199,15 @@ button.primary:hover:not(:disabled) { background: var(--red-dark); }
 button.primary:active:not(:disabled) { transform: translateY(1px); }
 
 button.approve {
-  border-color: var(--green);
+  padding: 9px 20px;
+  border: 1px solid var(--green);
+  border-radius: var(--radius-pill);
   background: var(--green);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background .15s;
 }
 button.approve:hover:not(:disabled) { background: #156036; }
 
@@ -214,6 +221,10 @@ button.approve:hover:not(:disabled) { background: #156036; }
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   overflow-x: auto;
+  /* pinned while the page scrolls, so the stage context never disappears */
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
 .step {
@@ -620,7 +631,7 @@ tr.edit-row td { background: var(--red-pale); }
 .row-click:hover { background: var(--surface-2); }
 
 .foot-row { display: flex; align-items: center; gap: 14px; width: 100%; }
-.foot-row + .foot-row { margin-top: 8px; }
+.foot-row + .foot-row { margin-top: 3px; }
 .foot-row .foot-center { flex: 1; text-align: center; }
 .foot-row .foot-right { display: inline-flex; align-items: center; gap: 10px; }
 .foot-row.small { font-size: 11px; }
@@ -882,11 +893,16 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  padding: 16px clamp(16px, 3vw, 32px);
+  padding: 8px clamp(16px, 3vw, 32px);
   border-top: 1px solid var(--border);
   background: var(--surface);
   color: var(--muted);
   font-size: 12px;
+  /* pinned to the viewport bottom while the page scrolls */
+  position: sticky;
+  bottom: 0;
+  z-index: 40;
+  box-shadow: 0 -1px 4px rgba(54, 54, 47, 0.06);
   max-width: none;
 }
 .foot > span:not(.pill) { flex: 1; min-width: 260px; }
@@ -1377,6 +1393,7 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .arch-head { align-items: center; }
 .arch-head-actions { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .arch-head-actions input { padding: 5px 9px; font-size: 12px; }
+.arch-head-actions button { white-space: nowrap; }
 .btn-ico { width: 14px; height: 14px; vertical-align: -2px; margin-right: 4px; }
 
 .info-banner { background: #eef4fb; border-color: #b9cfe4; font-size: 12px; color: #204566; padding: 8px 12px; margin-bottom: 8px; }
