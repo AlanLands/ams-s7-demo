@@ -855,7 +855,12 @@ class Engine:
         artifact tree, record metadata, store the context pack that grounds
         every live call (spec: live-control-centre §2)."""
         roles.require("connect_repository", role)
-        from s7_delivery.factory.repos import RepoConnectError, build_context_pack, clone_repo
+        from s7_delivery.factory.repos import (
+            RepoConnectError,
+            build_context_pack,
+            clone_repo,
+            remember_repo,
+        )
 
         try:
             rec = clone_repo(url, self.store.path("repos"))
@@ -889,6 +894,42 @@ class Engine:
             workflow="connect-repository", artifact=rec.name,
             outcome="connected",
             details=f"{rec.url} @ {rec.head_sha[:10]}, {rec.file_count} files",
+        )
+        # Global memory, independent of this run: "if I already connected the
+        # repository once, it should not ask me again if I reset."
+        remember_repo({
+            "url": rec.url, "name": rec.name,
+            "default_branch": rec.default_branch, "last_connected_at": now_iso(),
+        })
+
+    def intake_remove_repo(self, role: Role, name: str) -> None:
+        """Disconnect a repository from this run only — the global known-repos
+        registry is untouched, so it can be reconnected with one click later.
+        Refused once the plan is signed: repositories are load-bearing for the
+        downstream lane after G1."""
+        roles.require("connect_repository", role)
+        if self.run().plan_locked:
+            raise EngineError(
+                "Plan is signed — repositories are load-bearing after G1; "
+                "start a new run instead"
+            )
+        repos = self.store.read_json_or([], "intake", "repos.json")
+        remaining = [r for r in repos if r.get("name") != name]
+        if len(remaining) == len(repos):
+            raise EngineError(f"Unknown repository {name!r}")
+        self.store.write_json(remaining, "intake", "repos.json")
+
+        import shutil
+
+        shutil.rmtree(self.store.path("repos", name), ignore_errors=True)
+        context_pack = self.store.path("intake", "context", f"{name}.md")
+        if context_pack.exists():
+            context_pack.unlink()
+
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="connect-repository", artifact=name,
+            outcome="removed", details=f"{name} disconnected from this run",
         )
 
     def _connected_repos(self) -> list[dict]:

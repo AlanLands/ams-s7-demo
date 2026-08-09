@@ -527,3 +527,138 @@ def test_approve_test_plan_route(client, signed_run):
     pack = next(p for p in r.json()["build"]["delivery_packs"]
                 if p["delivery_pack_id"] == pack_id)
     assert pack["test_plan_status"] == "approved"
+
+
+# --- known-repos registry & repo removal routes ------------------------------
+
+
+def _fixture_repo(tmp_path, name="maplesure-sponsor-portal"):
+    import subprocess
+
+    from demo.create_target_repos import PORTAL_FILES, write_repo
+
+    repo = write_repo(name, PORTAL_FILES, tmp_path / "src")
+    ident = ["-c", "user.email=demo@example.invalid", "-c", "user.name=demo"]
+    subprocess.run(["git", "-C", str(repo), "init", "-q"], check=True)
+    subprocess.run(["git", "-C", str(repo), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(repo), *ident, "commit", "-qm", "init"], check=True)
+    return repo
+
+
+@pytest.fixture()
+def live_run_id(client):
+    res = client.post("/api/runs", json={"mode": "live"})
+    assert res.status_code == 200
+    return res.json()["run"]["run_id"]
+
+
+def test_known_repos_empty_then_populated_after_connect(client, live_run_id, tmp_path):
+    assert client.get("/api/known-repos").json() == {"repos": []}
+    src = _fixture_repo(tmp_path)
+    res = client.post(
+        f"/api/runs/{live_run_id}/intake/connect-repo",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
+    assert res.status_code == 200
+
+    known = client.get("/api/known-repos").json()["repos"]
+    assert [r["name"] for r in known] == ["maplesure-sponsor-portal"]
+    assert known[0]["url"] == str(src)
+
+
+def test_known_repos_forget_route(client, live_run_id, tmp_path):
+    src = _fixture_repo(tmp_path)
+    client.post(
+        f"/api/runs/{live_run_id}/intake/connect-repo",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
+
+    res = client.post("/api/known-repos/forget", json={"url": str(src)})
+    assert res.status_code == 200
+    assert res.json() == {"removed": True}
+    assert client.get("/api/known-repos").json() == {"repos": []}
+
+    # Forgetting an already-forgotten (or never-known) url is not an error.
+    res = client.post("/api/known-repos/forget", json={"url": str(src)})
+    assert res.status_code == 200
+    assert res.json() == {"removed": False}
+
+
+def test_run_repo_remove_route(client, live_run_id, tmp_path):
+    src = _fixture_repo(tmp_path)
+    client.post(
+        f"/api/runs/{live_run_id}/intake/connect-repo",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
+
+    res = client.post(
+        f"/api/runs/{live_run_id}/intake/repos/maplesure-sponsor-portal/remove",
+        json={"role": "delivery_lead"},
+    )
+    assert res.status_code == 200
+    assert res.json()["intake"]["repos"] == []
+
+    # Still remembered globally — one click reconnects it.
+    known = client.get("/api/known-repos").json()["repos"]
+    assert [r["name"] for r in known] == ["maplesure-sponsor-portal"]
+
+
+def test_run_repo_remove_unknown_name_is_409(client, live_run_id):
+    res = client.post(
+        f"/api/runs/{live_run_id}/intake/repos/no-such-repo/remove",
+        json={"role": "delivery_lead"},
+    )
+    assert res.status_code == 409
+
+
+def test_run_repo_remove_after_plan_signoff_is_409(client, live_run_id, tmp_path, monkeypatch):
+    from s7_delivery.factory import live_intake
+    from s7_delivery.factory.models import IntakeAnalysis, Provenance
+
+    src = _fixture_repo(tmp_path)
+    client.post(
+        f"/api/runs/{live_run_id}/intake/connect-repo",
+        json={"role": "delivery_lead", "url": str(src)},
+    )
+
+    def _fake_run_analysis(req, packs, transcript):
+        return (
+            IntakeAnalysis(
+                problem_understood=True, business_impact="impact",
+                affected_applications=["maplesure-sponsor-portal"],
+                stakeholders=["ops"], dependencies=["dep"], risks=["risk"],
+                clarification_questions=[], assumptions=[],
+                business_rules=[], risk_register=[], confidence=80,
+                provenance=Provenance.LIVE_AI,
+            ),
+            {},
+        )
+
+    monkeypatch.setattr(live_intake, "run_analysis", _fake_run_analysis)
+    client.post(f"/api/runs/{live_run_id}/intake/analyse", json={"role": "product_analyst"})
+    client.post(f"/api/runs/{live_run_id}/intake/create-epic", json={"role": "product_analyst"})
+    client.post(f"/api/runs/{live_run_id}/intake/pass-gate", json={"role": "delivery_lead"})
+    client.post(
+        f"/api/runs/{live_run_id}/stories",
+        json={"role": "delivery_lead", "story": {
+            "title": "Add disability claim submission endpoint",
+            "accountable_team": "Services Team",
+            "target_component": "main.py",
+            "target_repository": "maplesure-sponsor-portal",
+            "acceptance_criteria": [
+                "Given a sponsor, when they submit a claim, then it is stored."
+            ],
+        }},
+    )
+    signoff = client.post(
+        f"/api/runs/{live_run_id}/planning/sign-off",
+        json={"role": "business_owner", "approver": "Jordan Hale"},
+    )
+    assert signoff.status_code == 200
+
+    res = client.post(
+        f"/api/runs/{live_run_id}/intake/repos/maplesure-sponsor-portal/remove",
+        json={"role": "delivery_lead"},
+    )
+    assert res.status_code == 409
+    assert "signed" in res.json()["detail"]

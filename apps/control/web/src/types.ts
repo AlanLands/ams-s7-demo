@@ -94,6 +94,16 @@ export interface RepoRecord {
   provenance: Provenance
 }
 
+/** A repository connected once before, remembered globally so reconnecting
+ * after a reset is one click rather than re-typing a URL. Survives run
+ * deletion — it lives outside any run's own artifact tree. */
+export interface KnownRepo {
+  url: string
+  name: string
+  default_branch: string
+  last_connected_at: string
+}
+
 export interface SourceRecord {
   text: string
   filename: string | null

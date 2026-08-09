@@ -25,6 +25,11 @@ target-apps/
 # local runs are not demo material to commit
 artifacts/runs/
 
+# Known-repos registry — deliberately outside artifacts/runs/ so it survives
+# run deletion, but it's still local presenter state (real clone URLs from
+# whoever ran the demo), not demo material to commit.
+artifacts/known_repos.json
+
 # generated data — keep the directory, not its contents
 data/*
 !data/.gitkeep

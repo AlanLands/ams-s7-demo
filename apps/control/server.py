@@ -26,7 +26,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from common.llm import LLMError
-from s7_delivery.factory import extraction, roles, seed
+from s7_delivery.factory import extraction, repos, roles, seed
 from s7_delivery.factory.build_phases import PhaseError
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
@@ -191,6 +191,31 @@ def post_intake_connect_repo(run_id: str, body: ConnectRepoBody) -> dict:
     eng = _engine(run_id)
     eng.intake_connect_repo(_role(body.role), body.url)
     return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/repos/{name}/remove")
+def post_intake_remove_repo(run_id: str, name: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_remove_repo(_role(body.role), name)
+    return eng.state()
+
+
+# --- known-repos registry (global, no run scope — spec: "if I already
+# connected the repository once, it should not ask me again if I reset") -----
+
+
+@app.get("/api/known-repos")
+def get_known_repos() -> dict:
+    return {"repos": repos.known_repos()}
+
+
+class ForgetRepoBody(BaseModel):
+    url: str
+
+
+@app.post("/api/known-repos/forget")
+def post_forget_known_repo(body: ForgetRepoBody) -> dict:
+    return {"removed": repos.forget_repo(body.url)}
 
 
 @app.post("/api/runs/{run_id}/intake/clarify")

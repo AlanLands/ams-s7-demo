@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRun } from '../../state/RunContext'
 import { Prov } from '../../components/Badge'
 import { Modal } from '../../components/Modal'
+import { apiGet, apiPost } from '../../api'
+import type { KnownRepo } from '../../types'
 
 export function AdvancedAnalysisSection() {
   const { data, act, runId } = useRun()
@@ -11,19 +13,40 @@ export function AdvancedAnalysisSection() {
   const [routeOverride, setRouteOverride] = useState('')
   const [repoUrl, setRepoUrl] = useState('')
   const [showReqModal, setShowReqModal] = useState(false)
+  const [knownRepos, setKnownRepos] = useState<KnownRepo[]>([])
+  const [confirmRemoveRepo, setConfirmRemoveRepo] = useState<string | null>(null)
+  const [confirmForgetUrl, setConfirmForgetUrl] = useState<string | null>(null)
+
+  const isLive = data?.run?.mode === 'live'
+  const repos = data?.intake?.repos ?? []
+  const connectedCount = repos.length
+
+  const refreshKnownRepos = useCallback(() => {
+    apiGet<{ repos: KnownRepo[] }>('/api/known-repos')
+      .then((res) => setKnownRepos(res.repos))
+      .catch(() => setKnownRepos([]))
+  }, [])
+
+  useEffect(() => {
+    if (isLive) refreshKnownRepos()
+    // Re-sync after this run's own connected-repo count changes (connect/remove),
+    // since a connect moves the entry to the front and a fresh reconnect can
+    // change what "not already connected" should exclude.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLive, connectedCount, refreshKnownRepos])
 
   if (!data) return null
-  const isLive = data.run?.mode === 'live'
   const unlocked = Boolean(data.intake?.source)
   const req = data.intake?.requirement
   const analysis = data.intake?.analysis
   const epic = data.intake?.epic
   const clar = data.intake?.clarifications
-  const repos = data.intake?.repos ?? []
   const routing = data.intake?.routing
   const newApp = data.intake?.new_app
   const scaffold = data.intake?.scaffold
   const newAppRepoCreated = Boolean(newApp?.name && repos.some((r) => r.name === newApp.name))
+  const planLocked = Boolean(data.run?.plan_locked)
+  const reconnectable = knownRepos.filter((k) => !repos.some((r) => r.name === k.name))
 
   return (
     <details
@@ -159,9 +182,57 @@ export function AdvancedAnalysisSection() {
             <div className="section-title"><h3>Connected Repositories</h3><span className="chip">{repos.length} connected</span></div>
             <ul className="plain">
               {repos.map((r) => (
-                <li key={r.name}><span className="mono">{r.name}</span> <span className="hint">@ {r.head_sha.slice(0, 10)} · {r.file_count} files</span></li>
+                <li key={r.name} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span className="mono">{r.name}</span>
+                  <span className="hint">@ {r.head_sha.slice(0, 10)} · {r.file_count} files</span>
+                  {!planLocked && (
+                    <button
+                      type="button"
+                      className="ghost"
+                      style={{ marginLeft: 'auto', padding: '3px 10px', fontSize: 11.5 }}
+                      onClick={() => setConfirmRemoveRepo(r.name)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
               ))}
             </ul>
+            {planLocked && repos.length > 0 && (
+              <p className="hint" style={{ marginTop: 8 }}>
+                Plan is signed — repositories are load-bearing after G1 and can no longer be removed from this run.
+              </p>
+            )}
+
+            {reconnectable.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <p className="hint" style={{ marginBottom: 6 }}>Previously connected</p>
+                <div className="dep-chips">
+                  {reconnectable.map((k) => (
+                    <span className="dep-chip chip tag" key={k.url}>
+                      <span className="dep-title mono">{k.name}</span>
+                      <button
+                        type="button"
+                        aria-label={`Connect ${k.name}`}
+                        title="Connect"
+                        onClick={() => act('/intake/connect-repo', { url: k.url }, 'Repository connected')}
+                      >
+                        ⤴
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`Forget ${k.name}`}
+                        title="Forget"
+                        onClick={() => setConfirmForgetUrl(k.url)}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
               <input type="text" placeholder="https://github.com/<owner>/<repo>" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
               <button type="button" className="outline" onClick={() => repoUrl.trim() && act('/intake/connect-repo', { url: repoUrl.trim() }, 'Repository connected')}>
@@ -172,6 +243,53 @@ export function AdvancedAnalysisSection() {
               <p className="hint" style={{ marginTop: 10 }}>Live analysis is grounded in the connected repos — connect them before analysing.</p>
             )}
           </div>
+        )}
+
+        {confirmRemoveRepo && (
+          <Modal title="Remove Repository" onClose={() => setConfirmRemoveRepo(null)}>
+            <p>
+              Remove <span className="mono">{confirmRemoveRepo}</span> from this run? It stays in your
+              connection history — one click reconnects it later.
+            </p>
+            <div className="actions-row" style={{ marginTop: 12 }}>
+              <button type="button" className="ghost" onClick={() => setConfirmRemoveRepo(null)}>Cancel</button>
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  const name = confirmRemoveRepo
+                  setConfirmRemoveRepo(null)
+                  await act(`/intake/repos/${encodeURIComponent(name)}/remove`, {}, 'Repository removed from this run')
+                }}
+              >
+                Remove
+              </button>
+            </div>
+          </Modal>
+        )}
+
+        {confirmForgetUrl && (
+          <Modal title="Forget Repository" onClose={() => setConfirmForgetUrl(null)}>
+            <p>
+              Forget <span className="mono">{knownRepos.find((k) => k.url === confirmForgetUrl)?.name ?? confirmForgetUrl}</span>?
+              It will no longer appear as a one-click reconnect option.
+            </p>
+            <div className="actions-row" style={{ marginTop: 12 }}>
+              <button type="button" className="ghost" onClick={() => setConfirmForgetUrl(null)}>Cancel</button>
+              <button
+                type="button"
+                className="primary"
+                onClick={async () => {
+                  const url = confirmForgetUrl
+                  setConfirmForgetUrl(null)
+                  await apiPost('/api/known-repos/forget', { url })
+                  refreshKnownRepos()
+                }}
+              >
+                Forget
+              </button>
+            </div>
+          </Modal>
         )}
 
         {isLive && (

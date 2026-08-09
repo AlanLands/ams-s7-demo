@@ -7,11 +7,15 @@ content (hard rule 5).
 """
 from __future__ import annotations
 
+import json
+import os
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from s7_delivery.factory.models import RepoRecord
+from s7_delivery.factory.store import REPO_ROOT
 
 # Extensions worth excerpting, in priority order after architecture.md.
 _SOURCE_EXTS = (".py", ".js", ".html", ".md", ".sql", ".toml", ".cfg")
@@ -96,3 +100,70 @@ def build_context_pack(repo_dir: Path, name: str, cap_bytes: int = 15000) -> str
         budget -= len(take.encode("utf-8"))
     parts.append("## Source excerpts\n\n" + "\n\n".join(excerpts))
     return "\n\n".join(parts)
+
+
+# --- known-repos registry ----------------------------------------------------
+#
+# A global, run-independent memory of repositories connected before — the
+# point is that it survives run deletion (spec: "if I already connected the
+# repository once, it should not ask me again if I reset"). Deliberately a
+# separate file from any run's `intake/repos.json`: this one lives at
+# `artifacts/known_repos.json`, a sibling of `artifacts/runs/`, so discarding
+# every run in `artifacts/runs/` never touches it.
+#
+# `_default_root` is a module-level function (not a constant baked into each
+# call's default argument) specifically so tests can monkeypatch it and never
+# risk writing to this repo's real `artifacts/` directory.
+
+
+def _default_root() -> Path:
+    return REPO_ROOT / "artifacts"
+
+
+def _registry_path(root: Path | None) -> Path:
+    return (root or _default_root()) / "known_repos.json"
+
+
+def known_repos(root: Path | None = None) -> list[dict]:
+    """Read the registry, newest-first. Missing file reads as empty — no repo
+    has ever been connected yet, not an error."""
+    path = _registry_path(root)
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def _write_registry(items: list[dict], root: Path | None) -> None:
+    path = _registry_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(items, f, indent=2, ensure_ascii=False)
+        os.replace(tmp, path)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+        raise
+
+
+def remember_repo(rec: dict, root: Path | None = None) -> None:
+    """Upsert by url: an existing entry is replaced (fields updated) and
+    moved to the front; a new one is inserted at the front. Newest-first."""
+    items = [i for i in known_repos(root) if i.get("url") != rec.get("url")]
+    items.insert(0, rec)
+    _write_registry(items, root)
+
+
+def forget_repo(url: str, root: Path | None = None) -> bool:
+    """Remove by url. Returns whether an entry was actually removed."""
+    items = known_repos(root)
+    remaining = [i for i in items if i.get("url") != url]
+    if len(remaining) == len(items):
+        return False
+    _write_registry(remaining, root)
+    return True

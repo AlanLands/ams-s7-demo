@@ -51,6 +51,105 @@ def test_connect_repo_bad_url_is_engine_error(tmp_path: Path):
     assert eng.state()["intake"]["repos"] == []
 
 
+# --- known-repos registry, and repo removal ----------------------------------
+
+
+def test_connect_repo_remembers_in_global_registry(tmp_path: Path, monkeypatch):
+    from s7_delivery.factory import repos as repos_mod
+
+    registry_root = tmp_path / "registry"
+    monkeypatch.setattr(repos_mod, "_default_root", lambda: registry_root)
+
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+
+    remembered = repos_mod.known_repos(registry_root)
+    assert [r["name"] for r in remembered] == ["maplesure-sponsor-portal"]
+    assert remembered[0]["url"] == str(src)
+    assert remembered[0]["last_connected_at"]
+
+
+def test_connect_repo_registry_survives_run_deletion(tmp_path: Path, monkeypatch):
+    """The whole point of the registry: it is not under the run's own tree,
+    so deleting the run directory does not lose the memory of the repo."""
+    import shutil
+
+    from s7_delivery.factory import repos as repos_mod
+
+    registry_root = tmp_path / "registry"
+    monkeypatch.setattr(repos_mod, "_default_root", lambda: registry_root)
+
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    shutil.rmtree(eng.store.root)
+
+    assert [r["name"] for r in repos_mod.known_repos(registry_root)] == [
+        "maplesure-sponsor-portal"
+    ]
+
+
+def test_intake_remove_repo_removes_entry_clone_and_context_pack(tmp_path: Path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    name = "maplesure-sponsor-portal"
+    assert eng.store.exists("repos", name)
+    assert eng.store.exists("intake", "context", f"{name}.md")
+
+    eng.intake_remove_repo(Role.DELIVERY_LEAD, name)
+
+    assert eng.state()["intake"]["repos"] == []
+    assert not eng.store.path("repos", name).exists()
+    assert not eng.store.exists("intake", "context", f"{name}.md")
+    state = eng.state()
+    assert any(
+        e["workflow"] == "connect-repository" and e["outcome"] == "removed"
+        for e in state["activity"]
+    )
+
+
+def test_intake_remove_repo_unknown_name_raises(tmp_path: Path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="Unknown repository"):
+        eng.intake_remove_repo(Role.DELIVERY_LEAD, "no-such-repo")
+
+
+def _signed_off_engine(tmp_path, monkeypatch, repo_name="maplesure-sponsor-portal"):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path, repo_name)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (_fake_analysis(), {}),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.planning_add_story(Role.DELIVERY_LEAD, {
+        "title": "Add disability claim submission endpoint",
+        "accountable_team": "Services Team",
+        "target_component": "main.py",
+        "target_repository": repo_name,
+        "acceptance_criteria": [
+            "Given a sponsor, when they submit a claim, then it is stored."
+        ],
+    })
+    eng.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Hale")
+    return eng
+
+
+def test_intake_remove_repo_after_plan_signoff_raises(tmp_path: Path, monkeypatch):
+    eng = _signed_off_engine(tmp_path, monkeypatch)
+    with pytest.raises(EngineError, match="signed"):
+        eng.intake_remove_repo(Role.DELIVERY_LEAD, "maplesure-sponsor-portal")
+    # Refusal is non-destructive — the repo is still connected.
+    assert [r["name"] for r in eng.state()["intake"]["repos"]] == [
+        "maplesure-sponsor-portal"
+    ]
+
+
 # --- live analysis tests -------------------------------------------------------
 
 
