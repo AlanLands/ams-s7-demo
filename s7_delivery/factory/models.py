@@ -371,6 +371,10 @@ class DeveloperWorkspace(BaseModel):
     # real evidence from the repository remote (git fetch + ref inspection);
     # None until a live-run "Sync from Git" has run. HUMAN work, read-only.
     git_evidence: dict | None = None
+    # real GitHub Actions run result for git_evidence's latest commit, when
+    # the repo's CI workflow has been bootstrapped and has run. None until
+    # a live-run sync finds a run. Additive: never overwrites git_evidence.
+    ci_evidence: dict | None = None
     last_sync_at: str = Field(default_factory=now_iso)
     provenance: Provenance = Provenance.SIMULATED
 
