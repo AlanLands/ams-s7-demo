@@ -1206,7 +1206,7 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 
 .drawer-overlay {
   position: fixed; inset: 0; background: rgba(54, 54, 47, 0.32);
-  display: flex; justify-content: flex-end; z-index: 40;
+  display: flex; justify-content: flex-end; z-index: 55; /* above sticky footer (40) and modal (50), below toast (60) */
 }
 .drawer {
   width: min(440px, 100%); height: 100%; background: var(--surface);
