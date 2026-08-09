@@ -3116,11 +3116,21 @@ class Engine:
                 "0 unresolved major gaps" if majors == 0
                 else f"{majors} major gaps open"),
             self._typed_story_check(
-                "QC-11", "Regression & integration", "test", stories, done, row,
-                done_msg="regression and integration scenarios complete",
+                "QC-11", "Regression & integration hand-off", "test", stories,
+                done, row,
+                done_msg="in-scope integration scenarios passed — full "
+                "regression & integration executes in the organisation's "
+                "existing integration test suite, initiated from this gate "
+                "(not executed in this demonstration)",
                 missing_msg="the plan contains no dedicated regression story — "
-                "verification is the per-task targeted tests (QC-03/QC-04)"),
-            row("QC-12", "Performance check", True, "", status="not_applicable"),
+                "verification is the per-task targeted tests (QC-03/QC-04); "
+                "full regression & integration executes in the organisation's "
+                "existing integration test suite, initiated from this gate "
+                "(not executed in this demonstration)"),
+            row("QC-12", "Performance test hand-off", True,
+                "not exercised in this demonstration — the performance test "
+                "suite is initiated from this gate against the organisation's "
+                "existing performance environment", status="not_applicable"),
             self._typed_story_check(
                 "QC-08", "Operational readiness", "operational", stories, done, row,
                 done_msg="deployment, monitoring, runbook and handover prepared",

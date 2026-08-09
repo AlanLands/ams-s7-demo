@@ -60,7 +60,17 @@ def test_quality_checks_computed_from_evidence(eng):
     assert checks["QC-04"]["status"] == "passed"
     assert checks["QC-07"]["status"] == "passed"      # majors resolved
     assert checks["QC-08"]["status"] == "passed"      # US-007 done
+    assert checks["QC-11"]["name"] == "Regression & integration hand-off"
+    assert "complete" not in checks["QC-11"]["evidence"].lower()
+    assert "organisation's existing integration test suite" in \
+        checks["QC-11"]["evidence"]
+    assert "not executed in this demonstration" in checks["QC-11"]["evidence"]
     assert checks["QC-12"]["status"] == "not_applicable"
+    assert checks["QC-12"]["name"] == "Performance test hand-off"
+    assert checks["QC-12"]["evidence"]
+    assert "not exercised in this demonstration" in checks["QC-12"]["evidence"]
+    assert "organisation's existing performance environment" in \
+        checks["QC-12"]["evidence"]
     assert "informational" in report["score_note"].lower()
 
 
