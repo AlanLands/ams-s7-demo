@@ -64,6 +64,13 @@ type PubDisplay = { cls: string; label: string; sub: string }
 function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: boolean): PubDisplay {
   if (pack.publication_status === 'published') {
     if (stale) return { cls: 'st-stale', label: 'OUT OF DATE', sub: 'Pack changed since publish' }
+    if ((pack.published_version ?? 0) < pack.version) {
+      return {
+        cls: 'st-planned',
+        label: 'UPDATE PENDING',
+        sub: `v${pack.published_version} on branch — publish v${pack.version} to sync assignments`,
+      }
+    }
     return {
       cls: 'st-passed',
       label: 'PUBLISHED',
@@ -144,7 +151,9 @@ export function DeliveryPacks() {
   const artifactsLinked = packs.reduce((n, p) => n + (p.artifact_count ?? 0), 0)
   const totalBytes = packs.reduce((n, p) => n + (p.size_bytes ?? 0), 0)
   const publishErrors = packs.filter((p) => p.publication_status === 'failed').length
-  const readyPacks = packs.filter((p) => p.publication_status !== 'published')
+  const readyPacks = packs.filter(
+    (p) => p.publication_status !== 'published' || (p.published_version ?? 0) < p.version,
+  )
   const canGenerate = phaseAtLeast(phase, 'architecture_accepted')
   const allStories = stories.length
 

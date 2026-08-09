@@ -498,6 +498,7 @@ export interface DeliveryPack {
   repository: string
   status: string
   publication_status: 'not_published' | 'published' | 'failed'
+  published_version?: number
   content_hash: string
   created_at: string
   published_at: string

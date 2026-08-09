@@ -464,7 +464,7 @@ export function DeveloperWorkspaces() {
     try {
       await apiPatch(`/api/runs/${runId}/workspaces/${ws.workspace_id}/developer`, { role, developer })
       await refresh()
-      notify('Developer assigned')
+      notify(`Assigned ${developer}. Team pack refreshed — republish in Delivery Packs to sync the assignment to Git.`)
       setAssignFor(null)
       setAssignName('')
     } catch (err) {

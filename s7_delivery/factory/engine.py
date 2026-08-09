@@ -348,7 +348,7 @@ class Engine:
             "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
             "delivery_packs": [
                 {**p, **dict(zip(("artifact_count", "size_bytes"), self._pack_stats(p)))}
-                for p in self.store.read_json_or([], "build", "packs", "meta.json")
+                for p in self._packs()
             ],
             "workspaces": self._workspaces_view(),
             "publications": self.store.read_ledger("publications.jsonl"),
@@ -1847,7 +1847,15 @@ class Engine:
     # --- delivery packs (Build & Review: governed context per team) ---------
 
     def _packs(self) -> list[dict]:
-        return self.store.read_json_or([], "build", "packs", "meta.json")
+        packs = self.store.read_json_or([], "build", "packs", "meta.json")
+        for p in packs:
+            # legacy rows predate published_version: a published pack was, by
+            # definition, published at its current version
+            if "published_version" not in p:
+                p["published_version"] = (
+                    p["version"] if p["publication_status"] == "published" else 0
+                )
+        return packs
 
     def _pack_stats(self, pack: dict) -> tuple[int, int]:
         """(artifact_count, size_bytes) computed from the artifact store —
