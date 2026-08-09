@@ -23,6 +23,7 @@ export function AdvancedAnalysisSection() {
   const routing = data.intake?.routing
   const newApp = data.intake?.new_app
   const scaffold = data.intake?.scaffold
+  const newAppRepoCreated = Boolean(newApp?.name && repos.some((r) => r.name === newApp.name))
 
   return (
     <details
@@ -125,7 +126,14 @@ export function AdvancedAnalysisSection() {
                 />
               </div>
             ))}
-            <button type="button" className="primary sq" onClick={() => act('/intake/clarify-answer', { answers: clarAnswers }, 'Answers recorded')}>
+            <button
+              type="button"
+              className="primary sq"
+              onClick={async () => {
+                const answers = clar.pending.map((_, i) => clarAnswers[i] ?? '')
+                if (await act('/intake/clarify-answer', { answers }, 'Answers recorded')) setClarAnswers([])
+              }}
+            >
               Submit answers
             </button>
           </div>
@@ -215,13 +223,25 @@ export function AdvancedAnalysisSection() {
                       onChange={(e) => setNewAppAnswers((prev) => { const next = [...prev]; next[i] = e.target.value; return next })} />
                   </div>
                 ))}
-                <button type="button" className="primary sq" onClick={() => act('/intake/new-app-answer', { answers: newAppAnswers }, 'Answers recorded')}>
+                <button
+                  type="button"
+                  className="primary sq"
+                  onClick={async () => {
+                    const answers = (newApp.pending ?? []).map((_, i) => newAppAnswers[i] ?? '')
+                    if (await act('/intake/new-app-answer', { answers }, 'Answers recorded')) {
+                      setNewAppAnswers([])
+                      // The answer endpoint only records; the next assistant turn
+                      // (follow-up questions or finalization) comes from setup.
+                      await act('/intake/new-app-setup', {}, 'Setup continued')
+                    }
+                  }}
+                >
                   Submit answers
                 </button>
               </div>
             ) : (
               <button type="button" className="outline block" onClick={() => act('/intake/new-app-setup', {}, 'Setup started')}>
-                Start New Application Setup
+                {(newApp?.transcript?.length ?? 0) > 0 ? 'Continue Setup' : 'Start New Application Setup'}
               </button>
             )}
             {newApp?.name && !scaffold && (
@@ -238,9 +258,15 @@ export function AdvancedAnalysisSection() {
                     <pre className="mono" style={{ whiteSpace: 'pre-wrap', fontSize: 12 }}>{content}</pre>
                   </details>
                 ))}
-                <button type="button" className="primary sq block" style={{ marginTop: 10 }} onClick={() => act('/intake/create-new-app-repo', {}, 'New application repository created')}>
-                  Create Repository
-                </button>
+                {newAppRepoCreated ? (
+                  <p className="hint" style={{ marginTop: 10 }}>
+                    ✓ Repository <span className="mono">{newApp?.name}</span> created and connected — it now grounds analysis like any connected repository.
+                  </p>
+                ) : (
+                  <button type="button" className="primary sq block" style={{ marginTop: 10 }} onClick={() => act('/intake/create-new-app-repo', {}, 'New application repository created')}>
+                    Create Repository
+                  </button>
+                )}
               </div>
             )}
           </div>

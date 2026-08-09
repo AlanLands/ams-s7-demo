@@ -112,6 +112,7 @@ export interface NewAppState {
   description?: string
   stack?: string
   pending?: string[]
+  transcript?: { role: string; text: string }[]
 }
 
 export interface IntakeState {
