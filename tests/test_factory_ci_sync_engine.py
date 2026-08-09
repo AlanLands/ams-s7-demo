@@ -463,7 +463,10 @@ def test_git_evidence_sync_does_not_regress_a_task_already_submitted(
     live_eng_with_github_repo, monkeypatch
 ):
     """A re-sync must never undo a human's already-recorded submission — the
-    protected statuses (waiting_for_approval/completed/blocked) stay put."""
+    protected statuses (waiting_for_approval/completed/blocked) stay put.
+    Coverage is evidence, not lifecycle state, though: it still reaches a
+    waiting_for_approval task exactly as it would an in-progress one, while
+    status/progress/current_activity are left completely untouched."""
     e = live_eng_with_github_repo
     tasks = e.store.read_json_or([], "build", "tasks.json")
     tasks[0]["status"] = "waiting_for_approval"
@@ -471,14 +474,25 @@ def test_git_evidence_sync_does_not_regress_a_task_already_submitted(
     tasks[0]["current_activity"] = "Evidence submitted for independent review"
     e.store.write_json(tasks, "build", "tasks.json")
 
-    monkeypatch.setattr(ci_sync, "latest_run", lambda owner_repo, sha: None)
-    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 33, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/33",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 0, "tests_passed": 0,
+                                    "tests_failed": 0, "coverage_pct": 75.0},
+    )
 
     e.workspaces_sync_git(Role.DELIVERY_LEAD)
     task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
     assert task["status"] == "waiting_for_approval"
     assert task["progress_pct"] == 90
     assert task["current_activity"] == "Evidence submitted for independent review"
+    assert task["coverage_pct"] == 75.0
 
 
 def test_git_evidence_sync_writes_real_coverage_onto_task(
