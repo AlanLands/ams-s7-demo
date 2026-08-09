@@ -873,7 +873,7 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .empty { padding: 40px; text-align: center; color: var(--muted); }
 
 .toast {
-  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  position: fixed; right: 20px; bottom: 92px; z-index: 60;
   max-width: 380px;
   padding: 12px 18px;
   border-radius: var(--radius-md);
@@ -1538,3 +1538,21 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .dp-all-row { display: flex; align-items: center; gap: 8px; }
 .dp-story-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .dp-story-card { padding: 10px 12px; margin: 0 0 8px; }
+
+/* --- Developer Workspaces page (mockup rebuild, 2026-08-09) -------------- */
+.dw-page .stat-row { margin-top: 6px; }
+.dw-section { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 7px; background: var(--surface); }
+.dw-section-head {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: none; border: 0; font: inherit; font-size: 12.5px; font-weight: 650;
+  padding: 8px 10px; cursor: pointer; color: var(--ink); text-align: left;
+}
+.dw-section-head.static { cursor: default; }
+.dw-section-head > span:first-of-type { flex: 1; }
+.dw-section-ico { width: 14px; height: 14px; color: var(--muted); flex: none; }
+.dw-chev { width: 14px; height: 14px; color: var(--muted); }
+.dw-section-body { padding: 2px 10px 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.dw-stale-note { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0; }
+.dw-drawer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+.dw-drawer-actions button { justify-content: center; display: inline-flex; align-items: center; white-space: nowrap; }
+.dw-drawer .drawer-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }

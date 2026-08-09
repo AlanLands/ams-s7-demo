@@ -1,27 +1,38 @@
-import { useCallback, useEffect, useState } from 'react'
+/**
+ * Developer Workspaces — the registry of governed engineering context S7 has
+ * published per team/story, and the evidence it collected back. Developers
+ * implement in their own IDE, CLI and Git; S7 observes, never controls. No
+ * code editor, terminal or coding chat exists on this surface.
+ *
+ * The "simulated developer activity" controls exist because this is a demo:
+ * the deterministic engine plays the developer's part and everything it
+ * produces is badged SIMULATED. AI never autonomously implements here.
+ */
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Activity as ActivityIcon, BadgeCheck, ChevronDown, ChevronRight, CircleAlert,
+  CircleCheck, Circle, CircleX, ClipboardCheck, Code2, ExternalLink, Eye,
+  FileText, FlaskConical, GitBranch, GitCommitHorizontal, GitFork,
+  GitPullRequest, Github, Info, Layers3, ListChecks, LoaderCircle, MonitorCog,
+  PackageCheck, PackageOpen, RotateCcw, Search, ShieldCheck, Sparkles,
+  TriangleAlert, UserCheck, UserPlus, UsersRound, Workflow,
+} from 'lucide-react'
 import { useRun } from '../../state/RunContext'
-import { Badge, Prov } from '../../components/Badge'
+import { Prov } from '../../components/Badge'
+import { Modal } from '../../components/Modal'
+import { StatCard } from '../../components/StatCard'
 import { apiPatch } from '../../api'
-import { TeamChip } from '../planning/TeamChip'
+import type { ActivityEvent, BuildTask, DeliveryPack, DeveloperWorkspace, PlanStory } from '../../types'
 import {
   buildOf,
-  DEV_STATUS_LABELS,
-  DEV_STATUS_BADGE,
-  GuidanceCard,
   CONTROL_PLANE_GUIDANCE,
-  OwnershipChips,
+  DEV_STATUS_BADGE,
+  DEV_STATUS_LABELS,
+  GuidanceCard,
+  hhmm,
   relTime,
   selectStory,
 } from './buildHelpers'
-import type { BuildTask, DeliveryPack, DeveloperWorkspace, PlanStory, RunState } from '../../types'
-
-// Developer Workspaces — the registry of governed engineering context S7 has
-// published per team/story. Developers implement in their own IDE, CLI and
-// Git; this surface only shows what S7 published and the evidence it
-// collected back. The "simulate developer activity" controls exist because
-// this is a demo: the deterministic engine plays the developer's part and
-// every artifact it produces is badged SIMULATED. AI never autonomously
-// implements production code here.
 
 function DevBadge({ status }: { status: string }) {
   return (
@@ -31,44 +42,80 @@ function DevBadge({ status }: { status: string }) {
   )
 }
 
-function CiBadge({ ci }: { ci: string }) {
-  if (!ci) return <span>—</span>
-  if (ci === 'passed') return <Badge status="passed" />
-  if (ci === 'running') return <span className="badge st-waiting_for_approval">running</span>
-  return <Badge status={ci} />
-}
-
-function AssignDeveloper({ ws }: { ws: DeveloperWorkspace }) {
-  const { runId, role, refresh, notify } = useRun()
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
-  const assign = async () => {
-    const developer = name.trim()
-    if (!developer || !runId) return
-    setBusy(true)
-    try {
-      await apiPatch(`/api/runs/${runId}/workspaces/${ws.workspace_id}/developer`, { role, developer })
-      await refresh()
-      notify('Developer assigned')
-    } catch (err) {
-      notify((err as Error).message, true)
-    } finally {
-      setBusy(false)
-    }
+function CiCell({ ws, task }: { ws: DeveloperWorkspace; task?: BuildTask }) {
+  const tests = task?.tests ?? []
+  const passed = tests.filter((t) => t.current_result === 'passed').length
+  const sub = tests.length ? `${passed} / ${tests.length} tests` : ''
+  if (!ws.ci_status) {
+    return (
+      <>
+        <span className="cell-status cs-idle"><Circle />Not Started</span>
+        {sub ? <span className="hint dp-sub">{sub}</span> : null}
+      </>
+    )
+  }
+  if (ws.ci_status === 'running') {
+    return (
+      <>
+        <span className="cell-status cs-run"><LoaderCircle className="spin" />Running</span>
+        {sub ? <span className="hint dp-sub">{sub}</span> : null}
+      </>
+    )
+  }
+  if (ws.ci_status === 'passed') {
+    return (
+      <>
+        <span className="cell-status cs-ok"><CircleCheck />Passed</span>
+        {sub ? <span className="hint dp-sub">{sub}</span> : null}
+      </>
+    )
   }
   return (
-    <span style={{ display: 'inline-flex', gap: '6px' }}>
-      <input
-        type="text"
-        placeholder="Developer name"
-        value={name}
-        aria-label={`Assign developer to ${ws.workspace_id}`}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <button type="button" className="outline" disabled={busy || !name.trim()} onClick={() => void assign()}>
-        Assign
+    <>
+      <span className="cell-status cs-bad"><CircleX />Failed</span>
+      {sub ? <span className="hint dp-sub">{sub}</span> : null}
+    </>
+  )
+}
+
+function DevAvatar({ name }: { name: string }) {
+  const initials = name.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+  return <span className="team-avatar tc-3">{initials}</span>
+}
+
+const ACTIVITY_ICONS: [RegExp, typeof UserCheck][] = [
+  [/assign/i, UserCheck],
+  [/review/i, ShieldCheck],
+  [/test/i, FlaskConical],
+  [/ci|pipeline|verif/i, Workflow],
+  [/pull|pr\b/i, GitPullRequest],
+  [/commit|develop|start/i, GitCommitHorizontal],
+]
+
+function activityIcon(ev: ActivityEvent): typeof UserCheck {
+  const hay = `${ev.workflow ?? ''} ${ev.details ?? ''} ${ev.outcome ?? ''}`
+  return ACTIVITY_ICONS.find(([re]) => re.test(hay))?.[1] ?? ActivityIcon
+}
+
+/** Expandable drawer section with a count chip, mockup-style. */
+function Section({ icon: IconC, title, count, children, defaultOpen }: {
+  icon: typeof Layers3
+  title: string
+  count?: string
+  children: React.ReactNode
+  defaultOpen?: boolean
+}) {
+  const [open, setOpen] = useState(Boolean(defaultOpen))
+  return (
+    <div className="dw-section">
+      <button type="button" className="dw-section-head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <IconC className="dw-section-ico" />
+        <span>{title}</span>
+        {count != null ? <span className="hint mono">{count}</span> : null}
+        {open ? <ChevronDown className="dw-chev" /> : <ChevronRight className="dw-chev" />}
       </button>
-    </span>
+      {open ? <div className="dw-section-body">{children}</div> : null}
+    </div>
   )
 }
 
@@ -81,7 +128,7 @@ interface DrawerProps {
 }
 
 function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
-  const { act, goTo } = useRun()
+  const { data, act, goTo } = useRun()
   const [closing, setClosing] = useState(false)
 
   const requestClose = useCallback(() => setClosing(true), [])
@@ -98,90 +145,195 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
 
   const tests = task?.tests ?? []
   const acs = story?.acceptance_criteria ?? []
-  const deps = task?.dependencies ?? story?.dependencies ?? []
+  const deps = story?.dependencies ?? []
+  const summaryRows = buildOf(data).summary?.stories ?? []
+  const depState = (depId: string): string => {
+    const row = summaryRows.find((r) => r.story_id === depId)
+    if (!row) return 'PENDING'
+    if (row.overall === 'blocked') return 'BLOCKED'
+    if (row.overall === 'complete' || row.overall === 'ready_for_quality') return 'AVAILABLE'
+    return 'IN PROGRESS'
+  }
+  const evidenced = new Set(tests.map((t) => t.ac_id))
+  const simulated = data?.run.mode !== 'live'
+  const activity = (data?.activity ?? [])
+    .filter((a) => a.artifact === task?.task_id || (a.details ?? '').includes(ws.story_id))
+    .slice(-6)
+    .reverse()
+  const stale = ws.artifact_status === 'stale'
+  const correction = task?.status === 'blocked'
 
   return (
     <div
       className={`drawer-overlay${closing ? ' closing' : ''}`}
       onClick={(e) => { if (e.target === e.currentTarget) requestClose() }}
     >
-      <aside className="drawer story-drawer" role="dialog" aria-label={`${ws.story_id} workspace`}>
+      <aside className="drawer story-drawer dw-drawer" role="dialog" aria-label={`${ws.story_id} workspace`}>
         <div className="card-head">
-          <h3><span className="mono">{ws.story_id}</span>{' — workspace'}</h3>
+          <h3><span className="mono">{ws.story_id}</span>{' — Developer Workspace'}</h3>
           <button type="button" className="kebab" onClick={requestClose} aria-label="Close">✕</button>
         </div>
+        {story?.title ? <p className="hint" style={{ marginBottom: '6px' }}>{story.title}</p> : null}
 
         <div className="drawer-badges">
+          <span className="chip own-human"><UserCheck className="dp-badge-ico" />Human Controlled</span>
+          <span className="chip own-ai"><Sparkles className="dp-badge-ico" />AI Assisted</span>
+          <span className="hint">Artifact:</span>
+          {stale
+            ? <span className="badge st-stale"><TriangleAlert className="dp-badge-ico" />STALE</span>
+            : <span className="badge st-ready">CURRENT</span>}
           <DevBadge status={ws.development_status} />
-          {ws.artifact_status === 'stale'
-            ? <span className="badge st-stale">STALE — refresh delivery context</span>
-            : <Badge status={ws.artifact_status} />}
           <Prov provenance={ws.provenance} />
-          <span className="own-chips">
-            <span className="hint">Development Mode:</span>
-            <span className="chip own-human">Human</span>
-            <span className="chip own-ai">AI Assisted</span>
-          </span>
         </div>
 
-        <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
-          <b>Team</b><span><TeamChip name={ws.team} /></span>
-          <b>Developer</b>
-          <span>{ws.developer || <AssignDeveloper ws={ws} />}</span>
-          <b>Repository</b><span className="mono">{ws.repository || '—'}</span>
-          <b>Branch</b><span className="mono">{ws.branch || '—'}</span>
-          <b>Base commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
-          <b>Current commit</b><span className="mono">{ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
-          <b>Pull request</b><span className="mono">{ws.pull_request || '—'}</span>
-          <b>CI status</b><span><CiBadge ci={ws.ci_status} /></span>
-          <b>Pack</b><span className="mono">{`${ws.delivery_pack_id} v${ws.delivery_pack_version}`}</span>
-          <b>Last sync</b><span>{relTime(ws.last_sync_at)}</span>
+        {stale ? (
+          <p className="hint dw-stale-note">
+            <TriangleAlert className="dp-badge-ico" style={{ color: 'var(--amber-text)' }} />
+            Workspace context is out of date — the canonical plan/architecture moved on. Context refresh is a
+            governed amendment: a new pack version is published, never a silent replacement.
+          </p>
+        ) : null}
+
+        {correction ? (
+          <p className="hint dw-stale-note" style={{ color: 'var(--red-dark)' }}>
+            <CircleAlert className="dp-badge-ico" />
+            Correction requested by independent review.{' '}
+            <button type="button" className="link-btn" onClick={() => { selectStory(ws.story_id); goTo('independent_review') }}>
+              View Review Finding
+            </button>
+          </p>
+        ) : null}
+
+        <div className="dw-section">
+          <div className="dw-section-head static"><MonitorCog className="dw-section-ico" /><span>Workspace Details</span></div>
+          <div className="dw-section-body">
+            <div className="kv" style={{ gridTemplateColumns: '110px 1fr' }}>
+              <b>Team</b><span>{ws.team}</span>
+              <b>Developer</b>
+              <span>{ws.developer
+                ? <span className="dp-team"><DevAvatar name={ws.developer} />{ws.developer}</span>
+                : <span className="hint">Unassigned</span>}</span>
+              <b>Repository</b><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span>
+              <b>Branch</b><span className="repo-cell"><GitBranch /><span className="mono">{ws.branch || '—'}</span></span>
+              <b>Base Commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
+              <b>Latest Commit</b>
+              <span className="mono">
+                {ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}
+                {ws.current_commit ? <span className="hint">{`  ${relTime(ws.last_sync_at)}`}</span> : null}
+              </span>
+              <b>Pull Request</b><span className="mono">{ws.pull_request || '—'}</span>
+              <b>CI Status</b><span><CiCell ws={ws} task={task} /></span>
+              <b>Last Synced</b><span>{`${hhmm(ws.last_sync_at)}`}</span>
+            </div>
+          </div>
         </div>
 
-        <div className="sub-panel">
-          <h3>Task context</h3>
+        <Section icon={FileText} title="Task Pack" count={task ? '4' : '0'}>
           {task ? (
-            <p><b className="mono">{task.task_id}</b>{task.summary ? ` — ${task.summary}` : ''}</p>
-          ) : (
-            <p className="hint">No task is linked to this story yet.</p>
-          )}
-          <b className="hint">Task-specific artifacts</b>
-          <ul className="checklist">
-            {['task.md', 'context.json', 'test-plan.md'].map((f) => (
-              <li key={f}><span className="tick ok">✓</span><span className="mono">{f}</span></li>
-            ))}
+            <>
+              <p className="hint"><b className="mono">{task.task_id}</b>{task.summary ? ` — ${task.summary}` : ''}</p>
+              <ul className="plain dp-contents">
+                {['task.md', 'context.json', 'test-plan.md', 'task-evidence.json'].map((f) => (
+                  <li key={f}><CircleCheck className="val-ico ok" /><span className="mono val-label">{f}</span>
+                    <span className="hint">{stale ? 'STALE' : 'CURRENT'}</span></li>
+                ))}
+              </ul>
+            </>
+          ) : <p className="hint">No task is linked to this story yet.</p>}
+        </Section>
+
+        <Section icon={Layers3} title="Inherited Context" count="5">
+          <ul className="plain dp-contents">
+            <li><CircleCheck className="val-ico ok" /><span className="mono val-label">architecture.md</span><span className="hint mono">{`v${pack?.architecture_version ?? '—'}`}</span></li>
+            <li><CircleCheck className="val-ico ok" /><span className="mono val-label">plan</span><span className="hint mono">{`v${pack?.plan_version ?? '—'}`}</span></li>
+            <li><CircleCheck className="val-ico ok" /><span className="val-label">{`${ws.team} Delivery Pack`}</span><span className="hint mono">{`v${ws.delivery_pack_version}`}</span></li>
+            <li><CircleCheck className="val-ico ok" /><span className="mono val-label">AGENTS.md</span><span className="hint">team</span></li>
+            <li><CircleCheck className="val-ico ok" /><span className="mono val-label">engineering-rules.md</span><span className="hint">shared</span></li>
           </ul>
-          <b className="hint">Inherited context</b>
-          <ul className="checklist">
-            <li><span className="tick ok">✓</span>{`architecture v${pack?.architecture_version ?? ws.delivery_pack_version}`}</li>
-            <li><span className="tick ok">✓</span>{`plan v${pack?.plan_version ?? 1}`}</li>
-            <li><span className="tick ok">✓</span>{`${ws.team} delivery pack v${ws.delivery_pack_version}`}</li>
-            <li><span className="tick ok">✓</span><span className="mono">AGENTS.md</span></li>
+          <p className="hint">Inherited by reference — canonical artifacts are never duplicated into the task.</p>
+        </Section>
+
+        <Section icon={ListChecks} title="Acceptance Criteria" count={String(acs.length)}>
+          {acs.length === 0 ? <p className="hint">None recorded on the story.</p> : (
+            <ul className="plain dp-contents">
+              {acs.map((ac) => (
+                <li key={ac.ac_id}>
+                  <span className="mono val-label" style={{ flex: 'none' }}>{ac.ac_id}</span>
+                  <span className="hint clamp-2" style={{ flex: 1 }}>{ac.text}</span>
+                  {evidenced.has(ac.ac_id)
+                    ? <span className="badge st-passed">evidence</span>
+                    : <span className="badge st-planned">pending</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section icon={GitFork} title="Dependencies" count={String(deps.length)}>
+          {deps.length === 0 ? <p className="hint">No dependencies.</p> : (
+            <ul className="plain dp-contents">
+              {deps.map((d) => (
+                <li key={d}>
+                  <span className="mono val-label" style={{ flex: 'none' }}>{d}</span>
+                  <span className={`badge ${depState(d) === 'AVAILABLE' ? 'st-passed' : depState(d) === 'BLOCKED' ? 'st-blocked' : 'st-planned'}`}>
+                    {depState(d)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Section>
+
+        <Section icon={ShieldCheck} title="Scope Control" count={story?.target_component ? '2' : '0'}>
+          <p className="hint"><b>Allowed Components</b></p>
+          <ul className="plain dp-contents">
+            <li><CircleCheck className="val-ico ok" /><span className="mono val-label">{story?.target_component || '—'}</span></li>
+            <li><CircleCheck className="val-ico ok" /><span className="val-label">associated tests</span></li>
           </ul>
-          {acs.length > 0 && (
-            <div>
-              <b className="hint">Acceptance criteria</b>
-              <div className="dep-chips" style={{ marginTop: '4px' }}>
-                {acs.map((ac) => <span className="chip tag mono" key={ac.ac_id}>{ac.ac_id}</span>)}
-              </div>
-            </div>
+          <p className="hint" style={{ marginTop: '4px' }}>
+            <b>Out of Scope</b> — every other component. Touching an out-of-scope component requires a new
+            ticket, not a bigger diff (engineering rules).
+          </p>
+        </Section>
+
+        <Section icon={Github} title="Git Handoff Status">
+          <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
+            <b>Repository</b><span className="mono">{ws.repository || '—'}</span>
+            <b>Branch</b><span className="mono">{ws.branch || '—'}</span>
+            <b>Pack Published</b><span><CircleCheck className="val-ico ok" />{` v${ws.delivery_pack_version}`}</span>
+            <b>Publication Commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
+            <b>Developer Changes</b><span className="mono">{ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
+            <b>Pull Request</b><span className="mono">{ws.pull_request || '—'}</span>
+            <b>CI</b><span><CiCell ws={ws} task={task} /></span>
+          </div>
+          {simulated ? (
+            <p className="hint"><Prov provenance="simulated" /> Simulated publication — no git remote is touched in this mode.</p>
+          ) : null}
+        </Section>
+
+        <Section icon={ActivityIcon} title="Activity" count={String(activity.length)}>
+          {activity.length === 0 ? <p className="hint">No workspace activity yet.</p> : (
+            <ul className="plain">
+              {activity.map((a, i) => {
+                const IconC = activityIcon(a)
+                return (
+                  <li key={`${a.timestamp}-${i}`} className="act-row" style={{ marginBottom: '4px' }}>
+                    <span className="t">{hhmm(a.timestamp)}</span>
+                    <IconC />
+                    <span className="x clamp-2">{[a.outcome, a.details].filter(Boolean).join(' · ')}</span>
+                  </li>
+                )
+              })}
+            </ul>
           )}
-          {deps.length > 0 && (
-            <div>
-              <b className="hint">Dependencies</b>
-              <div className="dep-chips" style={{ marginTop: '4px' }}>
-                {deps.map((d) => <span className="chip tag mono" key={d}>{d}</span>)}
-              </div>
-            </div>
-          )}
-        </div>
+        </Section>
 
         {task && (
           <div className="sub-panel">
-            <h3>Simulate developer activity <Prov provenance="simulated" /></h3>
+            <h3>Simulated developer activity <Prov provenance="simulated" /></h3>
             <p className="hint">
-              In production this evidence arrives from the developer's Git/CI. In this demo the deterministic engine
-              produces it, badged SIMULATED.
+              In production this evidence arrives from the developer's Git/CI. In this demo the deterministic
+              engine produces it, badged SIMULATED — S7 observes development, it never performs it.
             </p>
             <div className="actions-row">
               {task.status === 'ready' && (
@@ -221,198 +373,323 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
                 </>
               )}
               {task.status === 'blocked' && (
-                <>
-                  <span className="hint" style={{ color: 'var(--red)' }}>
-                    Correction requested by independent review
-                  </span>
-                  <button type="button" className="outline"
-                    onClick={() => { selectStory(ws.story_id); goTo('independent_review') }}>
-                    Open Independent Review
-                  </button>
-                </>
+                <button type="button" className="outline"
+                  onClick={() => { selectStory(ws.story_id); goTo('independent_review') }}>
+                  Open Independent Review
+                </button>
               )}
             </div>
           </div>
         )}
 
-        <div className="actions-row drawer-foot">
-          <button type="button" className="outline" onClick={() => goTo('delivery_packs')}>View delivery pack</button>
-          <button type="button" className="outline" onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>
-            View build &amp; test evidence
+        <div className="dw-drawer-actions">
+          <button type="button" className="outline" onClick={() => goTo('delivery_packs')}>
+            <PackageOpen className="btn-ico" /> View Delivery Pack
           </button>
-          <span className="toolbar-spring" />
-          <button type="button" className="ghost" onClick={requestClose}>Close</button>
+          <button type="button" className="outline" disabled={simulated}
+            title={simulated ? 'No real repository in simulation' : undefined}>
+            <ExternalLink className="btn-ico" /> Open Repository
+          </button>
+          <button type="button" className="outline" disabled={simulated || !ws.pull_request}
+            title={simulated ? 'Simulated PR — no remote to open' : undefined}>
+            <GitPullRequest className="btn-ico" /> View Pull Request
+          </button>
+          <button type="button" className="primary" onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>
+            <ClipboardCheck className="btn-ico" /> View Build Evidence
+          </button>
         </div>
       </aside>
-    </div>
-  )
-}
-
-function GitSyncCard({ ws, data }: { ws: DeveloperWorkspace; data: RunState }) {
-  return (
-    <div className="card rail-card">
-      <h3>Git Sync</h3>
-      <div className="kv" style={{ gridTemplateColumns: '110px 1fr' }}>
-        <b>Repository</b><span className="mono">{ws.repository || '—'}</span>
-        <b>Branch</b><span className="mono">{ws.branch || '—'}</span>
-        <b>Base commit</b><span className="mono">{ws.base_commit ? ws.base_commit.slice(0, 7) : '—'}</span>
-        <b>Current commit</b><span className="mono">{ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
-        <b>PR</b><span className="mono">{ws.pull_request || '—'}</span>
-        <b>CI</b><span><CiBadge ci={ws.ci_status} /></span>
-      </div>
-      {data.run.mode !== 'live' && (
-        <p className="hint">
-          <Prov provenance="simulated" />{' '}
-          Simulated publication — no git remote is touched in this mode.
-        </p>
-      )}
     </div>
   )
 }
 
 export function DeveloperWorkspaces() {
-  const { data, goTo } = useRun()
+  const { data, runId, role, refresh, notify, goTo } = useRun()
   const [openId, setOpenId] = useState<string | null>(null)
-  if (!data) return null
+  const [assignFor, setAssignFor] = useState<string | null>(null)
+  const [assignName, setAssignName] = useState('')
+  const [query, setQuery] = useState('')
+  const [fTeam, setFTeam] = useState('all')
+  const [fDev, setFDev] = useState('all')
+  const [fStatus, setFStatus] = useState('all')
+  const [fArtifact, setFArtifact] = useState('all')
+  const [fCi, setFCi] = useState('all')
 
   const build = buildOf(data)
   const workspaces = build.workspaces ?? []
   const tasks = build.tasks ?? []
   const packs = build.delivery_packs ?? []
-  const stories = data.planning?.stories ?? []
+  const stories: PlanStory[] = data?.planning?.stories ?? []
+  const taskById = useMemo(() => new Map(tasks.map((t) => [t.task_id, t])), [tasks])
+  const storyById = useMemo(() => new Map(stories.map((s) => [s.story_id, s])), [stories])
+
+  if (!data) return null
+
+  const wsTask = (ws: DeveloperWorkspace) => (ws.task_id ? taskById.get(ws.task_id) : undefined)
+  const teams = [...new Set(workspaces.map((w) => w.team))]
+  const developers = [...new Set(workspaces.map((w) => w.developer).filter(Boolean))]
+  const assigned = workspaces.filter((w) => w.developer).length
+  const inDev = workspaces.filter((w) => w.development_status === 'in_development').length
+  const openPrs = workspaces.filter((w) => w.pull_request && w.development_status !== 'complete').length
+  const ciRunning = workspaces.filter((w) => w.ci_status === 'running').length
+  const blocked = workspaces.filter((w) =>
+    w.development_status === 'blocked' || w.development_status === 'correction_requested',
+  ).length
+
+  const filtered = workspaces.filter((w) => {
+    if (fTeam !== 'all' && w.team !== fTeam) return false
+    if (fDev !== 'all' && w.developer !== fDev) return false
+    if (fStatus !== 'all' && w.development_status !== fStatus) return false
+    if (fArtifact !== 'all' && w.artifact_status !== fArtifact) return false
+    if (fCi !== 'all' && (w.ci_status || 'not_started') !== fCi) return false
+    if (query.trim()) {
+      const q = query.trim().toLowerCase()
+      const hay = `${w.team} ${w.story_id} ${w.task_id ?? ''} ${w.repository} ${w.developer}`.toLowerCase()
+      if (!hay.includes(q)) return false
+    }
+    return true
+  })
 
   const open = openId ? workspaces.find((w) => w.workspace_id === openId) : undefined
-  const railWs = open ?? workspaces[0]
-  const count = (status: string) => workspaces.filter((w) => w.development_status === status).length
 
-  return (
-    <section className="page-with-rail">
-      <div>
-        <div className="page-head" style={{ marginBottom: '14px' }}>
-          <h2>Developer Workspaces</h2>
-          <span className="hint">
-            S7 provides governed engineering context. Developers perform implementation using their normal IDE, CLI,
-            Git and optional coding assistants.
-          </span>
-          <OwnershipChips />
-        </div>
+  const doAssign = async () => {
+    const developer = assignName.trim()
+    const ws = workspaces.find((w) => w.workspace_id === assignFor)
+    if (!developer || !runId || !ws) return
+    try {
+      await apiPatch(`/api/runs/${runId}/workspaces/${ws.workspace_id}/developer`, { role, developer })
+      await refresh()
+      notify('Developer assigned')
+      setAssignFor(null)
+      setAssignName('')
+    } catch (err) {
+      notify((err as Error).message, true)
+    }
+  }
 
-        {workspaces.length === 0 ? (
+  if (workspaces.length === 0) {
+    return (
+      <section className="page-with-rail bo-compact">
+        <div>
+          <div className="page-head" style={{ marginBottom: '8px' }}>
+            <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Developer Workspaces</span>
+          </div>
           <div className="card">
-            <div className="empty">
-              <p>No developer workspaces yet.</p>
-              <p className="hint">Workspaces are provisioned when a delivery pack is published.</p>
-              <button type="button" className="primary sq" onClick={() => goTo('delivery_packs')}>
-                Go to Delivery Packs
+            <h3><MonitorCog className="btn-ico" /> No Developer Workspaces Yet</h3>
+            <p>Delivery Packs must be published to Git before developer workspaces become available.</p>
+            <div className="actions-row" style={{ marginTop: '12px' }}>
+              <button className="primary" onClick={() => goTo('delivery_packs')}>
+                <PackageOpen className="btn-ico" /> Go to Delivery Packs
               </button>
             </div>
           </div>
-        ) : (
-          <>
-            <div className="tiles">
-              <div className="tile">
-                <div className="v">{String(workspaces.length)}</div>
-                <div className="l">Workspaces</div>
-              </div>
-              <div className="tile">
-                <div className="v">{String(workspaces.filter((w) => w.developer).length)}</div>
-                <div className="l">Developers Assigned</div>
-              </div>
-              <div className="tile t-amber">
-                <div className="v">{String(count('in_development'))}</div>
-                <div className="l">In Development</div>
-              </div>
-              <div className="tile t-blue">
-                <div className="v">{String(count('in_review'))}</div>
-                <div className="l">In Review</div>
-              </div>
-              <div className="tile t-red">
-                <div className="v">{String(count('correction_requested'))}</div>
-                <div className="l">Corrections</div>
-              </div>
-              <div className="tile t-green">
-                <div className="v">{String(count('complete'))}</div>
-                <div className="l">Complete</div>
-              </div>
-            </div>
+        </div>
+        <aside className="rail"><GuidanceCard lines={CONTROL_PLANE_GUIDANCE} /></aside>
+      </section>
+    )
+  }
 
-            <div className="card">
-              <div className="card-head"><h3>Workspaces</h3></div>
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Team</th><th>Story</th><th>Repository</th><th>Branch</th><th>Developer</th>
-                      <th>Pack</th><th>Commit</th><th>PR</th><th>CI</th><th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {workspaces.map((ws) => (
-                      <tr
-                        key={ws.workspace_id}
-                        className={`row-click${openId === ws.workspace_id ? ' sel' : ''}`}
-                        onClick={() => setOpenId(ws.workspace_id)}
-                      >
-                        <td><TeamChip name={ws.team} /></td>
-                        <td className="mono">{ws.story_id}</td>
-                        <td className="mono">{ws.repository || '—'}</td>
-                        <td className="mono">{ws.branch || '—'}</td>
-                        <td>
-                          {ws.developer || (
-                            <>
-                              <span className="hint">Unassigned</span>{' '}
-                              <button
-                                type="button"
-                                className="link-btn"
-                                onClick={(e) => { e.stopPropagation(); setOpenId(ws.workspace_id) }}
-                              >
-                                Assign
-                              </button>
-                            </>
-                          )}
-                        </td>
-                        <td>
-                          {`v${ws.delivery_pack_version}`}{' '}
-                          <Badge status={ws.artifact_status} />
-                        </td>
-                        <td className="mono">{ws.current_commit ? ws.current_commit.slice(0, 7) : '—'}</td>
-                        <td className="mono">{ws.pull_request || '—'}</td>
-                        <td><CiBadge ci={ws.ci_status} /></td>
-                        <td><DevBadge status={ws.development_status} /></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="hint">Click a row to open the workspace detail.</p>
-            </div>
-          </>
-        )}
+  return (
+    <section className="bo-compact dw-page">
+      <div className="page-head" style={{ marginBottom: '4px' }}>
+        <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Developer Workspaces</span>
+      </div>
+      <div className="page-head" style={{ marginBottom: '10px' }}>
+        <h2>Developer Workspaces</h2>
+        <span className="chip own-human"><UserCheck className="dp-badge-ico" />Human Controlled</span>
+        <span className="chip own-ai"><Sparkles className="dp-badge-ico" />AI Assisted</span>
+        <span className="hint" style={{ flexBasis: '100%' }}>
+          Human-controlled engineering workspaces provisioned from approved S7 delivery packs. Developers
+          implement using their normal IDE, CLI and Git workflows.
+        </span>
       </div>
 
-      <aside className="rail">
-        <div className="card rail-card">
-          <h3>Ownership</h3>
-          <ul className="plain">
-            <li>The developer owns implementation.</li>
-            <li>S7 owns governed context, traceability, evidence collection, artifact freshness and review orchestration.</li>
-            <li>A coding assistant may assist the developer — it never acts autonomously.</li>
-          </ul>
-        </div>
-        {railWs && <GitSyncCard ws={railWs} data={data} />}
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+      <div className="stat-row">
+        <StatCard accent="green" icon={<MonitorCog />} value={String(workspaces.length)} label="Workspaces Ready" sub="Ready for developers" />
+        <StatCard accent="blue" icon={<UsersRound />} value={String(assigned)} label="Developers Assigned" sub="Across teams" />
+        <StatCard accent="orange" icon={<Code2 />} value={String(inDev)} label="Active Development" sub="In progress" />
+        <StatCard accent="purple" icon={<GitPullRequest />} value={String(openPrs)} label="Open Pull Requests" sub="Awaiting review" />
+        <StatCard accent="blue" icon={<Workflow />} value={String(ciRunning)} label="CI Pipelines Running" sub="Live pipelines" />
+        <StatCard accent="red" icon={<CircleAlert />} value={String(blocked)} label="Blocked Workspaces" sub={blocked ? 'Needs attention' : 'None'} />
+      </div>
 
-      {open && (
+      <div className="card dp-filters">
+        <span className="dp-search">
+          <Search className="dp-search-ico" />
+          <input type="text" placeholder="Search by team, story, repository, developer…"
+            value={query} onChange={(e) => setQuery(e.target.value)} />
+        </span>
+        <label className="dp-filter"><span>Team</span>
+          <select value={fTeam} onChange={(e) => setFTeam(e.target.value)}>
+            <option value="all">All</option>
+            {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        <label className="dp-filter"><span>Developer</span>
+          <select value={fDev} onChange={(e) => setFDev(e.target.value)}>
+            <option value="all">All</option>
+            {developers.map((d) => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </label>
+        <label className="dp-filter"><span>Dev Status</span>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+            <option value="all">All</option>
+            {Object.keys(DEV_STATUS_LABELS).map((s) => <option key={s} value={s}>{DEV_STATUS_LABELS[s]}</option>)}
+          </select>
+        </label>
+        <label className="dp-filter"><span>Artifact Status</span>
+          <select value={fArtifact} onChange={(e) => setFArtifact(e.target.value)}>
+            <option value="all">All</option>
+            <option value="current">Current</option>
+            <option value="stale">Stale</option>
+          </select>
+        </label>
+        <label className="dp-filter"><span>CI Status</span>
+          <select value={fCi} onChange={(e) => setFCi(e.target.value)}>
+            <option value="all">All</option>
+            <option value="passed">Passed</option>
+            <option value="running">Running</option>
+            <option value="failed">Failed</option>
+            <option value="not_started">Not Started</option>
+          </select>
+        </label>
+        <button className="ghost" onClick={() => { setQuery(''); setFTeam('all'); setFDev('all'); setFStatus('all'); setFArtifact('all'); setFCi('all') }}>
+          <RotateCcw className="btn-ico" /> Reset
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="table-wrap">
+          <table className="dp-table">
+            <thead>
+              <tr>
+                <th>Team</th><th>Story / Task</th><th>Repository</th><th>Branch</th><th>Developer</th>
+                <th>Delivery Pack</th><th>Latest Commit</th><th>Pull Request</th><th>CI Status</th>
+                <th>Dev Status</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((ws) => {
+                const task = wsTask(ws)
+                const story = storyById.get(ws.story_id)
+                const stale = ws.artifact_status === 'stale'
+                const initials = ws.team.split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+                return (
+                  <tr key={ws.workspace_id}
+                    className={openId === ws.workspace_id ? 'dp-row-selected' : ''}
+                    onClick={() => setOpenId(ws.workspace_id)}>
+                    <td>
+                      <span className="dp-team">
+                        <span className={`team-avatar ${['tc-0', 'tc-1', 'tc-2', 'tc-3', 'tc-4'][ws.team.length % 5]}`}>{initials}</span>
+                        <b>{ws.team}</b>
+                      </span>
+                    </td>
+                    <td>
+                      <b className="mono">{ws.story_id}</b>
+                      <span className="hint dp-sub clamp-2">{story?.title ?? ''}</span>
+                      {ws.task_id ? <span className="hint dp-sub mono">{ws.task_id}</span> : null}
+                    </td>
+                    <td><span className="repo-cell"><Github /><span className="mono">{ws.repository || '—'}</span></span></td>
+                    <td><span className="repo-cell"><GitBranch /><span className="mono dp-stories">{ws.branch || '—'}</span></span></td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      {ws.developer ? (
+                        <span className="dp-team"><DevAvatar name={ws.developer} />{ws.developer}</span>
+                      ) : (
+                        <>
+                          <span className="hint">Unassigned</span>
+                          <button type="button" className="link-btn dp-sub" onClick={() => { setAssignFor(ws.workspace_id); setAssignName('') }}>
+                            <UserPlus className="dp-badge-ico" />Assign
+                          </button>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <span className="mono">{`v${ws.delivery_pack_version}.0`}</span>{' '}
+                      {stale
+                        ? <span className="badge st-stale"><TriangleAlert className="dp-badge-ico" />STALE</span>
+                        : <span className="badge st-ready"><BadgeCheck className="dp-badge-ico" />CURRENT</span>}
+                      <span className="hint dp-sub"><PackageCheck className="dp-badge-ico" />Published to Git</span>
+                    </td>
+                    <td>
+                      {ws.current_commit ? (
+                        <>
+                          <span className="repo-cell"><GitCommitHorizontal /><span className="mono">{ws.current_commit.slice(0, 7)}</span></span>
+                          <span className="hint dp-sub">{relTime(ws.last_sync_at)}</span>
+                        </>
+                      ) : <span className="hint">—</span>}
+                    </td>
+                    <td>
+                      {ws.pull_request ? (
+                        <>
+                          <span className="repo-cell"><GitPullRequest /><span className="mono">{ws.pull_request}</span></span>
+                          <span className="badge st-in_progress dp-sub" style={{ display: 'inline-block' }}>OPEN</span>
+                        </>
+                      ) : <span className="hint">—</span>}
+                    </td>
+                    <td><CiCell ws={ws} task={task} /></td>
+                    <td><DevBadge status={ws.development_status} /></td>
+                    <td onClick={(e) => e.stopPropagation()}>
+                      <div className="dp-actions">
+                        <button className="icon-btn" aria-label={`View ${ws.story_id} workspace`} title="View Workspace"
+                          onClick={() => setOpenId(ws.workspace_id)}><Eye className="btn-ico" /></button>
+                        <button className="icon-btn" aria-label="Open repository" disabled
+                          title="No real repository in simulation"><ExternalLink className="btn-ico" /></button>
+                        <button className="icon-btn" aria-label={`View ${ws.story_id} evidence`} title="View Evidence"
+                          onClick={() => { selectStory(ws.story_id); goTo('test_evidence') }}>
+                          <ClipboardCheck className="btn-ico" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filtered.length === 0 ? (
+                <tr><td colSpan={11}><span className="hint">No workspaces match the current filters.</span></td></tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+        <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${workspaces.length} workspaces`}</div>
+      </div>
+
+      <div className="card info-banner" style={{ marginTop: '10px' }}>
+        <Info className="btn-ico" style={{ marginTop: '1px' }} />
+        <span>
+          Developer Workspaces are human controlled. S7 provides governed context and collects engineering
+          evidence; developers implement changes using their normal IDE, CLI and Git tools.
+        </span>
+      </div>
+
+      {assignFor ? (() => {
+        const ws = workspaces.find((w) => w.workspace_id === assignFor)
+        if (!ws) return null
+        return (
+          <Modal title="Assign Developer" onClose={() => setAssignFor(null)}>
+            <div className="kv">
+              <b>Story</b><span className="mono">{ws.story_id}</span>
+              <b>Team</b><span>{ws.team}</span>
+            </div>
+            <input type="text" placeholder="Developer name" value={assignName} style={{ width: '100%', marginTop: '10px' }}
+              aria-label={`Assign developer to ${ws.workspace_id}`}
+              onChange={(e) => setAssignName(e.target.value)} />
+            <div className="actions-row" style={{ marginTop: '12px' }}>
+              <button className="ghost" onClick={() => setAssignFor(null)}>Cancel</button>
+              <button className="primary" disabled={!assignName.trim()} onClick={() => void doAssign()}>
+                <UserPlus className="btn-ico" /> Assign
+              </button>
+            </div>
+          </Modal>
+        )
+      })() : null}
+
+      {open ? (
         <WorkspaceDrawer
-          key={open.workspace_id}
           ws={open}
-          task={tasks.find((t) => t.story_id === open.story_id)}
+          task={wsTask(open)}
           pack={packs.find((p) => p.delivery_pack_id === open.delivery_pack_id)}
-          story={stories.find((s) => s.story_id === open.story_id)}
+          story={storyById.get(open.story_id)}
           onClose={() => setOpenId(null)}
         />
-      )}
+      ) : null}
     </section>
   )
 }
