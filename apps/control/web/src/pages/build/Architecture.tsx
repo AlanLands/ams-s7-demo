@@ -13,6 +13,7 @@ import {
   CircleAlert, CircleCheck, Download, Eye, RefreshCw, TriangleAlert,
 } from 'lucide-react'
 import { useRun } from '../../state/RunContext'
+import { Modal } from '../../components/Modal'
 import { Badge, Prov } from '../../components/Badge'
 import { TeamChip } from '../planning/TeamChip'
 import type { ArchLandscape, PlanStory } from '../../types'
@@ -168,9 +169,9 @@ export function Architecture() {
 
   const [tab, setTab] = useState<TabId>('overview')
   const [archMd, setArchMd] = useState('')
-  const [previewName, setPreviewName] = useState<string | null>(null)
-  const [previewText, setPreviewText] = useState('')
+  const [preview, setPreview] = useState<{ title: string; sections: { name: string; text: string }[] } | null>(null)
   const [showRevise, setShowRevise] = useState(false)
+  const [showDiagram, setShowDiagram] = useState(false)
   const [feedback, setFeedback] = useState('')
   const [approver, setApprover] = useState('')
 
@@ -185,16 +186,27 @@ export function Architecture() {
       .then((r) => (r.ok ? r.text() : ''))
       .then(setArchMd)
       .catch(() => setArchMd(''))
-    setPreviewName(null)
+    setPreview(null)
   }, [runId, archVersion])
 
-  const loadPreview = (name: string) => {
-    setPreviewName(name)
-    setPreviewText('Loading…')
+  const fetchText = (name: string) =>
     fetch(fileUrl(name))
       .then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then(setPreviewText)
-      .catch((err: Error) => setPreviewText(`Could not load ${name}: ${err.message}`))
+      .catch((err: Error) => `Could not load ${name}: ${err.message}`)
+
+  const loadPreview = (name: string) => {
+    setPreview({ title: name, sections: [{ name, text: 'Loading…' }] })
+    void fetchText(name).then((text) => setPreview({ title: name, sections: [{ name, text }] }))
+  }
+
+  const loadFullPack = (files: string[]) => {
+    const names = files.map(basename)
+    setPreview({
+      title: 'Architecture Pack — full preview',
+      sections: names.map((name) => ({ name, text: 'Loading…' })),
+    })
+    void Promise.all(names.map((name) => fetchText(name).then((text) => ({ name, text }))))
+      .then((sections) => setPreview({ title: 'Architecture Pack — full preview', sections }))
   }
 
   if (!data) return null
@@ -352,9 +364,28 @@ export function Architecture() {
             <div className="card">
               <div className="card-head"><h3>Application Landscape</h3>
                 <span className="hint">Derived from the plan — applications, mapped repositories and cross-team integration only.</span>
+                <button type="button" className="link-btn" onClick={() => setShowDiagram(true)}>⛶ Enlarge</button>
               </div>
-              <LandscapeDiagram landscape={land} />
+              <div
+                className="landscape-clickable"
+                role="button"
+                tabIndex={0}
+                title="Click for a larger view"
+                onClick={() => setShowDiagram(true)}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setShowDiagram(true) }}
+              >
+                <LandscapeDiagram landscape={land} />
+              </div>
             </div>
+
+            {showDiagram ? (
+              <Modal title="Application Landscape" wide onClose={() => setShowDiagram(false)}>
+                <p className="hint" style={{ marginBottom: '8px' }}>
+                  Derived from the plan — applications, mapped repositories and cross-team integration only.
+                </p>
+                <LandscapeDiagram landscape={land} />
+              </Modal>
+            ) : null}
 
             <div className="card" style={{ marginTop: '8px' }}>
               <div className="arch-tabs" role="tablist">
@@ -457,15 +488,23 @@ export function Architecture() {
                 </div>
               ) : null}
 
-              {previewName ? (
-                <>
-                  <p className="hint" style={{ margin: '10px 0 6px' }}>
-                    Rendered preview of <span className="mono">{previewName}</span> — read-only, not an editor.
-                  </p>
-                  <pre className="artifact-preview">{previewText}</pre>
-                </>
-              ) : null}
             </div>
+
+            {preview ? (
+              <Modal title={preview.title} wide onClose={() => setPreview(null)}>
+                <p className="hint" style={{ marginBottom: '8px' }}>
+                  Rendered preview — read-only, not an editor.
+                </p>
+                {preview.sections.map((s) => (
+                  <div key={s.name} style={{ marginBottom: '12px' }}>
+                    {preview.sections.length > 1 ? (
+                      <h4 className="mono" style={{ margin: '0 0 6px' }}>{s.name}</h4>
+                    ) : null}
+                    <pre className="artifact-preview" style={{ maxHeight: '46vh' }}>{s.text}</pre>
+                  </div>
+                ))}
+              </Modal>
+            ) : null}
 
             {showRevise ? (
               <div className="card" style={{ marginTop: '8px' }}>
@@ -522,7 +561,7 @@ export function Architecture() {
                 <button className="outline" onClick={() => window.open(`/api/runs/${runId}/architecture/download.zip`, '_blank')}>
                   <Download className="btn-ico" /> Download All
                 </button>
-                <button className="outline" onClick={() => loadPreview('architecture.md')}>
+                <button className="outline" onClick={() => loadFullPack(arch.files)}>
                   <Eye className="btn-ico" /> Preview Full Pack
                 </button>
               </div>

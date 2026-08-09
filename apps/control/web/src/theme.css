@@ -1475,3 +1475,9 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
   .arch-strip .as-cell { border-right: 0; }
   .arch-overview { grid-template-columns: 1fr; }
 }
+
+/* Landscape enlarge: click-to-zoom diagram + wide modal variant. */
+.landscape-clickable { cursor: zoom-in; }
+.landscape-clickable:focus-visible { outline: 3px solid rgba(176, 36, 58, 0.4); }
+.modal.modal-wide { width: min(1280px, 96vw); }
+.modal-wide .landscape { min-width: 900px; }
