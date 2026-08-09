@@ -36,7 +36,7 @@ def latest_run(owner_repo: str, sha: str) -> dict | None:
     proc = subprocess.run(
         ["gh", "run", "list", "--repo", owner_repo, "--commit", sha,
          "--json", "databaseId,status,conclusion,url,workflowName", "--limit", "1"],
-        capture_output=True, text=True,
+        capture_output=True, text=True, timeout=30,
     )
     if proc.returncode != 0:
         raise CiSyncError(
@@ -55,7 +55,7 @@ def download_summary(owner_repo: str, run_id: int) -> dict | None:
         proc = subprocess.run(
             ["gh", "run", "download", str(run_id), "--repo", owner_repo,
              "-n", "ci-summary", "-D", tmp],
-            capture_output=True, text=True,
+            capture_output=True, text=True, timeout=30,
         )
         if proc.returncode != 0:
             return None

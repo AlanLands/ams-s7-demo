@@ -27,6 +27,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Run tests
+        shell: bash
         run: mvn -B test | tee test-output.log
       - name: Summarize results
         if: always()
@@ -68,6 +69,7 @@ jobs:
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           pip install pytest
       - name: Run tests
+        shell: bash
         run: pytest | tee test-output.log
       - name: Summarize results
         if: always()

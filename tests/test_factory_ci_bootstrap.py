@@ -83,6 +83,7 @@ def test_bootstrap_maven_writes_commits_and_pushes(bare_remote_and_clone):
     workflow = clone / ".github" / "workflows" / "s7-ci.yml"
     assert workflow.exists()
     assert "mvn -B test" in workflow.read_text()
+    assert "shell: bash" in workflow.read_text()
     # pushed for real: a fresh clone of the bare remote has it too
     fresh = remote.parent / "fresh"
     subprocess.run(["git", "clone", "-q", str(remote), str(fresh)],
@@ -95,6 +96,7 @@ def test_bootstrap_pytest_workflow_content(bare_remote_and_clone):
     ci_bootstrap.bootstrap(clone, "main", "pytest")
     workflow = clone / ".github" / "workflows" / "s7-ci.yml"
     assert "pytest" in workflow.read_text()
+    assert "shell: bash" in workflow.read_text()
 
 
 def test_bootstrap_push_failure_raises(tmp_path):

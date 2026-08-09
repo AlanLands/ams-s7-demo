@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 from typing import Any
 
 from s7_delivery.factory import architecture_checks, build_phases, gates, roles, seed
@@ -2219,7 +2220,8 @@ class Engine:
             return None
         try:
             run = ci_sync.latest_run(owner_repo, latest["sha"])
-        except ci_sync.CiSyncError:
+        except (ci_sync.CiSyncError, ValueError, OSError, KeyError,
+                subprocess.TimeoutExpired):
             return None
         if run is None:
             return None
@@ -2233,7 +2235,8 @@ class Engine:
         if run.get("status") == "completed":
             try:
                 summary = ci_sync.download_summary(owner_repo, run["databaseId"])
-            except ci_sync.CiSyncError:
+            except (ci_sync.CiSyncError, ValueError, OSError, KeyError,
+                    subprocess.TimeoutExpired):
                 summary = None
             if summary:
                 evidence["tests_total"] = summary.get("tests_total")

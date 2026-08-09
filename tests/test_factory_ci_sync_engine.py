@@ -164,3 +164,115 @@ def test_sync_gh_failure_does_not_break_git_sync(live_eng_with_github_repo, monk
     ws = e.state()["build"]["workspaces"][0]
     assert ws["git_evidence"]["commit_count"] == 1
     assert ws.get("ci_evidence") is None
+
+
+def _make_github_backed_repo(tmp_path, subdir_name):
+    """Create a local bare 'remote' with one commit, cloned locally, that
+    looks like a github.com repo for owner_repo_from_url purposes."""
+    remote = tmp_path / f"{subdir_name}-remote.git"
+    remote.mkdir()
+    _git(remote, "init", "--bare", "--initial-branch=main")
+    seed = tmp_path / f"{subdir_name}-seed"
+    seed.mkdir()
+    _git(seed, "init", "--initial-branch=main")
+    (seed / "README.md").write_text("seed\n")
+    _git(seed, "add", ".")
+    _git(seed, "commit", "-m", "initial scaffold")
+    _git(seed, "remote", "add", "origin", str(remote))
+    _git(seed, "push", "-q", "origin", "main")
+    _git(seed, "checkout", "-B", f"feature/{subdir_name}")
+    (seed / "change.py").write_text("# change\n")
+    _git(seed, "add", ".")
+    _git(seed, "commit", "-m", f"{subdir_name}: implement change")
+    _git(seed, "push", "-q", "-u", "origin", f"feature/{subdir_name}")
+    return remote
+
+
+@pytest.fixture
+def live_eng_with_two_github_repos(tmp_path):
+    """A live engine with two workspaces backed by two distinct github.com
+    repos, so a per-workspace gh failure can be proven not to clobber the
+    other workspace's already-computed real git evidence."""
+    remote_a = _make_github_backed_repo(tmp_path, "us-a")
+    remote_b = _make_github_backed_repo(tmp_path, "us-b")
+
+    e = Engine.create(DemoMode.LIVE, root=tmp_path / "runs")
+    for name, remote in (("repo-a", remote_a), ("repo-b", remote_b)):
+        dest = e.store.path("repos", name)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        subprocess.run(["git", "clone", "-q", str(remote), str(dest)],
+                        check=True, capture_output=True)
+    e.store.write_json(
+        [{"url": "https://github.com/AlanLands/repo-a", "name": "repo-a",
+          "head_sha": "", "default_branch": "main", "file_count": 1,
+          "cloned_at": "", "provenance": "human"},
+         {"url": "https://github.com/AlanLands/repo-b", "name": "repo-b",
+          "head_sha": "", "default_branch": "main", "file_count": 1,
+          "cloned_at": "", "provenance": "human"}],
+        "intake", "repos.json",
+    )
+    e.store.write_json(
+        [{"workspace_id": "WS-US-A", "run_id": e.run_id, "team": "Platform Team",
+          "story_id": "US-A", "repository": "repo-a",
+          "branch": "s7/x-platform-team", "developer": "Alan Lands",
+          "delivery_pack_id": "PACK-a", "delivery_pack_version": 1,
+          "base_commit": "", "development_status": "provisioned",
+          "provenance": "human"},
+         {"workspace_id": "WS-US-B", "run_id": e.run_id, "team": "Platform Team",
+          "story_id": "US-B", "repository": "repo-b",
+          "branch": "s7/x-platform-team", "developer": "Alan Lands",
+          "delivery_pack_id": "PACK-b", "delivery_pack_version": 1,
+          "base_commit": "", "development_status": "provisioned",
+          "provenance": "human"}],
+        "build", "workspaces.json",
+    )
+    e.store.write_json(
+        [{"task_id": "TASK-A", "story_id": "US-A", "status": "ready",
+          "commit_ref": "", "pr_ref": "", "ci_status": ""},
+         {"task_id": "TASK-B", "story_id": "US-B", "status": "ready",
+          "commit_ref": "", "pr_ref": "", "ci_status": ""}],
+        "build", "tasks.json",
+    )
+    return e
+
+
+def test_sync_malformed_gh_json_for_one_workspace_does_not_block_others(
+    live_eng_with_two_github_repos, monkeypatch
+):
+    """A non-JSON `gh` response (auth banner, proxy page) for one repo must
+    not abort the whole sync — the other workspace's real git evidence must
+    still be computed and saved."""
+    def flaky_latest_run(owner_repo, sha):
+        if owner_repo == "AlanLands/repo-a":
+            raise json.JSONDecodeError("Expecting value", "not json", 0)
+        return None  # repo-b: no CI run yet, a normal outcome
+
+    monkeypatch.setattr(ci_sync, "latest_run", flaky_latest_run)
+    e = live_eng_with_two_github_repos
+    synced = e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    assert synced == 2
+    workspaces = {w["workspace_id"]: w for w in e.state()["build"]["workspaces"]}
+    # repo-a's gh call blew up with bad JSON: no CI evidence, but its git
+    # evidence (computed before the gh call) is still saved.
+    assert workspaces["WS-US-A"]["git_evidence"]["commit_count"] == 1
+    assert workspaces["WS-US-A"].get("ci_evidence") is None
+    # repo-b was entirely unaffected by repo-a's failure.
+    assert workspaces["WS-US-B"]["git_evidence"]["commit_count"] == 1
+    assert workspaces["WS-US-B"].get("ci_evidence") is None
+
+
+def test_sync_gh_binary_missing_degrades_to_none(
+    live_eng_with_two_github_repos, monkeypatch
+):
+    """`gh` not being on PATH at all (FileNotFoundError) must degrade to
+    "no CI evidence" rather than crashing the whole sync."""
+    def missing_binary(owner_repo, sha):
+        raise FileNotFoundError("[Errno 2] No such file or directory: 'gh'")
+
+    monkeypatch.setattr(ci_sync, "latest_run", missing_binary)
+    e = live_eng_with_two_github_repos
+    synced = e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    assert synced == 2
+    for ws in e.state()["build"]["workspaces"]:
+        assert ws["git_evidence"]["commit_count"] == 1
+        assert ws.get("ci_evidence") is None
