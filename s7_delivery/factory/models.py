@@ -316,6 +316,13 @@ class ArchitectureMeta(BaseModel):
     revision_note: str = ""
     files: list[str] = []
     provenance: Provenance = Provenance.SIMULATED
+    # enrichment (spec 2026-08-09): all derived at render time from real
+    # inputs; defaults keep runs stored before this change loading cleanly
+    plan_version: int = 0
+    content_hash: str = ""  # sha256 over the five files' serialized bytes
+    file_sizes: dict[str, int] = {}
+    validations: list[dict] = []  # architecture_checks.run_checks output
+    landscape: dict = {}  # architecture.landscape output
 
 
 class DeliveryPack(BaseModel):

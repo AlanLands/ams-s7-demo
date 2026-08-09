@@ -158,3 +158,51 @@ def test_pure_renderers_are_deterministic():
     assert {r["repository"] for r in rmap} == {
         "maplesure-sponsor-portal", "maplesure-claims-api"
     }
+
+
+# --- meta enrichment: validations, landscape, sizes, hash, plan version ------
+
+
+def test_meta_carries_validations_landscape_sizes_hash_and_plan_version(eng):
+    signed(eng)
+    eng.architecture_generate(Role.ENGINEERING_LEAD)
+    meta = eng.state()["build"]["architecture"]
+    assert meta["plan_version"] == eng.state()["planning"]["plan"]["plan_version"]
+    assert len(meta["file_sizes"]) == 5
+    assert all(size > 0 for size in meta["file_sizes"].values())
+    assert len(meta["validations"]) == 9
+    assert meta["content_hash"] and len(meta["content_hash"]) == 64
+    assert meta["landscape"]["nodes"]
+
+
+def test_revision_recomputes_hash_and_validations(eng):
+    signed(eng)
+    eng.architecture_generate(Role.ENGINEERING_LEAD)
+    h1 = eng.state()["build"]["architecture"]["content_hash"]
+    eng.architecture_revise(Role.ENGINEERING_LEAD, "tighten integration boundaries")
+    meta = eng.state()["build"]["architecture"]
+    assert meta["version"] == 2
+    assert meta["content_hash"] != h1
+    assert len(meta["validations"]) == 9
+
+
+def test_accept_blocked_while_mandatory_validation_fails(eng):
+    signed(eng)
+    stories = eng.store.read_json_or([], "planning", "stories.json")
+    stories[0]["target_repository"] = ""
+    eng.store.write_json(stories, "planning", "stories.json")
+    eng.architecture_generate(Role.ENGINEERING_LEAD)
+    meta = eng.state()["build"]["architecture"]
+    failed = [v for v in meta["validations"] if v["result"] == "failed"]
+    assert failed
+    with pytest.raises(EngineError, match="mandatory validation"):
+        eng.architecture_accept(Role.ENGINEERING_LEAD, "A. Osei")
+
+
+def test_accept_records_hash_and_still_passes_when_valid(eng):
+    signed(eng)
+    eng.architecture_generate(Role.ENGINEERING_LEAD)
+    eng.architecture_accept(Role.ENGINEERING_LEAD, "A. Osei")
+    meta = eng.state()["build"]["architecture"]
+    assert meta["status"] == "accepted"
+    assert meta["content_hash"] and len(meta["content_hash"]) == 64

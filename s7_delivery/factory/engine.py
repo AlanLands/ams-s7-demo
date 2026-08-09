@@ -12,11 +12,13 @@ phase by phase behind the same discipline.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 from typing import Any
 
-from s7_delivery.factory import build_phases, gates, roles, seed
+from s7_delivery.factory import architecture_checks, build_phases, gates, roles, seed
 from s7_delivery.factory.models import (
     STAGE_ORDER,
     AcceptanceCriterion,
@@ -1714,11 +1716,21 @@ class Engine:
             revision_note=revision_note,
         )
         vdir = f"v{version}"
+        serialized: dict[str, str] = {}
         for name, payload in files.items():
             if isinstance(payload, str):
+                serialized[name] = payload
                 self.store.write_text(payload, "architecture", vdir, name)
             else:
+                serialized[name] = json.dumps(payload, indent=2, sort_keys=True)
                 self.store.write_json(payload, "architecture", vdir, name)
+        digest = hashlib.sha256()
+        for name in sorted(serialized):
+            digest.update(name.encode())
+            digest.update(serialized[name].encode())
+        analysis = self.store.read_json_or(None, "intake", "analysis.json")
+        repos = self._connected_repos()
+        plan = self.store.read_json_or(None, "planning", "plan.json")
         meta = ArchitectureMeta(
             version=version,
             status="generated",
@@ -1726,6 +1738,11 @@ class Engine:
             revision_note=revision_note,
             files=[f"{vdir}/{name}" for name in arch.FILES],
             provenance=prov,
+            plan_version=(plan or {}).get("plan_version", 0),
+            content_hash=digest.hexdigest(),
+            file_sizes={name: len(text.encode()) for name, text in serialized.items()},
+            validations=architecture_checks.run_checks(stories, repos, files),
+            landscape=arch.landscape(stories, analysis, repos),
         ).model_dump(mode="json")
         self.store.write_json(meta, "architecture", "meta.json")
         return meta
@@ -1802,6 +1819,11 @@ class Engine:
             raise EngineError("No architecture to accept — generate it first")
         if meta["status"] == "accepted":
             raise EngineError(f"Architecture v{meta['version']} is already accepted")
+        blocked = architecture_checks.mandatory_failures(meta.get("validations", []))
+        if blocked:
+            raise EngineError(
+                "Cannot accept: mandatory validation failed — " + ", ".join(blocked)
+            )
         phase = self._build_phase()
         who = approver.strip() or role.value
         meta["status"] = "accepted"
