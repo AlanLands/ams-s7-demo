@@ -20,14 +20,25 @@ import type { RunState } from '../types'
  * "Design" render completed while "Sprint Planning", to its left, is still
  * current — a strip that no longer reads left-to-right. To prevent that, a
  * fixed subset of nodes is `required`: they define a left-to-right
- * "frontier" (the first not-yet-done required node). A required node can
- * never render completed past the frontier, and — the fix for the ordering
- * bug — neither can an optional node: an optional node's own artifact signal
- * is only trusted once the frontier has moved past its position. Optional
- * nodes whose artifact never appears even though the frontier has verifiably
- * moved past them (e.g. no document was ever uploaded this run, or — in live
- * mode — no `design.json` is ever written at all) render as `skipped`, a
- * distinct hollow state, rather than looking identical to "not reached yet".
+ * "frontier" (the first not-yet-done required node, by array position).
+ * Every node at or after the frontier can only render current/pending,
+ * never completed — that caps both required nodes and optional ones whose
+ * artifact happened to appear early.
+ *
+ * The frontier alone is *not* enough to decide "skipped" vs "pending" for an
+ * optional node with no artifact: on a brand-new run the frontier already
+ * sits at index 2 (Epic, the first required node) purely because nothing
+ * required can exist before it — that is not evidence anything has actually
+ * happened yet. So "skipped" additionally requires real forward evidence:
+ * either a required node *later* than this optional one is done, or this
+ * optional node's own parent stage is fully `completed` (covers Design,
+ * whose parent stage — planning — can finish before any later-array
+ * required node, which lives in a different stage, has started). Absent
+ * that evidence, the node is `pending` like anything else not yet reached,
+ * and — like any pending node — is eligible to be the single `current`
+ * pulse if its own stage is active. That is what lets a genuinely fresh,
+ * zero-artifact run correctly start the pulse at "Unstructured Docs"
+ * instead of jumping to "Epic".
  */
 
 type NodeStatus = 'completed' | 'current' | 'pending' | 'skipped'
@@ -36,10 +47,11 @@ interface FlowNodeDef {
   /** `goTo` section id — reuses existing Stepper/SideNav landing ids only. */
   id: string
   label: string
-  /** Parent stage id in `data.run.stages`, used for status fallback. */
+  /** Parent stage id in `data.run.stages`, used for status fallback and for
+   * the "skipped" evidence check below. */
   stage: string
-  /** Required nodes define the left-to-right completion frontier and can
-   * never be skipped — every run produces them once its stage genuinely
+  /** Required nodes define the left-to-right completion frontier and are
+   * never `skipped` — every run produces them once its stage genuinely
    * progresses. Optional nodes (an upload that may never happen, a design
    * artifact live mode never writes) never block or advance the frontier. */
   required: boolean
@@ -77,10 +89,10 @@ export function FlowStrip() {
     return { ...node, parentStatus, checkDone }
   })
 
-  // The frontier is the index of the first *required* node not yet done —
-  // derived entirely from the checks above, never hardcoded. Required nodes
-  // at or after it can only be current/pending, never completed; that also
-  // caps every optional node past it, closing the ordering bug.
+  // Frontier: index of the first required node not yet done (or past the
+  // end once every required node is). Nothing before it can be trusted as
+  // "not yet happened" — every required node before it is, by construction
+  // of this scan, checkDone === true.
   let frontierIndex = checked.length
   for (let i = 0; i < checked.length; i++) {
     if (checked[i].required && !checked[i].checkDone) {
@@ -89,28 +101,28 @@ export function FlowStrip() {
     }
   }
 
+  // Base state per node, without "current" yet (assigned in a second pass
+  // below so it can land on the first eligible node regardless of whether
+  // that node is required or optional).
+  const base: NodeStatus[] = checked.map((node, i) => {
+    const capped = i >= frontierIndex
+    if (node.required) {
+      return capped ? 'pending' : 'completed'
+    }
+    if (node.checkDone && !capped) return 'completed'
+    if (!node.checkDone) {
+      const laterRequiredDone = checked.some((n, j) => n.required && j > i && n.checkDone)
+      if (node.parentStatus === 'completed' || laterRequiredDone) return 'skipped'
+    }
+    return 'pending'
+  })
+
   let currentAssigned = false
   const nodes = checked.map((node, i) => {
-    let state: NodeStatus
-    if (node.required) {
-      if (i < frontierIndex) {
-        state = 'completed'
-      } else if (i === frontierIndex && !currentAssigned && isActiveStatus(node.parentStatus)) {
-        state = 'current'
-        currentAssigned = true
-      } else {
-        state = 'pending'
-      }
-    } else if (i < frontierIndex) {
-      // The frontier has verifiably moved past this optional node's position,
-      // so its own artifact check can be trusted: present means completed,
-      // absent means genuinely skipped this run (not "not reached yet").
-      state = node.checkDone ? 'completed' : 'skipped'
-    } else {
-      // Frontier hasn't reached here yet — even if the artifact already
-      // exists (the out-of-order write this guards against), don't show it
-      // as done ahead of the required work to its left.
-      state = 'pending'
+    let state = base[i]
+    if (state === 'pending' && !currentAssigned && isActiveStatus(node.parentStatus)) {
+      state = 'current'
+      currentAssigned = true
     }
     return { ...node, state }
   })
