@@ -1589,3 +1589,26 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 /* Evidence coverage bar (compact — no big charts). */
 .cov-bar { height: 8px; border-radius: var(--radius-pill); background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; margin: 4px 0 3px; }
 .cov-fill { height: 100%; background: var(--green); border-radius: var(--radius-pill); }
+
+/* --- Independent Review page (mockup rebuild, 2026-08-09) ---------------- */
+.ir-title-ico { width: 18px; height: 18px; color: var(--green); vertical-align: -3px; }
+.ir-score-bar { width: 90px; margin-top: 3px; }
+.cov-fill.bad { background: var(--red-dark); }
+.ir-summary { display: flex; align-items: center; gap: 14px; margin: 4px 0; }
+.ir-ring {
+  width: 74px; height: 74px; border-radius: 50%; flex: none;
+  display: grid; place-items: center; position: relative;
+}
+.ir-ring::before { content: ''; position: absolute; inset: 9px; border-radius: 50%; background: var(--surface); }
+.ir-ring span { position: relative; font-size: 15px; font-weight: 650; }
+.ir-summary-list li { padding: 1px 0 !important; border-bottom: 0 !important; font-size: 12px; }
+.ir-summary-list b { display: inline-block; min-width: 16px; }
+.ir-check-row {
+  display: flex; align-items: center; gap: 7px; width: 100%;
+  background: none; border: 0; font: inherit; font-size: 12px; padding: 2px 0;
+  cursor: pointer; text-align: left; color: inherit;
+}
+.ir-check-row .val-label { flex: 1; }
+.ir-finding { border: 1px solid var(--red); border-left-width: 3px; border-radius: var(--radius-sm); padding: 8px 10px; margin: 6px 0; background: var(--red-pale); font-size: 12px; }
+.ir-trace { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; font-size: 11px; }
+.ir-trace .chip { font-size: 10px; padding: 1px 7px; }

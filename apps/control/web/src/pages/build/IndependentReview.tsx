@@ -1,319 +1,539 @@
+/**
+ * Independent Review — the governed review checkpoint before Quality. The
+ * review is executed by an ISOLATED reviewer (simulated in demo mode, a live
+ * model in live mode) that never authored the implementation; its verdict is
+ * recorded immutably and re-review creates a new version. Humans route
+ * rework back to the developer; nobody approves their own work here.
+ *
+ * Honesty: there are no Approve/Reject buttons because no such engine action
+ * exists — the isolated verdict is the approval. The quality score is a
+ * derived checkpoint pass rate, informational only, never stored and never
+ * the decision. Reviewer names are the real reviewer role labels, badged
+ * with their provenance.
+ */
+import { useMemo, useState } from 'react'
+import {
+  Circle, CircleAlert, CircleCheck, CircleX, ClipboardCheck, ClipboardList,
+  Clock3, Eye, GitBranch, GitCommitHorizontal, GitFork, Github, History,
+  GitPullRequest, Info, ListChecks, MonitorCog, PackageCheck, RefreshCcw, RotateCcw, Search,
+  ShieldCheck, TriangleAlert, UserRound,
+} from 'lucide-react'
+import { Prov } from '../../components/Badge'
+import { StatCard } from '../../components/StatCard'
 import { useRun } from '../../state/RunContext'
-import { SectionTitle } from '../../components/SectionTitle'
-import { Badge } from '../../components/Badge'
-import type { BuildState, BuildTask, PlanningState, ReviewRecord } from '../../types'
-import { selectedStory } from './buildHelpers'
+import type {
+  BuildTask, DeveloperWorkspace, PlanStory, ReviewRecord,
+} from '../../types'
+import {
+  buildOf,
+  CONTROL_PLANE_GUIDANCE,
+  GuidanceCard,
+  hhmm,
+  selectStory,
+  selectedStory,
+} from './buildHelpers'
 
-function hhmm(iso?: string) {
-  return (iso ?? '').slice(11, 16) || '—'
+type CheckState = 'passed' | 'partial' | 'failed' | 'not_reviewed'
+
+interface Checkpoint {
+  name: string
+  state: CheckState
+  detail: string
 }
 
-const SEV_CLASS: Record<string, string> = { critical: 'red', major: 'red', minor: 'amber', info: '' }
+/** Derived review checkpoints — stated rules over recorded signals only. */
+function checkpoints(
+  task: BuildTask,
+  story: PlanStory | undefined,
+  ws: DeveloperWorkspace | undefined,
+  review: ReviewRecord | undefined,
+): Checkpoint[] {
+  const tests = task.tests ?? []
+  const acs = story?.acceptance_criteria ?? []
+  const linked = acs.filter((a) => tests.some((t) => t.ac_id === a.ac_id)).length
+  const failing = tests.filter((t) => t.current_result === 'failed').length
+  const rows: Checkpoint[] = []
 
-function GuidanceCard() {
-  return (
-    <div className="card rail-card guidance">
-      <h3>✓ Customer-safe guidance</h3>
-      <p className="hint">This is a customer-safe view. No IDE, code, CLI, logs, or system internals are shown.</p>
-      <p className="hint">Only governed execution evidence and status are visible.</p>
-      <p className="hint">All work is traceable, human-approved and audit-ready.</p>
-    </div>
-  )
+  rows.push({
+    name: 'Requirements Traceability',
+    state: review ? ((review.verified_against ?? []).length ? 'passed' : 'not_reviewed') : 'not_reviewed',
+    detail: review?.verified_against?.length
+      ? `Verified against ${review.verified_against.join(', ')}`
+      : 'Recorded once the isolated reviewer executes',
+  })
+  rows.push({
+    name: 'Acceptance Criteria Coverage',
+    state: acs.length === 0 ? 'not_reviewed' : linked === acs.length ? 'passed' : linked > 0 ? 'partial' : 'failed',
+    detail: `${linked} of ${acs.length} acceptance criteria have linked tests`,
+  })
+  rows.push({
+    name: 'Test Evidence Validation',
+    state: tests.length === 0 ? 'not_reviewed' : failing === 0 ? 'passed' : 'failed',
+    detail: tests.length ? `${tests.length - failing} of ${tests.length} tests passing` : 'No test evidence yet',
+  })
+  rows.push({
+    name: 'Code Quality & Standards',
+    state: review ? (review.minor_gaps === 0 ? 'passed' : 'partial') : 'not_reviewed',
+    detail: review ? `${review.minor_gaps} minor gap(s) recorded` : 'Recorded by the isolated reviewer',
+  })
+  rows.push({
+    name: 'Independent Findings',
+    state: review ? (review.critical_gaps + review.major_gaps > 0 ? 'failed' : 'passed') : 'not_reviewed',
+    detail: review
+      ? `${review.critical_gaps} critical · ${review.major_gaps} major`
+      : 'Recorded by the isolated reviewer',
+  })
+  rows.push({
+    name: 'Context Freshness',
+    state: ws ? (ws.artifact_status === 'stale' ? 'failed' : 'passed') : 'not_reviewed',
+    detail: ws?.artifact_status === 'stale'
+      ? 'Workspace context is stale — refresh through the amendment path'
+      : 'Delivery pack and workspace context are current',
+  })
+  return rows
 }
 
-function ReviewFindingsBlock({ rv, task }: { rv: ReviewRecord; task: BuildTask }) {
-  const findings = rv.findings ?? []
-  const artifactsReviewed = (rv.verified_against ?? []).length || '—'
-  return (
-    <>
-      <div className="kv" style={{ gridTemplateColumns: '130px 1fr', marginTop: '8px' }}>
-        <b>Review ID</b><span className="mono">{rv.review_id}</span>
-        <b>Reviewer (isolated)</b><span>{rv.reviewer}</span>
-        <b>Developer</b><span>{task.owner || '—'}</span>
-        <b>Reviewed On</b><span className="mono">{(rv.created_at ?? '').slice(0, 16).replace('T', ' ')}</span>
-        <b>Artifacts Reviewed</b><span>{artifactsReviewed}</span>
-        <b>Result</b><span><Badge status={rv.result === 'passed' ? 'passed' : 'blocked'} /></span>
-      </div>
-      <div className="findings-grid">
-        {([['Critical', rv.critical_gaps], ['Major', rv.major_gaps], ['Minor', rv.minor_gaps], ['Info', 0]] as const).map(([label, n]) => (
-          <div className="finding-cell" key={label}>
-            <b>{label}</b>
-            <span className="v">{String(n)}</span>
-          </div>
-        ))}
-      </div>
-      {findings.map((f, i) => (
-        <div className={`risk-line ${SEV_CLASS[f.severity] ?? 'amber'}`} key={f.finding_id ?? i}>
-          <b>{`${f.finding_id ?? ''} ${f.severity.toUpperCase()} · ${f.ac_id} — ${f.summary}`}</b>
-          {f.expected ? (
-            <div className="finding-detail">
-              <div><b>Acceptance Criterion: </b>{f.ac_id}</div>
-              <div><b>Expected Behaviour: </b>{f.expected}</div>
-              <div><b>Observed Implementation: </b>{f.observed}</div>
-              <div><b>Impact: </b>{f.impact}</div>
-              <div><b>Recommendation: </b>{f.recommendation}</div>
-              {(f.evidence ?? []).length ? (
-                <div>
-                  <b>Evidence: </b>
-                  {(f.evidence ?? []).map((e, ei) => (
-                    <span key={e}>
-                      {ei > 0 ? ', ' : null}
-                      <code>{e}</code>
-                    </span>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <span className="hint">{f.detail}</span>
-          )}
-        </div>
-      ))}
-      {findings.length === 0 ? <p className="hint">No findings — the change verified clean against the criteria.</p> : null}
-    </>
-  )
+/** Informational only — the isolated reviewer's verdict is authoritative. */
+function scoreOf(rows: Checkpoint[]): number | null {
+  const reviewed = rows.filter((r) => r.state !== 'not_reviewed')
+  if (!reviewed.length) return null
+  const points = reviewed.reduce(
+    (n, r) => n + (r.state === 'passed' ? 1 : r.state === 'partial' ? 0.5 : 0), 0)
+  return Math.round((points / reviewed.length) * 100)
+}
+
+type ReviewStatus = 'not_ready' | 'in_review' | 'approved' | 'rework'
+
+function statusOf(task: BuildTask): ReviewStatus {
+  if (task.status === 'completed') return 'approved'
+  if (task.status === 'blocked') return 'rework'
+  if (task.status === 'waiting_for_approval') return 'in_review'
+  return 'not_ready'
+}
+
+const STATUS_UI: Record<ReviewStatus, [string, string]> = {
+  not_ready: ['NOT READY', 'st-planned'],
+  in_review: ['IN REVIEW', 'st-waiting_for_approval'],
+  approved: ['APPROVED', 'st-passed'],
+  rework: ['REWORK REQUIRED', 'st-blocked'],
+}
+
+const CHECK_UI: Record<CheckState, [string, string]> = {
+  passed: ['Passed', 'st-passed'],
+  partial: ['Partially Passed', 'st-planned'],
+  failed: ['Failed', 'st-failed'],
+  not_reviewed: ['Not Reviewed', 'st-planned'],
+}
+
+function CheckIcon({ state }: { state: CheckState }) {
+  if (state === 'passed') return <CircleCheck className="val-ico ok" />
+  if (state === 'partial') return <CircleAlert className="val-ico warn" />
+  if (state === 'failed') return <CircleX className="val-ico bad" />
+  return <Circle className="val-ico" style={{ color: 'var(--muted)' }} />
 }
 
 export function IndependentReview() {
   const { data, act, goTo } = useRun()
+  const [selId, setSelId] = useState<string | null>(selectedStory())
+  const [query, setQuery] = useState('')
+  const [fTeam, setFTeam] = useState('all')
+  const [fStatus, setFStatus] = useState('all')
+  const [openCheck, setOpenCheck] = useState<string | null>(null)
+
+  const build = buildOf(data)
+  const tasks = build.tasks ?? []
+  const reviews = build.reviews ?? []
+  const workspaces = build.workspaces ?? []
+  const stories: PlanStory[] = data?.planning?.stories ?? []
+  const storyById = useMemo(() => new Map(stories.map((s) => [s.story_id, s])), [stories])
+  const wsByStory = useMemo(() => new Map(workspaces.map((w) => [w.story_id, w])), [workspaces])
+  const reviewsFor = (taskId: string) => reviews.filter((r) => r.task_id === taskId)
+  const latestFor = (taskId: string) => {
+    const rs = reviewsFor(taskId)
+    return rs.length ? rs[rs.length - 1] : undefined
+  }
+
   if (!data) return null
 
-  const build = data.build as BuildState | undefined
-  const tasks = build?.tasks ?? []
+  const select = (storyId: string) => { selectStory(storyId); setSelId(storyId) }
+  const teamOf = (t: BuildTask) => t.accountable_team || storyById.get(t.story_id)?.accountable_team || '—'
 
-  if (!tasks.length) {
+  // Review items = tasks that have reached the review lifecycle.
+  const items = tasks.filter((t) =>
+    ['waiting_for_approval', 'blocked', 'completed'].includes(t.status) || reviewsFor(t.task_id).length > 0,
+  )
+
+  const approved = items.filter((t) => statusOf(t) === 'approved').length
+  const inReview = items.filter((t) => statusOf(t) === 'in_review').length
+  const rework = items.filter((t) => statusOf(t) === 'rework').length
+  const scores = items
+    .map((t) => scoreOf(checkpoints(t, storyById.get(t.story_id), wsByStory.get(t.story_id), latestFor(t.task_id))))
+    .filter((s): s is number => s != null)
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null
+
+  const teams = [...new Set(items.map(teamOf).filter((t) => t !== '—'))]
+  const filtered = items.filter((t) => {
+    if (fTeam !== 'all' && teamOf(t) !== fTeam) return false
+    if (fStatus !== 'all' && statusOf(t) !== fStatus) return false
+    if (query.trim()) {
+      const q = query.trim().toLowerCase()
+      if (!`${t.story_id} ${t.task_id} ${teamOf(t)}`.toLowerCase().includes(q)) return false
+    }
+    return true
+  })
+
+  const task = filtered.find((t) => t.story_id === selId)
+    ?? items.find((t) => t.story_id === selId)
+    ?? filtered.find((t) => statusOf(t) === 'in_review')
+    ?? filtered.find((t) => statusOf(t) === 'rework')
+    ?? filtered[0]
+    ?? items[0]
+
+  if (!task) {
     return (
-      <section>
-        <SectionTitle title="Independent Review" />
-        <div className="card">
-          <p>The work queue is seeded when the plan is signed at Gate 1.</p>
+      <section className="page-with-rail bo-compact">
+        <div>
+          <div className="page-head" style={{ marginBottom: '8px' }}>
+            <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Independent Review</span>
+          </div>
+          <div className="card">
+            <h3><ShieldCheck className="btn-ico" /> No Items Ready for Independent Review</h3>
+            <p>Build &amp; Test Evidence must meet the deterministic readiness checks before a review can begin.</p>
+            <div className="actions-row" style={{ marginTop: '12px' }}>
+              <button className="primary" onClick={() => goTo('test_evidence')}>
+                <ClipboardCheck className="btn-ico" /> View Build &amp; Test Evidence
+              </button>
+            </div>
+          </div>
         </div>
+        <aside className="rail"><GuidanceCard lines={CONTROL_PLANE_GUIDANCE} /></aside>
       </section>
     )
   }
 
-  const planning = data.planning as PlanningState | undefined
-  const plan = planning?.plan
-  const stories = planning?.stories ?? []
-
-  // Shared story-selection (same chain on every build page): the explicitly
-  // selected story first, then in_progress → blocked → waiting_for_approval → first.
-  const sel = selectedStory()
-  const task: BuildTask = tasks.find((t) => t.story_id === sel)
-    ?? tasks.find((t) => t.status === 'in_progress')
-    ?? tasks.find((t) => t.status === 'blocked')
-    ?? tasks.find((t) => t.status === 'waiting_for_approval')
-    ?? tasks[0]
-
-  const story = stories.find((s) => s.story_id === task.story_id)
-  const reviews = (build?.reviews ?? []).filter((r) => r.task_id === task.task_id)
-  const review = reviews[reviews.length - 1]
-  const tests = task.tests ?? []
-  const acs = story?.acceptance_criteria ?? []
-  const sevCount = (s: 'critical' | 'major' | 'minor') =>
-    review ? ({ critical: review.critical_gaps, major: review.major_gaps, minor: review.minor_gaps }[s] ?? 0) : 0
-  const trace = (data.traceability ?? []).find((r) => r.task === task.task_id)
-  const totalFindings = (review?.findings ?? []).length
+  // --- selected item ---------------------------------------------------------
+  const story = storyById.get(task.story_id)
+  const ws = wsByStory.get(task.story_id)
+  const review = latestFor(task.task_id)
+  const history = reviewsFor(task.task_id)
+  const pack = (build.delivery_packs ?? []).find((p) => p.team === teamOf(task))
+  const checks = checkpoints(task, story, ws, review)
+  const score = scoreOf(checks)
+  const [statusLabel, statusCls] = STATUS_UI[statusOf(task)]
+  const counts = {
+    passed: checks.filter((c) => c.state === 'passed').length,
+    partial: checks.filter((c) => c.state === 'partial').length,
+    failed: checks.filter((c) => c.state === 'failed').length,
+    notReviewed: checks.filter((c) => c.state === 'not_reviewed').length,
+  }
+  const findings = review?.findings ?? []
+  const stale = ws?.artifact_status === 'stale'
+  const reviewerLabel = review?.reviewer
+    ?? (data.run.mode === 'live'
+      ? 'independent-reviewer (live model, isolated from development)'
+      : 'independent-reviewer (simulated, isolated from development)')
+  const trace = [
+    ['REQ', 'REQ-2026-114'],
+    ['Plan', `PLAN v${data.planning?.plan?.plan_version ?? '—'}`],
+    ['Arch', build.architecture ? `ARCH v${build.architecture.version}` : '—'],
+    ['Pack', pack ? `${pack.delivery_pack_id} v${pack.version}` : '—'],
+    ['Story', task.story_id],
+    ['Task', task.task_id],
+    ['Commit', ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'],
+    ['Review', review?.review_id ?? '—'],
+  ]
 
   return (
-    <section className="page-with-rail">
+    <section className="page-with-rail bo-compact dp-page">
       <div>
-        <div className="page-head" style={{ marginBottom: '16px' }}>
-          <h2>Independent Review</h2>
+        <div className="page-head" style={{ marginBottom: '4px' }}>
+          <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Independent Review</span>
+        </div>
+        <div className="page-head" style={{ marginBottom: '10px' }}>
+          <h2>Independent Review <ShieldCheck className="ir-title-ico" /></h2>
           <span className="hint">
-            An isolated reviewer validates implementation against the approved story, acceptance criteria and
-            evidence package. The reviewer cannot modify source and never approves its own output.
+            Structured review of implementation quality, test evidence and adherence to the approved engineering
+            context — executed by a reviewer isolated from development.
           </span>
         </div>
 
-        <div className="tiles">
-          <div className="tile t-red">
-            <div className="v">{review ? '1' : '0'}</div>
-            <div className="l">{review ? 'Review Package · Complete' : 'Review Package'}</div>
-          </div>
-          <div className="tile t-red">
-            <div className="v">{String(sevCount('critical'))}</div>
-            <div className="l">Critical Gaps</div>
-          </div>
-          <div className="tile t-amber">
-            <div className="v">{String(sevCount('major'))}</div>
-            <div className="l">Major Gaps</div>
-          </div>
-          <div className="tile t-blue">
-            <div className="v">{String(sevCount('minor'))}</div>
-            <div className="l">Minor Gaps</div>
-          </div>
-          <div className={`tile ${review?.result === 'passed' ? 't-green' : 't-amber'}`}>
-            <div className="v">{review ? review.result.toUpperCase() : '—'}</div>
-            <div className="l">Review Result</div>
-          </div>
-          <div className="tile t-green">
-            <div className="v">{`${task.progress_pct}%`}</div>
-            <div className="l">Task Readiness</div>
-          </div>
+        <div className="stat-row">
+          <StatCard accent="blue" icon={<ClipboardList />} value={String(items.length)} label="Reviews" sub="All review items" />
+          <StatCard accent="green" icon={<CircleCheck />} value={String(approved)} label="Approved" sub={items.length ? `${Math.round((approved / items.length) * 100)}% approved` : '—'} />
+          <StatCard accent="orange" icon={<Clock3 />} value={String(inReview)} label="In Review" sub="Awaiting isolated reviewer" />
+          <StatCard accent="purple" icon={<RefreshCcw />} value={String(rework)} label="Rework Required" sub={rework ? 'Returned to developers' : 'None'} />
+          <StatCard accent="red" icon={<CircleX />} value="0" label="Rejected" sub="No reject path in this flow" />
+          <StatCard accent="teal" icon={<ShieldCheck />} value={avgScore != null ? `${avgScore}%` : '—'} label="Avg. Quality Score" sub="Derived — verdict is authoritative" />
         </div>
 
-        <div className="grid cols-2">
-          <div className="card">
-            <h3>▣ Review Package</h3>
-            <ul className="checklist">
-              <li>
-                <span className={`tick ${plan ? 'ok' : 'no'}`}>{plan ? '✓' : '·'}</span>
-                Signed Plan
-                <span className="state ok mono">{plan ? `v${plan.plan_version}` : '—'}</span>
-              </li>
-              <li>
-                <span className="tick ok">✓</span>
-                Story
-                <span className="state ok mono">{task.story_id}</span>
-              </li>
-              <li>
-                <span className={`tick ${acs.length ? 'ok' : 'no'}`}>{acs.length ? '✓' : '·'}</span>
-                Acceptance Criteria
-                <span className="state ok mono">{acs.length ? `${acs[0].ac_id} – ${acs[acs.length - 1].ac_id}` : '—'}</span>
-              </li>
-              <li>
-                <span className={`tick ${task.files_changed ? 'ok' : 'no'}`}>{task.files_changed ? '✓' : '·'}</span>
-                Change Summary
-                <span className="state ok mono">{`${task.files_changed} files`}</span>
-              </li>
-              <li>
-                <span className={`tick ${tests.length ? 'ok' : 'no'}`}>{tests.length ? '✓' : '·'}</span>
-                Test Evidence
-                <span className="state ok mono">{`${tests.length} targeted tests`}</span>
-              </li>
-              <li>
-                <span className={`tick ${trace ? 'ok' : 'no'}`}>{trace ? '✓' : '·'}</span>
-                Traceability Evidence
-                <span className="state ok">{trace ? 'Current' : '—'}</span>
-              </li>
-            </ul>
-          </div>
-          <div className="card">
-            <h3>▥ Review Findings</h3>
-            {reviews.length === 0 ? (
-              <p className="hint">No review executed yet for this task. Submit for review, then execute it.</p>
-            ) : reviews.length === 1 ? (
-              <ReviewFindingsBlock rv={reviews[0]} task={task} />
-            ) : (
-              reviews.map((rv, i) => (
-                <div
-                  key={rv.review_id}
-                  style={i > 0 ? { marginTop: '18px', paddingTop: '14px', borderTop: '1px dashed var(--border)' } : undefined}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                    <b>{`Review v${rv.version ?? i + 1}`}</b>
-                    {i === reviews.length - 1 ? (
-                      <span className="hint">current</span>
-                    ) : (
-                      <span className="hint">superseded — corrected below</span>
-                    )}
-                  </div>
-                  <ReviewFindingsBlock rv={rv} task={task} />
-                </div>
-              ))
-            )}
-          </div>
+        <div className="card dp-filters">
+          <span className="dp-search">
+            <Search className="dp-search-ico" />
+            <input type="text" placeholder="Search by story, task, team…"
+              value={query} onChange={(e) => setQuery(e.target.value)} />
+          </span>
+          <label className="dp-filter"><span>Team</span>
+            <select value={fTeam} onChange={(e) => setFTeam(e.target.value)}>
+              <option value="all">All</option>
+              {teams.map((t) => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </label>
+          <label className="dp-filter"><span>Review Status</span>
+            <select value={fStatus} onChange={(e) => setFStatus(e.target.value)}>
+              <option value="all">All</option>
+              <option value="in_review">In Review</option>
+              <option value="approved">Approved</option>
+              <option value="rework">Rework Required</option>
+            </select>
+          </label>
+          <button className="ghost" onClick={() => { setQuery(''); setFTeam('all'); setFStatus('all') }}>
+            <RotateCcw className="btn-ico" /> Reset
+          </button>
         </div>
 
-        <div className="grid cols-2" style={{ marginTop: '14px' }}>
-          <div className="card">
-            <h3>⛓ Traceability Snapshot</h3>
-            {trace ? (
-              <div className="trace-chain">
-                {[trace.requirement, trace.design, trace.story, trace.ac, trace.task, trace.pr, ...(trace.tests ?? []), trace.review]
-                  .filter((id): id is string => Boolean(id))
-                  .flatMap((id, i) => [
-                    i > 0 ? <span className="trace-arrow" key={`arrow-${id}-${i}`}>→</span> : null,
-                    <span className="trace-node mono" key={`${id}-${i}`}>{id}</span>,
-                  ])}
-              </div>
-            ) : (
-              <p className="hint">The chain appears once the task has evidence.</p>
-            )}
+        <div className="card">
+          <div className="table-wrap">
+            <table className="dp-table dw-table">
+              <colgroup>
+                <col style={{ width: '17%' }} /><col style={{ width: '13%' }} /><col style={{ width: '20%' }} />
+                <col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} />
+                <col style={{ width: '12%' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Review Item</th><th>Team</th><th>Reviewer</th><th>Review Status</th>
+                  <th>Quality Score</th><th>Started At</th><th>Completed At</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((t) => {
+                  const r = latestFor(t.task_id)
+                  const [lbl, cls] = STATUS_UI[statusOf(t)]
+                  const s = scoreOf(checkpoints(t, storyById.get(t.story_id), wsByStory.get(t.story_id), r))
+                  const team = teamOf(t)
+                  const initials = team.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase()
+                  const reviewed = r != null
+                  return (
+                    <tr key={t.task_id}
+                      className={task.task_id === t.task_id ? 'dp-row-selected' : ''}
+                      onClick={() => select(t.story_id)}>
+                      <td>
+                        <b className="mono">{t.story_id}</b>
+                        <span className="hint dp-sub dw-title clamp-2">{storyById.get(t.story_id)?.title ?? ''}</span>
+                        <span className="hint dp-sub mono"><ListChecks className="dp-badge-ico" />{t.task_id}</span>
+                      </td>
+                      <td>
+                        <span className="dp-team">
+                          <span className={`team-avatar ${['tc-0', 'tc-1', 'tc-2', 'tc-3', 'tc-4'][team.length % 5]}`}>{initials}</span>
+                          <span className="hint">{team}</span>
+                        </span>
+                      </td>
+                      <td>
+                        <span className="dp-team">
+                          <span className="team-avatar tc-1"><ShieldCheck style={{ width: 13, height: 13 }} /></span>
+                          <span>
+                            Independent Reviewer
+                            <span className="hint dp-sub">{reviewed ? 'Isolated from development' : 'Executes on submission'}</span>
+                          </span>
+                        </span>
+                      </td>
+                      <td><span className={`badge ${cls}`}>{lbl}</span></td>
+                      <td>
+                        {s != null ? (
+                          <>
+                            <span className="mono">{`${s}%`}</span>
+                            <div className="cov-bar ir-score-bar"><div className={`cov-fill${s < 60 ? ' bad' : ''}`} style={{ width: `${s}%` }} /></div>
+                          </>
+                        ) : <span className="hint">—</span>}
+                      </td>
+                      <td>{r ? hhmm(r.created_at) : t.last_activity ? hhmm(t.last_activity) : '—'}</td>
+                      <td>{statusOf(t) === 'approved' && r ? hhmm(r.created_at) : '—'}</td>
+                    </tr>
+                  )
+                })}
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={7}><span className="hint">No review items match the current filters.</span></td></tr>
+                ) : null}
+              </tbody>
+            </table>
           </div>
-          <div className="card">
-            <h3>⚖ Approval Rule</h3>
-            <p>The independent reviewer cannot change the implementation.</p>
-            <p>The development workflow cannot approve its own output.</p>
-            <p className="hint">Enforced by the engine's role model — not a convention.</p>
-          </div>
+          <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${items.length} review items · select a row to inspect`}</div>
         </div>
 
-        <div className="actions-row" style={{ marginTop: '16px' }}>
-          <button className="outline" onClick={() => void act(`/reviews/${task.task_id}/return-to-development`, {}, 'Returned to development')}>
-            ← Return to Development
-          </button>
-          <button className="primary sq" onClick={() => void act(`/reviews/${task.task_id}/execute`, {}, 'Independent review executed')}>
-            ➤ Execute Independent Review
-          </button>
-          {review?.result === 'blocked' ? (
-            <button
-              className="primary sq"
-              title="Orchestrates the correction loop across its three actors — the reviewer returns the task, the developer re-implements and re-verifies, the reviewer re-executes. Each step is ledgered under its own role."
-              onClick={async () => {
-                if (await act(`/reviews/${task.task_id}/return-to-development`, { role: 'independent_reviewer' }, 'Reviewer returned the task to development')) {
-                  if (await act(`/tasks/${task.task_id}/run-to-review`, { role: 'delivery_lead' }, 'Correction implemented and re-submitted')) {
-                    await act(`/reviews/${task.task_id}/execute`, { role: 'independent_reviewer' }, 'Independent review re-executed')
-                  }
-                }
-              }}
-            >
-              ⟳ Re-develop &amp; Re-submit for Review
-            </button>
-          ) : null}
+        <div className="card info-banner" style={{ marginTop: '10px' }}>
+          <Info className="btn-ico" style={{ marginTop: '1px' }} />
+          <span>
+            Independent Review is isolated from development: the reviewer never authored the implementation and
+            the run's operators cannot approve their own work. AI assistance is advisory only — findings and
+            verdicts are recorded immutably, and rework routing is a human decision.
+          </span>
         </div>
-        <p className="hint" style={{ marginTop: 6 }}>
-          Returned tasks appear as &ldquo;Correction Requested&rdquo; in Developer Workspaces.
-          <button type="button" className="link-btn" style={{ marginLeft: 6 }} onClick={() => goTo('workspaces')}>
-            Open Developer Workspaces →
-          </button>
-        </p>
       </div>
 
       <aside className="rail">
-        <div className="card rail-card">
-          <h3>Findings Summary</h3>
-          <ul className="checklist">
-            {([['Critical', sevCount('critical')], ['Major', sevCount('major')], ['Minor', sevCount('minor')], ['Info', 0]] as const).map(([label, n]) => (
-              <li key={label}>
-                {label}
-                <span className="state ok mono">{String(n)}</span>
-              </li>
-            ))}
-            <li>
-              <b>Total findings</b>
-              <span className="state ok mono">{String(totalFindings)}</span>
-            </li>
-          </ul>
-        </div>
-        <div className="card rail-card">
-          <h3>Review Governance</h3>
-          <p className="hint">Independent review runs isolated from development. Separation of duties is enforced by the role model.</p>
-        </div>
-        <div className="card rail-card">
-          <h3>Human Approval comes next</h3>
-          <p className="hint">After this review, human approvers decide at the quality and release gates.</p>
-        </div>
-        <div className="card rail-card">
-          <h3>No code editor exposed</h3>
-          <p className="hint">Only evidence and status are visible. Implementation details remain behind the surface.</p>
-        </div>
-        {reviews.length ? (
-          <div className="card rail-card">
-            <h3>Review History</h3>
-            <ul className="checklist">
-              {reviews.map((rv, i) => (
-                <li key={rv.review_id}>
-                  <span className="mono hint" style={{ marginRight: '6px' }}>{rv.review_id}</span>
-                  {`${rv.result === 'passed' ? 'PASSED' : 'BLOCKED'} (v${rv.version ?? i + 1}, ${hhmm(rv.created_at)})`}
-                </li>
-              ))}
-            </ul>
-            <p className="hint">Each correction cycle creates a new immutable review record — earlier reviews are never edited.</p>
+        <div className="card rail-card dp-inspector">
+          <h3>{`${task.story_id} — ${task.task_id}`}</h3>
+          {story?.title ? <p className="hint" style={{ marginBottom: '6px' }}>{story.title}</p> : null}
+          <div className="drawer-badges" style={{ marginBottom: '8px' }}>
+            <span className={`badge ${statusCls}`}>{statusLabel}</span>
+            {review ? <Prov provenance={task.provenance} /> : null}
+            {review ? <span className="hint">{`Reviewed ${hhmm(review.created_at)}`}</span> : null}
           </div>
-        ) : null}
-        <GuidanceCard />
+
+          {stale ? (
+            <p className="hint dw-stale-note">
+              <TriangleAlert className="dp-badge-ico" style={{ color: 'var(--amber-text)' }} />
+              Context is stale — the review package must be refreshed through the amendment path before this
+              item can progress.
+            </p>
+          ) : null}
+
+          <div className="dp-ins-block">
+            <span className="as-label">Review Summary</span>
+            <div className="ir-summary">
+              <div className="ir-ring" style={{
+                background: score != null
+                  ? `conic-gradient(var(--green) ${score * 3.6}deg, var(--surface-2) 0deg)`
+                  : 'var(--surface-2)',
+              }}>
+                <span>{score != null ? `${score}%` : '—'}</span>
+              </div>
+              <ul className="plain ir-summary-list">
+                <li><b style={{ color: 'var(--green)' }}>{counts.passed}</b> Passed</li>
+                <li><b style={{ color: 'var(--amber-text)' }}>{counts.partial}</b> Partially Passed</li>
+                <li><b style={{ color: 'var(--red-dark)' }}>{counts.failed}</b> Failed</li>
+                <li><b className="hint">{counts.notReviewed}</b> Not Reviewed</li>
+              </ul>
+            </div>
+            <span className="hint">Derived checkpoint pass rate — informational; the verdict is authoritative.</span>
+          </div>
+
+          <div className="dp-ins-block">
+            <span className="as-label">Review Details</span>
+            <div className="kv" style={{ gridTemplateColumns: '105px 1fr' }}>
+              <b>Reviewer</b><span><UserRound className="dp-badge-ico" />{reviewerLabel}</span>
+              <b>Team</b><span>{teamOf(task)}</span>
+              <b>Repository</b><span className="repo-cell"><Github /><span className="mono">{ws?.repository || '—'}</span></span>
+              <b>Branch</b><span className="repo-cell"><GitBranch /><span className="mono">{ws?.branch || '—'}</span></span>
+              <b>Pull Request</b><span className="mono"><GitPullRequest className="dp-badge-ico" />{ws?.pull_request || '—'}</span>
+              <b>Commit</b><span className="mono"><GitCommitHorizontal className="dp-badge-ico" />{ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
+              <b>Delivery Pack</b>
+              <span><PackageCheck className="dp-badge-ico" />{pack ? `v${pack.version}` : '—'}{' '}
+                {stale ? <span className="badge st-stale">STALE</span> : <span className="badge st-ready">CURRENT</span>}</span>
+              <b>Evidence</b>
+              <span><ClipboardCheck className="dp-badge-ico" />
+                {(task.tests ?? []).length ? `${(task.tests ?? []).length} tests` : '—'}</span>
+            </div>
+          </div>
+
+          <div className="dp-ins-block">
+            <span className="as-label">Review Checkpoints</span>
+            <ul className="plain dp-contents">
+              {checks.map((c) => {
+                const [lbl, cls] = CHECK_UI[c.state]
+                const open = openCheck === c.name
+                return (
+                  <li key={c.name} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                    <button type="button" className="ir-check-row"
+                      onClick={() => setOpenCheck(open ? null : c.name)} aria-expanded={open}>
+                      <CheckIcon state={c.state} />
+                      <span className="val-label">{c.name}</span>
+                      <span className={`badge ${cls}`}>{lbl}</span>
+                    </button>
+                    {open ? <p className="hint" style={{ margin: '2px 0 4px 20px' }}>{c.detail}</p> : null}
+                  </li>
+                )
+              })}
+            </ul>
+            <span className="hint">Derived from recorded evidence and the isolated reviewer's findings.</span>
+          </div>
+
+          {findings.length ? (
+            <div className="dp-ins-block">
+              <span className="as-label">Findings</span>
+              {findings.map((f, i) => (
+                <div className="ir-finding" key={f.finding_id ?? i}>
+                  <b>
+                    <span className={`sev-chip ${f.severity === 'critical' ? 'critical' : f.severity === 'major' ? 'high' : 'medium'}`}>
+                      {f.severity.toUpperCase()}
+                    </span>{' '}
+                    {`${f.ac_id}${f.summary ? ` — ${f.summary}` : ''}`}
+                  </b>
+                  <div className="finding-detail">
+                    {f.expected ? <div><b>Expected: </b>{f.expected}</div> : null}
+                    {f.observed ? <div><b>Observed: </b>{f.observed}</div> : null}
+                    {f.impact ? <div><b>Impact: </b>{f.impact}</div> : null}
+                    {f.recommendation ? <div><b>Reviewer note: </b>{f.recommendation}</div> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {history.length ? (
+            <div className="dp-ins-block">
+              <span className="as-label"><History className="dp-badge-ico" /> Review History</span>
+              <ul className="plain dp-contents">
+                {history.map((r) => (
+                  <li key={r.review_id}>
+                    <span className="mono val-label" style={{ flex: 'none' }}>{r.review_id}</span>
+                    <span className="hint" style={{ flex: 1 }}>{hhmm(r.created_at)}</span>
+                    <span className={`badge ${r.result === 'passed' ? 'st-passed' : 'st-blocked'}`}>
+                      {r.result === 'passed' ? 'APPROVED' : 'REWORK REQUIRED'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <span className="hint">Each re-review is a new immutable version — history is never overwritten.</span>
+            </div>
+          ) : null}
+
+          <div className="dp-ins-block">
+            <span className="as-label"><GitFork className="dp-badge-ico" /> Traceability</span>
+            <div className="ir-trace">
+              {trace.map(([k, v], i) => (
+                <span key={k}>
+                  {i > 0 ? <span className="hint"> → </span> : null}
+                  <span className="chip mono" title={k}>{v}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="dp-ins-actions">
+            <button className="outline block" onClick={() => { select(task.story_id); goTo('test_evidence') }}>
+              <Eye className="btn-ico" /> View Evidence
+            </button>
+            {task.status === 'waiting_for_approval' ? (
+              <button className="primary block"
+                title="Runs the isolated independent reviewer (requires the independent reviewer role)"
+                onClick={() => act(`/reviews/${task.task_id}/execute`, {}, 'Independent review executed')}>
+                <ShieldCheck className="btn-ico" /> Execute Independent Review
+              </button>
+            ) : null}
+            {task.status === 'blocked' ? (
+              <>
+                <button className="outline block"
+                  onClick={() => { select(task.story_id); goTo('developer_workspaces') }}>
+                  <MonitorCog className="btn-ico" /> Open Developer Workspace
+                </button>
+                <button className="primary block"
+                  title="Returns the task to the developer with the findings attached"
+                  onClick={() => act(`/reviews/${task.task_id}/return-to-development`, {}, 'Returned to development with findings')}>
+                  <RefreshCcw className="btn-ico" /> Request Rework
+                </button>
+              </>
+            ) : null}
+            {statusOf(task) === 'approved' ? (
+              <p className="hint">
+                <CircleCheck className="dp-badge-ico" style={{ color: 'var(--green)' }} />
+                Approved by the isolated reviewer{review ? ` (${review.review_id})` : ''} — progresses to
+                Quality via the deterministic handoff conditions.
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
       </aside>
     </section>
   )
