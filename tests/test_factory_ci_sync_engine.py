@@ -155,6 +155,32 @@ def test_sync_ci_run_still_queued_maps_to_running(live_eng_with_github_repo, mon
     assert ws.get("ci_tests_total") is None
 
 
+def test_sync_falls_back_to_any_workflow_when_no_s7_run_exists(
+    live_eng_with_github_repo, monkeypatch
+):
+    """A commit made before s7-ci.yml existed in the repo has no S7-filtered
+    run to find. It must still show real build status from whatever workflow
+    did run — not disappear from the dashboard — just without test counts,
+    since only our own workflow's artifact is recognized."""
+    monkeypatch.setattr(ci_sync, "latest_run", lambda owner_repo, sha: None)
+    monkeypatch.setattr(
+        ci_sync, "latest_run_any",
+        lambda owner_repo, sha: {"databaseId": 99, "status": "completed",
+                                  "conclusion": "success",
+                                  "url": "https://x/actions/runs/99",
+                                  "workflowName": "CI"},
+    )
+    # a foreign workflow's run genuinely has no ci-summary artifact — real
+    # download_summary would return None for it, same as here
+    monkeypatch.setattr(ci_sync, "download_summary", lambda owner_repo, run_id: None)
+    e = live_eng_with_github_repo
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["ci_status"] == "passed"
+    assert ws["ci_run_url"].endswith("/actions/runs/99")
+    assert ws.get("ci_tests_total") is None
+
+
 def test_sync_gh_failure_does_not_break_git_sync(live_eng_with_github_repo, monkeypatch):
     def boom(owner_repo, sha):
         raise ci_sync.CiSyncError("gh auth failure")

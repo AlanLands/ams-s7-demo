@@ -2227,6 +2227,12 @@ class Engine:
             return None
         try:
             run = ci_sync.latest_run(owner_repo, latest["sha"])
+            if run is None:
+                # No S7-bootstrapped run for this commit — most likely it
+                # predates s7-ci.yml existing in the repo. Fall back to the
+                # plain latest run so a real merged commit doesn't vanish
+                # from the dashboard; it just won't carry test counts.
+                run = ci_sync.latest_run_any(owner_repo, latest["sha"])
         except (ci_sync.CiSyncError, ValueError, OSError, KeyError,
                 subprocess.TimeoutExpired):
             return None

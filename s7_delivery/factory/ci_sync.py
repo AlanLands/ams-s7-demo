@@ -29,21 +29,43 @@ def owner_repo_from_url(url: str) -> str | None:
     return f"{parts[0]}/{parts[1]}"
 
 
-def latest_run(owner_repo: str, sha: str) -> dict | None:
-    """The most recent GitHub Actions run for `sha`, or None if nothing has
-    run yet — a normal, expected outcome, not an error. Raises CiSyncError
-    only when `gh` itself fails (auth, repo not found)."""
-    proc = subprocess.run(
-        ["gh", "run", "list", "--repo", owner_repo, "--commit", sha,
-         "--json", "databaseId,status,conclusion,url,workflowName", "--limit", "1"],
-        capture_output=True, text=True, timeout=30,
-    )
+S7_WORKFLOW_NAME = "S7 CI"
+
+
+def _run_list(owner_repo: str, sha: str, workflow: str | None) -> dict | None:
+    cmd = ["gh", "run", "list", "--repo", owner_repo, "--commit", sha]
+    if workflow is not None:
+        cmd += ["--workflow", workflow]
+    cmd += ["--json", "databaseId,status,conclusion,url,workflowName", "--limit", "1"]
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     if proc.returncode != 0:
         raise CiSyncError(
             f"gh run list failed for {owner_repo}@{sha}: {proc.stderr.strip()}"
         )
     rows = json.loads(proc.stdout or "[]")
     return rows[0] if rows else None
+
+
+def latest_run(owner_repo: str, sha: str) -> dict | None:
+    """The most recent S7-bootstrapped GitHub Actions run for `sha`, or None
+    if none exists — a normal, expected outcome for a commit older than the
+    CI bootstrap, not an error. Filtered to `S7_WORKFLOW_NAME`: a connected
+    repo may carry its own pre-existing CI workflow alongside the one
+    `ci_bootstrap.py` writes, and both can fire on the same push — without
+    the filter, evidence sync could silently read the foreign workflow's run
+    instead of ours. Raises CiSyncError only when `gh` itself fails (auth,
+    repo not found)."""
+    return _run_list(owner_repo, sha, S7_WORKFLOW_NAME)
+
+
+def latest_run_any(owner_repo: str, sha: str) -> dict | None:
+    """The most recent GitHub Actions run for `sha` regardless of workflow —
+    the fallback for a commit that predates `s7-ci.yml` existing in the repo,
+    so a real merged commit doesn't just disappear from the dashboard because
+    it has no S7-bootstrapped run to read. Carries no test-count evidence
+    (`download_summary` only recognizes our own workflow's artifact), only
+    build status. Raises CiSyncError only when `gh` itself fails."""
+    return _run_list(owner_repo, sha, None)
 
 
 def download_summary(owner_repo: str, run_id: int) -> dict | None:
