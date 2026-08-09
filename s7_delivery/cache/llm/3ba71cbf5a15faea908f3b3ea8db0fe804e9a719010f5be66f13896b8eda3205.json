@@ -3,10 +3,10 @@
   "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYour role is capturing the essentials of a brand-new application before it exists: a short, valid repository name, a one-line description, and the intended technology stack. Ask only what is still missing; once all three are known, stop asking and report them.",
   "provider": "openai",
   "model": "gpt-4o",
-  "response": "{\"needs_more_info\": true, \"questions\": [\"What technology stack will be used for developing this application?\"]}",
+  "response": "{\"needs_more_info\": true, \"questions\": [\"What technology stack will be used for developing the Advisor Portal application?\"]}",
   "usage": {
     "input_tokens": 1698,
-    "output_tokens": 24,
+    "output_tokens": 26,
     "cache_read_tokens": null,
     "cache_write_tokens": null
   }
