@@ -89,13 +89,16 @@ def test_missing_team_fails_team_ownership():
 
 
 def test_landscape_classifies_layers_and_edges():
+    # One application split across repos — the seeded plan's real shape. The
+    # node unit is the repository (the delivery's own service); analysis-only
+    # applications with no mapped repository render as external systems.
     stories = [
         story("US-001", team="Portal Team", repo="sponsorconnect-portal",
-              app="SponsorConnect portal"),
+              app="MapleSure SponsorConnect"),
         story("US-002", team="Services Team", repo="sponsorconnect-api",
-              app="SponsorConnect API services", deps=["US-001"]),
+              app="MapleSure SponsorConnect", deps=["US-001"]),
         story("US-003", team="Data Team", repo="sponsorconnect-db",
-              app="Submission data store"),
+              app="MapleSure SponsorConnect"),
     ]
     repos = REPOS + [
         {"name": "sponsorconnect-api", "default_branch": "main"},
@@ -103,21 +106,29 @@ def test_landscape_classifies_layers_and_edges():
     ]
     analysis = {"affected_applications": ["Policy/member system of record (externally owned)"]}
     land = arch.landscape(stories, analysis, repos)
-    layers = {n["application"]: n["layer"] for n in land["nodes"]}
-    assert layers["SponsorConnect portal"] == "client"
-    assert layers["SponsorConnect API services"] == "core"
-    assert layers["Submission data store"] == "data"
+    layers = {n["label"]: n["layer"] for n in land["nodes"]}
+    assert layers["sponsorconnect-portal"] == "client"
+    assert layers["sponsorconnect-api"] == "core"
+    assert layers["sponsorconnect-db"] == "data"
     assert layers["Policy/member system of record (externally owned)"] == "external"
     kinds = {(e["from_app"], e["to_app"]): e["kind"] for e in land["edges"]}
     # cross-team story dependency US-001 (portal) -> US-002 (api) = sync edge
-    assert kinds[("SponsorConnect portal", "SponsorConnect API services")] == "sync"
+    assert kinds[("sponsorconnect-portal", "sponsorconnect-api")] == "sync"
     # core services persist to the delivery's data stores
-    assert kinds[("SponsorConnect API services", "Submission data store")] == "data"
+    assert kinds[("sponsorconnect-api", "sponsorconnect-db")] == "data"
+
+
+def test_landscape_analysis_app_already_mapped_is_not_duplicated():
+    stories = [story("US-001", app="SponsorConnect portal")]
+    analysis = {"affected_applications": ["SponsorConnect portal"]}
+    land = arch.landscape(stories, analysis, REPOS)
+    assert len(land["nodes"]) == 1
 
 
 def test_landscape_nodes_carry_repository_and_teams():
     stories = [story("US-001")]
     land = arch.landscape(stories, None, REPOS)
     node = land["nodes"][0]
+    assert node["label"] == "sponsorconnect-portal"
     assert node["repository"] == "sponsorconnect-portal"
     assert node["teams"] == ["Portal Team"]

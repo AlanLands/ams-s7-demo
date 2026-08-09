@@ -57,9 +57,11 @@ const LAYER_LABELS: Record<string, string> = {
 
 /** Customer-safe landscape diagram — pure SVG from derived run data. */
 function LandscapeDiagram({ landscape }: { landscape: ArchLandscape }) {
+  // Tolerate metas stored before nodes carried `label` (older versions).
+  const allNodes = landscape.nodes.map((n) => ({ ...n, label: n.label || n.application }))
   const layers: (keyof typeof LAYER_LABELS)[] = ['client', 'core', 'data', 'external']
   const rows = layers
-    .map((layer) => ({ layer, nodes: landscape.nodes.filter((n) => n.layer === layer) }))
+    .map((layer) => ({ layer, nodes: allNodes.filter((n) => n.layer === layer) }))
     .filter((r) => r.nodes.length > 0)
   if (rows.length === 0) return <p className="hint">No applications in the plan yet.</p>
 
@@ -77,7 +79,7 @@ function LandscapeDiagram({ landscape }: { landscape: ArchLandscape }) {
     const rowW = row.nodes.length * (NW + GX) - GX
     const x0 = LABEL_W + (width - LABEL_W - rowW) / 2
     row.nodes.forEach((n, ni) => {
-      pos.set(n.application, { x: x0 + ni * (NW + GX), y: 10 + ri * (NH + GY) })
+      pos.set(n.label, { x: x0 + ni * (NW + GX), y: 10 + ri * (NH + GY) })
     })
   })
 
@@ -120,22 +122,23 @@ function LandscapeDiagram({ landscape }: { landscape: ArchLandscape }) {
             {LAYER_LABELS[row.layer]}
           </text>
         ))}
-        {landscape.nodes.map((n) => {
-          const p = pos.get(n.application)
+        {allNodes.map((n) => {
+          const p = pos.get(n.label)
           if (!p) return null
           const c = FILL[n.layer]
+          const sub = n.application && n.application !== n.label ? n.application : ''
           return (
-            <g key={n.application}>
+            <g key={n.label}>
               <rect x={p.x} y={p.y} width={NW} height={NH} rx={8}
                 fill={c.bg} stroke={c.border} strokeWidth={1.2} />
-              <text x={p.x + NW / 2} y={p.y + (n.repository ? 20 : 27)}
+              <text x={p.x + NW / 2} y={p.y + (sub ? 20 : 27)}
                 textAnchor="middle" className="landscape-node-title" fill={c.text}>
-                {n.application.length > 30 ? `${n.application.slice(0, 29)}…` : n.application}
+                {n.label.length > 30 ? `${n.label.slice(0, 29)}…` : n.label}
               </text>
-              {n.repository ? (
+              {sub ? (
                 <text x={p.x + NW / 2} y={p.y + 35} textAnchor="middle"
                   className="landscape-node-repo">
-                  {n.repository}
+                  {sub.length > 38 ? `${sub.slice(0, 37)}…` : sub}
                 </text>
               ) : null}
             </g>
@@ -206,7 +209,7 @@ export function Architecture() {
     : stale ? 'STALE' : accepted ? 'CANONICAL' : 'AWAITING REVIEW'
   const statusBadge = stale ? 'blocked' : accepted ? 'completed' : 'waiting_for_approval'
   const land = arch?.landscape ?? { nodes: [], edges: [] }
-  const apps = new Set(land.nodes.map((n) => n.application))
+  const apps = new Set(land.nodes.map((n) => n.application || n.label))
   const repos = new Set(stories.map((s) => s.target_repository).filter(Boolean))
   const teams = new Set(stories.map((s) => s.accountable_team).filter(Boolean))
   const depEdges = stories.reduce((n, s) => n + (s.dependencies ?? []).length, 0)

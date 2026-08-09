@@ -453,6 +453,9 @@ export interface ArchCheck {
 }
 
 export interface ArchLandscapeNode {
+  /** Node identity: the repository (the delivery's own service unit) or, for
+   * analysis-only external systems, the application name. */
+  label: string
   application: string
   layer: 'client' | 'core' | 'data' | 'external'
   repository: string

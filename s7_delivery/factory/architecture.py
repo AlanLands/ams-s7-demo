@@ -94,53 +94,63 @@ def landscape(stories: list[dict], analysis: dict | None, repos: list[dict]) -> 
     application names only, no invented middleware, nothing the run's own
     plan does not name.
 
-    Layer rule: portal/web/mobile in the name ⇒ client; store/db/data ⇒ data;
-    no repository mapped to the app ⇒ external; otherwise core. Edges: one
-    sync edge per cross-team story dependency (between the two apps), plus a
-    data edge from each core app to each data store in the delivery."""
-    connected = {r["name"] for r in repos}
+    Node rule: one node per repository the plan maps (a repository is the
+    delivery's own service unit; connected or not — connectivity is the
+    team_ownership check's concern), plus one external node per
+    analysis-named application no story maps a repository to. Layer rule:
+    portal/web/mobile in the label ⇒ client; store/db/data ⇒ data; mapped
+    repository otherwise ⇒ core; no repository ⇒ external. Edges: one sync
+    edge per cross-team story dependency (between the two labels), plus a
+    data edge from each core node to each data node in the delivery."""
     by_id = {s["story_id"]: s for s in stories}
 
     nodes: list[dict] = []
 
-    def node_for(app: str) -> dict:
-        existing = next((n for n in nodes if n["application"] == app), None)
+    def node_for(label: str, application: str, repository: str) -> dict:
+        existing = next((n for n in nodes if n["label"] == label), None)
         if existing:
             return existing
-        n = {"application": app, "layer": "external", "repository": "", "teams": []}
+        n = {
+            "label": label,
+            "application": application,
+            "layer": "external",
+            "repository": repository,
+            "teams": [],
+        }
         nodes.append(n)
         return n
 
+    def label_of(s: dict) -> str:
+        return s.get("target_repository") or s.get("target_application", "")
+
     for s in stories:
-        app = s.get("target_application", "")
-        if not app:
+        label = label_of(s)
+        if not label:
             continue
-        n = node_for(app)
-        repo = s.get("target_repository", "")
-        if repo and not n["repository"]:
-            n["repository"] = repo
+        n = node_for(label, s.get("target_application", ""), s.get("target_repository", ""))
         team = s.get("accountable_team", "")
         if team and team not in n["teams"]:
             n["teams"].append(team)
+    mapped_apps = {s.get("target_application", "") for s in stories}
     for app in (analysis or {}).get("affected_applications", []):
-        node_for(app)
+        if app not in mapped_apps:
+            node_for(app, app, "")
 
     for n in nodes:
-        name = n["application"].lower()
-        has_repo = bool(n["repository"]) and n["repository"] in connected
-        if any(w in name for w in ("portal", "web", "mobile")) and has_repo:
-            n["layer"] = "client"
-        elif any(w in name for w in ("store", " db", "database", "data ")) and has_repo:
-            n["layer"] = "data"
-        elif has_repo:
-            n["layer"] = "core"
-        else:
+        name = f"{n['label']} {n['application']}".lower()
+        if not n["repository"]:
             n["layer"] = "external"
+        elif any(w in name for w in ("portal", "web", "mobile")):
+            n["layer"] = "client"
+        elif any(w in name for w in ("store", "db", "data")):
+            n["layer"] = "data"
+        else:
+            n["layer"] = "core"
 
     edges: list[dict] = []
 
     def add_edge(a: str, b: str, kind: str) -> None:
-        if a == b:
+        if not a or not b or a == b:
             return
         if not any(e["from_app"] == a and e["to_app"] == b for e in edges):
             edges.append({"from_app": a, "to_app": b, "kind": kind})
@@ -151,16 +161,12 @@ def landscape(stories: list[dict], analysis: dict | None, repos: list[dict]) -> 
             if not other:
                 continue
             if other.get("accountable_team") != s.get("accountable_team"):
-                add_edge(
-                    other.get("target_application", ""),
-                    s.get("target_application", ""),
-                    "sync",
-                )
-    data_apps = [n["application"] for n in nodes if n["layer"] == "data"]
+                add_edge(label_of(other), label_of(s), "sync")
+    data_labels = [n["label"] for n in nodes if n["layer"] == "data"]
     for n in nodes:
         if n["layer"] == "core":
-            for d in data_apps:
-                add_edge(n["application"], d, "data")
+            for d in data_labels:
+                add_edge(n["label"], d, "data")
 
     return {"nodes": nodes, "edges": edges}
 
