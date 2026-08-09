@@ -1,6 +1,6 @@
 <template id="work-template">
   <div data-composition-id="work" data-width="1920" data-height="1080">
-    <div class="step-tag">STEP 3 · IMPLEMENT IN YOUR OWN IDE &amp; CLI</div>
+    <div class="step-tag">STEP 4 · DO THE WORK — TEST FIRST, THEN GREEN</div>
 
     <div class="term">
       <div class="term-bar"><i class="d r"></i><i class="d y"></i><i class="d g"></i><span class="term-title">priya@dev — zsh</span></div>
@@ -8,24 +8,40 @@
         <div class="tline cmd c1" data-text="$ git checkout -b feature/us-1-base-fastapi origin/main"></div>
         <div class="tline out o1">Switched to a new branch 'feature/us-1-base-fastapi'</div>
         <div class="tline cmd c2" data-text="$ pytest -q"></div>
-        <div class="tline out o2"><span class="green">2 passed</span> in 0.41s</div>
-        <div class="tline cmd c3" data-text='$ git commit -am "US-1: base FastAPI app (TASK-001)"'></div>
-        <div class="tline out o3">[feature/us-1-base-fastapi <span class="hl">423f4c7</span>] US-1: base FastAPI app</div>
+        <div class="tline out o2"><span class="red">E  ModuleNotFoundError: No module named 'app'</span></div>
+        <div class="tline out o2b"><span class="red">1 error</span> in 0.12s — <span class="dim">red first: the criterion has a test before it has code</span></div>
+        <div class="tline cmd c3" data-text="$ pytest -q"></div>
+        <div class="tline out o3"><span class="green">2 passed</span> in 0.41s</div>
+        <div class="tline cmd c4" data-text='$ git commit -am "US-1: base FastAPI app (TASK-001)"'></div>
+        <div class="tline out o4">[feature/us-1-base-fastapi <span class="hl">423f4c7</span>] US-1: base FastAPI app</div>
       </div>
     </div>
 
     <div class="editor">
-      <div class="ed-bar"><span class="ed-file">app/main.py</span></div>
-      <pre class="code mono"><span class="k">from</span> fastapi <span class="k">import</span> FastAPI
-
-app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)
-
-<span class="dec">@app.get</span>(<span class="s">"/health"</span>)
-<span class="k">def</span> <span class="fn">health</span>() -&gt; <span class="ty">dict</span>:
-    <span class="k">return</span> {<span class="s">"status"</span>: <span class="s">"ok"</span>}</pre>
+      <div class="ed-bar">
+        <span class="ed-file ed-file-test">tests/test_health.py</span>
+        <span class="ed-file ed-file-app">app/main.py</span>
+      </div>
+      <div class="ed-stage">
+        <pre class="code code-test mono"><span class="cl"><span class="k">from</span> fastapi.testclient <span class="k">import</span> TestClient</span>
+<span class="cl"><span class="k">from</span> app.main <span class="k">import</span> app</span>
+<span class="cl"></span>
+<span class="cl"><span class="k">def</span> <span class="fn">test_health</span>():  <span class="cm"># US-1-AC1</span></span>
+<span class="cl">    resp = TestClient(app).get(<span class="s">"/health"</span>)</span>
+<span class="cl">    <span class="k">assert</span> resp.status_code == <span class="n">200</span></span>
+<span class="cl">    <span class="k">assert</span> resp.json() == {<span class="s">"status"</span>: <span class="s">"ok"</span>}</span></pre>
+        <pre class="code code-app mono"><span class="cl"><span class="k">from</span> fastapi <span class="k">import</span> FastAPI</span>
+<span class="cl"></span>
+<span class="cl"><span class="cm"># US-1-AC2</span></span>
+<span class="cl">app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)</span>
+<span class="cl"></span>
+<span class="cl"><span class="dec">@app.get</span>(<span class="s">"/health"</span>)</span>
+<span class="cl"><span class="k">def</span> <span class="fn">health</span>() -&gt; <span class="ty">dict</span>:</span>
+<span class="cl">    <span class="k">return</span> {<span class="s">"status"</span>: <span class="s">"ok"</span>}  <span class="cm"># US-1-AC1</span></span></pre>
+      </div>
     </div>
 
-    <div class="callout">Every commit starts with the story id — <span class="mono">US-1:</span> — the Control Centre matches progress by exactly this.</div>
+    <div class="callout">Test first, story id on every commit — <span class="mono">US-1:</span> is how the Control Centre traces this work.</div>
 
     <style>
       [data-composition-id="work"] {
@@ -45,7 +61,7 @@ app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)
       }
       [data-composition-id="work"] .term {
         position: absolute;
-        top: 200px;
+        top: 190px;
         left: 130px;
         width: 960px;
         border-radius: 14px;
@@ -54,33 +70,29 @@ app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)
         background: #17161c;
         border: 1px solid #2c2a34;
       }
-      [data-composition-id="work"] .term-bar {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        background: #211f28;
-        padding: 14px 18px;
-      }
+      [data-composition-id="work"] .term-bar { display: flex; align-items: center; gap: 9px; background: #211f28; padding: 14px 18px; }
       [data-composition-id="work"] .d { width: 15px; height: 15px; border-radius: 50%; display: inline-block; }
       [data-composition-id="work"] .d.r { background: #ff5f57; }
       [data-composition-id="work"] .d.y { background: #febc2e; }
       [data-composition-id="work"] .d.g { background: #28c840; }
       [data-composition-id="work"] .term-title { margin-left: 14px; color: #8b8794; font-size: 18px; font-family: Menlo, monospace; }
       [data-composition-id="work"] .term-body {
-        padding: 30px 34px 38px;
+        padding: 26px 34px 32px;
         font-family: Menlo, monospace;
-        font-size: 24px;
-        line-height: 2.0;
+        font-size: 23px;
+        line-height: 1.95;
       }
       [data-composition-id="work"] .tline.cmd { color: #e8e6ee; }
       [data-composition-id="work"] .tline.out { color: #7f8b7f; }
       [data-composition-id="work"] .green { color: #4fc36b; font-weight: 700; }
+      [data-composition-id="work"] .red { color: #e06c75; font-weight: 700; }
+      [data-composition-id="work"] .dim { color: #7d7889; font-weight: 400; }
       [data-composition-id="work"] .hl { color: #c9a44c; }
       [data-composition-id="work"] .editor {
         position: absolute;
-        top: 240px;
+        top: 230px;
         right: 130px;
-        width: 620px;
+        width: 640px;
         border-radius: 14px;
         overflow: hidden;
         background: #1d1c24;
@@ -90,28 +102,40 @@ app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)
       [data-composition-id="work"] .ed-bar {
         background: #262430;
         padding: 13px 20px;
+        display: flex;
+        gap: 22px;
       }
       [data-composition-id="work"] .ed-file {
-        color: #cfccd9;
+        color: #8b8794;
         font-family: Menlo, monospace;
         font-size: 19px;
+        padding-bottom: 4px;
+        border-bottom: 2px solid transparent;
       }
+      [data-composition-id="work"] .ed-file-test { color: #cfccd9; border-bottom-color: #8f1f2e; }
+      [data-composition-id="work"] .ed-stage { position: relative; min-height: 340px; }
       [data-composition-id="work"] .code {
         margin: 0;
-        padding: 28px 30px 34px;
+        padding: 26px 28px 32px;
         font-family: Menlo, monospace;
-        font-size: 22px;
-        line-height: 1.9;
+        font-size: 21px;
+        line-height: 1.85;
         color: #d5d2df;
+        position: absolute;
+        inset: 0;
       }
+      [data-composition-id="work"] .code .cl { display: block; }
+      [data-composition-id="work"] .code-app { opacity: 0; }
       [data-composition-id="work"] .k { color: #c678dd; }
       [data-composition-id="work"] .s { color: #98c379; }
       [data-composition-id="work"] .dec { color: #61afef; }
       [data-composition-id="work"] .fn { color: #61afef; }
       [data-composition-id="work"] .ty { color: #e5c07b; }
+      [data-composition-id="work"] .n { color: #d19a66; }
+      [data-composition-id="work"] .cm { color: #6f7b6f; }
       [data-composition-id="work"] .callout {
         position: absolute;
-        bottom: 120px;
+        bottom: 110px;
         left: 0;
         right: 0;
         text-align: center;
@@ -144,22 +168,41 @@ app = FastAPI(title=<span class="s">"Advisor Portal Sign-In"</span>)
       const tl = gsap.timeline({ paused: true });
       tl.from("[data-composition-id='work'] .step-tag", { opacity: 0, y: -16, duration: 0.5 }, 0.1);
       tl.from("[data-composition-id='work'] .term", { opacity: 0, y: 34, duration: 0.6, ease: "power3.out" }, 0.3);
-      let t = workType(tl, "[data-composition-id='work'] .c1", 1.0, 0.022);
+
+      // 1. Branch off main
+      let t = workType(tl, "[data-composition-id='work'] .c1", 1.0, 0.02);
       tl.from("[data-composition-id='work'] .o1", { opacity: 0, duration: 0.3 }, t + 0.25);
 
-      tl.from("[data-composition-id='work'] .editor", { opacity: 0, x: 60, duration: 0.6, ease: "power3.out" }, t + 0.6);
-      const codeLines = 7;
-      tl.from("[data-composition-id='work'] .code", { opacity: 0, duration: 0.4 }, t + 1.1);
+      // 2. Write the test first (editor slides in on the test tab)
+      tl.from("[data-composition-id='work'] .editor", { opacity: 0, x: 60, duration: 0.6, ease: "power3.out" }, 2.6);
+      tl.from("[data-composition-id='work'] .code-test .cl", { opacity: 0, x: 14, duration: 0.22, stagger: 0.24 }, 3.3);
 
-      t = workType(tl, "[data-composition-id='work'] .c2", t + 2.2, 0.03);
+      // 3. Red baseline
+      t = workType(tl, "[data-composition-id='work'] .c2", 5.6, 0.03);
       tl.from("[data-composition-id='work'] .o2", { opacity: 0, duration: 0.3 }, t + 0.35);
-      t = workType(tl, "[data-composition-id='work'] .c3", t + 0.9, 0.02);
-      tl.from("[data-composition-id='work'] .o3", { opacity: 0, duration: 0.3 }, t + 0.3);
-      tl.from("[data-composition-id='work'] .callout", { opacity: 0, y: 14, duration: 0.55 }, 11.2);
-      tl.to("[data-composition-id='work'] .term", { opacity: 0, x: -50, duration: 0.5, ease: "power2.in" }, 13.3);
-      tl.to("[data-composition-id='work'] .editor", { opacity: 0, x: 50, duration: 0.5, ease: "power2.in" }, 13.35);
-      tl.to("[data-composition-id='work'] .callout", { opacity: 0, duration: 0.4 }, 13.4);
-      tl.to("[data-composition-id='work'] .step-tag", { opacity: 0, duration: 0.4 }, 13.4);
+      tl.from("[data-composition-id='work'] .o2b", { opacity: 0, duration: 0.3 }, t + 0.7);
+
+      // 4. Implement: tab swap to app/main.py, code types in
+      tl.to("[data-composition-id='work'] .ed-file-test", { color: "#8b8794", borderBottomColor: "rgba(0,0,0,0)", duration: 0.25 }, 8.3);
+      tl.to("[data-composition-id='work'] .ed-file-app", { color: "#cfccd9", borderBottomColor: "#8f1f2e", duration: 0.25 }, 8.3);
+      tl.to("[data-composition-id='work'] .code-test", { opacity: 0, duration: 0.25 }, 8.3);
+      tl.to("[data-composition-id='work'] .code-app", { opacity: 1, duration: 0.25 }, 8.55);
+      tl.from("[data-composition-id='work'] .code-app .cl", { opacity: 0, x: 14, duration: 0.22, stagger: 0.24 }, 8.9);
+
+      // 5. Green
+      t = workType(tl, "[data-composition-id='work'] .c3", 11.4, 0.03);
+      tl.from("[data-composition-id='work'] .o3", { opacity: 0, duration: 0.3 }, t + 0.35);
+
+      // 6. Commit with the story id
+      t = workType(tl, "[data-composition-id='work'] .c4", t + 1.0, 0.02);
+      tl.from("[data-composition-id='work'] .o4", { opacity: 0, duration: 0.3 }, t + 0.3);
+      tl.from("[data-composition-id='work'] .callout", { opacity: 0, y: 14, duration: 0.55 }, 16.2);
+
+      // Exit
+      tl.to("[data-composition-id='work'] .term", { opacity: 0, x: -50, duration: 0.5, ease: "power2.in" }, 18.3);
+      tl.to("[data-composition-id='work'] .editor", { opacity: 0, x: 50, duration: 0.5, ease: "power2.in" }, 18.35);
+      tl.to("[data-composition-id='work'] .callout", { opacity: 0, duration: 0.4 }, 18.4);
+      tl.to("[data-composition-id='work'] .step-tag", { opacity: 0, duration: 0.4 }, 18.4);
       window.__timelines["work"] = tl;
     </script>
   </div>
