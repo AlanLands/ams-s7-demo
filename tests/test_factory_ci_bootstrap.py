@@ -128,3 +128,14 @@ def test_bootstrap_idempotent_on_repeated_calls(bare_remote_and_clone):
     assert status2 == "bootstrapped:maven"
     # Verify file unchanged
     assert workflow.read_text() == first_content
+
+
+def test_pytest_workflow_collects_per_test_results():
+    from s7_delivery.factory.ci_bootstrap import PYTEST_WORKFLOW
+    assert "--junitxml=junit.xml" in PYTEST_WORKFLOW
+    assert '"tests":' in PYTEST_WORKFLOW or "'tests'" in PYTEST_WORKFLOW
+
+
+def test_maven_workflow_collects_per_test_results():
+    from s7_delivery.factory.ci_bootstrap import MAVEN_WORKFLOW
+    assert "surefire-reports" in MAVEN_WORKFLOW

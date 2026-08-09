@@ -33,15 +33,20 @@ jobs:
         if: always()
         run: |
           python3 - <<'PY'
-          import json, re
-          text = open("test-output.log", encoding="utf-8", errors="replace").read()
-          matches = re.findall(r"Tests run: (\\d+), Failures: (\\d+), Errors: (\\d+), Skipped: (\\d+)", text)
-          if matches:
-              run, fail, err, skip = (int(x) for x in matches[-1])
-              total, failed = run, fail + err
-          else:
-              total, failed = 0, 0
-          summary = {"tests_total": total, "tests_passed": total - failed, "tests_failed": failed, "coverage_pct": None}
+          import glob, json, xml.etree.ElementTree as ET
+          tests = []
+          for path in sorted(glob.glob("target/surefire-reports/TEST-*.xml")):
+              for case in ET.parse(path).getroot().iter("testcase"):
+                  outcome = "passed"
+                  if case.find("failure") is not None or case.find("error") is not None:
+                      outcome = "failed"
+                  elif case.find("skipped") is not None:
+                      outcome = "skipped"
+                  tests.append({"name": case.get("name", ""), "outcome": outcome})
+          counted = [t for t in tests if t["outcome"] != "skipped"]
+          failed = sum(1 for t in counted if t["outcome"] == "failed")
+          summary = {"tests_total": len(counted), "tests_passed": len(counted) - failed,
+                     "tests_failed": failed, "coverage_pct": None, "tests": tests}
           json.dump(summary, open("ci-summary.json", "w"))
           PY
       - uses: actions/upload-artifact@v4
@@ -70,18 +75,25 @@ jobs:
           pip install pytest
       - name: Run tests
         shell: bash
-        run: pytest | tee test-output.log
+        run: pytest --junitxml=junit.xml | tee test-output.log
       - name: Summarize results
         if: always()
         run: |
           python3 - <<'PY'
-          import json, re
-          text = open("test-output.log", encoding="utf-8", errors="replace").read()
-          passed_m = re.findall(r"(\\d+) passed", text)
-          failed_m = re.findall(r"(\\d+) failed", text)
-          passed = int(passed_m[-1]) if passed_m else 0
-          failed = int(failed_m[-1]) if failed_m else 0
-          summary = {"tests_total": passed + failed, "tests_passed": passed, "tests_failed": failed, "coverage_pct": None}
+          import json, os, xml.etree.ElementTree as ET
+          tests = []
+          if os.path.exists("junit.xml"):
+              for case in ET.parse("junit.xml").getroot().iter("testcase"):
+                  outcome = "passed"
+                  if case.find("failure") is not None or case.find("error") is not None:
+                      outcome = "failed"
+                  elif case.find("skipped") is not None:
+                      outcome = "skipped"
+                  tests.append({"name": case.get("name", ""), "outcome": outcome})
+          counted = [t for t in tests if t["outcome"] != "skipped"]
+          failed = sum(1 for t in counted if t["outcome"] == "failed")
+          summary = {"tests_total": len(counted), "tests_passed": len(counted) - failed,
+                     "tests_failed": failed, "coverage_pct": None, "tests": tests}
           json.dump(summary, open("ci-summary.json", "w"))
           PY
       - uses: actions/upload-artifact@v4
