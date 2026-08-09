@@ -1922,56 +1922,21 @@ class Engine:
             if s.get("accountable_team") and s["accountable_team"] not in teams:
                 teams.append(s["accountable_team"])
 
+        assignments = self._assignments()
         packs: list[dict] = []
         for team in teams:
-            t_stories = [s for s in stories if s.get("accountable_team") == team]
-            t_story_ids = {s["story_id"] for s in t_stories}
-            t_tasks = [t for t in tasks if t["story_id"] in t_story_ids]
-            pack_id = dp.pack_id_for(team)
-            version = prev.get(pack_id, {}).get("version", 0) + 1
-            for task in t_tasks:
-                story = next(s for s in t_stories if s["story_id"] == task["story_id"])
-                self._write_files(
-                    dp.render_task_pack(
-                        task, story,
-                        plan_version=plan["plan_version"],
-                        architecture_version=arch_meta["version"],
-                        team_pack_version=version,
-                    ),
-                    "build", "tasks", task["task_id"],
-                )
-            files = dp.render_team_pack(
-                run_id=self.run_id, team=team, stories=t_stories,
-                tasks=t_tasks, all_stories=stories, pack_version=version,
+            old = prev.get(dp.pack_id_for(team), {})
+            pack = self._write_team_pack(
+                team=team, all_stories=stories, all_tasks=tasks,
+                version=old.get("version", 0) + 1,
                 plan_version=plan["plan_version"],
                 architecture_version=arch_meta["version"],
+                assignments=assignments, prov=prov,
             )
-            slug = files["workspace-manifest.json"]["team_slug"]
-            self._write_files(files, "build", "packs", slug)
-            pack = DeliveryPack(
-                delivery_pack_id=pack_id,
-                run_id=self.run_id,
-                team=team,
-                team_slug=slug,
-                version=version,
-                story_ids=sorted(t_story_ids),
-                task_ids=[t["task_id"] for t in t_tasks],
-                architecture_version=arch_meta["version"],
-                plan_version=plan["plan_version"],
-                repository=files["workspace-manifest.json"]["repository"],
-                content_hash=sha256_of(files),
-                provenance=prov,
-            ).model_dump(mode="json")
+            # regeneration resets publication (a new version needs a new
+            # publish), but what already reached the repository stays recorded
+            pack["published_version"] = old.get("published_version", 0)
             packs.append(pack)
-            self._record(
-                artifact_id=pack_id, artifact_type="delivery_pack",
-                payload=pack, author="pack-service",
-                stage=Stage.BUILD_REVIEW, action="generate",
-                outcome="created" if version == 1 else "amended",
-                inputs=["ARCH-001", "PLAN-001", *sorted(t_story_ids)],
-                version=version,
-                previous_version=version - 1 if version > 1 else None,
-            )
         self._save_packs(packs)
         build_phases.advance(
             self.store, phase, BuildReviewPhase.DELIVERY_PACKS_READY,
@@ -1984,6 +1949,73 @@ class Engine:
             duration_s=5.0, outcome="created",
             details=f"{len(packs)} team packs over {len(stories)} stories",
         )
+
+    def _assignments(self) -> dict[str, str]:
+        """story_id → developer, from provisioned workspaces. Assignment is
+        human state that must survive pack regeneration."""
+        return {
+            w["story_id"]: w["developer"]
+            for w in self._workspaces() if w.get("developer")
+        }
+
+    def _write_team_pack(
+        self, *, team: str, all_stories: list[dict], all_tasks: list[dict],
+        version: int, plan_version: int, architecture_version: int,
+        assignments: dict[str, str], prov: Provenance,
+        action: str = "generate",
+    ) -> dict:
+        """Render and store one team's task packs + team pack at `version`,
+        record provenance, and return the pack row (publication_status starts
+        at not_published — a new version always needs a new publish)."""
+        from s7_delivery.factory import delivery_packs as dp
+
+        t_stories = [s for s in all_stories if s.get("accountable_team") == team]
+        t_story_ids = {s["story_id"] for s in t_stories}
+        t_tasks = [t for t in all_tasks if t["story_id"] in t_story_ids]
+        for task in t_tasks:
+            story = next(s for s in t_stories if s["story_id"] == task["story_id"])
+            self._write_files(
+                dp.render_task_pack(
+                    task, story,
+                    plan_version=plan_version,
+                    architecture_version=architecture_version,
+                    team_pack_version=version,
+                ),
+                "build", "tasks", task["task_id"],
+            )
+        files = dp.render_team_pack(
+            run_id=self.run_id, team=team, stories=t_stories,
+            tasks=t_tasks, all_stories=all_stories, pack_version=version,
+            plan_version=plan_version,
+            architecture_version=architecture_version,
+            assignments=assignments,
+        )
+        slug = files["workspace-manifest.json"]["team_slug"]
+        self._write_files(files, "build", "packs", slug)
+        pack = DeliveryPack(
+            delivery_pack_id=dp.pack_id_for(team),
+            run_id=self.run_id,
+            team=team,
+            team_slug=slug,
+            version=version,
+            story_ids=sorted(t_story_ids),
+            task_ids=[t["task_id"] for t in t_tasks],
+            architecture_version=architecture_version,
+            plan_version=plan_version,
+            repository=files["workspace-manifest.json"]["repository"],
+            content_hash=sha256_of(files),
+            provenance=prov,
+        ).model_dump(mode="json")
+        self._record(
+            artifact_id=pack["delivery_pack_id"], artifact_type="delivery_pack",
+            payload=pack, author="pack-service",
+            stage=Stage.BUILD_REVIEW, action=action,
+            outcome="created" if version == 1 else "amended",
+            inputs=["ARCH-001", "PLAN-001", *sorted(t_story_ids)],
+            version=version,
+            previous_version=version - 1 if version > 1 else None,
+        )
+        return pack
 
     # --- git publication + developer workspaces -----------------------------
 
@@ -2047,7 +2079,10 @@ class Engine:
         pack = next((p for p in packs if p["delivery_pack_id"] == pack_id), None)
         if pack is None:
             raise EngineError(f"Unknown delivery pack {pack_id}")
-        if pack["publication_status"] == "published":
+        if (
+            pack["publication_status"] == "published"
+            and pack.get("published_version", 0) >= pack["version"]
+        ):
             raise EngineError(
                 f"{pack_id} v{pack['version']} is already published — regenerate"
                 " packs to produce a new version first"
@@ -2110,6 +2145,7 @@ class Engine:
         ).model_dump(mode="json")
         self.store.append(record, "publications.jsonl")
         pack["publication_status"] = "published"
+        pack["published_version"] = pack["version"]
         pack["published_at"] = record["published_at"]
         self._save_packs(packs)
         self._record(
@@ -2189,6 +2225,7 @@ class Engine:
         pending = [
             p["delivery_pack_id"] for p in self._packs()
             if p["publication_status"] != "published"
+            or p.get("published_version", 0) < p["version"]
         ]
         if not pending:
             raise EngineError("Every delivery pack is already published")
@@ -2217,6 +2254,46 @@ class Engine:
             outcome="assigned",
             details=f"{developer.strip()} owns {ws['story_id']} "
                     "(Human Controlled · AI Assisted)",
+        )
+        self._refresh_pack_after_assignment(ws)
+
+    def _refresh_pack_after_assignment(self, ws: dict) -> None:
+        """Assignment is pack content (`assigned-stories.json`, AGENTS.md), so
+        the affected team pack gets a new version and needs a new, explicit
+        publish to reach the repository — assigning never touches git."""
+        packs = self._packs()
+        idx = next(
+            (i for i, p in enumerate(packs)
+             if p["delivery_pack_id"] == ws["delivery_pack_id"]), None,
+        )
+        if idx is None:  # defensive: workspaces only exist once packs do
+            return
+        old = packs[idx]
+        plan = self.store.read_json_or(None, "planning", "plan.json")
+        arch_meta = self._architecture_meta()
+        pack = self._write_team_pack(
+            team=old["team"], all_stories=self._stories(),
+            all_tasks=self._tasks(), version=old["version"] + 1,
+            plan_version=plan["plan_version"],
+            architecture_version=arch_meta["version"],
+            assignments=self._assignments(),
+            prov=self._blueprint_provenance(),
+            action="assign",  # metadata-only: never marks downstream stale
+        )
+        # The published branch still carries what it carried — assignment only
+        # makes a newer version *pending*. Development against the published
+        # version continues; the update ships on the next explicit publish.
+        pack["publication_status"] = old["publication_status"]
+        pack["published_version"] = old.get("published_version", 0)
+        pack["published_at"] = old.get("published_at", "")
+        packs[idx] = pack
+        self._save_packs(packs)
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor="pack-service",
+            actor_type="service", workflow="delivery-pack-refresh",
+            artifact=old["delivery_pack_id"], outcome="amended",
+            details=f"{old['team']} pack v{old['version'] + 1} carries the"
+                    " assignment — republish to sync it to the repository",
         )
 
     # --- build & independent review (spec §9) ------------------------------

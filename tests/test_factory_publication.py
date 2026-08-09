@@ -142,7 +142,8 @@ def test_developer_assignment_survives_republication(eng):
         if w["workspace_id"] == ws_id
     )
     assert ws["developer"] == "Priya Raman"
-    assert ws["delivery_pack_version"] == 2
+    # assignment itself bumped the pack to v2; the regenerate made v3
+    assert ws["delivery_pack_version"] == 3
 
 
 def test_workspace_status_tracks_task_evidence(eng):

@@ -14,9 +14,17 @@ from __future__ import annotations
 
 from typing import Any
 
+# Metadata-only amendments (e.g. a developer assignment refreshing a pack's
+# assigned-stories.json) change no engineering context, so they neither
+# invalidate downstream artifacts nor clear an existing stale flag.
+METADATA_ACTIONS = frozenset({"assign"})
+
 
 def detect(provenance: list[dict]) -> list[dict[str, Any]]:
     """Return StalenessResult dicts for every currently-stale artifact."""
+    provenance = [
+        r for r in provenance if r.get("action") not in METADATA_ACTIONS
+    ]
     if not provenance:
         return []
 

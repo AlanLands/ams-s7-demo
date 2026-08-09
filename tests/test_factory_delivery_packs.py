@@ -238,15 +238,24 @@ def test_assignment_refreshes_pack_and_travels_with_publication(eng):
         if p["delivery_pack_id"] == pid
     )
     assert refreshed["version"] == pack["version"] + 1
-    assert refreshed["publication_status"] == "not_published"
+    # the branch still carries v1 (development continues); v2 is pending
+    assert refreshed["publication_status"] == "published"
+    assert refreshed["published_version"] == pack["version"]
     stored = eng.store.read_json("build", "packs", slug, "assigned-stories.json")
     row = next(s for s in stored["stories"] if s["story_id"] == sid)
     assert row["assigned_to"] == "Alex Morgan"
     agents = eng.store.path("build", "packs", slug, "AGENTS.md").read_text()
     assert "Alex Morgan" in agents
+    # metadata-only amendment: nothing downstream becomes stale
+    assert eng.store.read_json_or([], "staleness.json") == []
 
     # explicit republish is allowed again and the git file plan carries it
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pid)
+    republished = next(
+        p for p in eng.state()["build"]["delivery_packs"]
+        if p["delivery_pack_id"] == pid
+    )
+    assert republished["published_version"] == republished["version"]
     plan = pub.file_plan(eng.store, refreshed)
     assert "Alex Morgan" in plan[".s7/shared/assigned-stories.json"]
     assert "Alex Morgan" in plan["AGENTS.md"]

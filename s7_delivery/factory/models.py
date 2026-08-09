@@ -341,6 +341,7 @@ class DeliveryPack(BaseModel):
     repository: str = ""
     status: str = "generated"
     publication_status: str = "not_published"  # not_published | published | failed
+    published_version: int = 0  # last version that reached the repository
     content_hash: str = ""
     created_at: str = Field(default_factory=now_iso)
     published_at: str = ""

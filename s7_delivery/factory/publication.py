@@ -52,6 +52,9 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
     plan[".s7/shared/workspace-manifest.json"] = read(
         "build", "packs", slug, "workspace-manifest.json"
     )
+    plan[".s7/shared/assigned-stories.json"] = read(
+        "build", "packs", slug, "assigned-stories.json"
+    )
     for story_id in pack["story_ids"]:
         sdir = store.path("build", "stories", story_id)
         for p in sorted(sdir.iterdir()):
