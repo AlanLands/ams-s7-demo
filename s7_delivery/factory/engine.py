@@ -70,12 +70,13 @@ MAX_SOURCE_CHARS = 20_000  # long enough for any realistic epic doc, short
 _DEPLOY_CHECKLIST = """# Deployment checklist — REL-2026R4-001 (demonstration)
 
 - [x] All gates G0–G3 passed
-- [x] Required approvals recorded (business owner, engineering, QA, release)
+- [x] Required approvals recorded (business owner, engineering, QA, release,
+  support)
 - [x] Feature flag `sponsor_claim_submission` off at deploy
 - [x] Blue-green targets healthy pre-deploy
 - [x] Rollback validated in staging
 - [x] Monitoring alerts configured
-- [x] Support handover prepared
+- [x] Transition to maintenance prepared
 """
 
 _ROLLBACK_PLAN = """# Rollback plan — REL-2026R4-001 (demonstration)
