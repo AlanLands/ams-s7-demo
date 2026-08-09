@@ -2053,6 +2053,13 @@ class Engine:
         "failed": "blocked",
     }
 
+    _CI_CONCLUSION_MAP = {
+        "success": "passed",
+        "failure": "failed",
+        "queued": "running",
+        "in_progress": "running",
+    }
+
     def _workspaces(self) -> list[dict]:
         return self.store.read_json_or([], "build", "workspaces.json")
 
@@ -2084,13 +2091,27 @@ class Engine:
             ev = ws.get("git_evidence")
             if ev and ev.get("commit_count"):
                 # real pushed work wins over the simulated task lifecycle;
-                # what git cannot prove (CI, PR) stays blank, never invented
+                # what git cannot prove (PR) stays blank, never invented
                 ws["current_commit"] = ev["latest"]["sha"][:7]
                 ws["development_status"] = (
                     "complete" if ev["merged"] else "in_development"
                 )
                 ws["pull_request"] = ""
                 ws["ci_status"] = ""
+            ci_ev = ws.get("ci_evidence")
+            if ci_ev:
+                # CI is no longer unprovable once a real run exists — this
+                # overrides the blank set above, never invents a status the
+                # run itself didn't report
+                mapped = self._CI_CONCLUSION_MAP.get(
+                    ci_ev.get("conclusion") or ci_ev.get("status") or "", ""
+                )
+                if mapped:
+                    ws["ci_status"] = mapped
+                ws["ci_run_url"] = ci_ev.get("url", "")
+                ws["ci_tests_total"] = ci_ev.get("tests_total")
+                ws["ci_tests_passed"] = ci_ev.get("tests_passed")
+                ws["ci_tests_failed"] = ci_ev.get("tests_failed")
             ws["artifact_status"] = (
                 "stale" if ws.get("delivery_pack_id") in stale_ids else "current"
             )
@@ -2098,9 +2119,13 @@ class Engine:
 
     def workspaces_sync_git(self, role: Role) -> int:
         """Read real developer progress from each workspace repository:
-        `git fetch` + local ref inspection, nothing written to any remote.
-        Live runs only — a simulation run has no real clone, and mixing real
-        git evidence into simulated provenance would muddy the badging."""
+        `git fetch` + local ref inspection, plus (when the commit resolves
+        to a real GitHub repo) the real GitHub Actions run for that commit.
+        Nothing written to any remote here — the one-time CI workflow
+        commit happens at connect/create time, in ci_bootstrap.bootstrap.
+        Live runs only — a simulation run has no real clone, and mixing
+        real git evidence into simulated provenance would muddy the
+        badging."""
         roles.require("sync_git_evidence", role)
         if self.run().mode is not DemoMode.LIVE:
             raise EngineError(
@@ -2114,8 +2139,10 @@ class Engine:
             raise EngineError("No developer workspaces to sync")
         repos = {r["name"]: r for r in self._connected_repos()}
         task_ids_by_story: dict[str, list[str]] = {}
+        tasks_by_story: dict[str, dict] = {}
         for t in self._tasks():
             task_ids_by_story.setdefault(t["story_id"], []).append(t["task_id"])
+            tasks_by_story[t["story_id"]] = t
         fetched: set[str] = set()
         synced = 0
         for ws in workspaces:
@@ -2134,6 +2161,7 @@ class Engine:
                 )
             except git_sync.GitSyncError as exc:
                 raise EngineError(str(exc)) from exc
+            ws["ci_evidence"] = self._sync_ci_evidence(repo, ws["git_evidence"])
             ws["last_sync_at"] = now_iso()
             synced += 1
         if not synced:
@@ -2141,18 +2169,88 @@ class Engine:
                 "No workspace repository has a local clone to sync from"
             )
         self._save_workspaces(workspaces)
+        self._refresh_task_evidence_files(workspaces, tasks_by_story)
         with_commits = sum(
             1 for w in workspaces
             if (w.get("git_evidence") or {}).get("commit_count")
         )
+        with_ci = sum(1 for w in workspaces if w.get("ci_evidence"))
         self._activity(
             stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
             workflow="git-evidence-sync", artifact="workspaces",
             outcome="synced",
             details=f"{synced} workspaces synced from git; {with_commits}"
-                    " with developer commits (real pushed work, read-only)",
+                    f" with developer commits, {with_ci} with real CI"
+                    " results (real pushed work, read-only)",
         )
         return synced
+
+    def _sync_ci_evidence(self, repo: dict, git_evidence: dict) -> dict | None:
+        """Best-effort real CI lookup for the latest matching commit. Never
+        raises: a gh failure, an unresolvable owner/repo, or no run yet all
+        mean "no CI evidence yet", not a sync failure."""
+        from s7_delivery.factory import ci_sync
+
+        latest = git_evidence.get("latest")
+        if not latest:
+            return None
+        owner_repo = ci_sync.owner_repo_from_url(repo.get("url", ""))
+        if owner_repo is None:
+            return None
+        try:
+            run = ci_sync.latest_run(owner_repo, latest["sha"])
+        except ci_sync.CiSyncError:
+            return None
+        if run is None:
+            return None
+        evidence: dict = {
+            "run_id": run.get("databaseId"),
+            "status": run.get("status", ""),
+            "conclusion": run.get("conclusion") or "",
+            "url": run.get("url", ""),
+            "checked_at": now_iso(),
+        }
+        if run.get("status") == "completed":
+            try:
+                summary = ci_sync.download_summary(owner_repo, run["databaseId"])
+            except ci_sync.CiSyncError:
+                summary = None
+            if summary:
+                evidence["tests_total"] = summary.get("tests_total")
+                evidence["tests_passed"] = summary.get("tests_passed")
+                evidence["tests_failed"] = summary.get("tests_failed")
+        return evidence
+
+    def _refresh_task_evidence_files(
+        self, workspaces: list[dict], tasks_by_story: dict[str, dict]
+    ) -> None:
+        """Keep build/tasks/{id}/task-evidence.json — what
+        GET .../tasks/{id}/evidence.zip actually exports — in step with
+        real sync results, so the download matches what the app shows.
+        No-op for a task whose delivery pack hasn't been generated yet."""
+        for ws in workspaces:
+            task = tasks_by_story.get(ws["story_id"])
+            if task is None:
+                continue
+            path = self.store.path(
+                "build", "tasks", task["task_id"], "task-evidence.json"
+            )
+            if not path.exists():
+                continue
+            evidence = {
+                "task_id": task["task_id"],
+                "status": task.get("status", "not_started"),
+                "commit_ref": task.get("commit_ref", ""),
+                "pr_ref": task.get("pr_ref", ""),
+                "ci_status": task.get("ci_status", ""),
+            }
+            if ws.get("git_evidence"):
+                evidence["git_evidence"] = ws["git_evidence"]
+            if ws.get("ci_evidence"):
+                evidence["ci_evidence"] = ws["ci_evidence"]
+            self.store.write_json(
+                evidence, "build", "tasks", task["task_id"], "task-evidence.json"
+            )
 
     def delivery_pack_publish(self, role: Role, pack_id: str) -> None:
         """Publish a team pack into its developer repository as S7-managed
