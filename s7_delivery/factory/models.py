@@ -368,6 +368,9 @@ class DeveloperWorkspace(BaseModel):
     ci_status: str = ""
     development_status: str = "provisioned"
     artifact_status: str = "current"  # current | stale
+    # real evidence from the repository remote (git fetch + ref inspection);
+    # None until a live-run "Sync from Git" has run. HUMAN work, read-only.
+    git_evidence: dict | None = None
     last_sync_at: str = Field(default_factory=now_iso)
     provenance: Provenance = Provenance.SIMULATED
 

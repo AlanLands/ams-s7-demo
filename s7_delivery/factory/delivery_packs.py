@@ -184,6 +184,9 @@ def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
         "## Engineering Rules",
         "See `.s7/shared/engineering-rules.md` — scope discipline,"
         " test-first, traceability, no self-approval.",
+        "Reference the story id (and task id where relevant) in every commit"
+        " message — e.g. `US-1: add sign-in form`. The Control Centre reads"
+        " progress from the repository by exactly this convention.",
         "",
         "## Acceptance Criteria",
         "Per story under `.s7/stories/<story>/acceptance-criteria.md`."

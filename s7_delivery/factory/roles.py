@@ -50,6 +50,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "generate_delivery_packs": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "publish_delivery_pack": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "assign_developer": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
+    "sync_git_evidence": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     # build & review — developer execution evidence
     "start_task": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},
     "run_development": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},

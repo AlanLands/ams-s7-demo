@@ -679,6 +679,13 @@ class DeveloperBody(BaseModel):
     developer: str
 
 
+@app.post("/api/runs/{run_id}/workspaces/sync-git")
+def post_workspaces_sync_git(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.workspaces_sync_git(_role(body.role))
+    return eng.state()
+
+
 @app.patch("/api/runs/{run_id}/workspaces/{workspace_id}/developer")
 def patch_workspace_developer(
     run_id: str, workspace_id: str, body: DeveloperBody

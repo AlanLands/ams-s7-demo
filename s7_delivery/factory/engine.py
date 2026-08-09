@@ -2065,10 +2065,78 @@ class Engine:
                 ws["development_status"] = self._DEV_STATUS.get(
                     task.get("status", ""), task.get("status", "")
                 )
+            ev = ws.get("git_evidence")
+            if ev and ev.get("commit_count"):
+                # real pushed work wins over the simulated task lifecycle;
+                # what git cannot prove (CI, PR) stays blank, never invented
+                ws["current_commit"] = ev["latest"]["sha"][:7]
+                ws["development_status"] = (
+                    "complete" if ev["merged"] else "in_development"
+                )
+                ws["pull_request"] = ""
+                ws["ci_status"] = ""
             ws["artifact_status"] = (
                 "stale" if ws.get("delivery_pack_id") in stale_ids else "current"
             )
         return workspaces
+
+    def workspaces_sync_git(self, role: Role) -> int:
+        """Read real developer progress from each workspace repository:
+        `git fetch` + local ref inspection, nothing written to any remote.
+        Live runs only — a simulation run has no real clone, and mixing real
+        git evidence into simulated provenance would muddy the badging."""
+        roles.require("sync_git_evidence", role)
+        if self.run().mode is not DemoMode.LIVE:
+            raise EngineError(
+                "Git evidence sync needs a live run — simulation has no real"
+                " repository clone"
+            )
+        from s7_delivery.factory import git_sync
+
+        workspaces = self._workspaces()
+        if not workspaces:
+            raise EngineError("No developer workspaces to sync")
+        repos = {r["name"]: r for r in self._connected_repos()}
+        task_ids_by_story: dict[str, list[str]] = {}
+        for t in self._tasks():
+            task_ids_by_story.setdefault(t["story_id"], []).append(t["task_id"])
+        fetched: set[str] = set()
+        synced = 0
+        for ws in workspaces:
+            repo = repos.get(ws["repository"])
+            repo_dir = self.store.path("repos", ws["repository"])
+            if repo is None or not (repo_dir / ".git").exists():
+                continue
+            try:
+                if ws["repository"] not in fetched:
+                    git_sync.fetch(repo_dir)
+                    fetched.add(ws["repository"])
+                ws["git_evidence"] = git_sync.story_evidence(
+                    repo_dir, ws["story_id"],
+                    task_ids_by_story.get(ws["story_id"], []),
+                    repo.get("default_branch", ""),
+                )
+            except git_sync.GitSyncError as exc:
+                raise EngineError(str(exc)) from exc
+            ws["last_sync_at"] = now_iso()
+            synced += 1
+        if not synced:
+            raise EngineError(
+                "No workspace repository has a local clone to sync from"
+            )
+        self._save_workspaces(workspaces)
+        with_commits = sum(
+            1 for w in workspaces
+            if (w.get("git_evidence") or {}).get("commit_count")
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="git-evidence-sync", artifact="workspaces",
+            outcome="synced",
+            details=f"{synced} workspaces synced from git; {with_commits}"
+                    " with developer commits (real pushed work, read-only)",
+        )
+        return synced
 
     def delivery_pack_publish(self, role: Role, pack_id: str) -> None:
         """Publish a team pack into its developer repository as S7-managed
