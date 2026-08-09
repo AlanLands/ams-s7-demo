@@ -48,7 +48,7 @@ function buildStatus(task: BuildTask, ws?: DeveloperWorkspace, handoff?: Quality
 }
 
 export function TestEvidence() {
-  const { data, act, refresh, goTo, runId } = useRun()
+  const { data, act, goTo, runId } = useRun()
   const [selId, setSelId] = useState<string | null>(selectedStory())
   const [query, setQuery] = useState('')
   const [fTeam, setFTeam] = useState('all')
@@ -150,7 +150,7 @@ export function TestEvidence() {
 
   const doSync = async () => {
     setSyncing(true)
-    await refresh()
+    await act('/workspaces/sync-git', {}, 'Synced — real commits and CI results, where available')
     setSyncing(false)
   }
 
@@ -256,12 +256,19 @@ export function TestEvidence() {
                           <span className="mono">{w?.current_commit ? w.current_commit.slice(0, 7) : '—'}</span></span>
                       </td>
                       <td>
-                        <span className="repo-cell"><Workflow /><span className="mono">{t.task_id.replace('TASK', 'BUILD')}</span></span>
-                        <span className="hint dp-sub">Simulated CI</span>
+                        <span className="repo-cell"><Workflow /><span className="mono">
+                          {w?.ci_evidence ? `Run #${w.ci_evidence.run_id}` : t.task_id.replace('TASK', 'BUILD')}
+                        </span></span>
+                        <span className="hint dp-sub">{w?.ci_evidence ? 'GitHub Actions' : 'Simulated CI'}</span>
                       </td>
                       <td><CiBadge ci={w?.ci_status} /></td>
                       <td>
-                        {tt.length ? (
+                        {w?.ci_evidence && w.ci_tests_total != null ? (
+                          <>
+                            <span className="mono">{`${w.ci_tests_passed ?? 0} / ${w.ci_tests_total}`}</span>
+                            <span className="hint dp-sub">real</span>
+                          </>
+                        ) : tt.length ? (
                           <>
                             <span className="mono">{`${p} / ${tt.length}`}</span>
                             <span className="hint dp-sub">{`${Math.round((p / tt.length) * 100)}%`}</span>
@@ -360,14 +367,38 @@ export function TestEvidence() {
               <b>Branch</b><span className="repo-cell"><GitBranch /><span className="mono">{ws?.branch || '—'}</span></span>
               <b>Commit</b><span className="mono">{ws?.current_commit ? ws.current_commit.slice(0, 7) : '—'}</span>
               <b>Committer</b><span>{ws?.developer || '—'}</span>
-              <b>Pipeline</b><span className="mono">{task.task_id.replace('TASK', 'BUILD')}</span>
-              <b>CI System</b><span>Simulated CI <Prov provenance="simulated" /></span>
+              <b>Pipeline</b><span className="mono">
+                {ws?.ci_evidence ? `Run #${ws.ci_evidence.run_id}` : task.task_id.replace('TASK', 'BUILD')}
+              </span>
+              <b>CI System</b><span>
+                {ws?.ci_evidence
+                  ? <>GitHub Actions <Prov provenance="human" /></>
+                  : <>Simulated CI <Prov provenance="simulated" /></>}
+              </span>
               <b>Last Run</b><span>{task.last_activity ? hhmm(task.last_activity) : '—'}</span>
             </div>
           </div>
 
+          {ws?.ci_evidence ? (
+            <div className="dp-ins-block">
+              <span className="as-label">Real CI Run <Prov provenance="human" /></span>
+              <div className="dp-ins-metrics">
+                <span><span className="as-label">Passed</span>
+                  <b style={{ color: 'var(--green)' }}>{String(ws.ci_tests_passed ?? '—')}</b></span>
+                <span><span className="as-label">Failed</span>
+                  <b style={{ color: (ws.ci_tests_failed ?? 0) > 0 ? 'var(--red-dark)' : 'inherit' }}>
+                    {String(ws.ci_tests_failed ?? '—')}</b></span>
+                <span><span className="as-label">Total</span><b>{String(ws.ci_tests_total ?? '—')}</b></span>
+                <span><span className="as-label">Conclusion</span><b>{ws.ci_evidence.conclusion || ws.ci_evidence.status}</b></span>
+              </div>
+            </div>
+          ) : null}
+
           <div className="dp-ins-block">
-            <span className="as-label">Test Summary</span>
+            <span className="as-label">
+              {ws?.ci_evidence ? 'Simulated Test Plan (baseline)' : 'Test Summary'}
+              {ws?.ci_evidence ? <Prov provenance="simulated" /> : null}
+            </span>
             <div className="dp-ins-metrics">
               <span><span className="as-label">Passed</span><b style={{ color: 'var(--green)' }}>{String(passes)}</b></span>
               <span><span className="as-label">Failed</span><b style={{ color: failing.length ? 'var(--red-dark)' : 'inherit' }}>{String(failing.length)}</b></span>
@@ -446,7 +477,9 @@ export function TestEvidence() {
               disabled={!(task.tests ?? []).length && !task.files_changed}>
               <Download className="btn-ico" /> Export Evidence ZIP
             </button>
-            <button className="outline block" disabled title="No external CI to open in simulation">
+            <button className="outline block" disabled={!ws?.ci_run_url}
+              title={ws?.ci_run_url ? undefined : 'No external CI run recorded yet'}
+              onClick={() => ws?.ci_run_url && window.open(ws.ci_run_url, '_blank')}>
               <ExternalLink className="btn-ico" /> Open CI Pipeline
             </button>
             {task.status === 'waiting_for_approval' ? (
