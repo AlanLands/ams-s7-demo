@@ -606,6 +606,27 @@ def _zip_response(entries: list[tuple[object, str]], filename: str) -> Streaming
     )
 
 
+@app.get("/api/runs/{run_id}/tasks/{task_id}/evidence.zip")
+def get_task_evidence_zip(run_id: str, task_id: str) -> StreamingResponse:
+    """One task's canonical evidence files as a portable download — no side
+    effects; the canonical records stay in the artifact store."""
+    eng = _engine(run_id)
+    task = next(
+        (t for t in eng.store.read_json_or([], "build", "tasks.json")
+         if t["task_id"] == task_id),
+        None,
+    )
+    if task is None:
+        raise HTTPException(status_code=404, detail=f"Unknown task {task_id}")
+    tdir = eng.store.path("build", "tasks", task_id)
+    entries = [
+        (p, f"{task_id}/{p.name}") for p in sorted(tdir.rglob("*")) if p.is_file()
+    ]
+    if not entries:
+        raise HTTPException(status_code=404, detail=f"No evidence files for {task_id}")
+    return _zip_response(entries, f"{task['story_id']}-{task_id}-evidence.zip")
+
+
 @app.get("/api/runs/{run_id}/delivery-packs/download-all.zip")
 def get_delivery_packs_zip_all(run_id: str) -> StreamingResponse:
     """Every team pack in one download, under delivery-packs/<team-slug>/ —

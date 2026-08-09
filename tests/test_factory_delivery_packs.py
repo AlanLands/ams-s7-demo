@@ -186,3 +186,19 @@ def test_late_publication_after_development_started_keeps_phase(eng):
         for p in eng.state()["build"]["delivery_packs"]
     }
     assert statuses[packs[1]["delivery_pack_id"]] == "published"
+
+
+def test_task_evidence_zip_download(eng, tmp_path, monkeypatch):
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    eng.delivery_packs_publish_all(Role.DELIVERY_LEAD)
+    task = next(t for t in eng.state()["build"]["tasks"] if t["story_id"] == "US-001")
+    eng.task_start(Role.ENGINEERING_LEAD, task["task_id"])
+    eng.task_generate_tests(Role.ENGINEERING_LEAD, task["task_id"])
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+    resp = client.get(f"/api/runs/{eng.run_id}/tasks/{task['task_id']}/evidence.zip")
+    assert resp.status_code == 200
+    names = zipfile.ZipFile(io.BytesIO(resp.content)).namelist()
+    assert any(n.endswith("task-evidence.json") for n in names)
+    assert client.get(f"/api/runs/{eng.run_id}/tasks/TASK-nope/evidence.zip").status_code == 404
