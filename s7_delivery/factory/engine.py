@@ -2254,12 +2254,33 @@ class Engine:
             except git_sync.GitSyncError as exc:
                 raise EngineError(str(exc)) from exc
             ws["ci_evidence"] = self._sync_ci_evidence(repo, ws["git_evidence"])
+            ws["red_baseline"] = self._sync_red_baseline(repo, ws)
             ws["last_sync_at"] = now_iso()
             synced += 1
         if not synced:
             raise EngineError(
                 "No workspace repository has a local clone to sync from"
             )
+        tasks = self._tasks()
+        tasks_changed = False
+        for ws in workspaces:
+            results = {
+                t["name"]: t["outcome"]
+                for t in (ws.get("ci_evidence") or {}).get("tests", [])
+            }
+            if not results:
+                continue
+            for task in tasks:
+                if task["story_id"] != ws["story_id"]:
+                    continue
+                for t in task.get("tests", []):
+                    if t["name"] in results:
+                        new = "passed" if results[t["name"]] == "passed" else "failed"
+                        if t.get("current_result") != new:
+                            t["current_result"] = new
+                            tasks_changed = True
+        if tasks_changed:
+            self._save_tasks(tasks)
         self._save_workspaces(workspaces)
         self._refresh_task_evidence_files(workspaces, tasks_by_story)
         with_commits = sum(
@@ -2277,26 +2298,25 @@ class Engine:
         )
         return synced
 
-    def _sync_ci_evidence(self, repo: dict, git_evidence: dict) -> dict | None:
-        """Best-effort real CI lookup for the latest matching commit. Never
-        raises: a gh failure, an unresolvable owner/repo, or no run yet all
-        mean "no CI evidence yet", not a sync failure."""
+    def _ci_run_evidence(
+        self, repo: dict, sha: str, *, fallback_any: bool = False
+    ) -> dict | None:
+        """Best-effort real CI lookup for one commit. Never raises: a gh
+        failure, an unresolvable owner/repo, or no run yet all mean "no CI
+        evidence yet", not a sync failure."""
         from s7_delivery.factory import ci_sync
 
-        latest = git_evidence.get("latest")
-        if not latest:
-            return None
         owner_repo = ci_sync.owner_repo_from_url(repo.get("url", ""))
         if owner_repo is None:
             return None
         try:
-            run = ci_sync.latest_run(owner_repo, latest["sha"])
-            if run is None:
+            run = ci_sync.latest_run(owner_repo, sha)
+            if run is None and fallback_any:
                 # No S7-bootstrapped run for this commit — most likely it
                 # predates s7-ci.yml existing in the repo. Fall back to the
                 # plain latest run so a real merged commit doesn't vanish
                 # from the dashboard; it just won't carry test counts.
-                run = ci_sync.latest_run_any(owner_repo, latest["sha"])
+                run = ci_sync.latest_run_any(owner_repo, sha)
         except (ci_sync.CiSyncError, ValueError, OSError, KeyError,
                 subprocess.TimeoutExpired):
             return None
@@ -2319,7 +2339,28 @@ class Engine:
                 evidence["tests_total"] = summary.get("tests_total")
                 evidence["tests_passed"] = summary.get("tests_passed")
                 evidence["tests_failed"] = summary.get("tests_failed")
+                if summary.get("tests"):
+                    evidence["tests"] = summary["tests"]
         return evidence
+
+    def _sync_ci_evidence(self, repo: dict, git_evidence: dict) -> dict | None:
+        latest = git_evidence.get("latest")
+        if not latest:
+            return None
+        return self._ci_run_evidence(repo, latest["sha"], fallback_any=True)
+
+    def _sync_red_baseline(self, repo: dict, ws: dict) -> dict | None:
+        """The S7 CI run for this workspace's latest *real* publication
+        commit — the genuinely-failing skeletons on the s7/ context branch.
+        Simulated publications have no CI run and never invent one."""
+        pubs = [
+            p for p in self.store.read_ledger("publications.jsonl")
+            if p["delivery_pack_id"] == ws.get("delivery_pack_id")
+            and not p.get("simulated")
+        ]
+        if not pubs:
+            return None
+        return self._ci_run_evidence(repo, pubs[-1]["commit"])
 
     def _refresh_task_evidence_files(
         self, workspaces: list[dict], tasks_by_story: dict[str, dict]

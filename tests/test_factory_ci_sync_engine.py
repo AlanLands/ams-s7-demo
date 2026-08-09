@@ -302,3 +302,76 @@ def test_sync_gh_binary_missing_degrades_to_none(
     for ws in e.state()["build"]["workspaces"]:
         assert ws["git_evidence"]["commit_count"] == 1
         assert ws.get("ci_evidence") is None
+
+
+def test_red_baseline_from_publication_commit(live_eng_with_github_repo, monkeypatch):
+    eng = live_eng_with_github_repo
+    eng.store.append(
+        {"publication_id": "PUB-001", "delivery_pack_id": "PACK-platform-team",
+         "repository": "advisor-portal-signin", "branch": "s7/x", "commit": "a" * 40,
+         "published_paths": [], "status": "published", "simulated": False,
+         "published_at": "2026-08-09T00:00:00+00:00", "provenance": "human"},
+        "publications.jsonl",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 7, "status": "completed",
+                                 "conclusion": "failure", "url": "http://run/7"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 2, "tests_passed": 0,
+                                    "tests_failed": 2,
+                                    "tests": [{"name": "test_a", "outcome": "failed"},
+                                              {"name": "test_b", "outcome": "failed"}]},
+    )
+    ws = {"delivery_pack_id": "PACK-platform-team"}
+    ev = eng._sync_red_baseline({"url": "https://github.com/AlanLands/advisor-portal-signin"}, ws)
+    assert ev["conclusion"] == "failure" and ev["tests_failed"] == 2
+
+
+def test_simulated_publication_yields_no_red_baseline(live_eng_with_github_repo):
+    eng = live_eng_with_github_repo
+    eng.store.append(
+        {"publication_id": "PUB-001", "delivery_pack_id": "PACK-platform-team",
+         "repository": "advisor-portal-signin", "branch": "s7/x", "commit": "abc1234",
+         "published_paths": [], "status": "published", "simulated": True,
+         "published_at": "2026-08-09T00:00:00+00:00", "provenance": "simulated"},
+        "publications.jsonl",
+    )
+    ws = {"delivery_pack_id": "PACK-platform-team"}
+    assert eng._sync_red_baseline(
+        {"url": "https://github.com/AlanLands/advisor-portal-signin"}, ws
+    ) is None
+
+
+def test_per_test_results_flow_into_task_tests(live_eng_with_github_repo, monkeypatch):
+    """A real per-test CI result, joined by name, updates the matching
+    task's current_result without touching its initial (red) result."""
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        [{"task_id": "TASK-001", "story_id": "US-1", "status": "ready",
+          "commit_ref": "", "pr_ref": "", "ci_status": "",
+          "tests": [{"test_id": "T1", "name": "test_a", "ac_id": "AC-1",
+                     "initial_result": "failed", "current_result": "failed",
+                     "evidence_ref": ""}]}],
+        "build", "tasks.json",
+    )
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 5, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/5",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 1, "tests_passed": 1,
+                                    "tests_failed": 0,
+                                    "tests": [{"name": "test_a", "outcome": "passed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    tasks = {t["task_id"]: t for t in e.state()["build"]["tasks"]}
+    test_a = tasks["TASK-001"]["tests"][0]
+    assert test_a["current_result"] == "passed"
+    assert test_a["initial_result"] == "failed"
