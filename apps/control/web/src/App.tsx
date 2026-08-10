@@ -3,6 +3,8 @@ import { Header } from './components/Header'
 import { Stepper } from './components/Stepper'
 import { SideNav } from './components/SideNav'
 import { Toast } from './components/Toast'
+import { BusyOverlay } from './components/BusyOverlay'
+import { ErrorPopup } from './components/ErrorPopup'
 import { NotYetPorted } from './components/NotYetPorted'
 import { Overview } from './pages/Overview'
 import { IntakePage } from './pages/intake/IntakePage'
@@ -80,6 +82,8 @@ function Shell() {
         </main>
       </div>
       <Toast />
+      <BusyOverlay />
+      <ErrorPopup />
       <footer className="foot">
         <div className="foot-row">
           <span className="foot-brand">S7 Delivery Control Centre&ensp;·&ensp;v2.1.0&ensp;·&ensp;🛡 Secure</span>

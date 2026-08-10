@@ -18,8 +18,15 @@ interface RunContextValue {
   toast: { message: string; isError: boolean } | null
   /** Show a toast without a server round-trip — for client-only feedback
    * (e.g. a JSON export/import outcome) that vanilla surfaced via a bare
-   * `toast(...)` call rather than through `act`. */
+   * `toast(...)` call rather than through `act`. Errors route to the
+   * blocking error popup instead of the toast. */
   notify: (message: string, isError?: boolean) => void
+  /** True while any server action is in flight — drives the global
+   * loading overlay, which also blocks double-clicks. */
+  busy: boolean
+  /** Error awaiting acknowledgement in the popup, or null. */
+  errorPopup: string | null
+  dismissError: () => void
 }
 
 const RunContext = createContext<RunContextValue | null>(null)
@@ -33,12 +40,23 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<RoleInfo[]>([])
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [pending, setPending] = useState(0)
+  const [errorPopup, setErrorPopup] = useState<string | null>(null)
 
   const showToast = useCallback((message: string, isError = false) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
     setToast({ message, isError })
     toastTimer.current = setTimeout(() => setToast(null), 3200)
   }, [])
+
+  const showError = useCallback((message: string) => {
+    setErrorPopup(message)
+  }, [])
+
+  const notify = useCallback((message: string, isError = false) => {
+    if (isError) setErrorPopup(message)
+    else showToast(message)
+  }, [showToast])
 
   const setRole = useCallback((next: string) => {
     setRoleState(next)
@@ -76,46 +94,55 @@ export function RunProvider({ children }: { children: ReactNode }) {
       setRuns(freshRuns)
       setData(freshData)
     } catch (err) {
-      showToast(`Could not load run state: ${(err as Error).message}`, true)
+      showError(`Could not load run state: ${(err as Error).message}`)
     }
-  }, [ensureRun, showToast])
+  }, [ensureRun, showError])
 
   const act = useCallback(async (path: string, body: Record<string, unknown> = {}, okMessage = 'Done') => {
+    setPending((n) => n + 1)
     try {
       const next = await apiPost<RunState>(`/api/runs/${runId}${path}`, { role, ...body })
       setData(next)
       showToast(okMessage)
       return true
     } catch (err) {
-      showToast((err as Error).message, true)
+      showError((err as Error).message)
       return false
+    } finally {
+      setPending((n) => n - 1)
     }
-  }, [runId, role, showToast])
+  }, [runId, role, showToast, showError])
 
   const patchAct = useCallback(async (path: string, patch: Record<string, unknown>, okMessage = 'Saved') => {
+    setPending((n) => n + 1)
     try {
       const next = await apiPatch<RunState>(`/api/runs/${runId}${path}`, { role, patch })
       setData(next)
       showToast(okMessage)
       return true
     } catch (err) {
-      showToast((err as Error).message, true)
+      showError((err as Error).message)
       return false
+    } finally {
+      setPending((n) => n - 1)
     }
-  }, [runId, role, showToast])
+  }, [runId, role, showToast, showError])
 
   const uploadAct = useCallback(async (path: string, form: FormData, okMessage = 'Done') => {
     form.append('role', role)
+    setPending((n) => n + 1)
     try {
       const next = await apiUpload<RunState>(`/api/runs/${runId}${path}`, form)
       setData(next)
       showToast(okMessage)
       return true
     } catch (err) {
-      showToast((err as Error).message, true)
+      showError((err as Error).message)
       return false
+    } finally {
+      setPending((n) => n - 1)
     }
-  }, [runId, role, showToast])
+  }, [runId, role, showToast, showError])
 
   useEffect(() => {
     apiGet<RoleInfo[]>('/api/roles').then(setRoles).catch(() => setRoles([]))
@@ -124,7 +151,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, refresh, act, patchAct, uploadAct, toast, notify: showToast }}>
+    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, refresh, act, patchAct, uploadAct, toast, notify, busy: pending > 0, errorPopup, dismissError: () => setErrorPopup(null) }}>
       {children}
     </RunContext.Provider>
   )

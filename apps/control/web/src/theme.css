@@ -982,6 +982,32 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .toast.show { opacity: 1; transform: none; }
 .toast.error { border-color: var(--red-dark); background: var(--red-pale); }
 
+/* --- global busy overlay + error popup -----------------------------------*/
+
+.busy-overlay {
+  position: fixed; inset: 0; z-index: 70; /* above modals (50) and toast (60) */
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.55);
+  opacity: 0;
+  transition: opacity .15s;
+}
+.busy-overlay.show { opacity: 1; }
+.spinner {
+  width: 34px; height: 34px;
+  border: 3px solid var(--border);
+  border-top-color: var(--red);
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+.busy-label { font-size: 13px; color: var(--muted); font-weight: 600; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-popup-overlay { z-index: 65; } /* above regular modals — actions fire from inside them */
+.error-popup { width: min(480px, 94vw); border-top: 3px solid var(--red-dark); }
+.error-popup-message { margin: 14px 0 4px; font-size: 13.5px; line-height: 1.5; overflow-wrap: break-word; }
+.error-popup-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
+
 .foot {
   display: flex;
   align-items: center;
