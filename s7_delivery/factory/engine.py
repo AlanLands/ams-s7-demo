@@ -329,6 +329,7 @@ class Engine:
                 "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
             },
             "build": self._build_state(run),
+            "demo": self.store.read_json_or(None, "demo", "script.json"),
             "quality": self.store.read_json_or(None, "quality", "quality-report.json"),
             "release": self.store.read_json_or(None, "release", "release-record.json"),
             "staleness": stale,
@@ -2515,6 +2516,31 @@ class Engine:
             ):
                 ws["development_status"] = "dependency_blocked"
         return workspaces
+
+    def demo_sync_advance(self, role: Role) -> dict:
+        """One click of the scripted demo Sync storyline (demo mode only).
+        Each step drives real engine actions — gates, roles and ledgers all
+        run; only the push-failure evidence is scripted (demo_sync.py)."""
+        roles.require("sync_git_evidence", role)
+        if self.run().mode is not DemoMode.DEMO:
+            raise EngineError("Scripted sync runs in demo mode only")
+        if not self._workspaces():
+            raise EngineError(
+                "Publish delivery packs and provision workspaces before the "
+                "demo sync storyline"
+            )
+        from s7_delivery.factory import demo_sync
+
+        return demo_sync.advance(self)
+
+    def demo_rerun_story(self, role: Role, story_id: str) -> dict:
+        """Retry the one story whose scripted sync failed — the fix beat."""
+        roles.require("sync_git_evidence", role)
+        if self.run().mode is not DemoMode.DEMO:
+            raise EngineError("Scripted sync runs in demo mode only")
+        from s7_delivery.factory import demo_sync
+
+        return demo_sync.rerun(self, story_id)
 
     def workspaces_sync_git(self, role: Role) -> int:
         """Read real developer progress from each workspace repository:
