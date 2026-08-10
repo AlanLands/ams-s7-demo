@@ -47,11 +47,12 @@ def decode_source(filename: str, content: bytes) -> str:
         from pypdf import PdfReader
         try:
             reader = PdfReader(io.BytesIO(content))
-            return "\n\n".join(page.extract_text() or "" for page in reader.pages)
+            raw = "\n".join(page.extract_text() or "" for page in reader.pages)
         except Exception as exc:
             raise ExtractionError(
                 f"Could not read {filename!r} as a {ext} file: {exc}"
             ) from exc
+        return pdf_lines_to_markdown(raw)
     if ext == "docx":
         from docx import Document
         try:
@@ -77,6 +78,63 @@ def decode_source(filename: str, content: bytes) -> str:
     raise ExtractionError(
         f"Unsupported file type {filename!r} — supported: .txt, .md, .pdf, .docx"
     )
+
+
+_PDF_NUMBERED_RE = re.compile(r"^\d+[.)]\s+\S")
+_PDF_BULLET_RE = re.compile(r"^[•‣▪○●]\s*")
+
+
+def pdf_lines_to_markdown(raw: str) -> str:
+    """Rebuild block structure from pypdf's flat text.
+
+    pypdf emits one line per visual line — no blank lines and no markdown
+    markers — so a whole page otherwise parses as a single block. Rules,
+    all deterministic: the most title-like line among the first ten
+    (mixed-case, 20-120 chars, not numbered — letterhead lines are short or
+    all-caps) becomes the `#` title; a short numbered line without a
+    trailing period becomes a `##` heading; numbered or bulleted lines
+    start list items; every other line rejoins the paragraph or item above
+    it (PDF line-wrapping undone)."""
+    lines = [line.strip() for line in raw.splitlines()]
+    # Title scan: the opening lines up to the first numbered section — a
+    # title never follows the first heading. Letterhead lines are short or
+    # all-caps; the title is the first mixed-case, title-length line after
+    # the last all-caps (doctype/letterhead) line.
+    head: list[str] = []
+    for line in lines:
+        if not line:
+            continue
+        if _PDF_NUMBERED_RE.match(line):
+            break
+        head.append(line)
+        if len(head) == 10:
+            break
+    last_caps = max(
+        (i for i, l in enumerate(head) if len(l) >= 4 and l.isupper()),
+        default=-1,
+    )
+    title = next(
+        (l for l in head[last_caps + 1:]
+         if 20 <= len(l) <= 120 and not l.isupper() and any(c.islower() for c in l)),
+        "",
+    )
+    out: list[str] = [f"# {title}", ""] if title else []
+    title_pending = bool(title)
+    for s in lines:
+        if not s:
+            continue
+        if title_pending and s == title:
+            title_pending = False  # already emitted as the # title
+            continue
+        if _PDF_NUMBERED_RE.match(s) and len(s) <= 60 and not s.endswith("."):
+            out += ["", "## " + re.sub(r"^\d+[.)]\s+", "", s), ""]
+        elif _PDF_NUMBERED_RE.match(s) or _PDF_BULLET_RE.match(s) or s.startswith("- "):
+            out += ["", _PDF_BULLET_RE.sub("- ", s)]
+        elif out and out[-1]:
+            out[-1] += " " + s
+        else:
+            out.append(s)
+    return "\n".join(out)
 
 
 def _blocks(text: str) -> list[str]:

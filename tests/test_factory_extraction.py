@@ -163,3 +163,41 @@ def test_title_scans_past_leading_preamble_for_first_heading():
     )
     result = extraction.extract_requirement(text)
     assert result["epic_title"] == "Online claim submission"
+
+
+def test_pdf_lines_reconstruct_into_parseable_markdown():
+    """pypdf emits one line per visual line — no blank lines, no markdown.
+    pdf_lines_to_markdown rebuilds the structure the block parser expects
+    (2026-08-10: the MapleSure requirement PDF parsed as one giant block)."""
+    raw = (
+        "MS\n"
+        "MAPLESURE INSURANCE\n"
+        "Group Benefits Operations\n"
+        "BUSINESS REQUIREMENT DOCUMENT · PROJECT SCOPE (MULTI-SPRINT)\n"
+        "Online disability claim submission for plan sponsors\n"
+        "Request ID REQ-2026-114\n"
+        "Priority High\n"
+        "1. Business context\n"
+        "MapleSure sells group disability coverage to plan sponsors — employer organizations that\n"
+        "sponsor coverage for their employees.\n"
+        "2. Business objective\n"
+        "Give plan sponsors a guided online way to submit a disability claim for a member\n"
+        "through SponsorConnect, and let them see that it arrived.\n"
+        "3. Requirements\n"
+        "1. Identify the plan and member. The sponsor identifies whose claim this is from the\n"
+        "policy number and member id they already hold.\n"
+        "2. Pre-populate what MapleSure already knows. Member and plan details are shown\n"
+        "rather than re-keyed.\n"
+        "3. Confirm receipt. The sponsor receives a submission reference.\n"
+        "4. Out of scope\n"
+        "Adjudication of the claim itself.\n"
+    )
+    md = extraction.pdf_lines_to_markdown(raw)
+    result = extraction.extract_requirement(md)
+    assert result["epic_title"] == "Online disability claim submission for plan sponsors"
+    assert result["business_objective"].startswith("Give plan sponsors a guided online way")
+    texts = [r["text"] for r in result["extracted_requirements"]]
+    assert len(texts) == 3
+    assert texts[0].startswith("Identify the plan and member.")
+    assert "policy number and member id they already hold" in texts[0]
+    assert texts[2].startswith("Confirm receipt.")
