@@ -20,8 +20,10 @@ from s7_delivery.factory.models import (
     FeatureFlag,
     IntakeAnalysis,
     Provenance,
+    RepoRecord,
     Requirement,
     RollbackPlan,
+    RoutingVerdict,
     Scenario,
     Status,
     Story,
@@ -484,3 +486,39 @@ def _build_stories() -> list[Story]:
             traces_to=["REQ-2026-114"],
         ),
     ]
+
+
+# Demo-mode grounding (spec 2026-08-10-demo-mode, follow-up): the five
+# SponsorConnect repositories the seeded stories target, presented as
+# connected in demo runs so intake shows the repo details and routing
+# verdict a live run would have — with no network and no clone. The URLs
+# are internal-style on purpose: the UI's honesty-gated GitHub links only
+# render for github.com hosts, so no dead link can appear.
+DEMO_REPOS: list[RepoRecord] = [
+    RepoRecord(
+        url=f"https://git.maplesure.example/sponsorconnect/{name}",
+        name=name,
+        head_sha=sha,
+        default_branch="main",
+        file_count=files,
+        provenance=Provenance.SIMULATED,
+    )
+    for name, sha, files in [
+        ("sponsorconnect-portal", "9f21c4a7d3", 412),
+        ("sponsorconnect-api", "4b8e02d915", 268),
+        ("sponsorconnect-db", "c57a913f02", 84),
+        ("sponsorconnect-tests", "77d1e5b2c9", 153),
+        ("sponsorconnect-platform", "e03b6a84f1", 97),
+    ]
+]
+
+DEMO_ROUTING = RoutingVerdict(
+    verdict="routable",
+    reasoning=(
+        "The requirement extends the sponsor portal's existing claim "
+        "journey and its supporting services — it fits the connected "
+        "SponsorConnect repositories; no new application is needed."
+    ),
+    candidate_repos=["sponsorconnect-portal", "sponsorconnect-api"],
+    confidence=88,
+)

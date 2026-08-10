@@ -18,6 +18,7 @@ export function AdvancedAnalysisSection() {
   const [confirmForgetUrl, setConfirmForgetUrl] = useState<string | null>(null)
 
   const isLive = data?.run?.mode === 'live'
+  const isDemo = data?.run?.mode === 'demo'
   const repos = data?.intake?.repos ?? []
   const connectedCount = repos.length
 
@@ -180,7 +181,7 @@ export function AdvancedAnalysisSection() {
           </details>
         ) : null}
 
-        {isLive && (
+        {(isLive || isDemo) && (
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="section-title"><h3>Connected Repositories</h3><span className="chip">{repos.length} connected</span></div>
             <ul className="plain">
@@ -236,13 +237,15 @@ export function AdvancedAnalysisSection() {
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <input type="text" placeholder="https://github.com/<owner>/<repo>" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
-              <button type="button" className="outline" onClick={() => repoUrl.trim() && act('/intake/connect-repo', { url: repoUrl.trim() }, 'Repository connected')}>
-                Connect repository
-              </button>
-            </div>
-            {repos.length === 0 && (
+            {isLive && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+                <input type="text" placeholder="https://github.com/<owner>/<repo>" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
+                <button type="button" className="outline" onClick={() => repoUrl.trim() && act('/intake/connect-repo', { url: repoUrl.trim() }, 'Repository connected')}>
+                  Connect repository
+                </button>
+              </div>
+            )}
+            {isLive && repos.length === 0 && (
               <p className="hint" style={{ marginTop: 10 }}>Live analysis is grounded in the connected repos — connect them before analysing.</p>
             )}
           </div>
@@ -295,9 +298,9 @@ export function AdvancedAnalysisSection() {
           </Modal>
         )}
 
-        {isLive && (
+        {(isLive || (isDemo && routing)) && (
           <div className="card" style={{ marginBottom: 12 }}>
-            <div className="section-title"><h3>Requirement Routing</h3>{routing && <Prov provenance={routing.provenance} />}</div>
+            <div className="section-title"><h3>Requirement Routing</h3>{routing && <Prov provenance={routing.provenance ?? (isDemo ? 'simulated' : undefined)} />}</div>
             {routing ? (
               <>
                 <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>
@@ -309,16 +312,18 @@ export function AdvancedAnalysisSection() {
                   {routing.candidate_repos?.length ? <><b>Candidate repos</b><span>{routing.candidate_repos.join(', ')}</span></> : null}
                   {routing.overridden_by ? <><b>Overridden by</b><span>{routing.overridden_by} at {routing.overridden_at}</span></> : null}
                 </div>
-                <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span className="hint">Override:</span>
-                  <select value={routeOverride || routing.verdict} onChange={(e) => setRouteOverride(e.target.value)}>
-                    <option value="routable">Routable</option>
-                    <option value="new_application_needed">New application needed</option>
-                  </select>
-                  <button type="button" className="outline" onClick={() => act('/intake/override-route', { verdict: routeOverride || routing.verdict }, 'Routing verdict overridden')}>
-                    Apply override
-                  </button>
-                </div>
+                {isLive && (
+                  <div style={{ marginTop: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span className="hint">Override:</span>
+                    <select value={routeOverride || routing.verdict} onChange={(e) => setRouteOverride(e.target.value)}>
+                      <option value="routable">Routable</option>
+                      <option value="new_application_needed">New application needed</option>
+                    </select>
+                    <button type="button" className="outline" onClick={() => act('/intake/override-route', { verdict: routeOverride || routing.verdict }, 'Routing verdict overridden')}>
+                      Apply override
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
               <button type="button" className="outline block" onClick={() => act('/intake/route', {}, 'Requirement routed')}>Route Requirement</button>

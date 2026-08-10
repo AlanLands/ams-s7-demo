@@ -42,3 +42,36 @@ def test_simulation_epic_still_uses_extraction(tmp_path):
     eng.store.write_json(_EXTRACTION, "intake", "extraction.json")
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
     assert eng.store.read_json("intake", "epic.json")["title"] == "Uploaded title"
+
+
+def test_demo_run_seeds_repo_grounding(tmp_path):
+    """Demo intake shows connected-repo details and a routable verdict with
+    no network and no clone (user request 2026-08-10: 'show repo details in
+    the intake itself')."""
+    eng = Engine.create(DemoMode.DEMO, root=tmp_path)
+    state = eng.state()
+    repos = state["intake"]["repos"]
+    assert {r["name"] for r in repos} == {
+        "sponsorconnect-portal", "sponsorconnect-api", "sponsorconnect-db",
+        "sponsorconnect-tests", "sponsorconnect-platform",
+    }
+    assert all(r["provenance"] == "simulated" for r in repos)
+    # Honesty gate: never a github.com URL, so the UI cannot render a dead link
+    assert all("github.com" not in r["url"] for r in repos)
+    assert state["intake"]["routing"]["verdict"] == "routable"
+
+
+def test_simulation_run_has_no_seeded_repos(tmp_path):
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
+    assert eng.state()["intake"]["repos"] == []
+    assert eng.state()["intake"]["routing"] is None
+
+
+def test_demo_analysis_raises_clarification_questions(tmp_path):
+    """The analysis's own questions become the pending round in demo mode —
+    the auto-opening popup has content to show."""
+    eng = Engine.create(DemoMode.DEMO, root=tmp_path)
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    clar = eng.state()["intake"]["clarifications"]
+    assert clar["pending"] == seed.ANALYSIS.clarification_questions
+    assert clar["rounds_used"] == 1
