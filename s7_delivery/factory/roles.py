@@ -62,6 +62,9 @@ PERMISSIONS: dict[str, set[Role]] = {
     "amend_test_plan": {Role.QA_LEAD},
     "publish_delivery_pack": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "assign_developer": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
+    # Unlocking a dependency-blocked story before its upstream evidence is a
+    # recorded risk decision a lead owns — never automatic, never silent.
+    "override_dependency_gate": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "sync_git_evidence": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     # build & review — developer execution evidence
     "start_task": {Role.ENGINEERING_LEAD, Role.DELIVERY_LEAD},

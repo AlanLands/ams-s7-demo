@@ -59,6 +59,7 @@ export const DEV_STATUS_LABELS: Record<string, string> = {
   correction_requested: 'Correction Requested',
   complete: 'Complete',
   blocked: 'Blocked',
+  dependency_blocked: 'Dependency Blocked',
 }
 
 /** Badge class for a derived development status (theme.css st-*). */
@@ -70,6 +71,7 @@ export const DEV_STATUS_BADGE: Record<string, string> = {
   correction_requested: 'st-blocked',
   complete: 'st-completed',
   blocked: 'st-blocked',
+  dependency_blocked: 'st-blocked',
 }
 
 export function hhmm(iso?: string): string {

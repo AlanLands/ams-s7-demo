@@ -41,7 +41,7 @@ def complete_task(eng, story_id):
 
 def test_dependent_task_cannot_start(eng):
     tid = task_of(eng, "US-003")["task_id"]  # depends on US-002
-    with pytest.raises(EngineError, match="ready"):
+    with pytest.raises(EngineError, match="dependency-blocked.*US-002"):
         eng.task_start(Role.ENGINEERING_LEAD, tid)
 
 

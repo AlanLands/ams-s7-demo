@@ -2440,6 +2440,32 @@ class Engine:
             ws["artifact_status"] = (
                 "stale" if ws.get("delivery_pack_id") in stale_ids else "current"
             )
+        # Dependency gate (per story, never per team): context is published to
+        # everyone, but work on a story is blocked until each dependency is
+        # proven done — merged to the default branch with green CI (live), or
+        # the completed simulated lifecycle — unless a lead recorded an
+        # override. The map is what the Dependency Map page draws; this is
+        # the same graph, enforced.
+        stories_by_id = {s["story_id"]: s for s in self._stories()}
+        satisfied = self._satisfied_dependencies(
+            list(tasks_by_story.values()), workspaces
+        )
+        for ws in workspaces:
+            deps = stories_by_id.get(ws["story_id"], {}).get("dependencies", [])
+            unmet = [d for d in deps if d not in satisfied]
+            override = ws.get("dependency_override")
+            ws["dependency_gate"] = {
+                "dependencies": deps,
+                "unmet": unmet,
+                "override": override,
+                "ready": not unmet or bool(override),
+            }
+            # A gated story that hasn't begun shows as dependency_blocked,
+            # not "ready" — the badge and the gate must never contradict.
+            if unmet and not override and ws.get("development_status") in (
+                "ready", "provisioned", ""
+            ):
+                ws["development_status"] = "dependency_blocked"
         return workspaces
 
     def workspaces_sync_git(self, role: Role) -> int:
@@ -2588,6 +2614,9 @@ class Engine:
                     task["current_activity"] = new_activity
                     task["last_activity"] = now_iso()
                     tasks_changed = True
+        # A real merge with green CI is dependency evidence: unlock any
+        # downstream story the fresh evidence just satisfied.
+        tasks_changed = self._unlock_dependents(tasks, workspaces) or tasks_changed
         if tasks_changed:
             self._save_tasks(tasks)
         self._save_workspaces(workspaces)
@@ -2994,6 +3023,75 @@ class Engine:
         )
         self._refresh_pack_after_assignment(ws)
 
+    def workspace_override_dependency(
+        self, role: Role, story_id: str, reason: str
+    ) -> None:
+        """Governed escape hatch on the dependency gate: teams legitimately
+        parallelize against agreed interface contracts before the upstream
+        story merges. A lead may unlock a dependency-blocked story early —
+        the override is recorded with actor and reason in the approvals
+        ledger, and the workspace stays badged as started before its
+        dependency evidence. An automatic block with no human override would
+        be this app's only ungoverned gate; this keeps it governed."""
+        roles.require("override_dependency_gate", role)
+        if not reason.strip():
+            raise EngineError(
+                "A dependency override needs a reason — it is a recorded"
+                " risk decision, not a shortcut"
+            )
+        workspaces = self._workspaces()
+        ws = next(
+            (w for w in workspaces if w["story_id"] == story_id), None
+        )
+        if ws is None:
+            raise EngineError(f"No developer workspace for {story_id}")
+        if ws.get("dependency_override"):
+            raise EngineError(
+                f"{story_id} already carries a dependency override"
+            )
+        tasks = self._tasks()
+        task = next(
+            (t for t in tasks if t["story_id"] == story_id), None
+        )
+        if task is None:
+            raise EngineError(f"No task for {story_id}")
+        satisfied = self._satisfied_dependencies(tasks, workspaces)
+        unmet = [d for d in task.get("dependencies", []) if d not in satisfied]
+        if not unmet or task["status"] != Status.NOT_STARTED.value:
+            raise EngineError(
+                f"{story_id} is not dependency-blocked — nothing to override"
+            )
+        ws["dependency_override"] = {
+            "by": role.value,
+            "reason": reason.strip(),
+            "at": now_iso(),
+            "overridden_dependencies": unmet,
+        }
+        self._save_workspaces(workspaces)
+        task["status"] = Status.READY.value
+        task["last_activity"] = now_iso()
+        self._save_tasks(tasks)
+        approvals = self.store.read_ledger("approvals.jsonl")
+        self.store.append(
+            Approval(
+                approval_id=f"APR-{len(approvals) + 1:03d}",
+                subject=f"dependency-gate:{story_id}",
+                role=role,
+                approver=role.value,
+                decision="override",
+                note=f"Started before dependency evidence"
+                     f" ({', '.join(unmet)}): {reason.strip()}",
+            ),
+            "approvals.jsonl",
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="dependency-override", artifact=story_id,
+            outcome="overridden",
+            details=f"{story_id} unlocked before {', '.join(unmet)}"
+                    f" merged — reason: {reason.strip()}",
+        )
+
     def _refresh_pack_after_assignment(self, ws: dict) -> None:
         """Assignment is pack content (`assigned-stories.json`, AGENTS.md), so
         the affected team pack gets a new version and needs a new, explicit
@@ -3107,6 +3205,17 @@ class Engine:
                     " has not been published to its developer workspace yet"
                 )
         if task["status"] not in (Status.READY, "ready", Status.IN_PROGRESS, "in_progress"):
+            satisfied = self._satisfied_dependencies(tasks)
+            unmet = [
+                d for d in task.get("dependencies", []) if d not in satisfied
+            ]
+            if unmet:
+                raise EngineError(
+                    f"{task_id} is dependency-blocked — waiting on"
+                    f" {', '.join(unmet)} to merge with green CI. A"
+                    " Delivery or Engineering Lead can override from the"
+                    " workspace to start early."
+                )
             raise EngineError(
                 f"{task_id} is {task['status']}; only a ready task can start "
                 "(dependencies must be complete)"
@@ -3463,7 +3572,7 @@ class Engine:
             task["status"] = Status.COMPLETED.value
             task["progress_pct"] = 100
             task["current_activity"] = "Independent review passed"
-            self._unlock_dependents(tasks, task)
+            self._unlock_dependents(tasks)
             outcome = "passed"
         task["last_activity"] = now_iso()
         self._save_tasks(tasks)
@@ -3513,17 +3622,38 @@ class Engine:
             outcome="returned",
         )
 
-    def _unlock_dependents(self, tasks: list[dict], completed: dict) -> None:
-        done_stories = {
+    def _satisfied_dependencies(
+        self, tasks: list[dict], workspaces: list[dict] | None = None
+    ) -> set[str]:
+        """Stories whose work is *proven* done, for dependency gating.
+        Two honest sources, never a claim: the completed lifecycle (the
+        simulation's independent-review approval), or — live — real git
+        evidence that the story's latest commit is reachable from the
+        default branch (a human merged the PR) with a green CI run on it."""
+        done = {
             t["story_id"] for t in tasks
             if t["status"] == Status.COMPLETED.value
         }
+        for ws in workspaces if workspaces is not None else self._workspaces():
+            ev = ws.get("git_evidence") or {}
+            ci = ws.get("ci_evidence") or {}
+            if ev.get("merged") and ci.get("conclusion") == "success":
+                done.add(ws["story_id"])
+        return done
+
+    def _unlock_dependents(
+        self, tasks: list[dict], workspaces: list[dict] | None = None
+    ) -> bool:
+        done_stories = self._satisfied_dependencies(tasks, workspaces)
+        changed = False
         for t in tasks:
             if t["status"] == Status.NOT_STARTED.value and all(
                 dep in done_stories for dep in t.get("dependencies", [])
             ):
                 t["status"] = Status.READY.value
                 t["last_activity"] = now_iso()
+                changed = True
+        return changed
 
     # --- quality (spec §10) -------------------------------------------------
 

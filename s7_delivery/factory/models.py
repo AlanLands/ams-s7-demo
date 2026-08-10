@@ -484,7 +484,7 @@ class Approval(BaseModel):
     subject: str
     role: Role
     approver: str
-    decision: str  # approved | rejected
+    decision: str  # approved | rejected | override (dependency gate)
     note: str = ""
     decided_at: str = Field(default_factory=now_iso)
 

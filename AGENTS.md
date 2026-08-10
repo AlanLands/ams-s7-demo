@@ -279,6 +279,17 @@ Intake roles narrowed the same day: `upload_intake_document` and
 `pass_intake_gate` are `BUSINESS_OWNER` only, extraction rides the upload
 permission, and the combined intake button split in two.
 
+**Dependency-gated developer workspaces, added 2026-08-10.** The Dependency
+Map's waves are enforced per story (never per team): context publishes to
+every team, but starting a story is blocked until each dependency is proven
+done — merged to the default branch with green CI (live evidence via
+`workspaces_sync_git`, which also unlocks dependents) or the completed
+simulated lifecycle. `task_start` names unmet dependencies in its refusal.
+`workspace_override_dependency` (permission `override_dependency_gate`,
+Delivery/Engineering Lead) unlocks early with a mandatory reason, recorded
+in the approvals ledger (`decision: override`) and badged *started before
+dependency evidence*. Blocked workspaces report `dependency_blocked`.
+
 **Known-repository memory and repo removal, added 2026-08-10.** A global
 `artifacts/known_repos.json` registry (gitignored) remembers every
 successfully connected repository across runs, so a fresh run after a

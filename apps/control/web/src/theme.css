@@ -1019,6 +1019,13 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .error-popup-message { margin: 14px 0 4px; font-size: 13.5px; line-height: 1.5; overflow-wrap: break-word; }
 .error-popup-actions { display: flex; justify-content: flex-end; margin-top: 16px; }
 
+.dep-gate-blocked {
+  margin-top: 8px; padding: 10px 12px;
+  background: var(--red-pale); border: 1px solid var(--red-dark);
+  border-radius: var(--radius-sm);
+}
+.dep-gate-override { margin-top: 8px; }
+
 .foot {
   display: flex;
   align-items: center;

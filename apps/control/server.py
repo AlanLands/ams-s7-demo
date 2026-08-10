@@ -751,6 +751,20 @@ def patch_workspace_developer(
     return eng.state()
 
 
+class OverrideDependencyBody(BaseModel):
+    role: str
+    reason: str
+
+
+@app.post("/api/runs/{run_id}/workspaces/{story_id}/override-dependency")
+def post_workspace_override_dependency(
+    run_id: str, story_id: str, body: OverrideDependencyBody
+) -> dict:
+    eng = _engine(run_id)
+    eng.workspace_override_dependency(_role(body.role), story_id, body.reason)
+    return eng.state()
+
+
 # --- build & independent review (spec §9) -----------------------------------
 
 

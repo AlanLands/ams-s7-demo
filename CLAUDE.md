@@ -288,6 +288,22 @@ are `BUSINESS_OWNER` only, extraction rides the upload permission, and the
 combined intake button split in two because no single role may both create
 the epic and sign the gate.
 
+**Dependency-gated developer workspaces, added 2026-08-10.** The Dependency
+Map's waves are now enforced, per story and never per team: context is
+published to every team, but *starting work* on a story is blocked until each
+dependency is proven done — its latest commit reachable from the default
+branch (a human merged the PR) with a green CI run (live evidence, observed
+by `workspaces_sync_git`, which now also unlocks dependents), or the
+completed simulated lifecycle (independent-review approval, the existing
+`_unlock_dependents` path). `task_start` names the unmet dependencies in its
+refusal. The governed escape hatch: `workspace_override_dependency`
+(permission `override_dependency_gate`, Delivery/Engineering Lead) unlocks a
+blocked story early with a mandatory reason, recorded in the approvals
+ledger (`decision: override`) and badged on the workspace as *started before
+dependency evidence* — an automatic block with no human override would be
+the app's only ungoverned gate. Blocked workspaces show
+`dependency_blocked`, counted in the Blocked Workspaces tile.
+
 **Known-repository memory and repo removal, added 2026-08-10.** A global
 `artifacts/known_repos.json` registry (gitignored) remembers every
 successfully connected repository across runs, keyed by URL and written on

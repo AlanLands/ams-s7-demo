@@ -542,6 +542,14 @@ export interface DeveloperWorkspace {
   ci_status: string
   development_status: string
   artifact_status: 'current' | 'stale'
+  dependency_gate?: {
+    dependencies: string[]
+    unmet: string[]
+    override: {
+      by: string; reason: string; at: string; overridden_dependencies: string[]
+    } | null
+    ready: boolean
+  }
   git_evidence?: {
     commit_count: number
     latest: { sha: string; author: string; when: string; subject: string } | null

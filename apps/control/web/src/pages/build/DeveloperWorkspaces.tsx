@@ -149,6 +149,8 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
   const tests = task?.tests ?? []
   const acs = story?.acceptance_criteria ?? []
   const deps = story?.dependencies ?? []
+  const gate = ws.dependency_gate
+  const [overrideDraft, setOverrideDraft] = useState('')
   const summaryRows = buildOf(data).summary?.stories ?? []
   const depState = (depId: string): string => {
     const row = summaryRows.find((r) => r.story_id === depId)
@@ -303,6 +305,45 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
               ))}
             </ul>
           )}
+          {gate && !gate.ready ? (
+            <div className="dep-gate-blocked">
+              <p className="hint">
+                <b>⛔ Work blocked by the dependency gate</b> — waiting on{' '}
+                <span className="mono">{gate.unmet.join(', ')}</span> to merge to the default
+                branch with green CI. Context is published; starting is what's gated.
+              </p>
+              <input
+                type="text"
+                style={{ width: '100%', marginTop: 6 }}
+                placeholder="Override reason (required) — e.g. interface contract agreed with upstream team"
+                value={overrideDraft}
+                onChange={(e) => setOverrideDraft(e.target.value)}
+              />
+              <button
+                className="outline"
+                style={{ marginTop: 6 }}
+                disabled={!overrideDraft.trim()}
+                onClick={async () => {
+                  const ok = await act(
+                    `/workspaces/${ws.story_id}/override-dependency`,
+                    { reason: overrideDraft.trim() },
+                    'Dependency gate overridden — recorded in the approvals ledger',
+                  )
+                  if (ok) setOverrideDraft('')
+                }}
+              >
+                ⚑ Unlock Early (Lead Override)
+              </button>
+            </div>
+          ) : null}
+          {gate?.override ? (
+            <p className="hint dep-gate-override">
+              ⚠ <b>Started before dependency evidence</b> — override by {gate.override.by}
+              {gate.override.overridden_dependencies?.length
+                ? <> (ahead of <span className="mono">{gate.override.overridden_dependencies.join(', ')}</span>)</>
+                : null}: “{gate.override.reason}”
+            </p>
+          ) : null}
         </Section>
 
         <Section icon={ShieldCheck} title="Scope Control" count={story?.target_component ? '2' : '0'}>
@@ -498,7 +539,8 @@ export function DeveloperWorkspaces() {
   const openPrs = workspaces.filter((w) => w.pull_request && w.development_status !== 'complete').length
   const ciRunning = workspaces.filter((w) => w.ci_status === 'running').length
   const blocked = workspaces.filter((w) =>
-    w.development_status === 'blocked' || w.development_status === 'correction_requested',
+    w.development_status === 'blocked' || w.development_status === 'correction_requested'
+    || w.development_status === 'dependency_blocked',
   ).length
 
   const filtered = workspaces.filter((w) => {
@@ -756,7 +798,18 @@ export function DeveloperWorkspaces() {
                       ) : <span className="hint">—</span>}
                     </td>
                     <td><CiCell ws={ws} task={task} /></td>
-                    <td><DevBadge status={ws.development_status} /></td>
+                    <td>
+                      <DevBadge status={ws.development_status} />
+                      {ws.dependency_gate && !ws.dependency_gate.ready ? (
+                        <span className="hint dp-sub" title={`Blocked by the dependency gate — waiting on ${ws.dependency_gate.unmet.join(', ')} to merge with green CI`}>
+                          ⛔ awaiting {ws.dependency_gate.unmet.join(', ')}
+                        </span>
+                      ) : ws.dependency_gate?.override ? (
+                        <span className="hint dp-sub" title={`Override by ${ws.dependency_gate.override.by}: ${ws.dependency_gate.override.reason}`}>
+                          ⚑ lead override
+                        </span>
+                      ) : null}
+                    </td>
                     <td onClick={(e) => e.stopPropagation()}>
                       <div className="dp-actions">
                         <button className="icon-btn" aria-label={`View ${ws.story_id} workspace`} title="View Workspace"
