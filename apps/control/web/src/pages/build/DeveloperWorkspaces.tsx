@@ -566,17 +566,22 @@ export function DeveloperWorkspaces() {
     if (!runId) return
     setSyncing(true)
     try {
-      if (data?.run.mode === 'demo') {
-        // Demo runs advance the scripted sync storyline instead of touching git.
+      if (data?.run.mode !== 'live') {
+        // Demo and simulation runs advance the scripted sync storyline
+        // instead of touching git; each sync completes the next task(s).
         const res = await apiPost<{ result: { status: string; stories: string[] } }>(
           `/api/runs/${runId}/demo/sync`, { role },
         )
         const { status, stories } = res.result
         await refresh()
+        const titled = stories.map((sid) => {
+          const st = (data?.planning?.stories ?? []).find((s) => s.story_id === sid)
+          return st ? `${sid} (${st.title})` : sid
+        })
         if (status === 'advanced') {
-          notify(`Synced — ${stories.join(', ')} completed`)
+          notify(`Synced — task completed: ${titled.join(' · ')}`)
         } else if (status === 'failure' || status === 'failure_pending') {
-          notify(`Sync failed for ${stories.join(', ')} — git push rejected. Rerun the story to retry.`, true)
+          notify(`Sync failed for ${titled.join(', ')} — git push rejected. Rerun the story to retry.`, true)
         } else {
           notify('Storyline complete — all stories synced and acceptance criteria met')
         }
@@ -656,12 +661,10 @@ export function DeveloperWorkspaces() {
         <button
           className="ghost"
           style={{ marginLeft: 'auto' }}
-          disabled={(data.run.mode !== 'live' && data.run.mode !== 'demo') || syncing}
+          disabled={syncing}
           title={data.run.mode === 'live'
             ? 'git fetch + read-only inspection; commits are matched by story/task id in the message'
-            : data.run.mode === 'demo'
-              ? 'Advance the demo sync — completed stories arrive one iteration at a time'
-              : 'Live and demo runs only — simulation has no real repository clone'}
+            : 'Advance the sync — completed stories arrive one iteration at a time'}
           onClick={() => void doSyncGit()}
         >
           {syncing

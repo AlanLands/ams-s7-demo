@@ -27,10 +27,24 @@ def _row(eng, sid):
     )
 
 
-def test_sync_requires_demo_mode(tmp_path):
-    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
-    with pytest.raises(EngineError, match="demo mode"):
+def test_sync_refused_in_live_mode(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path)
+    with pytest.raises(EngineError, match="live runs"):
         eng.demo_sync_advance(Role.DELIVERY_LEAD)
+
+
+def test_simulation_runs_the_scripted_storyline_too(tmp_path):
+    """User request 2026-08-10: the Sync storyline works in simulation runs
+    as well — each sync completes the next story's task."""
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
+    demo._intake_and_plan(eng)
+    r1 = eng.demo_sync_advance(Role.DELIVERY_LEAD)
+    assert r1["status"] == "advanced" and r1["stories"] == ["US-001"]
+    assert _row(eng, "US-001")["overall"] in ("complete", "ready_for_quality")
+    eng.demo_sync_advance(Role.DELIVERY_LEAD)
+    r3 = eng.demo_sync_advance(Role.DELIVERY_LEAD)
+    assert r3["status"] == "failure" and r3["stories"] == ["US-003"]
+    assert eng.demo_rerun_story(Role.DELIVERY_LEAD, "US-003")["status"] == "fixed"
 
 
 def test_sync_requires_workspaces(tmp_path):
@@ -111,7 +125,7 @@ def test_demo_endpoints_http(tmp_path, monkeypatch):
     res = client.post(f"/api/runs/{run_id}/demo/sync", json={"role": "delivery_lead"})
     assert res.status_code == 409
 
-    # A simulation run refuses the demo surface outright
-    sim_id = client.post("/api/runs", json={"mode": "simulation"}).json()["run"]["run_id"]
-    res = client.post(f"/api/runs/{sim_id}/demo/sync", json={"role": "delivery_lead"})
-    assert res.status_code == 409 and "demo mode" in res.json()["detail"]
+    # A live run refuses the scripted surface outright
+    live_id = client.post("/api/runs", json={"mode": "live"}).json()["run"]["run_id"]
+    res = client.post(f"/api/runs/{live_id}/demo/sync", json={"role": "delivery_lead"})
+    assert res.status_code == 409 and "live runs" in res.json()["detail"]

@@ -172,9 +172,10 @@ export function TestEvidence() {
 
   const doSync = async () => {
     setSyncing(true)
-    if (data.run.mode === 'demo') {
-      // Demo runs advance the scripted sync storyline instead of touching git.
-      await act('/demo/sync', {}, 'Synced — demo storyline advanced')
+    if (data.run.mode !== 'live') {
+      // Demo and simulation runs advance the scripted sync storyline
+      // instead of touching git.
+      await act('/demo/sync', {}, 'Synced — storyline advanced, next task completed')
     } else {
       await act('/workspaces/sync-git', {}, 'Synced — real commits and CI results, where available')
     }
@@ -191,12 +192,10 @@ export function TestEvidence() {
           <h2>Build &amp; Test Evidence</h2>
           <span className="hint">Engineering evidence collected from CI pipelines, automated tests and quality checks.</span>
           <span className="arch-head-actions">
-            <button className="outline" disabled={(data.run.mode !== 'live' && data.run.mode !== 'demo') || syncing}
+            <button className="outline" disabled={syncing}
               title={data.run.mode === 'live'
                 ? 'Pull real commits and CI results from the connected repositories'
-                : data.run.mode === 'demo'
-                  ? 'Advance the demo sync — completed stories arrive one iteration at a time'
-                  : 'Git evidence sync needs a live or demo run — simulation has no real repository clone'}
+                : 'Advance the sync — completed stories arrive one iteration at a time'}
               onClick={() => void doSync()}>
               {syncing ? <LoaderCircle className="btn-ico spin" /> : <RefreshCw className="btn-ico" />} Sync Now
             </button>

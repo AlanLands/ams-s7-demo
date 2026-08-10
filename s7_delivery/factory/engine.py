@@ -2530,12 +2530,16 @@ class Engine:
         return workspaces
 
     def demo_sync_advance(self, role: Role) -> dict:
-        """One click of the scripted demo Sync storyline (demo mode only).
-        Each step drives real engine actions — gates, roles and ledgers all
-        run; only the push-failure evidence is scripted (demo_sync.py)."""
+        """One click of the scripted Sync storyline (demo and simulation
+        runs). Each step drives real engine actions — gates, roles and
+        ledgers all run; only the push-failure evidence is scripted
+        (demo_sync.py). Live runs use workspaces_sync_git instead."""
         roles.require("sync_git_evidence", role)
-        if self.run().mode is not DemoMode.DEMO:
-            raise EngineError("Scripted sync runs in demo mode only")
+        if self.run().mode is DemoMode.LIVE:
+            raise EngineError(
+                "Scripted sync is for demo and simulation runs — live runs "
+                "sync real git evidence instead"
+            )
         if not self._workspaces():
             raise EngineError(
                 "Publish delivery packs and provision workspaces before the "
@@ -2548,8 +2552,11 @@ class Engine:
     def demo_rerun_story(self, role: Role, story_id: str) -> dict:
         """Retry the one story whose scripted sync failed — the fix beat."""
         roles.require("sync_git_evidence", role)
-        if self.run().mode is not DemoMode.DEMO:
-            raise EngineError("Scripted sync runs in demo mode only")
+        if self.run().mode is DemoMode.LIVE:
+            raise EngineError(
+                "Scripted sync is for demo and simulation runs — live runs "
+                "sync real git evidence instead"
+            )
         from s7_delivery.factory import demo_sync
 
         return demo_sync.rerun(self, story_id)
