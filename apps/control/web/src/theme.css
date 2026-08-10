@@ -740,6 +740,17 @@ tr.edit-row td { background: var(--red-pale); }
 .dep-graph .dep-arrows { position: absolute; inset: 0; pointer-events: none; }
 .dep-col { display: flex; flex-direction: column; gap: 26px; }
 .dep-graph.vertical .dep-col { flex-direction: row; gap: 26px; flex-wrap: wrap; }
+.dep-wave { display: flex; flex-direction: column; gap: 10px; }
+.dep-graph.vertical .dep-wave { width: 100%; }
+.wave-head {
+  display: flex; align-items: baseline; gap: 8px;
+  padding-bottom: 4px; border-bottom: 1px dashed var(--border);
+}
+.wave-head .wave-name {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted);
+}
+.wave-head .wave-note { font-size: 11px; color: var(--muted); }
 .dep-card {
   position: relative; z-index: 1;
   width: 190px; background: var(--surface);

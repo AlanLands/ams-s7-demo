@@ -31,11 +31,21 @@ export function DependencyMap() {
   const teams = [...new Set(all.map((s) => s.accountable_team))]
   const maxDepth = Math.max(0, ...Object.values(depth))
 
-  const columns: PlanStory[][] = []
+  // Stories at the same depth can never depend on one another (a dependency
+  // always puts the dependent strictly deeper), so each column is a set of
+  // stories that can run in parallel — surfaced as a numbered "wave".
+  const columns: { wave: number; col: PlanStory[] }[] = []
   for (let d = 0; d <= maxDepth; d++) {
     const col = stories.filter((s) => depth[s.story_id] === d)
-    if (col.length) columns.push(col)
+    if (col.length) columns.push({ wave: d + 1, col })
   }
+
+  const waves: PlanStory[][] = []
+  all.forEach((s) => {
+    const d = graphAll.depth[s.story_id]
+    ;(waves[d] ??= []).push(s)
+  })
+  const maxParallel = Math.max(0, ...waves.map((w) => w.length))
 
   // The vanilla version calls `requestAnimationFrame(() => drawDepArrows(...))`
   // unconditionally on every render. No dependency array here reproduces that
@@ -98,8 +108,15 @@ export function DependencyMap() {
           </div>
           <div className={`dep-graph${vertical ? ' vertical' : ''}`} ref={graphRef}>
             <svg className="dep-arrows" />
-            {columns.map((col, i) => (
-              <div className="dep-col" key={i}>
+            {columns.map(({ wave, col }) => (
+              <div className="dep-wave" key={wave}>
+                <div className="wave-head">
+                  <span className="wave-name">Wave {wave}</span>
+                  <span className="wave-note">
+                    {col.length > 1 ? `${col.length} stories in parallel` : '1 story'}
+                  </span>
+                </div>
+                <div className="dep-col">
                 {col.map((s) => (
                   <div
                     className="dep-card"
@@ -117,6 +134,7 @@ export function DependencyMap() {
                     </div>
                   </div>
                 ))}
+                </div>
               </div>
             ))}
           </div>
@@ -151,6 +169,8 @@ export function DependencyMap() {
                 ['Cross Dependencies', crossCount],
                 ['Teams Involved', teams.length],
                 ['Planned Sprints', new Set(all.map((s) => s.sprint)).size],
+                ['Execution Waves', waves.filter(Boolean).length],
+                ['Max Parallelism', maxParallel],
               ] as [string, number][]
             ).map(([label, v]) => (
               <li key={label}>
@@ -158,6 +178,28 @@ export function DependencyMap() {
                 <span className="state ok">{String(v)}</span>
               </li>
             ))}
+          </ul>
+        </div>
+        <div className="card rail-card">
+          <h3>Parallel Execution</h3>
+          <p className="hint">
+            Stories in the same wave have no dependencies on each other — they can start together
+            once the previous wave completes.
+          </p>
+          <ul className="checklist">
+            {waves.map((w, d) =>
+              w ? (
+                <li key={d}>
+                  <span>
+                    Wave {d + 1}&ensp;
+                    <span className="mono hint">{w.map((s) => s.story_id).join(', ')}</span>
+                  </span>
+                  <span className={`state ${w.length > 1 ? 'ok' : ''}`}>
+                    {w.length > 1 ? `${w.length} parallel` : 'solo'}
+                  </span>
+                </li>
+              ) : null,
+            )}
           </ul>
         </div>
         <div className="card rail-card">
