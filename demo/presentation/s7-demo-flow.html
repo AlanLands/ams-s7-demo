@@ -259,6 +259,35 @@ ul.points li b { font-weight: 600; color: var(--ink); }
 .sub-arrow { color: var(--border-strong); font-size: 12px; font-weight: 600; user-select: none; }
 @media (max-height: 760px) { .sub-step .d { display: none; } }
 
+/* ------------------------------------------------- why-it-matters strip -- */
+/* green = value delivered, the counterpart to red = governance */
+
+.why {
+  display: none;
+  margin-top: clamp(12px, 2vh, 20px);
+  border-left: 4px solid var(--green);
+  background: var(--green-pale);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 15px 11px;
+  max-width: 52ch;
+}
+.why.on { display: block; }
+.why .wl {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--green);
+  margin-bottom: 3px;
+}
+.why .wt {
+  font-size: clamp(13px, 1.75vh, 16px);
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
 /* ------------------------------------------------------------- side rail -- */
 
 .rail {
@@ -681,6 +710,10 @@ footer.foot {
       <h1 id="title">Title</h1>
       <ul class="points" id="points"></ul>
       <div class="substrip" id="substrip"></div>
+      <div class="why" id="why">
+        <div class="wl">Why this matters</div>
+        <div class="wt" id="whytext"></div>
+      </div>
     </div>
 
     <aside class="rail" id="rail">
@@ -962,6 +995,22 @@ footer.foot {
     }
   ];
 
+  /* one business-value line per stage — rendered in the green strip */
+  var WHYS = [
+    "The requirement enters exactly as the business wrote it — no re-keying, no interpretation gap at the very first step.",
+    "Work starts from a shared, grounded understanding of the real codebase — not from opinion or a stale wiki.",
+    "Scope is explicit and signed before money is spent — every later artifact traces back to criteria the business agreed.",
+    "Design happens before code, and change is never silent — one revision automatically flags everything it invalidates.",
+    "The definition of done is executable before work begins — quality is designed in, not inspected in afterwards.",
+    "A developer starts with full, current context in one governed place — no handover meetings, nothing copied that can drift.",
+    "Developers keep their own tools, models and pace — adoption without disruption, and no lock-in to any vendor's IDE.",
+    "Progress is what CI proves, not what a status meeting claims — the same view whether the news is good or bad.",
+    "Fabrication is stopped structurally: a second, isolated reviewer checks every output before a human relies on it.",
+    "Release readiness is a set of named conditions anyone can audit — there is no single score to hide behind.",
+    "Accountability is personal: five named approvers, one change record assembled from the run's own evidence.",
+    "Delivery hands off cleanly to support and the knowledge base grows — the next requirement starts smarter than this one did."
+  ];
+
   var N = STAGES.length;               /* 12 stages                            */
   var COVER = 0;                       /* frame 0 is the cover                 */
   var FINALE = N + 1;                  /* frame 13 is the closing frame        */
@@ -1068,6 +1117,8 @@ footer.foot {
   var elRail = document.getElementById("rail");
   var elKicker = document.getElementById("kicker");
   var elSub = document.getElementById("substrip");
+  var elWhy = document.getElementById("why");
+  var elWhyText = document.getElementById("whytext");
   var elTitle = document.getElementById("title");
   var elPoints = document.getElementById("points");
   var elActors = document.getElementById("actors");
@@ -1154,6 +1205,11 @@ footer.foot {
 
       elArtifact.textContent = s.artifact;
       elArtifactIco.textContent = s.ico;
+
+      elWhy.classList.toggle("on", !!WHYS[si]);
+      elWhyText.textContent = WHYS[si] || "";
+      elWhy.style.animation = "rise .5s var(--ease) both";
+      elWhy.style.animationDelay = s.sub ? "1.05s" : ".42s";
 
       elSub.classList.toggle("on", !!s.sub);
       elSub.innerHTML = "";
