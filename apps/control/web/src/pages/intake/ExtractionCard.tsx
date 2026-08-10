@@ -58,7 +58,7 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
         <div>
           <p className="hint">AI has extracted and structured the requirement.</p>
           <div className="ext-kv" style={{ marginTop: 10 }}>
-            <b>Epic Title</b><span>{ext.epic_title}</span>
+            <b>Title</b><span>{ext.epic_title}</span>
             <b>Business Objective</b><span><span className={expanded ? undefined : 'clamp-3'}>{ext.business_objective}</span></span>
             <b>Requirement Summary</b><span><span className={expanded ? undefined : 'clamp-3'}>{ext.requirement_summary}</span></span>
           </div>

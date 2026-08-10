@@ -57,7 +57,7 @@ export function EditExtractionDrawer({ open, onClose, extraction }: Props) {
         </div>
         <p className="hint"><span className="chip tag">AI-generated — Editable</span></p>
 
-        <label className="fld" htmlFor="edit-title">Epic Title</label>
+        <label className="fld" htmlFor="edit-title">Title</label>
         <input id="edit-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
 
         <label className="fld" htmlFor="edit-objective">Business Objective</label>

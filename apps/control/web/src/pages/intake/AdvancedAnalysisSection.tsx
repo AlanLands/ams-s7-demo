@@ -402,7 +402,7 @@ export function AdvancedAnalysisSection() {
             </summary>
             <div className="kv fold-body" style={{ gridTemplateColumns: '130px 1fr' }}>
               <b>Epic ID</b><span className="mono">{epic.epic_id}</span>
-              <b>Epic Title</b><span>{epic.title}</span>
+              <b>Title</b><span>{epic.title}</span>
               <b>Business Outcome</b><span>{epic.business_outcome}</span>
               <b>Estimated Stories</b><span>{epic.estimated_stories}</span>
               <b>Created By</b><span>{epic.created_by}</span>
