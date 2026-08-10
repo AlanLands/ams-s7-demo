@@ -18,9 +18,11 @@ export function AdvancedAnalysisSection() {
   const [confirmForgetUrl, setConfirmForgetUrl] = useState<string | null>(null)
 
   const isLive = data?.run?.mode === 'live'
-  const isDemo = data?.run?.mode === 'demo'
   const repos = data?.intake?.repos ?? []
   const connectedCount = repos.length
+  // Demo and simulation runs come pre-grounded with seeded repo records —
+  // any run that has repos shows them (2026-08-10 follow-up).
+  const grounded = connectedCount > 0
 
   const refreshKnownRepos = useCallback(() => {
     apiGet<{ repos: KnownRepo[] }>('/api/known-repos')
@@ -36,8 +38,15 @@ export function AdvancedAnalysisSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLive, connectedCount, refreshKnownRepos])
 
+  // Pre-grounded runs (seeded repos + routing) open the section unlocked
+  // and expanded — hiding the grounding behind an upload gate was exactly
+  // the "repo details not visible" complaint (2026-08-10).
+  useEffect(() => {
+    if (!isLive && grounded) setOpen(true)
+  }, [isLive, grounded])
+
   if (!data) return null
-  const unlocked = Boolean(data.intake?.source)
+  const unlocked = Boolean(data.intake?.source) || grounded
   const req = data.intake?.requirement
   const analysis = data.intake?.analysis
   const epic = data.intake?.epic
@@ -65,7 +74,7 @@ export function AdvancedAnalysisSection() {
         title={unlocked ? undefined : 'Upload or paste a requirement to unlock this section'}
         onClick={(e) => { if (!unlocked) e.preventDefault() }}
       >
-        Advanced: Live Analysis &amp; Governance
+        {!isLive && grounded ? 'Analysis & Governance — Connected Repositories' : 'Advanced: Live Analysis & Governance'}
         {!unlocked && <span className="lock-hint">Unlocks after a requirement is uploaded</span>}
       </summary>
       <div style={{ marginTop: 14 }}>
@@ -181,7 +190,7 @@ export function AdvancedAnalysisSection() {
           </details>
         ) : null}
 
-        {(isLive || isDemo) && (
+        {(isLive || grounded) && (
           <div className="card" style={{ marginBottom: 12 }}>
             <div className="section-title"><h3>Connected Repositories</h3><span className="chip">{repos.length} connected</span></div>
             <ul className="plain">
@@ -298,9 +307,9 @@ export function AdvancedAnalysisSection() {
           </Modal>
         )}
 
-        {(isLive || (isDemo && routing)) && (
+        {(isLive || routing) && (
           <div className="card" style={{ marginBottom: 12 }}>
-            <div className="section-title"><h3>Requirement Routing</h3>{routing && <Prov provenance={routing.provenance ?? (isDemo ? 'simulated' : undefined)} />}</div>
+            <div className="section-title"><h3>Requirement Routing</h3>{routing && <Prov provenance={routing.provenance ?? (isLive ? undefined : 'simulated')} />}</div>
             {routing ? (
               <>
                 <div className="kv" style={{ gridTemplateColumns: '130px 1fr' }}>

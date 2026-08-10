@@ -61,8 +61,15 @@ def test_demo_run_seeds_repo_grounding(tmp_path):
     assert state["intake"]["routing"]["verdict"] == "routable"
 
 
-def test_simulation_run_has_no_seeded_repos(tmp_path):
+def test_simulation_run_also_seeds_repo_grounding(tmp_path):
+    """User follow-up 2026-08-10: the same grounding in simulation runs."""
     eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
+    assert len(eng.state()["intake"]["repos"]) == 5
+    assert eng.state()["intake"]["routing"]["verdict"] == "routable"
+
+
+def test_live_run_has_no_seeded_repos(tmp_path):
+    eng = Engine.create(DemoMode.LIVE, root=tmp_path)
     assert eng.state()["intake"]["repos"] == []
     assert eng.state()["intake"]["routing"] is None
 

@@ -335,7 +335,12 @@ Replay / Live) — presenter-facing and fully offline. Demo behaves as
 simulation in every engine branch except three deliberate deltas: epic
 creation always presents the seeded MapleSure epic even when an upload
 produced an extraction (`intake_create_epic`); the Sync buttons drive a
-scripted storyline (`factory/demo_sync.py`, state in `demo/script.json`) —
+scripted storyline. Demo **and simulation** runs are both created
+pre-grounded: five seeded `sponsorconnect-*` repo records plus a routable
+routing verdict (`seed.DEMO_REPOS`/`seed.DEMO_ROUTING`, internal-style URLs
+so no dead GitHub link can render), shown on the intake page's
+Analysis & Governance section, which unlocks and auto-opens for grounded
+runs. The storyline itself: (`factory/demo_sync.py`, state in `demo/script.json`) —
 US-001 green, US-002 green, US-003 arrives with a failed git push and stays
 the run's only red item until an explicit per-story rerun fixes it, then
 US-004+US-005 advance together (parallel iteration) and US-006+US-007

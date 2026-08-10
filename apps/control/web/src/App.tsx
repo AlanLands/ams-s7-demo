@@ -69,7 +69,8 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
 }
 
 function Shell() {
-  const { section } = useRun()
+  const { section, data } = useRun()
+  const demoRun = data?.run?.mode === 'demo'
   const Page = PAGES[section] ?? (() => <NotYetPorted section={section} />)
   return (
     <>
@@ -100,7 +101,9 @@ function Shell() {
           <span className="foot-ai">AI generated · Rules validated · Human governed · Evidence recorded</span>
           <span className="foot-center">
             MapleSure Insurance is fictional; all data on this surface is demonstration data. Artifacts are
-            labelled with their provenance — <span className="prov prov-simulated">SIMULATED</span> evidence is
+            labelled with their provenance — {demoRun
+              ? <span className="prov prov-demo">DEMO</span>
+              : <span className="prov prov-simulated">SIMULATED</span>} evidence is
             produced by the deterministic demo engine, <span className="prov prov-human">HUMAN</span> marks a
             person's own input. All times in local time.
           </span>

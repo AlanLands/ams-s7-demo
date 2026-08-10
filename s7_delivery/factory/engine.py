@@ -139,10 +139,10 @@ class Engine:
         eng.store.write_json(run, "run.json")
         eng.store.write_json(seed.SCENARIO, "scenario.json")
         eng.store.write_json(seed.REQUIREMENT, "intake", "requirement.json")
-        if mode is DemoMode.DEMO:
-            # Demo grounding: intake shows connected-repo details and a
+        if mode in (DemoMode.DEMO, DemoMode.SIMULATION):
+            # Offline grounding: intake shows connected-repo details and a
             # routing verdict without any network or clone — simulated
-            # records, rendered with the DEMO chip like everything else.
+            # records, badged SIMULATED (DEMO chip in demo runs).
             eng.store.write_json(
                 [r.model_dump(mode="json") for r in seed.DEMO_REPOS],
                 "intake", "repos.json",
