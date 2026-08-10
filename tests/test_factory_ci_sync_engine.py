@@ -706,6 +706,153 @@ def test_red_baseline_uses_the_earliest_real_publication(
     assert ev["conclusion"] == "failure" and ev["tests_failed"] == 2
 
 
+def test_sync_deduplicates_gh_lookups_for_workspaces_sharing_a_pack(
+    live_eng_with_github_repo, monkeypatch
+):
+    """Workspaces provisioned from the same delivery pack share one
+    publication commit — its CI run and ci-summary artifact must be looked
+    up once per sync, not once per workspace. Each `gh` invocation costs
+    seconds of real network time, so per-workspace duplicates are exactly
+    what made Sync from Git crawl."""
+    e = live_eng_with_github_repo
+    e.store.write_json(
+        [{"workspace_id": "WS-US-1", "run_id": e.run_id, "team": "Platform Team",
+          "story_id": "US-1", "repository": "advisor-portal-signin",
+          "branch": "s7/x-platform-team", "developer": "Alan Lands",
+          "delivery_pack_id": "PACK-platform-team", "delivery_pack_version": 1,
+          "base_commit": "", "development_status": "provisioned",
+          "provenance": "human"},
+         {"workspace_id": "WS-US-2", "run_id": e.run_id, "team": "Platform Team",
+          "story_id": "US-2", "repository": "advisor-portal-signin",
+          "branch": "s7/x-platform-team", "developer": "",
+          "delivery_pack_id": "PACK-platform-team", "delivery_pack_version": 1,
+          "base_commit": "", "development_status": "provisioned",
+          "provenance": "human"}],
+        "build", "workspaces.json",
+    )
+    pub_sha = "a" * 40
+    e.store.append(
+        {"publication_id": "PUB-001", "delivery_pack_id": "PACK-platform-team",
+         "repository": "advisor-portal-signin", "branch": "s7/x", "commit": pub_sha,
+         "published_paths": [], "status": "published", "simulated": False,
+         "published_at": "2026-08-09T00:00:00+00:00", "provenance": "human"},
+        "publications.jsonl",
+    )
+    run_list_calls: list[str] = []
+    download_calls: list[int] = []
+
+    def fake_latest_run(owner_repo, sha):
+        run_list_calls.append(sha)
+        if sha == pub_sha:
+            return {"databaseId": 7, "status": "completed",
+                    "conclusion": "failure", "url": "http://run/7"}
+        return None
+
+    def fake_download_summary(owner_repo, run_id):
+        download_calls.append(run_id)
+        return {"tests_total": 2, "tests_passed": 0, "tests_failed": 2}
+
+    monkeypatch.setattr(ci_sync, "latest_run", fake_latest_run)
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+    monkeypatch.setattr(ci_sync, "download_summary", fake_download_summary)
+
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    workspaces = {w["workspace_id"]: w for w in e.state()["build"]["workspaces"]}
+    # both workspaces got the shared pack's red baseline...
+    assert workspaces["WS-US-1"]["red_baseline"]["conclusion"] == "failure"
+    assert workspaces["WS-US-2"]["red_baseline"]["conclusion"] == "failure"
+    # ...from a single gh lookup and a single artifact download
+    assert run_list_calls.count(pub_sha) == 1
+    assert download_calls == [7]
+
+
+def test_completed_red_baseline_is_not_refetched_on_resync(
+    live_eng_with_github_repo, monkeypatch
+):
+    """A red baseline whose CI run already completed is immutable — the
+    first publication commit never changes and a finished run never re-runs
+    — so a later sync must reuse the stored evidence instead of paying two
+    more gh calls per workspace."""
+    e = live_eng_with_github_repo
+    pub_sha = "a" * 40
+    e.store.append(
+        {"publication_id": "PUB-001", "delivery_pack_id": "PACK-platform-team",
+         "repository": "advisor-portal-signin", "branch": "s7/x", "commit": pub_sha,
+         "published_paths": [], "status": "published", "simulated": False,
+         "published_at": "2026-08-09T00:00:00+00:00", "provenance": "human"},
+        "publications.jsonl",
+    )
+
+    def first_latest_run(owner_repo, sha):
+        if sha == pub_sha:
+            return {"databaseId": 7, "status": "completed",
+                    "conclusion": "failure", "url": "http://run/7"}
+        return None
+
+    monkeypatch.setattr(ci_sync, "latest_run", first_latest_run)
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 2, "tests_passed": 0,
+                                    "tests_failed": 2},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["red_baseline"]["conclusion"] == "failure"
+
+    def second_latest_run(owner_repo, sha):
+        if sha == pub_sha:
+            raise AssertionError(
+                "a completed red baseline must not be re-fetched from gh"
+            )
+        return None
+
+    monkeypatch.setattr(ci_sync, "latest_run", second_latest_run)
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["red_baseline"]["conclusion"] == "failure"
+    assert ws["red_baseline"]["tests_failed"] == 2
+
+
+def test_red_baseline_still_refetched_while_run_is_in_progress(
+    live_eng_with_github_repo, monkeypatch
+):
+    """The reuse shortcut only applies to a *completed* run — a baseline
+    captured while CI was still running must keep refreshing until it
+    finishes, or the badge would freeze on "in progress" forever."""
+    e = live_eng_with_github_repo
+    pub_sha = "a" * 40
+    e.store.append(
+        {"publication_id": "PUB-001", "delivery_pack_id": "PACK-platform-team",
+         "repository": "advisor-portal-signin", "branch": "s7/x", "commit": pub_sha,
+         "published_paths": [], "status": "published", "simulated": False,
+         "published_at": "2026-08-09T00:00:00+00:00", "provenance": "human"},
+        "publications.jsonl",
+    )
+    runs = iter([
+        {"databaseId": 7, "status": "in_progress", "conclusion": None,
+         "url": "http://run/7"},
+        {"databaseId": 7, "status": "completed", "conclusion": "failure",
+         "url": "http://run/7"},
+    ])
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: next(runs) if sha == pub_sha else None,
+    )
+    monkeypatch.setattr(ci_sync, "latest_run_any", lambda owner_repo, sha: None)
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 2, "tests_passed": 0,
+                                    "tests_failed": 2},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    assert e.state()["build"]["workspaces"][0]["red_baseline"]["status"] == "in_progress"
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["red_baseline"]["status"] == "completed"
+    assert ws["red_baseline"]["conclusion"] == "failure"
+
+
 def test_simulated_publication_yields_no_red_baseline(live_eng_with_github_repo):
     eng = live_eng_with_github_repo
     eng.store.append(
@@ -719,6 +866,148 @@ def test_simulated_publication_yields_no_red_baseline(live_eng_with_github_repo)
     assert eng._sync_red_baseline(
         {"url": "https://github.com/AlanLands/advisor-portal-signin"}, ws
     ) is None
+
+
+def _merge_feature_branch_with_pr_message(repo_dir, tmp_path):
+    """Merge feature/us-1 into main on the remote with a GitHub-style PR
+    merge commit, via a fresh clone (the engine's clone stays read-only)."""
+    remote_url = subprocess.run(
+        ["git", "remote", "get-url", "origin"], cwd=repo_dir,
+        check=True, capture_output=True, text=True,
+    ).stdout.strip()
+    dev = tmp_path / "merge-clone"
+    subprocess.run(["git", "clone", "-q", remote_url, str(dev)],
+                    check=True, capture_output=True)
+    _git(dev, "checkout", "main")
+    _git(dev, "merge", "--no-ff", "-m",
+         "Merge pull request #2 from AlanLands/feature/us-1",
+         "origin/feature/us-1")
+    _git(dev, "push", "-q", "origin", "main")
+
+
+def test_real_evidence_flows_onto_task_fields_and_quality_gates(
+    live_eng_with_github_repo, monkeypatch, tmp_path
+):
+    """The quality-handoff conditions read the TASK record — files_changed,
+    pr_ref, ci_status — which only the simulated lifecycle used to write.
+    In a live run with real merged work and real green CI, the sync must
+    write that evidence onto the task, or "Required build checks pass" and
+    "PR and CI evidence exists" stay NOT MET forever."""
+    from s7_delivery.factory import gates
+
+    e = live_eng_with_github_repo
+    repo_dir = e.store.path("repos", "advisor-portal-signin")
+    _merge_feature_branch_with_pr_message(repo_dir, tmp_path)
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 42, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/42",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {
+            "tests_total": 1, "tests_passed": 1, "tests_failed": 0,
+            "tests": [{"name": "test_a", "outcome": "passed"}]},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["ci_status"] == "passed"
+    assert task["pr_ref"] == "#2"
+    assert task["files_changed"] >= 1
+    assert len(task["commit_ref"]) == 40
+    # the workspace view surfaces the git-proven PR instead of blanking it
+    ws = e.state()["build"]["workspaces"][0]
+    assert ws["pull_request"] == "#2"
+    # and the two previously-unreachable gate conditions now hold
+    story = {"story_id": "US-1", "title": "Sign-in",
+             "accountable_team": "Platform", "acceptance_criteria": []}
+    checks = {c["condition"]: c["met"]
+              for c in gates.quality_handoff_rows([story], [task], {}, set())[0]["checks"]}
+    assert checks["Required build checks pass"] is True
+    assert checks["PR and CI evidence exists"] is True
+
+
+def test_real_evidence_reaches_a_protected_task_without_touching_status(
+    live_eng_with_github_repo, monkeypatch, tmp_path
+):
+    """Evidence, not lifecycle state: a completed task keeps its status and
+    progress, but the real commit/PR/CI evidence still lands on it — the
+    gates read these fields regardless of how the task finished."""
+    e = live_eng_with_github_repo
+    tasks = e.store.read_json_or([], "build", "tasks.json")
+    tasks[0]["status"] = "completed"
+    tasks[0]["progress_pct"] = 100
+    tasks[0]["current_activity"] = "Independent review passed"
+    e.store.write_json(tasks, "build", "tasks.json")
+    repo_dir = e.store.path("repos", "advisor-portal-signin")
+    _merge_feature_branch_with_pr_message(repo_dir, tmp_path)
+    monkeypatch.setattr(
+        ci_sync, "latest_run",
+        lambda owner_repo, sha: {"databaseId": 43, "status": "completed",
+                                 "conclusion": "success",
+                                 "url": "https://x/actions/runs/43",
+                                 "workflowName": "S7 CI"},
+    )
+    monkeypatch.setattr(
+        ci_sync, "download_summary",
+        lambda owner_repo, run_id: {"tests_total": 1, "tests_passed": 1,
+                                    "tests_failed": 0},
+    )
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    assert task["status"] == "completed"
+    assert task["progress_pct"] == 100
+    assert task["current_activity"] == "Independent review passed"
+    assert task["ci_status"] == "passed"
+    assert task["pr_ref"] == "#2"
+    assert task["files_changed"] >= 1
+
+
+def test_default_branch_tip_coverage_reaches_all_tasks(
+    live_eng_with_github_repo, monkeypatch, tmp_path
+):
+    """Line coverage is a whole-repo measurement, not a per-story one: a
+    story's own commit's CI run measured the repo as it existed mid-build
+    and understates coverage forever after later stories add code and
+    tests. The default branch tip's run is the current truth — its
+    coverage figure must reach every task in the repo (never lowering),
+    or QC-05 fails on stale history."""
+    e = live_eng_with_github_repo
+    repo_dir = e.store.path("repos", "advisor-portal-signin")
+    _merge_feature_branch_with_pr_message(repo_dir, tmp_path)
+    import subprocess as sp
+    tip_sha = sp.run(
+        ["git", "ls-remote", sp.run(
+            ["git", "remote", "get-url", "origin"], cwd=repo_dir,
+            check=True, capture_output=True, text=True).stdout.strip(),
+         "refs/heads/main"],
+        check=True, capture_output=True, text=True,
+    ).stdout.split()[0]
+
+    def fake_latest_run(owner_repo, sha):
+        if sha == tip_sha:
+            return {"databaseId": 90, "status": "completed",
+                    "conclusion": "success", "url": "http://run/90",
+                    "workflowName": "S7 CI"}
+        return {"databaseId": 80, "status": "completed",
+                "conclusion": "success", "url": "http://run/80",
+                "workflowName": "S7 CI"}
+
+    def fake_download_summary(owner_repo, run_id):
+        if run_id == 90:  # the current default-branch measurement
+            return {"tests_total": 10, "tests_passed": 10, "tests_failed": 0,
+                    "coverage_pct": 92.9}
+        return {"tests_total": 2, "tests_passed": 2, "tests_failed": 0,
+                "coverage_pct": 33.3}
+
+    monkeypatch.setattr(ci_sync, "latest_run", fake_latest_run)
+    monkeypatch.setattr(ci_sync, "download_summary", fake_download_summary)
+    e.workspaces_sync_git(Role.DELIVERY_LEAD)
+    task = {t["task_id"]: t for t in e.state()["build"]["tasks"]}["TASK-001"]
+    # the story's own run said 33.3; the default branch tip says 92.9 now
+    assert task["coverage_pct"] == 92.9
 
 
 def test_per_test_results_flow_into_task_tests(live_eng_with_github_repo, monkeypatch):

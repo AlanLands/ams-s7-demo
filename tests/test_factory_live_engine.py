@@ -330,6 +330,39 @@ def test_live_planning_generate(tmp_path, monkeypatch):
     assert state["build"]["tasks"][0]["story_id"] == "US-001"
 
 
+def test_live_planning_defaults_untraced_story_to_the_requirement(
+    tmp_path, monkeypatch
+):
+    """A scaffolding story the model traces to no business rule (e.g. "set
+    up the application skeleton") still derives from the run's requirement
+    by construction — the same default _build_manual_story applies. Without
+    it, QC-01 flags the story unmapped forever and Final Gating can never
+    pass a plan that honestly includes setup work."""
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (_fake_analysis(), {}),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
+
+    untraced = _fake_story().model_copy(update={"traces_to": []})
+    monkeypatch.setattr(
+        live_intake, "run_plan",
+        lambda epic, analysis, packs, transcript, teams: (
+            [untraced],
+            {"value": 78, "basis": "b", "provenance": "live_ai"},
+            {"text": "why", "provenance": "live_ai"},
+            {},
+        ),
+    )
+    eng.planning_generate(Role.DELIVERY_LEAD)
+    story = eng.state()["planning"]["stories"][0]
+    requirement = eng.store.read_json("intake", "requirement.json")
+    assert story["traces_to"] == [requirement["request_id"]]
+
+
 # --- routing tests ----------------------------------------------------------
 
 

@@ -145,12 +145,29 @@ export function TestEvidence() {
   const rb = ws?.red_baseline
   const redTs = rb?.checked_at ?? at('test-first')
   const redSub = rb
-    ? `${rb.tests_failed ?? '?'} failing on branch — real CI baseline`
+    ? ((rb.tests_failed ?? 0) > 0
+      ? `${rb.tests_failed} failing on branch — real CI baseline`
+      : (rb.conclusion === 'failure'
+        ? 'publication CI failed — real red baseline'
+        : `${rb.tests_failed ?? '?'} failing on branch — real CI baseline`))
     : `${initialFailures} failures expected`
+  // Real evidence fills the timeline in a live run: the developer's latest
+  // pushed commit is the Code step, a completed real CI run is Green.
+  const gitLatest = ws?.git_evidence?.latest
+  const codeTs = gitLatest?.when ?? at('development')
+  const codeSub = gitLatest
+    ? `${ws?.git_evidence?.commit_count ?? 1} real commit(s) pushed`
+    : 'Developer implements'
+  const ciDone = ws?.ci_evidence?.status === 'completed'
+  const ciGreen = ciDone && ws?.ci_evidence?.conclusion === 'success'
+  const greenTs = ciGreen ? ws?.ci_evidence?.checked_at : at('developer-verification')
+  const greenSub = ciDone && ws?.ci_tests_total != null
+    ? `${ws.ci_tests_passed ?? 0}/${ws.ci_tests_total} passing — real CI`
+    : `${passes}/${tests.length} passing`
   const timelineSteps: Array<[string, string, string | undefined, string]> = [
     ['red', 'Red', redTs, redSub],
-    ['code', 'Code', at('development'), 'Developer implements'],
-    ['green', 'Green', at('developer-verification'), `${passes}/${tests.length} passing`],
+    ['code', 'Code', codeTs, codeSub],
+    ['green', 'Green', greenTs, greenSub],
   ]
 
   const doSync = async () => {
@@ -345,9 +362,9 @@ export function TestEvidence() {
         <div className="card info-banner" style={{ marginTop: '10px' }}>
           <Info className="btn-ico" style={{ marginTop: '1px' }} />
           <span>
-            Evidence is collected from configured CI/CD systems — in this demo, from the deterministic
-            simulation engine, badged SIMULATED. Select a build to inspect test results, quality metrics,
-            acceptance-criteria coverage and generated artifacts.
+            {workspaces.some((w) => w.ci_evidence)
+              ? 'Evidence is collected from configured CI/CD systems — here, real GitHub Actions results (badged HUMAN) shown alongside the simulated baseline test plan (badged SIMULATED). Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
+              : 'Evidence is collected from configured CI/CD systems — in this demo, from the deterministic simulation engine, badged SIMULATED. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'}
           </span>
         </div>
       </div>
@@ -358,7 +375,9 @@ export function TestEvidence() {
           {story?.title ? <p className="hint" style={{ marginBottom: '6px' }}>{story.title}</p> : null}
           <div className="drawer-badges" style={{ marginBottom: '8px' }}>
             <span className={`badge ${statusCls}`}>{statusLabel}</span>
-            <Prov provenance={task.provenance} />
+            {/* real CI evidence makes this a human-evidenced record — the
+                simulated baseline plan below keeps its own SIMULATED badge */}
+            <Prov provenance={ws?.ci_evidence ? 'human' : task.provenance} />
           </div>
 
           {ws?.artifact_status === 'stale' ? (

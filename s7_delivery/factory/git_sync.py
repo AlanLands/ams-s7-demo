@@ -111,7 +111,12 @@ def _matching_shas(repo_dir: Path, ids: list[str]) -> list[str]:
     refs = _developer_refs(repo_dir)
     if not refs:
         return []
-    args = ["log", *refs, "--format=%H", "--regexp-ignore-case"]
+    # --no-merges: a merge commit is an integration event, never developer
+    # work — and its message often names the story branch ("Merge pull
+    # request #2 from .../feature/us-1"), which would otherwise let it win
+    # attribution over the commit that did the work. A merge as `latest`
+    # would carry no diff and no ancestry path to the PR that merged it.
+    args = ["log", "--no-merges", *refs, "--format=%H", "--regexp-ignore-case"]
     for artifact_id in ids:
         args.append(f"--grep={artifact_id}")
     out = _git(repo_dir, *args)
@@ -156,6 +161,38 @@ def branch_tip(repo_dir: Path, branch: str) -> str | None:
     return sha or None
 
 
+def files_changed(repo_dir: Path, sha: str) -> int:
+    """Number of files touched by one commit — real build evidence, read
+    locally from the fetched refs."""
+    out = _git(repo_dir, "diff-tree", "--no-commit-id", "--name-only", "-r", sha)
+    return len([line for line in out.splitlines() if line.strip()])
+
+
+_MERGE_PR_RE = re.compile(r"Merge pull request #(\d+)\b")
+_SQUASH_PR_RE = re.compile(r"\(#(\d+)\)\s*$")
+
+
+def _merged_pr_ref(repo_dir: Path, sha: str, subject: str, default_branch: str) -> str:
+    """The PR that brought `sha` into the default branch, when git itself
+    proves one: a GitHub merge commit on the ancestry path names it ("Merge
+    pull request #N from ..."), and a squash merge carries it in the
+    commit's own subject ("... (#N)"). No trace in any message means no
+    claim — blank, never invented."""
+    m = _SQUASH_PR_RE.search(subject)
+    if m:
+        return f"#{m.group(1)}"
+    out = _git(
+        repo_dir, "rev-list", "--merges", "--ancestry-path", "--format=%s",
+        f"{sha}..origin/{default_branch}",
+    )
+    # oldest merge on the path — the one that first brought the commit in
+    for line in reversed(out.splitlines()):
+        m = _MERGE_PR_RE.search(line)
+        if m:
+            return f"#{m.group(1)}"
+    return ""
+
+
 def _reachable_from(repo_dir: Path, sha: str, branch: str) -> bool:
     proc = subprocess.run(
         ["git", "merge-base", "--is-ancestor", sha, f"origin/{branch}"],
@@ -169,21 +206,29 @@ def story_evidence(
 ) -> dict:
     """Evidence for one story from the local clone's origin/* refs.
 
-    Returns {commit_count, latest, branches, merged}; `latest` is None when
-    no commit mentions the story. `merged` means the latest matching commit
-    is reachable from the default branch — i.e. a human merged it.
+    Returns {commit_count, latest, branches, merged, pr_ref}; `latest` is
+    None when no commit mentions the story. `merged` means the latest
+    matching commit is reachable from the default branch — i.e. a human
+    merged it. `pr_ref` is the PR git itself proves brought the work in
+    (see `_merged_pr_ref`), blank otherwise.
     """
     shas = _matching_shas(repo_dir, [story_id, *task_ids])
     if not shas:
-        return {"commit_count": 0, "latest": None, "branches": [], "merged": False}
+        return {"commit_count": 0, "latest": None, "branches": [],
+                "merged": False, "pr_ref": ""}
     latest_sha = shas[0]
     branches: list[str] = []
     for b in _branches_containing(repo_dir, latest_sha):
         if b not in branches:
             branches.append(b)
+    latest = _commit_meta(repo_dir, latest_sha)
+    merged = _reachable_from(repo_dir, latest_sha, default_branch)
     return {
         "commit_count": len(shas),
-        "latest": _commit_meta(repo_dir, latest_sha),
+        "latest": latest,
         "branches": branches,
-        "merged": _reachable_from(repo_dir, latest_sha, default_branch),
+        "merged": merged,
+        "pr_ref": _merged_pr_ref(
+            repo_dir, latest_sha, latest["subject"], default_branch
+        ) if merged else "",
     }

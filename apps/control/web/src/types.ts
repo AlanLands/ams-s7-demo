@@ -556,6 +556,7 @@ export interface DeveloperWorkspace {
     latest: { sha: string; author: string; when: string; subject: string } | null
     branches: string[]
     merged: boolean
+    pr_ref?: string
   } | null
   ci_evidence?: {
     run_id: number

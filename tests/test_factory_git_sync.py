@@ -199,6 +199,84 @@ def live_eng(tmp_path, remote_and_clone):
     return e
 
 
+def test_merge_commit_never_steals_latest_attribution(remote_and_clone):
+    """A merge commit whose message names the story branch ("Merge pull
+    request #2 from .../feature/us-1" — token "us-1") must never become the
+    story's latest commit: merges are integration events, not developer
+    work, and a merge as `latest` has no diff (files_changed 0) and an empty
+    ancestry path (no PR). Deterministic even when commit timestamps tie."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(seed, "feature/us-1", "US-1: implement sign-in page")
+    _git(seed, "checkout", "main")
+    _git(seed, "merge", "--no-ff", "-m",
+         "Merge pull request #2 from AlanLands/feature/us-1", "feature/us-1")
+    _git(seed, "push", "-q", "origin", "main")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert ev["latest"]["subject"] == "US-1: implement sign-in page"
+    assert ev["commit_count"] == 1
+
+
+def test_story_evidence_extracts_pr_from_merge_commit(remote_and_clone):
+    """A GitHub merge commit on the default branch names its PR ("Merge pull
+    request #2 from ...") — that is git-proven, not invented, so it becomes
+    the story's pr_ref."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(seed, "feature/us-1", "US-1: implement sign-in page")
+    _git(seed, "checkout", "main")
+    _git(seed, "merge", "--no-ff", "-m",
+         "Merge pull request #2 from AlanLands/feature/us-1", "feature/us-1")
+    _git(seed, "push", "-q", "origin", "main")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert ev["merged"] is True
+    assert ev["pr_ref"] == "#2"
+
+
+def test_story_evidence_extracts_pr_from_squash_subject(remote_and_clone):
+    """A squash merge carries its PR number in the commit's own subject
+    ("... (#7)") — recognized when the commit sits on the default branch."""
+    _, seed, clone = remote_and_clone
+    _git(seed, "checkout", "main")
+    (seed / "login.py").write_text("# squash\n")
+    _git(seed, "add", ".")
+    _git(seed, "commit", "-m", "US-1: implement sign-in page (#7)")
+    _git(seed, "push", "-q", "origin", "main")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert ev["merged"] is True
+    assert ev["pr_ref"] == "#7"
+
+
+def test_story_evidence_pr_stays_blank_when_unproven(remote_and_clone):
+    """A plain merge with no PR trace in any message proves nothing about a
+    PR — pr_ref stays blank, never invented. Same for unmerged work."""
+    _, seed, clone = remote_and_clone
+    _push_story_commit(seed, "feature/us-1", "US-1: implement sign-in page")
+    git_sync.fetch(clone)
+    assert git_sync.story_evidence(clone, "US-1", [], "main")["pr_ref"] == ""
+    _git(seed, "checkout", "main")
+    _git(seed, "merge", "--no-ff", "-m", "merge US-1 work", "feature/us-1")
+    _git(seed, "push", "-q", "origin", "main")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert ev["merged"] is True
+    assert ev["pr_ref"] == ""
+
+
+def test_files_changed_counts_the_commit_files(remote_and_clone):
+    _, seed, clone = remote_and_clone
+    _git(seed, "checkout", "-B", "feature/us-1")
+    (seed / "login.py").write_text("# login\n")
+    (seed / "styles.css").write_text("body {}\n")
+    _git(seed, "add", ".")
+    _git(seed, "commit", "-m", "US-1: implement sign-in page")
+    _git(seed, "push", "-q", "-u", "origin", "feature/us-1")
+    git_sync.fetch(clone)
+    ev = git_sync.story_evidence(clone, "US-1", [], "main")
+    assert git_sync.files_changed(clone, ev["latest"]["sha"]) == 2
+
+
 def test_sync_requires_live_mode(tmp_path):
     e = Engine.create(DemoMode.SIMULATION, root=tmp_path)
     with pytest.raises(EngineError, match="live"):

@@ -17,6 +17,7 @@ import json
 import os
 import re
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from common.llm import LLMError
@@ -1540,6 +1541,15 @@ class Engine:
         stories, confidence, rationale, usage = live_intake.run_plan(
             epic, analysis, packs, transcript, seed.TEAMS
         )
+        # A scaffolding story traced to no business rule still derives from
+        # the run's requirement by construction — the same default
+        # _build_manual_story applies, or QC-01 flags it unmapped forever.
+        requirement = self.store.read_json_or({}, "intake", "requirement.json")
+        request_id = requirement.get("request_id") or seed.REQUIREMENT.request_id
+        stories = [
+            s if s.traces_to else s.model_copy(update={"traces_to": [request_id]})
+            for s in stories
+        ]
         payloads = [s.model_dump(mode="json") for s in stories]
         self.store.write_json(payloads, "planning", "stories.json")
         self.store.write_json(payloads, "planning", "stories.original.json")
@@ -2447,12 +2457,14 @@ class Engine:
             ev = ws.get("git_evidence")
             if ev and ev.get("commit_count"):
                 # real pushed work wins over the simulated task lifecycle;
-                # what git cannot prove (PR) stays blank, never invented
+                # what git cannot prove stays blank, never invented — but a
+                # PR named by the default branch's own merge commit IS
+                # git-proven (see git_sync._merged_pr_ref)
                 ws["current_commit"] = ev["latest"]["sha"][:7]
                 ws["development_status"] = (
                     "complete" if ev["merged"] else "in_development"
                 )
-                ws["pull_request"] = ""
+                ws["pull_request"] = ev.get("pr_ref", "")
                 ws["ci_status"] = ""
             ci_ev = ws.get("ci_evidence")
             if ci_ev:
@@ -2526,7 +2538,13 @@ class Engine:
             task_ids_by_story.setdefault(t["story_id"], []).append(t["task_id"])
             tasks_by_story[t["story_id"]] = t
         fetched: set[str] = set()
-        synced = 0
+        # One gh lookup per unique commit per sync — workspaces sharing a
+        # delivery pack share a publication commit, and each gh call costs
+        # seconds of real network time.
+        ci_cache: dict = {}
+        # Phase 1, serial: fetch each repo once and read local git evidence
+        # (fast, and a git failure here is a real sync failure).
+        synced_ws: list[tuple[dict, dict, object]] = []
         for ws in workspaces:
             repo = repos.get(ws["repository"])
             repo_dir = self.store.path("repos", ws["repository"])
@@ -2543,12 +2561,75 @@ class Engine:
                 )
             except git_sync.GitSyncError as exc:
                 raise EngineError(str(exc)) from exc
+            synced_ws.append((ws, repo, repo_dir))
+        # Phase 2, parallel: the gh lookups. Each costs ~6s of network
+        # round-trip and they are independent read-only subprocesses, so a
+        # serial walk made sync time grow ~13s per active story. Per-story
+        # CI evidence fans out per workspace; red baselines resolve once per
+        # delivery pack — dedup by construction, not by racing the cache.
+        ci_jobs = [
+            (ws, repo, repo_dir) for ws, repo, repo_dir in synced_ws
+            if (ws.get("git_evidence") or {}).get("latest")
+        ]
+        packs: dict[str, list[tuple[dict, dict]]] = {}
+        for ws, repo, _ in synced_ws:
+            key = ws.get("delivery_pack_id") or ws["workspace_id"]
+            packs.setdefault(key, []).append((ws, repo))
+        # Line coverage is a whole-repo measurement, not a per-story one: a
+        # story's own commit's run measured the repo as it existed mid-build
+        # and understates coverage forever after later stories add code and
+        # tests. The default branch tip's run is the current truth — read it
+        # once per repo and let its figure reach every task in that repo.
+        repo_jobs: dict[str, tuple[dict, object]] = {}
+        for ws, repo, repo_dir in synced_ws:
+            repo_jobs.setdefault(ws["repository"], (repo, repo_dir))
+        repo_tip_coverage: dict[str, float] = {}
+
+        def _collect_tip_coverage(name: str, repo: dict, repo_dir) -> None:
+            tip = git_sync.branch_tip(repo_dir, repo.get("default_branch", ""))
+            if not tip:
+                return
+            evidence = self._ci_run_evidence(repo, tip, cache=ci_cache)
+            if evidence and evidence.get("coverage_pct") is not None:
+                repo_tip_coverage[name] = evidence["coverage_pct"]
+
+        def _collect_ci(job: tuple[dict, dict, object]) -> None:
+            ws, repo, repo_dir = job
             ws["ci_evidence"] = self._sync_ci_evidence(
-                repo, ws["git_evidence"], repo_dir
+                repo, ws["git_evidence"], repo_dir, ci_cache
             )
-            ws["red_baseline"] = self._sync_red_baseline(repo, ws)
+
+        def _collect_baseline(pack_members: list[tuple[dict, dict]]) -> None:
+            # any member with a completed stored baseline lets every member
+            # skip the refetch (they share the publication commit)
+            rep_ws = next(
+                (w for w, _ in pack_members
+                 if (w.get("red_baseline") or {}).get("status") == "completed"),
+                pack_members[0][0],
+            )
+            baseline = self._sync_red_baseline(
+                pack_members[0][1], rep_ws, ci_cache
+            )
+            for w, _ in pack_members:
+                w["red_baseline"] = dict(baseline) if baseline else None
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            futures = [pool.submit(_collect_ci, job) for job in ci_jobs]
+            futures += [
+                pool.submit(_collect_baseline, members)
+                for members in packs.values()
+            ]
+            futures += [
+                pool.submit(_collect_tip_coverage, name, repo, repo_dir)
+                for name, (repo, repo_dir) in repo_jobs.items()
+            ]
+            for f in futures:
+                f.result()
+        for ws, _, _ in synced_ws:
+            if not (ws.get("git_evidence") or {}).get("latest"):
+                ws["ci_evidence"] = None
             ws["last_sync_at"] = now_iso()
-            synced += 1
+        synced = len(synced_ws)
         if not synced:
             raise EngineError(
                 "No workspace repository has a local clone to sync from"
@@ -2600,6 +2681,30 @@ class Engine:
             # Review" can never unlock.
             if not git_ev.get("commit_count"):
                 continue
+            # Real execution evidence lands on the TASK record — the single
+            # source of truth the quality-handoff conditions read
+            # (files_changed, pr_ref, ci_status). Evidence, not lifecycle
+            # state: it reaches protected tasks too, and real git-proven
+            # values replace anything the simulated lifecycle invented.
+            evidence_fields = {
+                "commit_ref": git_ev["latest"]["sha"],
+                "files_changed": git_sync.files_changed(
+                    self.store.path("repos", ws["repository"]),
+                    git_ev["latest"]["sha"],
+                ),
+            }
+            if git_ev.get("pr_ref"):
+                evidence_fields["pr_ref"] = git_ev["pr_ref"]
+            mapped_ci = self._CI_CONCLUSION_MAP.get(
+                (ci.get("conclusion") or ci.get("status") or ""), ""
+            )
+            if mapped_ci:
+                evidence_fields["ci_status"] = mapped_ci
+            for task in story_tasks:
+                for field, value in evidence_fields.items():
+                    if task.get(field) != value:
+                        task[field] = value
+                        tasks_changed = True
             # Real line coverage (jacoco.xml / coverage.xml, parsed in the
             # workflow itself) flows straight into the task's own
             # coverage_pct — the same field QC-05 already reads. Coverage is
@@ -2610,6 +2715,11 @@ class Engine:
             # of the None a live run produced before any tooling parsed a
             # report. Never lowers a coverage figure already recorded.
             coverage_pct = ci.get("coverage_pct")
+            tip_coverage = repo_tip_coverage.get(ws["repository"])
+            if tip_coverage is not None:
+                # the current whole-repo figure supersedes the historical
+                # per-story snapshot (still never lowering)
+                coverage_pct = max(coverage_pct or 0, tip_coverage)
             if coverage_pct is not None:
                 for task in story_tasks:
                     new_coverage = max(task.get("coverage_pct") or 0, coverage_pct)
@@ -2697,16 +2807,38 @@ class Engine:
         ]
 
     def _ci_run_evidence(
-        self, repo: dict, sha: str, *, fallback_any: bool = False
+        self, repo: dict, sha: str, *, fallback_any: bool = False,
+        cache: dict | None = None,
     ) -> dict | None:
         """Best-effort real CI lookup for one commit. Never raises: a gh
         failure, an unresolvable owner/repo, or no run yet all mean "no CI
-        evidence yet", not a sync failure."""
+        evidence yet", not a sync failure.
+
+        `cache` memoizes results within one sync: workspaces provisioned
+        from the same delivery pack share a publication commit, and each gh
+        invocation costs seconds of network time — the same sha must not be
+        looked up once per workspace. Cached entries are returned as
+        top-level copies because callers annotate the result in place
+        (`from_branch_tip`)."""
         from s7_delivery.factory import ci_sync
 
         owner_repo = ci_sync.owner_repo_from_url(repo.get("url", ""))
         if owner_repo is None:
             return None
+        key = (owner_repo, sha, fallback_any)
+        if cache is not None and key in cache:
+            hit = cache[key]
+            return dict(hit) if hit is not None else None
+        evidence = self._ci_run_evidence_uncached(
+            ci_sync, owner_repo, sha, fallback_any=fallback_any
+        )
+        if cache is not None:
+            cache[key] = dict(evidence) if evidence is not None else None
+        return evidence
+
+    def _ci_run_evidence_uncached(
+        self, ci_sync, owner_repo: str, sha: str, *, fallback_any: bool
+    ) -> dict | None:
         try:
             run = ci_sync.latest_run(owner_repo, sha)
             if run is None and fallback_any:
@@ -2743,7 +2875,8 @@ class Engine:
         return evidence
 
     def _sync_ci_evidence(
-        self, repo: dict, git_evidence: dict, repo_dir
+        self, repo: dict, git_evidence: dict, repo_dir,
+        cache: dict | None = None,
     ) -> dict | None:
         """Real CI evidence for a story's latest attributed commit.
 
@@ -2758,7 +2891,9 @@ class Engine:
         latest = git_evidence.get("latest")
         if not latest:
             return None
-        evidence = self._ci_run_evidence(repo, latest["sha"], fallback_any=True)
+        evidence = self._ci_run_evidence(
+            repo, latest["sha"], fallback_any=True, cache=cache
+        )
         if evidence is not None:
             return evidence
         branches = git_evidence.get("branches") or []
@@ -2769,18 +2904,28 @@ class Engine:
         tip_sha = git_sync.branch_tip(repo_dir, branches[0])
         if not tip_sha or tip_sha == latest["sha"]:
             return None
-        evidence = self._ci_run_evidence(repo, tip_sha, fallback_any=True)
+        evidence = self._ci_run_evidence(
+            repo, tip_sha, fallback_any=True, cache=cache
+        )
         if evidence is not None:
             evidence["from_branch_tip"] = tip_sha
         return evidence
 
-    def _sync_red_baseline(self, repo: dict, ws: dict) -> dict | None:
+    def _sync_red_baseline(
+        self, repo: dict, ws: dict, cache: dict | None = None
+    ) -> dict | None:
         """The S7 CI run for this workspace's *first* real publication commit
         — the genuinely-failing skeletons as they were published, before any
         developer work existed. The earliest publication, deliberately: a
         republish after the work merged would put a green run behind the words
         "red baseline", which is exactly the mislabelling the badge exists to
-        prevent. Simulated publications have no CI run and never invent one."""
+        prevent. Simulated publications have no CI run and never invent one.
+
+        A stored baseline whose run already completed is immutable — the
+        first publication commit never changes and a finished run never
+        re-runs — so it is reused as-is instead of paying two more gh calls
+        per workspace on every sync. A baseline captured while CI was still
+        running keeps refreshing until it completes."""
         pubs = [
             p for p in self.store.read_ledger("publications.jsonl")
             if p["delivery_pack_id"] == ws.get("delivery_pack_id")
@@ -2788,7 +2933,18 @@ class Engine:
         ]
         if not pubs:
             return None
-        return self._ci_run_evidence(repo, pubs[0]["commit"])
+        commit = pubs[0]["commit"]
+        stored = ws.get("red_baseline")
+        if (
+            stored
+            and stored.get("status") == "completed"
+            and stored.get("commit") == commit
+        ):
+            return stored
+        evidence = self._ci_run_evidence(repo, commit, cache=cache)
+        if evidence is not None:
+            evidence["commit"] = commit
+        return evidence
 
     def _refresh_task_evidence_files(
         self, workspaces: list[dict], tasks_by_story: dict[str, dict]
