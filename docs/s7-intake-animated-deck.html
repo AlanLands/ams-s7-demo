@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapleSure S7 — Intake | Animated Story Deck</title>
+<style>
+:root{
+  --ink:#292923;--text:#36362f;--muted:#66655b;
+  --bg:#f2f2ef;--surface:#fff;--surface2:#fafaf8;
+  --border:#d8d8d3;--border2:#b6b5ac;
+  --red:#a20a29;--red2:#850822;--redp:#f8e9ed;
+  --green:#125c43;--greenp:#dff0e8;
+  --amber:#806112;--amberp:#fbefd6;
+  --blue:#2d6597;--bluep:#eaf3fb;
+  --purple:#6b4ca1;--purplep:#f0ebf9;
+  --radius:14px;--radius-sm:9px;--pill:999px;
+  --shadow:0 10px 35px rgba(40,40,35,.08);
+  --shadow-sm:0 2px 8px rgba(40,40,35,.06);
+  --font:"Segoe UI",Inter,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text)}
+button{font:inherit}
+code,.mono{font-family:var(--mono)}
+.brandline{position:fixed;z-index:1000;top:0;left:0;right:0;height:4px;background:var(--red)}
+.top{
+  position:fixed;z-index:999;top:4px;left:0;right:0;height:64px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 30px;
+  background:rgba(255,255,255,.97);border-bottom:1px solid var(--border)
+}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:36px;height:36px;border-radius:8px;background:var(--red);color:#fff;display:grid;place-items:center;font-weight:800;font-family:Georgia,serif}
+.brand small{display:block;color:var(--red);font-size:9px;text-transform:uppercase;letter-spacing:.13em;font-weight:800}.brand b{font-size:14px}
+.topright{display:flex;gap:8px}.pill{padding:6px 11px;border:1px solid var(--border2);border-radius:var(--pill);font-size:11px;font-weight:700;background:var(--surface2);color:var(--muted)}
+.pill.safe{color:var(--green);background:var(--greenp);border-color:#9acbb7}
+.progress{position:fixed;z-index:1000;top:67px;height:3px;background:var(--red);transition:width .25s}
+.deck{position:fixed;inset:70px 0 54px}
+.slide{position:absolute;inset:0;display:none;padding:20px clamp(28px,4vw,64px);overflow:auto}
+.slide.active{display:flex;align-items:center}
+.inner{width:min(1280px,100%);margin:auto}
+.kicker{font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-weight:800;color:var(--red)}
+h1{font-size:clamp(36px,5.1vw,64px);line-height:1.02;letter-spacing:-.045em;color:var(--ink)}
+h2{font-size:clamp(24px,3vw,36px);line-height:1.08;letter-spacing:-.03em;color:var(--ink)}
+h3{font-size:16px;letter-spacing:-.015em;color:var(--ink)}
+.lede{font-size:clamp(17px,1.6vw,21px);line-height:1.5;color:var(--muted);max-width:76ch}
+.sub{font-size:13px;color:var(--muted);line-height:1.5}
+.mini{font-size:10.5px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card.pad{padding:20px}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--pill);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border:1px solid}
+.badge.green{color:var(--green);background:var(--greenp);border-color:#8fc3ad}.badge.blue{color:var(--blue);background:var(--bluep);border-color:#abc8e5}.badge.red{color:var(--red2);background:var(--redp);border-color:#df9cab}.badge.amber{color:#674c0c;background:var(--amberp);border-color:#dfbd6c}.badge.grey{color:var(--muted);background:var(--surface2);border-color:var(--border2)}
+.status{display:inline-flex;padding:4px 7px;border-radius:6px;font-size:8.5px;font-weight:850;border:1px solid}
+.status.ok{background:var(--greenp);color:var(--green);border-color:#a5cfbd}.status.info{background:var(--bluep);color:var(--blue);border-color:#b9d1e8}.status.warn{background:var(--amberp);color:#6c500e;border-color:#e1bf74}.status.bad{background:var(--redp);color:var(--red2);border-color:#df9cab}
+.browser{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.browser-head{min-height:46px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:8px 18px;background:#fff}
+.browser-head b{font-size:14px}
+.browser-body{padding:14px}
+.kv{display:grid;grid-template-columns:78px 1fr;gap:6px;font-size:10.5px;margin:5px 0}.kv span:first-child{color:var(--muted)}
+.pack-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:10.5px}
+.callout{padding:13px 16px;border-radius:12px;background:var(--bluep);border-left:4px solid var(--blue);font-size:12px;line-height:1.45;color:#385671}
+.callout.red{background:var(--redp);border-left-color:var(--red);color:#6e2738}
+.btn{border-radius:9px;padding:8px 13px;border:1px solid var(--border2);background:#fff;font-size:11px;font-weight:800;color:var(--text);cursor:default}
+.btn.green{background:var(--green);border-color:var(--green);color:#fff}
+.btn.blue{color:var(--blue);border-color:#9cbde0}
+.foot{position:fixed;z-index:1000;bottom:0;left:0;right:0;height:54px;background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:11px;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:9px}.nav button{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:#fff;cursor:pointer}.nav button:hover{border-color:var(--red);color:var(--red)}
+.counter{font-family:var(--mono);font-weight:800;min-width:60px;text-align:center}
+.hint{font-size:10.5px;color:var(--muted)}
+.reveal>*{opacity:0;animation:up .45s ease forwards}.reveal>*:nth-child(2){animation-delay:.08s}.reveal>*:nth-child(3){animation-delay:.16s}.reveal>*:nth-child(4){animation-delay:.24s}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.hero-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:36px;align-items:center}
+.journey{display:flex;flex-direction:column;gap:9px;margin-top:14px}
+.journey .jstep{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:#fff;font-size:12px}
+.journey .jstep i{font-style:normal;width:24px;height:24px;flex:none;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:850}
+.journey .jstep small{display:block;color:var(--muted);font-size:10px;margin-top:1px}
+
+/* ===== step engine ===== */
+[data-at]:not(.lit){opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+[data-at]:not(.lit).on{opacity:1;transform:none}
+.stepdots{display:flex;align-items:center;gap:6px}
+.stepdots i{width:9px;height:9px;border-radius:50%;background:#ddddd8;border:1px solid var(--border2);transition:.3s}
+.stepdots i.hit{background:var(--red);border-color:var(--red)}
+.beatlabel{font-size:11px;font-weight:800;color:var(--muted);min-width:120px;text-align:right}
+.stat{display:none}
+.slide[data-step="0"] .stat[data-s="0"],
+.slide[data-step="1"] .stat[data-s="1"],
+.slide[data-step="2"] .stat[data-s="2"],
+.slide[data-step="3"] .stat[data-s="3"],
+.slide[data-step="4"] .stat[data-s="4"]{display:inline-flex}
+
+/* ===== intake mockup ===== */
+.intake-grid{display:grid;grid-template-columns:1fr 44px 1.25fr;align-items:stretch;gap:12px}
+.srccard,.extcard{padding:14px 16px}
+.midarrow{display:grid;place-items:center;font-size:28px;color:var(--blue)}
+.dz{position:relative;height:148px;border:2px dashed #c5c7c5;border-radius:12px;display:grid;place-items:center;margin-top:10px;text-align:center;transition:border-color .5s,background .5s;overflow:hidden}
+.dz.lit.on{border-color:var(--red);background:#fffafb}
+.dz-idle{transition:opacity .6s,filter .6s}
+.dz-idle .up{font-size:30px;color:var(--blue)}
+.dz-idle.lit.on{opacity:.14;filter:blur(1.5px)}
+.flychip{position:absolute;left:50%;top:16px;transform:translateX(-50%);width:min(250px,86%);margin-left:0;background:#fff;border:1px solid var(--border);border-radius:11px;box-shadow:var(--shadow);padding:10px 12px;display:flex;align-items:center;gap:9px;text-align:left;opacity:0}
+.flychip .fico{width:30px;height:34px;flex:none;border-radius:5px;background:var(--bluep);border:1px solid #abc8e5;display:grid;place-items:center;font-size:15px}
+.flychip b{font-size:10.5px;display:block}.flychip small{font-size:9px;color:var(--muted)}
+.flychip.on{animation:fly 1.05s cubic-bezier(.22,.75,.25,1) both}
+@keyframes fly{
+  0%{opacity:0;transform:translateX(-50%) translate(-260px,-150px) rotate(-9deg) scale(.85)}
+  22%{opacity:1}
+  75%{transform:translateX(-50%) translate(0,7px) rotate(1.5deg)}
+  100%{opacity:1;transform:translateX(-50%) translate(0,0) rotate(0)}
+}
+.upwrap{position:absolute;left:14%;right:14%;top:84px}
+.upbar{height:5px;background:#ececea;border-radius:99px;overflow:hidden}
+.upbar i{display:block;height:100%;width:0;background:var(--red);transition:width .8s ease .85s}
+.upwrap.on .upbar i{width:100%}
+.updone{position:absolute;left:0;right:0;top:104px;display:grid;place-items:center}
+.updone .status.on{transition-delay:1.75s!important}
+.extcard{position:relative}
+.ph{position:absolute;inset:52px 16px 16px;display:grid;place-items:center;border-radius:10px;background:var(--surface2);color:var(--muted);font-size:11.5px;transition:opacity .5s,visibility .5s}
+.ph.lit.on{opacity:0;visibility:hidden}
+.ext .rrow{opacity:0;transform:translateY(9px);transition:opacity .45s ease,transform .45s ease}
+.ext.on .rrow{opacity:1;transform:none}
+.reqlist{display:grid;gap:6px;margin-top:9px}
+/* ===== routing ===== */
+.route{margin-top:12px}
+.verdict{display:flex;align-items:center;gap:14px;padding:10px 14px;border:1px solid var(--border);border-radius:11px;background:var(--surface2);flex-wrap:wrap}
+.verdict .vl{font-size:11px;font-weight:850;color:var(--ink)}
+.meter{flex:1;min-width:140px;max-width:320px;height:8px;border-radius:99px;background:#e7e7e3;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),#c94b62);transition:width 1s ease .45s}
+.route.on .meter i{width:87%}
+.conf{font-size:11px;font-weight:850;color:var(--red)}
+.override{display:inline-flex;align-items:center;gap:7px;font-size:9.5px;font-weight:800;color:var(--muted);border:1px solid var(--border2);border-radius:var(--pill);padding:5px 10px;background:#fff}
+.override .seg{display:inline-flex;border:1px solid var(--border2);border-radius:7px;overflow:hidden}
+.override .seg span{padding:3px 8px;font-size:9px;font-weight:850}
+.override .seg span.sel{background:var(--greenp);color:var(--green)}
+.branches{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.branch{padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:#fff;transition:opacity .5s,transform .5s}
+.branch.ex{border-color:#8fc3ad;background:#fcfffd}
+.branch h4{font-size:13.5px;color:var(--ink);margin-top:7px}
+.branch p{font-size:10.5px;color:var(--muted);line-height:1.45;margin-top:5px}
+.stackrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:9px}
+.stackrow .sl{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:var(--pill);font-size:9.5px;font-weight:800;background:var(--bluep);color:var(--blue);border:1px solid #b9d1e8}
+.chip.dim{background:var(--surface2);color:var(--muted);border-color:var(--border2)}
+.route .branch{opacity:0;transform:translateY(10px)}
+.route.on .branch{opacity:1;transform:none}
+.route.on .branch.ex{transition-delay:.55s}
+.route.on .branch.nw{transition-delay:.75s}
+/* ===== clarification ===== */
+.qrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.qcard{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#fff}
+.qcard.exq{border-left:4px solid var(--green)}
+.qcard.nwq{border-left:4px solid var(--blue)}
+.qcard h5{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.qcard ul{list-style:none;margin-top:8px;display:grid;gap:6px}
+.qcard li{font-size:11px;line-height:1.4;padding-left:20px;position:relative}
+.qcard li:before{content:"?";position:absolute;left:0;top:0;width:14px;height:14px;border-radius:50%;background:var(--redp);color:var(--red);font-size:9px;font-weight:850;display:grid;place-items:center}
+.converge{display:flex;justify-content:center;margin-top:12px}
+.converge .node{display:inline-flex;align-items:center;gap:9px;padding:9px 16px;border-radius:var(--pill);background:var(--ink);color:#fff;font-size:11.5px;font-weight:800}
+.converge .node small{font-weight:600;color:#cfcfc8;font-size:10px}
+/* ===== planning: epic → stories ===== */
+.epicbar{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:13px 16px}
+.reqchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.reqchips .chip{background:var(--surface2);color:var(--muted);border-color:var(--border2)}
+.genbtn{padding:11px 18px;min-width:210px;position:relative;border-radius:10px;border:1px solid var(--red);background:var(--red);color:#fff;font-weight:800;font-size:12px;cursor:default;white-space:nowrap;transition:background .35s ease .95s,border-color .35s ease .95s}
+.genbtn .gb0,.genbtn .gb1{transition:opacity .25s ease .95s}
+.genbtn .gb1{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0}
+.slide:not([data-step="0"]) .genbtn{background:var(--green);border-color:var(--green);animation:pressbtn .3s ease .78s}
+.slide:not([data-step="0"]) .gb0{opacity:0}
+.slide:not([data-step="0"]) .gb1{opacity:1}
+@keyframes pressbtn{50%{transform:scale(.92)}}
+.epicbar{position:relative}
+.clickcur{position:absolute;right:160px;top:54%;width:26px;height:26px;opacity:0;pointer-events:none;z-index:5;filter:drop-shadow(0 2px 5px rgba(40,40,35,.35))}
+.clickcur.on{animation:curfly 1.5s cubic-bezier(.3,.7,.3,1) both}
+.cwrap{position:relative;display:inline-flex}
+.cwrap .clickcur{right:20px;top:50%;margin-top:-13px}
+@keyframes curfly{
+  0%{opacity:0;transform:translate(-360px,180px) scale(1)}
+  14%{opacity:1}
+  52%{transform:translate(0,0) scale(1)}
+  60%{transform:translate(0,0) scale(.78)}
+  70%{transform:translate(0,0) scale(1)}
+  86%{opacity:1}
+  100%{opacity:0;transform:translate(8px,-8px) scale(1)}
+}
+.stories{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+.ucard{padding:11px 13px;position:relative}
+.ucard h4{font-size:12.5px;color:var(--ink);margin-top:6px}
+.ucard .desc{font-size:10px;color:var(--muted);line-height:1.4;margin-top:4px}
+.ucard .meta{font-size:9.5px;color:var(--muted);margin-top:6px;font-family:var(--mono)}
+.dep{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font-size:9.5px;font-weight:800;color:var(--muted);border:1px solid var(--border2);border-radius:7px;padding:4px 9px;background:#fff}
+.dep .val{font-family:var(--mono);color:var(--ink)}
+.dep .caret{font-size:8px}
+.slide[data-step="3"] .dep.editable{border-color:var(--red);background:var(--redp);animation:pulse .7s ease 2}
+@keyframes pulse{50%{transform:scale(1.06)}}
+.slide[data-step="3"] .dv0{display:none}
+.slide:not([data-step="3"]) .dv1{display:none}
+.humanedit{position:absolute;top:-10px;right:10px}
+.mapwrap{margin-top:12px;padding:13px 16px}
+.depmap{position:relative;height:175px;margin-top:8px}
+.depmap svg{position:absolute;inset:0;width:100%;height:100%}
+.depmap path{fill:none;stroke:var(--border2);stroke-width:2.5;stroke-dasharray:1400 1400;stroke-dashoffset:1400;transition:stroke-dashoffset 1s ease .35s,opacity .6s,stroke .6s}
+.mapwrap.on .pA,.mapwrap.on .pB{stroke-dashoffset:0}
+.depmap .pC{opacity:0}
+.slide[data-step="3"] .pB{stroke-dashoffset:1400;opacity:.15;transition:stroke-dashoffset .9s ease,opacity .9s}
+.slide[data-step="3"] .pC{stroke-dashoffset:0;stroke:var(--red);opacity:1;transition:stroke-dashoffset 1s ease .5s,opacity .2s ease .4s}
+.dnode{position:absolute;top:96px;width:17%;padding:9px 11px;border:1.5px solid var(--border2);border-radius:11px;background:#fff;text-align:center;box-shadow:var(--shadow-sm)}
+.dnode b{font-family:var(--mono);font-size:11px}
+.dnode small{display:block;font-size:9px;color:var(--muted);margin-top:3px;font-weight:800}
+.slide[data-step="3"] .wv0{display:none}
+.slide:not([data-step="3"]) .wv1{display:none}
+.mapnote{margin-top:10px;font-size:11px}
+.slide[data-step="3"] .mn0{display:none}
+.slide:not([data-step="3"]) .mn1{display:none}
+/* ===== planning views ===== */
+.grid3p{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px}
+.pv{padding:15px 16px;position:relative}
+.pv h3{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.edittag{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:var(--pill);font-size:8.5px;font-weight:850;background:var(--amberp);color:#674c0c;border:1px solid #dfbd6c}
+.pvrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;font-size:10.5px;margin-top:7px}
+.pvrow .pencil{color:var(--muted);font-size:10px}
+.repobox{border:1px solid var(--border);border-radius:10px;padding:9px 11px;margin-top:8px;background:var(--surface2)}
+.repobox b{font-family:var(--mono);font-size:10.5px}
+.repobox .chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+/* ===== self-learning ===== */
+.learnrow{display:grid;grid-template-columns:1fr 30px 1fr 30px 1fr;align-items:stretch;gap:0;margin-top:16px}
+.learnrow .fa{display:grid;place-items:center;color:var(--border2);font-size:20px}
+.lbox{padding:14px 15px}
+.lico{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:17px;font-weight:900;margin-bottom:9px}
+.lico.b{background:var(--bluep);color:var(--blue)}.lico.r{background:var(--redp);color:var(--red)}.lico.g{background:var(--greenp);color:var(--green)}
+.lbox h3{font-size:14.5px}
+.lbox .say{font-size:11px;color:var(--muted);line-height:1.5;margin-top:5px}
+.playbook{border:1px solid var(--border);border-radius:10px;margin-top:10px;overflow:hidden;background:#fff}
+.pbh{padding:7px 11px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:850;display:flex;align-items:center;gap:6px}
+.playbook ul{list-style:none;padding:8px 10px;display:grid;gap:5px}
+.playbook li{font-size:10px;line-height:1.45;color:var(--text)}
+.playbook li.dim{color:var(--muted)}
+.playbook li.newrule{background:var(--greenp);border:1px solid #a5cfbd;border-radius:7px;padding:6px 8px;color:var(--green);font-weight:800;opacity:0;transform:translateY(6px);transition:opacity .5s ease .7s,transform .5s ease .7s}
+.lbox.on .newrule{opacity:1;transform:none}
+.resultgrid{display:grid;grid-template-columns:1.2fr 1fr;gap:22px;align-items:center;margin-top:14px;padding:16px 20px}
+.learnrow .fa svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.loopback{position:relative;height:54px;margin-top:2px}
+.loopback svg{position:absolute;inset:0;width:100%;height:100%}
+.loopback path{fill:none;stroke:#1c7a5a;stroke-width:2;stroke-dasharray:6 5}
+.loopback span{position:absolute;left:50%;top:22px;transform:translateX(-50%);background:var(--greenp);border:1px solid #a5cfbd;color:var(--green);font-size:10px;font-weight:850;padding:4px 13px;border-radius:999px;white-space:nowrap}
+.diff{font-family:var(--mono);font-size:9.5px;line-height:1.6;margin-top:9px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.diff div{padding:4px 9px}
+.diff .del{background:var(--redp);color:var(--red2);text-decoration:line-through}
+.diff .add{background:var(--greenp);color:var(--green)}
+.bars{display:flex;gap:26px;align-items:flex-end;height:110px;margin-top:14px;padding:0 8px}
+.barcol{display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
+.bar{width:52px;height:8%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,#c94b62,var(--red));transition:height 1s ease .3s;position:relative}
+.bar em{position:absolute;top:-20px;left:0;right:0;text-align:center;font-style:normal;font-size:11px;font-weight:850;color:var(--ink)}
+.barwrap.on .bar.b1{height:60%}
+.barwrap.on .bar.b2{height:70%;transition-delay:.7s}
+.barwrap.on .bar.b3{height:80%;transition-delay:1.1s}
+.barcol small{font-size:9px;color:var(--muted);font-weight:800}
+/* ===== sign-off & export ===== */
+.gategrid{display:grid;grid-template-columns:1.1fr 1fr;gap:14px}
+.signer{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid #8fc3ad;border-radius:11px;background:#fcfffd;margin-top:11px}
+.signer .avatar{width:38px;height:38px;border-radius:50%;background:var(--green);color:#fff;display:grid;place-items:center;font-weight:850}
+.pkg{border:1.5px solid var(--border2);border-radius:12px;background:var(--surface2);margin-top:11px}
+.pkgh{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 12px;background:#fff;border-bottom:1px solid var(--border);border-radius:10px 10px 0 0}
+.pkgh b{font-size:11px}
+.pkgh .chips{display:flex;gap:5px}
+.filecard{display:flex;gap:11px;align-items:flex-start;padding:9px 11px;border:1px solid var(--border);border-radius:10px;background:#fff;margin:8px 10px;position:relative;cursor:zoom-in;transition:transform .35s cubic-bezier(.2,.8,.3,1),box-shadow .35s ease,border-color .35s}
+.filecard:hover{transform:scale(1.03) translateY(-1px);z-index:60;box-shadow:0 8px 26px rgba(40,40,35,.14);border-color:var(--border2)}
+.peek{max-height:0;opacity:0;overflow:hidden;margin-top:0;border:1px solid var(--border);border-left:3px solid var(--red);border-radius:6px;background:var(--surface2);padding:0 8px;font-family:var(--mono);font-size:8.5px;line-height:1.65;color:var(--text);white-space:pre-wrap;transition:max-height .45s cubic-bezier(.2,.8,.3,1),opacity .4s ease .08s,margin-top .45s,padding .45s}
+.filecard:hover .peek{max-height:170px;opacity:1;margin-top:8px;padding:6px 8px}
+.filecard .fico{width:34px;height:34px;flex:none;border-radius:9px;display:grid;place-items:center;font-size:15px}
+.filecard .fico.b{background:var(--bluep);color:var(--blue)}.filecard .fico.g{background:var(--greenp);color:var(--green)}.filecard .fico.p{background:var(--purplep);color:var(--purple)}
+.filecard b{font-family:var(--mono);font-size:10px}
+.filecard .fl{font-size:10px;font-weight:850;color:var(--ink)}
+.filecard p{font-size:9.5px;color:var(--muted);line-height:1.4;margin-top:2px}
+.gitrow{display:grid;grid-template-columns:1fr 44px 1fr;align-items:center;gap:10px;margin-top:14px}
+.gitbox{padding:13px 15px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.branchchip{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;font-weight:800;padding:5px 10px;border-radius:7px;background:var(--purplep);color:var(--purple);border:1px solid #c4b2e4;margin-top:8px}
+/* ===== build & review ===== */
+.archgrid{display:grid;grid-template-columns:1.3fr 1fr;gap:14px}
+.archcanvas{position:relative;height:330px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(#fff,#fbfbfa);overflow:hidden}
+.anode{position:absolute;width:18%;padding:8px 6px;border:1.5px solid #abc9e6;border-radius:9px;background:#f5faff;font-size:10px;font-weight:800;text-align:center;box-shadow:var(--shadow-sm)}
+.anode small{display:block;font-weight:650;font-size:8px;color:var(--muted);margin-top:2px}
+.anode.new{border-color:#dca0ad;background:#fff5f7}
+.anode.data{border-color:#c4b4e4;background:#f8f5fd}
+.anode.ext{border-color:#dec47e;background:#fff9eb}
+.anode.oos{border-style:dashed;opacity:.7}
+.archcanvas svg{position:absolute;inset:0;width:100%;height:100%}
+.archcanvas svg line{stroke:#9da6b1;stroke-width:1.5}
+.archcanvas svg line.dash{stroke-dasharray:5 4;stroke:#c9a94e;stroke-width:1.8}
+.archlegend{position:absolute;left:10px;bottom:8px;display:flex;gap:10px;font-size:8.5px;color:var(--muted);font-weight:700}
+.archlegend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.factrow{display:grid;grid-template-columns:92px 1fr;gap:8px;font-size:10.5px;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:7px}
+.factrow span:first-child{color:var(--muted);font-weight:800;font-size:9.5px}
+.packgrid{display:grid;grid-template-columns:1fr 1.35fr;gap:14px}
+.teampack{padding:12px 14px;position:relative;margin-bottom:10px}
+.teampack h4{font-size:13px;color:var(--ink)}
+.teampack .duty{font-size:10.5px;color:var(--muted);line-height:1.45;margin-top:4px}
+.packrow{display:grid;grid-template-columns:1fr 34px 1.5fr;gap:0;align-items:stretch;margin-bottom:12px}
+.packrow .fa{display:grid;place-items:center;color:var(--border2);font-size:20px}
+.pline{display:flex;gap:7px;align-items:baseline;font-size:10.5px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:#fff;margin-top:6px;line-height:1.4}
+.pline b{color:var(--ink);white-space:nowrap}
+.pline span{color:var(--muted)}
+.wsplit{display:grid;grid-template-columns:1fr 1.15fr;gap:14px;align-items:start}
+.devstep{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;margin-bottom:10px}
+.devstep .lico{margin-bottom:0;flex:none;width:36px;height:36px;font-size:15px}
+.devstep h4{font-size:13px;color:var(--ink)}
+.devstep p{font-size:10.5px;color:var(--muted);line-height:1.45;margin-top:3px}
+.dashpanel{padding:13px 15px;border:1.5px solid var(--border2);border-radius:12px;background:var(--surface2)}
+.dashpanel .pvrow{background:#fff}
+.learnstrip{display:flex;align-items:center;gap:9px;margin-top:12px;padding:9px 13px;border:1px dashed #c9a94e;border-radius:10px;background:var(--amberp);font-size:10.5px;color:#674c0c}
+/* mini replica of the real Control Centre */
+.appmock{border:1px solid #85847a;border-radius:8px;overflow:hidden;background:#f0f0ec;box-shadow:var(--shadow);font-family:'Source Sans 3','Source Sans Pro',-apple-system,'Segoe UI',sans-serif}
+.appmock-top{display:flex;align-items:center;gap:7px;background:#fff;border-bottom:1px solid #d2d2cf;padding:7px 10px}
+.appmock-top .amark{width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;font-size:8px;font-weight:800;display:grid;place-items:center;font-family:Georgia,serif}
+.appmock-top b{font-size:9.5px;color:#36362f}
+.appmock-top small{font-size:6.5px;letter-spacing:.12em;color:var(--red);font-weight:800;display:block;text-transform:uppercase}
+.appmock-top .runchip{margin-left:auto;font-family:var(--mono);font-size:8.5px;border:1px solid #d2d2cf;padding:2px 7px;color:var(--red);font-weight:800;background:#fff}
+.appmock-top .envchip{font-size:8px;border:1px solid #d2d2cf;padding:2px 7px;color:#525146;background:#fff}
+.appmock-step{display:flex;align-items:center;gap:4px;background:#fff;border-bottom:1px solid #d2d2cf;padding:5px 10px;font-size:7.5px;color:#525146}
+.appmock-step .stg{display:flex;align-items:center;gap:3px;white-space:nowrap}
+.appmock-step .stg i{width:13px;height:13px;border-radius:50%;border:1px solid #85847a;display:grid;place-items:center;font-style:normal;font-size:7px}
+.appmock-step .stg.act{color:var(--red);font-weight:800}.appmock-step .stg.act i{background:var(--red);border-color:var(--red);color:#fff}
+.appmock-step .stg.done i{background:#125c43;border-color:#125c43;color:#fff}
+.appmock-step .ln{flex:1;height:1px;background:#d2d2cf;min-width:6px}
+.appmock-body{display:grid;grid-template-columns:112px 1fr}
+.appnav{background:#fff;border-right:1px solid #d2d2cf;padding:5px 0;font-size:8px;color:#525146}
+.appnav .grp{padding:4px 9px 2px;font-size:6px;letter-spacing:.12em;color:#85847a;font-weight:800}
+.appnav .itm{padding:3px 9px;font-weight:600}
+.appnav .itm.sub{padding-left:17px;font-size:7.5px}
+.appnav .itm.subact{background:#f7e9ec;color:#850822;font-weight:800}
+.appnav .itm.parent{background:var(--red);color:#fff}
+.appmain{padding:9px 11px;background:#f0f0ec}
+.appmain h5{font-size:11px;color:#36362f;font-weight:700}
+.appmain .sub5{font-size:7.5px;color:#525146;margin-top:1px}
+.appbtn{font-size:7.5px;font-weight:700;border:1px solid #d2d2cf;background:#fff;padding:3px 8px;color:#36362f;border-radius:4px}
+.apptiles{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+.apptile{background:#fff;border:1px solid #d2d2cf;padding:5px 8px}
+.apptile .v{font-size:13.5px;font-weight:700;color:#36362f;line-height:1.15}
+.apptile .v.g{color:#125c43}.apptile .v.r{color:#a20a29}
+.apptile .l{font-size:6px;font-weight:700;color:#525146;text-transform:uppercase;letter-spacing:.05em;margin-top:1px}
+.appacs{background:#fff;border:1px solid #d2d2cf;margin-top:8px;padding:7px 10px}
+.appacs .ah{display:flex;justify-content:space-between;align-items:center;font-size:8px;font-weight:800;color:#36362f;text-transform:uppercase;letter-spacing:.04em}
+.appacrow{display:flex;align-items:center;gap:7px;font-size:8.5px;color:#36362f;padding:5px 0;border-top:1px solid #ececea;margin-top:3px;opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease}
+.appmock.on .appacrow{opacity:1;transform:none}
+.appacrow .tname{font-family:var(--mono);font-size:7px;color:#525146;margin-left:auto;white-space:nowrap}
+.appacrow .pill{font-size:6.5px;font-weight:800;padding:2px 6px;border-radius:999px;border:1px solid}
+.appacrow .pill.ok{background:#dbeee6;color:#125c43;border-color:#9acbb7}
+.appacrow .pill.bad{background:#f7e9ec;color:#850822;border-color:#df9cab}
+.appfoot{border-top:1px solid #d2d2cf;background:#fff;padding:3px 10px;font-size:6px;color:#525146;display:flex;gap:9px;flex-wrap:wrap}
+.wsrow-lock{color:var(--muted)}
+.lockchip{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:7px;font-size:8.5px;font-weight:850;background:var(--surface2);color:var(--muted);border:1px solid var(--border2)}
+.slide[data-step="3"] .st3-off{display:none}
+.slide:not([data-step="3"]) .st3-on{display:none}
+.slide[data-step="4"] .st4-off{display:none}
+.slide:not([data-step="4"]) .st4-on{display:none}
+.ic{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-4px}
+.ic.sm{width:13px;height:13px;vertical-align:-2px}
+/* edit + activity log (plan views) */
+.slide[data-step="4"] .edithl{background:var(--redp);border-color:#df9cab}
+.logpanel{margin-top:14px;border:1px solid var(--border2);border-radius:12px;background:#fff;overflow:hidden}
+.logpanel .lh{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10px;font-weight:850;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.logrow{display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:1px solid #efefe9;font-size:10.5px;opacity:0;transform:translateY(6px);transition:opacity .45s ease,transform .45s ease}
+.logpanel.on .logrow{opacity:1;transform:none}
+.logrow .t{font-family:var(--mono);font-size:9px;color:var(--muted)}
+.logrow .who{margin-left:auto;font-size:9px;color:var(--muted);font-weight:800;white-space:nowrap}
+/* architecture agent bar */
+.agentbar{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.agsrc{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid var(--border);border-radius:11px;background:#fff;font-size:11.5px;font-weight:800;white-space:nowrap}
+.agline{flex:1;height:2px;background:var(--border);position:relative;overflow:hidden;border-radius:2px}
+.agline i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--red);transition:width .9s ease .25s}
+.agentbar.on .agline i{width:100%}
+.agbox{display:flex;align-items:center;gap:9px;padding:11px 15px;border:1.5px solid var(--border2);border-radius:11px;background:#fff;font-size:12.5px;font-weight:850;white-space:nowrap;transition:border-color .5s ease 1s,box-shadow .5s ease 1s,color .5s ease 1s}
+.agentbar.on .agbox{border-color:var(--red);box-shadow:0 0 0 3px var(--redp),var(--shadow-sm);color:var(--red)}
+.agstat{font-size:9px;font-weight:800;color:var(--green);opacity:0;transition:opacity .4s ease 1.15s}
+.agentbar.on .agstat{opacity:1}
+.agrow{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1.6}
+.agrow .agbox{justify-content:center;font-size:11px}
+.qmeter{flex:1;min-width:110px;max-width:220px;height:8px;border-radius:99px;background:#e7e7e3;overflow:hidden}
+.qmeter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1c7a5a,var(--green));transition:width 1s ease .4s}
+.pv.on .qmeter i{width:96%}
+.relchip{display:inline-flex;align-items:center;gap:9px;padding:12px 18px;border-radius:12px;background:var(--ink);color:#fff;font-size:15px;font-weight:850}
+.relchip small{font-weight:600;color:#cfcfc8;font-size:10px}
+/* delivery pack tiles */
+.storychip{display:inline-block;border:1px solid var(--border);border-radius:8px;padding:5px 10px;background:#fff;margin:6px 6px 0 0}
+.storychip b{font-family:var(--mono);font-size:10px;display:block}
+.storychip small{font-size:8.5px;color:var(--muted)}
+.ptiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:9px}
+.ptile{border:1px solid var(--border);border-radius:10px;background:#fff;padding:11px 8px;text-align:center;position:relative}
+.ptile .ic{width:20px;height:20px;color:var(--blue)}
+.ptile b{display:block;font-size:9.5px;margin-top:6px;color:var(--ink)}
+.ptile small{display:block;font-size:8px;color:var(--muted);margin-top:2px}
+.ptile.qa{border-color:#8fc3ad;background:#fcfffd}
+.ptile.qa .ic{color:var(--green)}
+.qastamp{position:absolute;top:-9px;right:-6px;background:var(--green);color:#fff;font-size:7px;font-weight:850;padding:2px 7px;border-radius:999px;letter-spacing:.04em}
+/* app mock rows (workspaces) */
+.approw{display:flex;align-items:center;gap:7px;font-size:8.5px;background:#fff;border:1px solid #d2d2cf;padding:6px 9px;margin-top:6px;color:#36362f}
+.apill{font-size:6.5px;font-weight:800;padding:2px 7px;border-radius:999px;border:1px solid;margin-left:auto;white-space:nowrap}
+.apill.ok{background:#dbeee6;color:#125c43;border-color:#9acbb7}
+.apill.bad{background:#f7e9ec;color:#850822;border-color:#df9cab}
+.apill.warn{background:#fbeed3;color:#5c4610;border-color:#dfbd6c}
+.apill.grey{background:#f7f7f7;color:#85847a;border-color:#d2d2cf}
+
+/* agent identity chips */
+.agentline{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.agentchip{display:inline-flex;align-items:center;gap:7px;padding:6px 14px;border-radius:999px;font-size:10.5px;font-weight:850;letter-spacing:.045em;text-transform:uppercase;background:linear-gradient(180deg,#fff 0%,#fdf4f6 100%);border:2px solid #d98a9b;color:var(--red2);box-shadow:var(--shadow-sm)}
+.agentchip .ic{width:13px;height:13px;vertical-align:-2px}
+.agentchip i{font-style:normal;width:7px;height:7px;border-radius:50%;background:currentColor;animation:agring 1.8s ease-out infinite}
+@keyframes agring{0%{box-shadow:0 0 0 0 rgba(162,10,41,.35)}70%{box-shadow:0 0 0 7px rgba(162,10,41,0)}100%{box-shadow:0 0 0 0 rgba(162,10,41,0)}}
+.agentchip.human{border-color:#7fbfa2;color:var(--green);background:linear-gradient(180deg,#fff 0%,#f3faf6 100%)}
+.agentchip.human i{animation-name:agring-g}
+@keyframes agring-g{0%{box-shadow:0 0 0 0 rgba(18,92,67,.3)}70%{box-shadow:0 0 0 7px rgba(18,92,67,0)}100%{box-shadow:0 0 0 0 rgba(18,92,67,0)}}
+.agentchip.dim{border-color:var(--border2);color:var(--muted);background:#fff}
+
+/* ===== presentation polish ===== */
+.top{gap:24px}
+.stage-nav{display:flex;align-items:center;gap:4px;margin-left:auto;margin-right:8px}
+.stage-nav .sn{position:relative;padding:7px 8px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.045em;color:#9a998f;white-space:nowrap;transition:color .25s ease,background .25s ease}
+.stage-nav .sn:after{content:"";position:absolute;left:8px;right:8px;bottom:2px;height:2px;border-radius:99px;background:transparent;transition:background .25s ease}
+.stage-nav .sn.done{color:var(--text)}
+.stage-nav .sn.active{color:var(--red);background:var(--redp);border-radius:7px}
+.stage-nav .sn.active:after{background:var(--red)}
+.stage-pill{min-width:126px;text-align:center}
+
+/* cinematic section dividers */
+.stage-divider{background:linear-gradient(180deg,#f7f7f4 0%,#f1f1ed 100%)}
+.stage-divider .inner{width:min(1180px,100%)}
+.stage-divider .divider-wrap{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:64px;align-items:center}
+.stage-eyebrow{font-family:var(--mono);font-size:12px;font-weight:850;letter-spacing:.18em;color:var(--red);text-transform:uppercase}
+.stage-title{font-size:clamp(52px,7.2vw,88px);line-height:.95;letter-spacing:-.055em;color:var(--ink);margin-top:14px}
+.stage-thesis{font-size:clamp(18px,1.7vw,22px);line-height:1.5;color:var(--muted);max-width:650px;margin-top:22px}
+.stage-side{border-left:1px solid var(--border2);padding-left:28px}
+.stage-side b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.11em;color:var(--muted);margin-bottom:12px}
+.stage-side .stage-note{font-size:15px;line-height:1.55;color:var(--ink)}
+.stage-track{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:42px}
+.stage-stop{position:relative;padding-top:17px;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.055em;color:#99988e}
+.stage-stop:before{content:"";position:absolute;left:0;right:0;top:4px;height:2px;background:#d9d9d3}
+.stage-stop:after{content:"";position:absolute;top:0;left:0;width:10px;height:10px;border-radius:50%;background:#d9d9d3;border:2px solid #f4f4f1}
+.stage-stop.done{color:var(--text)}
+.stage-stop.done:before,.stage-stop.done:after{background:var(--ink)}
+.stage-stop.current{color:var(--red)}
+.stage-stop.current:before,.stage-stop.current:after{background:var(--red)}
+
+/* stronger beat focus */
+[data-at].beat-current.card,[data-at].beat-current.callout,[data-at].beat-current.appmock,[data-at].beat-current.logpanel,[data-at].beat-current.agentbar,[data-at].beat-current.resultgrid,[data-at].beat-current.learnstrip{box-shadow:0 0 0 2px rgba(162,10,41,.12),var(--shadow-sm)}
+[data-at].beat-past{filter:saturate(.78)}
+
+/* review story */
+.review-flow{display:grid;grid-template-columns:1fr 42px 1fr 42px 1fr 42px 1fr;align-items:stretch;margin-top:14px}
+.flow-node{border:1px solid var(--border);background:#fff;border-radius:12px;padding:15px 13px;min-height:110px;display:flex;flex-direction:column;justify-content:center;text-align:center}
+.flow-node .flow-ico{width:34px;height:34px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:grid;place-items:center;margin:0 auto 9px;color:var(--blue)}
+.flow-node b{font-size:12px;color:var(--ink)}
+.flow-node small{font-size:9.5px;line-height:1.4;color:var(--muted);margin-top:4px}
+.flow-node.reviewer{border-color:#8fc3ad;background:#fcfffd}
+.flow-node.reviewer .flow-ico{background:var(--greenp);border-color:#a5cfbd;color:var(--green)}
+.flow-node.decision{border-color:#df9cab;background:#fffafb}
+.flow-node.decision .flow-ico{background:var(--redp);border-color:#df9cab;color:var(--red)}
+.flow-arrow{display:grid;place-items:center;color:var(--border2)}
+.flow-arrow svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.7}
+.review-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}
+.decision-panel{padding:16px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.decision-panel .decision-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #efefe9;font-size:10.5px}
+.decision-panel .decision-row:first-of-type{border-top:none}
+
+/* build summary */
+.summary-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px}
+.summary-metric{padding:18px 16px;border:1px solid var(--border);border-radius:13px;background:#fff}
+.summary-metric .num{font-family:var(--mono);font-size:34px;font-weight:850;letter-spacing:-.04em;color:var(--ink)}
+.summary-metric .label{font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:4px}
+.summary-metric.ok{border-top:4px solid var(--green)}
+.summary-metric.warn{border-top:4px solid #b58a20}
+.summary-metric.bad{border-top:4px solid var(--red)}
+.story-pipeline{display:grid;grid-template-columns:1fr 42px 1fr 42px 1fr;align-items:center;margin-top:18px}
+.story-state{padding:14px 15px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.story-state .sid{font-family:var(--mono);font-size:10px;font-weight:850;color:var(--muted)}
+.story-state h4{font-size:13px;margin-top:5px;color:var(--ink)}
+.story-state p{font-size:9.5px;line-height:1.45;color:var(--muted);margin-top:5px}
+.story-state.ok{border-color:#8fc3ad;background:#fcfffd}.story-state.warn{border-color:#dfbd6c;background:#fffdf7}.story-state.bad{border-color:#df9cab;background:#fffafb}
+.pipeline-arrow{display:grid;place-items:center;color:var(--border2)}
+.pipeline-arrow svg{width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:1.7}
+.blocker-callout{display:grid;grid-template-columns:auto 1fr auto;gap:13px;align-items:center;margin-top:18px;padding:15px 17px;border-radius:13px;background:var(--redp);border:1px solid #df9cab}
+.blocker-callout .bi{width:38px;height:38px;border-radius:10px;background:#fff;border:1px solid #df9cab;display:grid;place-items:center;color:var(--red)}
+.blocker-callout b{font-size:12.5px;color:var(--red2)}
+.blocker-callout p{font-size:10px;color:#714151;margin-top:3px;line-height:1.4}
+.blocker-callout .next-action{font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.055em;color:var(--red2);white-space:nowrap}
+
+/* final visual journey */
+.takeaway{display:flex;flex-direction:column;justify-content:center}
+.takeaway-copy{max-width:900px}
+.final-road{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:8px;margin-top:46px;padding-top:5px}
+.final-road:before{content:"";position:absolute;left:5%;right:5%;top:19px;height:2px;background:linear-gradient(90deg,var(--red),var(--ink))}
+.road-stop{position:relative;text-align:center;z-index:1}
+.road-stop .dot{width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--ink);display:grid;place-items:center;margin:0 auto;font-family:var(--mono);font-size:9px;font-weight:850;color:var(--ink)}
+.road-stop:first-child .dot,.road-stop:last-child .dot{border-color:var(--red);color:var(--red)}
+.road-stop b{display:block;font-size:9.5px;margin-top:8px;color:var(--ink)}
+.road-stop small{display:block;font-size:8.5px;color:var(--muted);margin-top:2px}
+.principles{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:34px}
+.principle{padding:14px 15px;border-top:2px solid var(--border2);font-size:12px;color:var(--muted)}
+.principle b{display:block;color:var(--ink);font-size:14px;margin-bottom:3px}
+.principle:first-child{border-top-color:var(--red)}
+
+/* executive visual uplift */
+body:before,body:after{content:"";position:fixed;inset:auto;pointer-events:none;z-index:0}
+body:before{width:520px;height:520px;border-radius:50%;top:-160px;right:-140px;background:radial-gradient(circle,rgba(162,10,41,.11),rgba(162,10,41,0) 70%)}
+body:after{width:440px;height:440px;border-radius:50%;left:-120px;bottom:-150px;background:radial-gradient(circle,rgba(45,101,151,.08),rgba(45,101,151,0) 72%)}
+.deck,.top,.foot,.brandline{position:fixed;z-index:1}
+.top{backdrop-filter:blur(12px);box-shadow:0 8px 26px rgba(40,40,35,.06)}
+.card,.browser,.appmock{position:relative;overflow:hidden}
+.card:before,.browser:before,.appmock:before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:linear-gradient(90deg,rgba(162,10,41,.22),rgba(162,10,41,0) 65%)}
+.card,.browser{box-shadow:0 12px 32px rgba(40,40,35,.075)}
+.ucard{overflow:visible}
+.ucard:before{border-radius:var(--radius) var(--radius) 0 0}
+.browser{border-radius:18px}
+.browser-head{background:linear-gradient(180deg,#fff 0%,#fcfcfb 100%)}
+.hero-showcase{background:linear-gradient(180deg,#fff 0%,#fcfcfb 100%)}
+.exec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:16px}
+.exec-tile{padding:12px 12px;border:1px solid var(--border);border-radius:12px;background:#fff}
+.exec-tile .n{font-family:var(--mono);font-size:24px;font-weight:850;letter-spacing:-.05em;color:var(--ink)}
+.exec-tile b{display:block;font-size:10.5px;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;margin-top:5px}
+.exec-tile small{display:block;font-size:9px;line-height:1.45;color:var(--muted);margin-top:4px}
+.hero-proof{margin-top:14px;padding:12px 14px;border-radius:12px;background:linear-gradient(180deg,#fff6f8 0%,#fff 100%);border:1px solid #ead4da;font-size:11px;line-height:1.5;color:#664851}
+.hero-proof b{color:var(--red2)}
+.metric-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 12px}
+.metric-strip.compact{margin-top:2px}
+.metric-pill{padding:11px 12px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(180deg,#fff 0%,#fcfcfb 100%)}
+.metric-pill b{display:block;font-family:var(--mono);font-size:22px;font-weight:850;letter-spacing:-.04em;color:var(--ink)}
+.metric-pill span{display:block;margin-top:3px;font-size:10px;font-weight:850;letter-spacing:.055em;text-transform:uppercase;color:var(--muted)}
+.metric-pill small{display:block;margin-top:4px;font-size:8.8px;line-height:1.45;color:var(--muted)}
+.leader-note{margin:12px 0 0;padding:12px 14px;border-radius:12px;background:#fff;border:1px solid #e7dade;box-shadow:var(--shadow-sm);font-size:11px;line-height:1.5;color:#5d4d50}
+.leader-note b{color:var(--red2)}
+.appmock{border:1px solid #cfcfc7;border-radius:14px;background:#ecece8;box-shadow:0 18px 38px rgba(40,40,35,.12)}
+.appmock-top{padding:9px 12px;background:linear-gradient(180deg,#ffffff 0%,#fbfbfa 100%)}
+.appmock-step{padding:6px 12px}
+.appmain{padding:11px 12px;background:linear-gradient(180deg,#f4f4f0 0%,#ededea 100%)}
+.apptile{border-radius:8px;box-shadow:0 1px 0 rgba(40,40,35,.03)}
+.appacs,.approw{border-radius:8px}
+.summary-metric,.story-state,.decision-panel,.flow-node,.blocker-callout{box-shadow:var(--shadow-sm)}
+
+@media(max-width:1050px){.stage-nav{display:none}.stage-divider .divider-wrap{grid-template-columns:1fr}.stage-side{border-left:0;border-top:1px solid var(--border2);padding-left:0;padding-top:20px}.review-flow{grid-template-columns:1fr}.flow-arrow{transform:rotate(90deg);min-height:28px}.story-pipeline{grid-template-columns:1fr}.pipeline-arrow{transform:rotate(90deg);min-height:28px}.final-road{grid-template-columns:repeat(4,1fr);row-gap:24px}.final-road:before{display:none}.metric-strip{grid-template-columns:repeat(2,1fr)}}
+
+@media(max-width:900px){.hero-grid,.intake-grid,.branches,.qrow,.stories,.grid3p,.learnrow,.resultgrid,.gategrid,.gitrow,.archgrid,.packgrid,.exec-grid,.metric-strip,.principles{grid-template-columns:1fr}.midarrow,.learnrow .fa{display:none}}
+@media print{
+  .top,.foot,.brandline,.progress{display:none!important}.deck{position:static}.slide{position:relative;display:flex!important;min-height:100vh;page-break-after:always}
+  [data-at]:not(.lit){opacity:1!important;transform:none!important}.ph{display:none}
+}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header class="top">
+  <div class="brand"><div class="mark">MS</div><div><small>MapleSure Insurance</small><b>S7 Delivery Control Centre</b></div></div>
+  <nav class="stage-nav" aria-label="Delivery stages">
+    <span class="sn active" data-stage-key="intake">Intake</span>
+    <span class="sn" data-stage-key="planning">Planning</span>
+    <span class="sn" data-stage-key="build">Build &amp; Review</span>
+    <span class="sn" data-stage-key="quality">Final Gating</span>
+    <span class="sn" data-stage-key="release">Release</span>
+  </nav>
+  <div class="topright"><span class="pill safe">CUSTOMER-SAFE DEMO</span><span class="pill stage-pill" id="stagePill">Stage 1 · Intake</span></div>
+</header>
+<div class="progress" id="progress"></div>
+
+<main class="deck">
+
+<!-- 0 · THE ASK & AGENDA -->
+<section class="slide active" data-stage="intake">
+<div class="inner hero-grid reveal">
+  <div>
+    <div class="kicker">S7 · Full-scale application development &amp; delivery</div>
+    <h1 style="margin-top:12px">The ask, and<br><span style="color:var(--red)">how we answer it.</span></h1>
+    <p class="lede" style="margin-top:20px">Deliver a business-driven change <b>end to end</b> — from business requirement through design, build and test to production release — using an AI-assisted SDLC the business can trust.</p>
+    <div class="card pad" style="margin-top:22px;border-left:5px solid var(--red)">
+      <div class="kicker" style="font-size:10px">Today's story</div>
+      <p class="sub" style="margin-top:6px;font-size:13px"><b>One real requirement, travelled end to end:</b> MapleSure's disability claim submission moves from a paper/PDF process to online — dropped in as a document, released as governed software.</p>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap"><span class="badge red">AI assisted</span><span class="badge green">Human governed</span><span class="badge blue">Evidence based</span></div>
+  </div>
+  <div class="card pad hero-showcase" style="border-left:5px solid var(--red)">
+    <div class="kicker">The steps we will show</div>
+    <div class="journey">
+      <div class="jstep"><i>1</i><div><b>Intake</b><small>Drop the requirement — AI structures it and routes it to the right application</small></div></div>
+      <div class="jstep"><i>2</i><div><b>Planning</b><small>Epic to stories, a live dependency map, and a human sign-off that locks the plan</small></div></div>
+      <div class="jstep"><i>3</i><div><b>Build &amp; Review</b><small>Architecture, team briefings, developer workspaces, self-filling evidence, independent review</small></div></div>
+      <div class="jstep"><i>4</i><div><b>Final Gating</b><small>Drift, PR and evidence agents inspect — a named human passes the gate</small></div></div>
+      <div class="jstep"><i>5</i><div><b>Release</b><small>One human approval — released with its full audit trail attached</small></div></div>
+    </div>
+    <p class="mini" style="margin-top:12px">Each press of <b>→</b> plays the next beat of the story.</p>
+  </div>
+</div>
+</section>
+
+<!-- 1 · TITLE -->
+<section class="slide" data-stage="intake">
+<div class="inner hero-grid reveal">
+  <div>
+    <div class="kicker">S7 · Stage 1 — Intake</div>
+    <h1 style="margin-top:12px">Drop in the requirement.<br><span style="color:var(--red)">AI does the structuring.</span></h1>
+    <p class="lede" style="margin-top:22px">The business owner starts with what they already have — a document. S7 extracts the requirement, works out where it belongs, and asks the right questions before any work begins.</p>
+    <div style="display:flex;gap:8px;margin-top:24px;flex-wrap:wrap"><span class="badge red">AI assisted</span><span class="badge green">Human governed</span><span class="badge blue">Evidence based</span></div>
+  </div>
+  <div class="card pad hero-showcase" style="border-left:5px solid var(--red)">
+    <div class="kicker">What leaders will see</div>
+    <div class="journey">
+      <div class="jstep"><i>1</i><div><b>The drop</b><small>Requirement document lands in the browser</small></div></div>
+      <div class="jstep"><i>2</i><div><b>AI extraction</b><small>Title, objective and requirements pulled out</small></div></div>
+      <div class="jstep"><i>3</i><div><b>AI routing</b><small>Existing application or new application — AI suggests, human decides</small></div></div>
+      <div class="jstep"><i>4</i><div><b>Clarification</b><small>The analysis asks the business its open questions</small></div></div>
+    </div>
+    <div class="exec-grid">
+      <div class="exec-tile"><div class="n">5</div><b>Governed stages</b><small>One visible control model from intake all the way to release.</small></div>
+      <div class="exec-tile"><div class="n">6</div><b>Human checkpoints</b><small>Plan sign-off, architecture acceptance, test-plan approval, independent review, the quality gate and release all stay human.</small></div>
+      <div class="exec-tile"><div class="n">2</div><b>Active repositories</b><small>Work is routed into the correct engineering home, not a generic queue.</small></div>
+      <div class="exec-tile"><div class="n">1</div><b>Evidence trail</b><small>Every status resolves to proof, so leadership can trust what they see.</small></div>
+    </div>
+    <div class="hero-proof"><b>The headline:</b> AI accelerates the flow, but the business still sees where the work is, who approved it, and why it can or cannot move forward.</div>
+  </div>
+</div>
+</section>
+
+<!-- 2 · INTAKE, animated -->
+<section class="slide" data-stage="intake" data-steps="4" data-step="0" data-beats='["Ready","Beat 1 · The drop","Beat 2 · AI extraction","Beat 3 · AI routing","Beat 4 · Clarification"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">01 · Intake — requirement in</div>
+      <h2 style="margin-top:5px">One drop starts the pipeline</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Intake Agent · extracts &amp; routes</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Business Owner · answers &amp; overrides</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="browser">
+    <div class="browser-head">
+      <b>Intake — Requirement Input</b>
+      <span>
+        <span class="stat badge grey" data-s="0">Awaiting requirement</span>
+        <span class="stat badge blue" data-s="1">Source uploaded</span>
+        <span class="stat badge green" data-s="2">Extraction complete</span>
+        <span class="stat badge amber" data-s="3">Routing suggested — awaiting human</span>
+        <span class="stat badge red" data-s="4">Clarification open</span>
+      </span>
+    </div>
+    <div class="browser-body">
+
+      <!-- top: source | extraction -->
+      <div class="intake-grid">
+        <div class="card srccard">
+          <h3>1 · Source Requirement</h3>
+          <p class="mini" style="margin-top:4px">The business owner drops the requirement as-is — file or pasted text.</p>
+          <div class="dz lit" data-at="1">
+            <div class="dz-idle lit" data-at="1"><div><div class="up"><svg class="ic" viewBox="0 0 24 24"><path d="M12 3v12"/><polyline points="7 8 12 3 17 8"/><path d="M5 21h14a2 2 0 0 0 2-2v-4"/><path d="M3 15v4a2 2 0 0 0 2 2"/></svg></div><b style="font-size:12px">Drag &amp; drop file</b><div class="mini">PDF · DOCX · TXT · MD</div></div></div>
+            <div class="flychip" data-at="1"><div class="fico"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="14" y2="17"/></svg></div><div><b>disability-claims-requirement.docx</b><small>46 KB · from the business owner</small></div></div>
+            <div class="upwrap" data-at="1"><div class="upbar"><i></i></div></div>
+            <div class="updone"><span class="status ok" data-at="1">✓ UPLOADED · SOURCE CAPTURED</span></div>
+          </div>
+        </div>
+
+        <div class="midarrow">→</div>
+
+        <div class="card extcard ext lit" data-at="2">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <h3>2 · AI Extraction</h3><span class="badge red">AI Extraction</span>
+          </div>
+          <div class="ph lit" data-at="2">Waiting for the source document…</div>
+          <div class="rrow" style="transition-delay:.15s"><div class="kv" style="margin-top:8px"><span>Epic Title</span><b>Disability Online Claim Submission</b></div></div>
+          <div class="rrow" style="transition-delay:.3s"><div class="kv"><span>Objective</span><span>Enable plan sponsors to submit disability claims online.</span></div></div>
+          <div class="rrow" style="transition-delay:.45s"><div class="kv"><span>Summary</span><span>Replace the paper/PDF intake with an online workflow — pre-population, document upload, status visibility.</span></div></div>
+          <div class="reqlist">
+            <div class="rrow" style="transition-delay:.6s"><div class="pack-item"><span><b>REQ-01</b> Identify plan &amp; member</span><span class="status ok">EXTRACTED</span></div></div>
+            <div class="rrow" style="transition-delay:.75s"><div class="pack-item"><span><b>REQ-02</b> Pre-populate member details</span><span class="status ok">EXTRACTED</span></div></div>
+            <div class="rrow" style="transition-delay:.9s"><div class="pack-item"><span><b>REQ-03</b> Claim details &amp; document upload</span><span class="status ok">EXTRACTED</span></div></div>
+            <div class="rrow" style="transition-delay:1.05s"><div class="pack-item"><span><b>REQ-04</b> Submission status visibility</span><span class="status ok">EXTRACTED</span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- routing -->
+      <div class="route" data-at="3">
+        <div class="verdict">
+          <span class="vl">3 · AI Routing — where does this requirement belong?</span>
+          <div class="meter"><i></i></div>
+          <span class="conf">87% confidence</span>
+          <span class="override">Human override <span class="seg"><span class="sel">Existing</span><span>New</span></span></span>
+        </div>
+        <div class="branches">
+          <div class="branch ex">
+            <span class="badge green">AI suggested</span>
+            <h4>Existing application</h4>
+            <p>Fits <code>maplesure-sponsor-portal</code> — the sponsor portal already owns plan &amp; member context. The requirement grounds against that repository's own architecture.</p>
+            <div class="stackrow"><span class="sl">Detected stack</span><span class="chip">Python</span><span class="chip">Flask</span><span class="chip">Server-rendered UI</span><span class="chip">SQLite</span></div>
+          </div>
+          <div class="branch nw">
+            <span class="badge grey">Alternative pathway</span>
+            <h4>New application</h4>
+            <p>Nothing connected fits — AI walks the business through scaffolding a new repository instead. With zero repositories connected, routing short-circuits here automatically.</p>
+            <div class="stackrow"><span class="sl">Stack</span><span class="chip dim">Chosen with the business</span><span class="chip dim">or AI proposes one</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- clarification -->
+      <div class="qrow">
+        <div class="qcard exq" data-at="4" style="transition-delay:.15s">
+          <h5>Existing app — clarification questions <span class="badge green" style="margin-left:6px">Business owner answers</span></h5>
+          <ul>
+            <li>Can members start a claim themselves, or do plan sponsors always submit on their behalf?</li>
+            <li>Which supporting documents are mandatory at submission — medical forms, employer statement, or both?</li>
+          </ul>
+        </div>
+        <div class="qcard nwq" data-at="4" style="transition-delay:.35s">
+          <h5>New app — guided setup questions <span class="badge blue" style="margin-left:6px">2 rounds max</span></h5>
+          <ul>
+            <li>What should the application be called?</li>
+            <li>One line — what must it do?</li>
+            <li>Technology-stack preference, or let AI propose one?</li>
+          </ul>
+        </div>
+      </div>
+      <div class="converge" data-at="4" style="transition-delay:.6s">
+        <div class="node">→ Requirement Analysis <small>both pathways feed the same grounded AI analysis</small></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</section>
+
+
+<!-- STAGE DIVIDER · PLANNING -->
+<section class="slide stage-divider" data-stage="planning">
+<div class="inner">
+  <div class="divider-wrap reveal">
+    <div>
+      <div class="stage-eyebrow">Stage 02</div>
+      <div class="stage-title">Planning</div>
+      <p class="stage-thesis">The requirement becomes an executable plan — stories, dependencies, ownership and a human sign-off.</p>
+      <div class="stage-track"><div class="stage-stop done">Intake</div><div class="stage-stop current">Planning</div><div class="stage-stop">Build & Review</div><div class="stage-stop">Final Gating</div><div class="stage-stop">Release</div></div>
+    </div>
+    <aside class="stage-side">
+      <b>What changes now</b>
+      <div class="stage-note">AI can propose structure. Humans remain free to edit the plan before anything becomes authoritative.</div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- 3 · PLANNING — EPIC TO STORIES, live dependency map -->
+<section class="slide" data-stage="planning" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Generate stories","Beat 2 · Dependency map","Beat 3 · Live edit — map redraws"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">02 · Planning — epic to stories</div>
+      <h2 style="margin-top:5px">AI decomposes. The plan stays live.</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Planning Agent · drafts stories &amp; dependencies</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Delivery Lead · edits live</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="browser">
+    <div class="browser-head">
+      <b>Planning — Epic to Stories</b>
+      <span>
+        <span class="stat badge grey" data-s="0">Epic ready — from Intake</span>
+        <span class="stat badge blue" data-s="1">3 stories generated</span>
+        <span class="stat badge green" data-s="2">Dependency map live</span>
+        <span class="stat badge red" data-s="3">Human edit — plan redrawn</span>
+      </span>
+    </div>
+    <div class="browser-body">
+
+      <div class="card epicbar">
+        <div>
+          <div style="display:flex;align-items:center;gap:9px"><span class="badge red">EPIC-S7-001</span><b style="font-size:13.5px">Disability Online Claim Submission</b></div>
+          <div class="mini" style="margin-top:6px">Enable plan sponsors to submit disability claims online — carried over from Intake, AI-extracted and human-approved.</div>
+          <div class="reqchips"><span class="chip">REQ-01 Identify plan &amp; member</span><span class="chip">REQ-02 Pre-populate details</span><span class="chip">REQ-03 Claim &amp; documents</span><span class="chip">REQ-04 Status visibility</span></div>
+        </div>
+        <button class="genbtn"><span class="gb0"><svg class="ic sm" viewBox="0 0 24 24"><path d="M12 3l1.2 3.3L16.5 7.5l-3.3 1.2L12 12l-1.2-3.3-3.3-1.2 3.3-1.2L12 3z"/><path d="M18 13l.8 2.2L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.8L18 13z"/><path d="M5 13l.7 1.8 1.8.7-1.8.7L5 18l-.7-1.8-1.8-.7 1.8-.7L5 13z"/></svg> Generate user stories</span><span class="gb1">3 stories generated</span></button>
+        <svg class="clickcur" data-at="1" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg>
+      </div>
+
+      <div class="stories" data-at="1" style="transition-delay:1s">
+        <div class="card ucard">
+          <div style="display:flex;justify-content:space-between;align-items:center"><b class="mono" style="font-size:11px">US-001</b><span class="badge blue">Portal Team</span></div>
+          <h4>Claim submission form</h4>
+          <p class="desc">Sponsor identifies plan &amp; member, enters disability claim details.</p>
+          <div class="meta">maplesure-sponsor-portal · 5 ACs · 5 pts</div>
+          <div class="dep">Depends on <span class="val">—</span></div>
+        </div>
+        <div class="card ucard">
+          <div style="display:flex;justify-content:space-between;align-items:center"><b class="mono" style="font-size:11px">US-002</b><span class="badge blue">Portal Team</span></div>
+          <h4>Member pre-population</h4>
+          <p class="desc">Auto-fill member details from policy number and member id.</p>
+          <div class="meta">maplesure-sponsor-portal · 4 ACs · 3 pts</div>
+          <div class="dep">Depends on <span class="val">US-001</span></div>
+        </div>
+        <div class="card ucard">
+          <span class="badge red humanedit" data-at="3">Human edit</span>
+          <div style="display:flex;justify-content:space-between;align-items:center"><b class="mono" style="font-size:11px">US-003</b><span class="badge purple">Claims API Team</span></div>
+          <h4>Documents &amp; submission status</h4>
+          <p class="desc">Multiple document uploads; expose submission status.</p>
+          <div class="meta">maplesure-claims-api · 6 ACs · 8 pts</div>
+          <div class="dep editable">Depends on <span class="val"><span class="dv0">US-001</span><span class="dv1">US-002</span></span> <span class="caret">▾</span></div>
+        </div>
+      </div>
+
+      <div class="card mapwrap" data-at="2">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Dependency Map</h3><span class="badge amber">Live &amp; editable</span>
+        </div>
+        <div class="depmap">
+          <svg viewBox="0 0 1200 175" preserveAspectRatio="none">
+            <defs>
+              <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#b6b5ac" stroke="none" style="stroke-dasharray:none"/></marker>
+              <marker id="arrRed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#a20a29" stroke="none" style="stroke-dasharray:none"/></marker>
+            </defs>
+            <path class="pA" d="M540,96 Q342,28 224,90" marker-end="url(#arr)"/>
+            <path class="pB" d="M996,96 Q600,-24 232,84" marker-end="url(#arr)"/>
+            <path class="pC" d="M996,96 Q800,24 636,88" marker-end="url(#arrRed)"/>
+          </svg>
+          <div class="dnode" style="left:4%"><b>US-001</b><small>Wave 1</small></div>
+          <div class="dnode" style="left:37%"><b>US-002</b><small>Wave 2</small></div>
+          <div class="dnode" style="left:75%"><b>US-003</b><small>Wave <span class="wv0">2</span><span class="wv1">3</span></small></div>
+        </div>
+        <div class="mapnote">
+          <span class="mn0" style="color:var(--muted)">US-002 and US-003 both hang off US-001 — they can run <b>in parallel</b>.</span>
+          <span class="mn1" style="color:var(--red);font-weight:700">One human edit — the chain went <b>linear</b>. Waves recomputed instantly; teams and packs follow.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 4 · PLANNING — the whole plan, editable -->
+<section class="slide" data-stage="planning" data-steps="4" data-step="0" data-beats='["Ready","Beat 1 · Routing by team","Beat 2 · Repository mapping","Beat 3 · Plan summary","Beat 4 · A human edits — the app logs it"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:6px">
+    <div>
+      <div class="kicker">02 · Planning — every view, editable</div>
+      <h2 style="margin-top:5px">Humans shape the plan. AI re-plans around them.</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Planning Agent · re-plans around every edit</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Every edit logged, by name</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="grid3p">
+    <div class="card pv" data-at="1">
+      <h3>Routing by team <span class="edittag">Editable</span></h3>
+      <div class="pvrow"><span><b class="mono">US-001</b> Claim submission form</span><span class="badge blue">Portal Team</span></div>
+      <div class="pvrow"><span><b class="mono">US-002</b> Member pre-population</span><span class="badge blue">Portal Team</span></div>
+      <div class="pvrow edithl"><span><b class="mono">US-003</b> Documents &amp; status <span class="st4-on" style="color:var(--red)"><svg class="ic sm" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></span></span><span class="badge purple">Claims API Team</span></div>
+      <p class="mini" style="margin-top:10px">Reassign a story to another team — its delivery pack and workspace follow automatically.</p>
+    </div>
+    <div class="card pv" data-at="2">
+      <h3>Repository mapping <span class="edittag">Editable</span></h3>
+      <div class="repobox"><b>maplesure-sponsor-portal</b><div class="chips"><span class="chip">US-001</span><span class="chip">US-002</span></div></div>
+      <div class="repobox"><b>maplesure-claims-api</b><div class="chips"><span class="chip">US-003</span></div></div>
+      <p class="mini" style="margin-top:10px">Every story lands in a real repository — this mapping is what drives the Git handoff later.</p>
+    </div>
+    <div class="card pv" data-at="3">
+      <h3>Plan summary <span class="edittag">Editable</span></h3>
+      <div class="pvrow"><span><b>Sprint 1</b></span><span class="mono">US-001 · 5 pts</span></div>
+      <div class="pvrow edithl"><span><b>Sprint 2</b></span><span class="mono">US-002 ∥ US-003 · <span class="st4-off">11 pts</span><span class="st4-on" style="color:var(--red);font-weight:800">13 pts · edited</span></span></div>
+      <div class="pvrow"><span>Total</span><span class="mono">3 stories · 15 ACs · <span class="st4-off">16 pts</span><span class="st4-on" style="color:var(--red);font-weight:800">18 pts</span></span></div>
+      <p class="mini" style="margin-top:10px">Estimates and sprints are proposals — a lead can reshape them before anything is locked.</p>
+    </div>
+  </div>
+
+  <div class="logpanel" data-at="4">
+    <div class="lh"><svg class="ic sm" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> Activity Log — every edit goes on the record, by itself</div>
+    <div class="logrow" style="transition-delay:.25s"><span class="t">14:02</span><span><b>Dependency changed</b> — US-003 now depends on US-002; the map redrew</span><span class="who">Delivery Lead</span><span class="status ok">LOGGED</span></div>
+    <div class="logrow" style="transition-delay:.5s"><span class="t">14:05</span><span><b>Estimate revised</b> — US-003: 8 pts → 10 pts; sprint totals recalculated</span><span class="who">Delivery Lead</span><span class="status ok">LOGGED</span></div>
+    <div class="logrow" style="transition-delay:.75s"><span class="t">14:06</span><span><b>Repository mapping confirmed</b> — US-003 → maplesure-claims-api</span><span class="who">Delivery Lead</span><span class="status ok">LOGGED</span></div>
+  </div>
+
+  <div class="callout" data-at="4" style="margin-top:12px"><b>Every box is editable in place.</b> A human edit never breaks the plan — the AI restructures around it, and the log above writes itself.</div>
+</div>
+</section>
+
+<!-- 5 · SELF-LEARNING LOOP (roadmap) -->
+<section class="slide" data-stage="planning" data-steps="4" data-step="0" data-beats='["Ready","Beat 1 · AI writes from a playbook","Beat 2 · A human fixes a mistake","Beat 3 · The playbook learns","Beat 4 · Accuracy climbs"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:6px">
+    <div>
+      <div class="kicker">02 · Planning — the system learns <span class="badge amber" style="margin-left:8px">Roadmap · target design</span></div>
+      <h2 style="margin-top:5px">Every human correction teaches the AI</h2>
+      <div class="agentline"><span class="agentchip dim"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Every agent · learns from corrections</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="learnrow">
+    <div class="card lbox" data-at="1">
+      <div class="lico b">AI</div>
+      <h3>1 · The AI writes from a playbook</h3>
+      <p class="say">It doesn't improvise. Every story it drafts follows a written rulebook it must obey.</p>
+      <div class="playbook">
+        <div class="pbh"><svg class="ic sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="15" y2="11"/></svg> Story-writing playbook</div>
+        <ul>
+          <li>R1 · Use the application's own vocabulary</li>
+          <li>R2 · Every story gets testable criteria</li>
+          <li>R3 · Split work by team and repository</li>
+        </ul>
+      </div>
+    </div>
+    <div class="fa" data-at="2"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="card lbox" data-at="2">
+      <div class="lico r"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></div>
+      <h3>2 · A human fixes one mistake</h3>
+      <p class="say">The AI proposed building something the application already had. The reviewer knew better — and corrected it once.</p>
+      <div class="diff">
+        <div class="del">Build a new member lookup service</div>
+        <div class="add">Re-use the lookup the app already has</div>
+      </div>
+    </div>
+    <div class="fa" data-at="3"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="card lbox" data-at="3">
+      <div class="lico g"><svg class="ic sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="15" y2="11"/></svg></div>
+      <h3>3 · The playbook learns the rule</h3>
+      <p class="say">The correction doesn't stay a one-off fix — it becomes a new rule the AI must follow from now on.</p>
+      <div class="playbook">
+        <div class="pbh"><svg class="ic sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="15" y2="11"/></svg> Story-writing playbook <span class="status info" style="margin-left:auto">UPDATED</span></div>
+        <ul>
+          <li class="dim">R1 · Use the application's own vocabulary</li>
+          <li class="dim">R2 · Every story gets testable criteria</li>
+          <li class="dim">R3 · Split work by team and repository</li>
+          <li class="newrule">R4 · Check what already exists before proposing anything new</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="loopback" data-at="3">
+    <svg viewBox="0 0 1200 54" preserveAspectRatio="none">
+      <defs><marker id="arrLoop" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#1c7a5a" stroke="none" style="stroke-dasharray:none"/></marker></defs>
+      <path d="M1145,4 C1145,44 60,44 62,12" marker-end="url(#arrLoop)"/>
+    </svg>
+    <span>↺ the updated playbook flows straight back into the next run</span>
+  </div>
+
+  <div class="card resultgrid barwrap" data-at="4">
+    <div>
+      <span class="badge green">The payoff</span>
+      <h3 style="font-size:17px;margin-top:8px">Next time, that mistake simply doesn't happen</h3>
+      <p class="say" style="font-size:12px;margin-top:6px">Corrections add up and never wash out — exactly like coaching a new team member who never forgets. Fewer stories need fixing on every run, and the human's time shifts from correcting to approving.</p>
+    </div>
+    <div class="bars" style="margin-top:0">
+      <div class="barcol"><div class="bar b1"><em>60%</em></div><small>Run 1</small></div>
+      <div class="barcol"><div class="bar b2"><em>70%</em></div><small>Run 2</small></div>
+      <div class="barcol"><div class="bar b3"><em>80%</em></div><small>Run 3</small></div>
+      <div class="barcol" style="justify-content:flex-end;padding-bottom:24px"><small style="font-size:12px;color:var(--green);font-weight:850">right first time ↑</small></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 6 · SIGN-OFF & ARTIFACT EXPORT -->
+<section class="slide" data-stage="planning" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Plan sign-off","Beat 2 · Artifacts — the language agents speak","Beat 3 · Pushed to Git"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:6px">
+    <div>
+      <div class="kicker">02 · Planning — sign-off &amp; handoff</div>
+      <h2 style="margin-top:5px">A human locks the plan. Artifacts carry it forward.</h2>
+      <div class="agentline"><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Business Owner · signs Gate 1</span><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Packaging Agent · assembles the handoff</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="gategrid">
+    <div class="card pv" data-at="1">
+      <h3>Gate 1 — Plan sign-off <span class="badge red">Human decision</span></h3>
+      <div class="pvrow">Stories reviewed <span class="status ok">PASS</span></div>
+      <div class="pvrow">ACs testable <span class="status ok">PASS</span></div>
+      <div class="pvrow">Teams &amp; repositories assigned <span class="status ok">PASS</span></div>
+      <div class="pvrow">Dependencies mapped <span class="status ok">PASS</span></div>
+      <div class="cwrap" style="margin-top:11px"><button class="btn green">Sign Gate 1 ✓</button><svg class="clickcur" data-at="1" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg></div>
+      <div class="signer">
+        <div class="avatar">PM</div>
+        <div><b style="font-size:12px">P. Moreau — Business Owner</b><div class="mini">The only role that can sign Gate 1. The click is recorded in the approvals ledger.</div></div>
+        <span class="status ok" data-at="1" style="margin-left:auto;transition-delay:1.15s">SIGNED</span>
+      </div>
+      <p class="mini" style="margin-top:9px">Signing authorises downstream preparation — it never authorises autonomous code changes.</p>
+    </div>
+
+    <div class="card pv" data-at="2">
+      <h3>The delivery package — how we brief an agent</h3>
+      <p class="sub" style="margin-top:7px;font-size:11.5px">We brief a colleague in English. We brief a coding agent with a <b>package of three documents</b> — and each one has a job:</p>
+      <div class="pkg">
+        <div class="pkgh"><b><svg class="ic sm" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> One package per story</b><span class="chips"><span class="chip">US-001</span><span class="chip">US-002</span><span class="chip">US-003</span></span></div>
+        <div class="filecard"><div class="fico b"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div><b>AGENTS.md</b> · <span class="fl">The briefing</span><p>What to build, for whom, and the rules to follow.</p></div></div>
+        <div class="filecard"><div class="fico g"><svg class="ic" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><b>acceptance-criteria.md</b> · <span class="fl">The definition of done</span><p>The checklist the work must pass before it counts as finished.</p></div></div>
+        <div class="filecard" style="margin-bottom:10px"><div class="fico p"><svg class="ic" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg></div><div><b>context.md</b> · <span class="fl">The map of the application</span><p>The application's own architecture — nothing gets proposed that doesn't fit.</p></div></div>
+      </div>
+      <p class="mini" style="margin-top:8px">Identical structure every time. Any IDE or CLI coding agent opens the package and knows the application, the story, and the definition of done.</p>
+    </div>
+  </div>
+
+  <div class="gitrow" data-at="3">
+    <div class="gitbox">
+      <b style="font-size:12px">Export</b>
+      <p class="mini" style="margin-top:5px">Portable markdown packages — also downloadable as a zip, no side effects.</p>
+    </div>
+    <div style="text-align:center;font-size:24px;color:var(--blue)">→</div>
+    <div class="gitbox" style="border-color:#c4b2e4">
+      <b style="font-size:12px">Pushed to Git ✓</b>
+      <div class="branchchip">delivery/run-2026-08-10</div>
+      <p class="mini" style="margin-top:6px">A fresh, disposable branch — never the default branch. Merging into a working branch stays a human action.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+
+<!-- STAGE DIVIDER · BUILD & REVIEW -->
+<section class="slide stage-divider" data-stage="build">
+<div class="inner">
+  <div class="divider-wrap reveal">
+    <div>
+      <div class="stage-eyebrow">Stage 03</div>
+      <div class="stage-title">Build & Review</div>
+      <p class="stage-thesis">The signed plan becomes controlled engineering work, distributed to the right teams and repositories.</p>
+      <div class="stage-track"><div class="stage-stop done">Intake</div><div class="stage-stop done">Planning</div><div class="stage-stop current">Build & Review</div><div class="stage-stop">Final Gating</div><div class="stage-stop">Release</div></div>
+    </div>
+    <aside class="stage-side">
+      <b>What changes now</b>
+      <div class="stage-note">Every team receives the same accepted blueprint, but only the briefing relevant to the work it owns.</div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- 7 · BUILD & REVIEW — ARCHITECTURE -->
+<section class="slide" data-stage="build" data-steps="4" data-step="0" data-beats='["Ready","Beat 1 · The Architecture Agent wakes","Beat 2 · The application, mapped","Beat 3 · External systems & the facts","Beat 4 · A human accepts — still editable"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — architecture</div>
+      <h2 style="margin-top:5px">One blueprint every team builds against</h2>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="browser">
+    <div class="browser-head">
+      <b>Build &amp; Review — Architecture</b>
+      <span>
+        <span class="stat badge grey" data-s="0">Waiting — plan is signed</span>
+        <span class="stat badge red" data-s="1">Architecture Agent engaged</span>
+        <span class="stat badge blue" data-s="2">Application mapped</span>
+        <span class="stat badge amber" data-s="3">External systems mapped</span>
+        <span class="stat badge green" data-s="4">v1 · accepted by a human</span>
+      </span>
+    </div>
+    <div class="browser-body">
+      <div class="agentbar" data-at="1">
+        <div class="agsrc"><svg class="ic sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Signed plan <span class="mini" style="font-weight:600">· from Planning, Gate 1</span></div>
+        <span class="cwrap"><button class="genbtn" style="min-width:0;padding:10px 16px"><span class="gb0">Generate architecture</span><span class="gb1" style="white-space:nowrap">✓ Generated</span></button><svg class="clickcur" data-at="1" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg></span>
+        <div class="agline"><i></i></div>
+        <div class="agbox"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> Architecture Agent <span class="agstat">✓ blueprint generated below</span></div>
+      </div>
+
+      <div class="metric-strip" data-at="2">
+        <div class="metric-pill"><b>2</b><span>Repositories</span><small>Portal and Claims API are the delivery homes for this change.</small></div>
+        <div class="metric-pill"><b>3</b><span>Delivery owners</span><small>Portal team, Claims API team, and mainframe owner are now explicit.</small></div>
+        <div class="metric-pill"><b>2</b><span>External systems</span><small>Document Store and Policy Master integrations are visible up front.</small></div>
+        <div class="metric-pill"><b>v1</b><span>Shared blueprint</span><small>One accepted architecture keeps every team building from the same picture.</small></div>
+      </div>
+
+      <div class="archgrid">
+        <div class="archcanvas" data-at="2">
+          <svg viewBox="0 0 1000 330" preserveAspectRatio="none">
+            <line x1="210" y1="82" x2="270" y2="82"/>
+            <line x1="450" y1="82" x2="520" y2="82"/>
+            <line x1="700" y1="82" x2="770" y2="82"/>
+            <g data-at="3" class="extlines"><line class="dash" x1="360" y1="105" x2="285" y2="222"/><line class="dash" x1="610" y1="105" x2="580" y2="222"/></g>
+          </svg>
+          <div class="anode" style="left:3%;top:60px" data-at="2">Sponsor Portal UI<small>existing</small></div>
+          <div class="anode new" style="left:27%;top:60px" data-at="2">Claim Intake<small>NEW — this epic</small></div>
+          <div class="anode" style="left:52%;top:60px" data-at="2">Claims API<small>maplesure-claims-api</small></div>
+          <div class="anode data" style="left:77%;top:60px" data-at="2">Policy Store<small>plans · members</small></div>
+          <div class="anode ext" style="left:19%;top:222px" data-at="3">Document Store<small>EXTERNAL · uploads</small></div>
+          <div class="anode ext" style="left:48%;top:222px" data-at="3">Mainframe Policy Master<small>EXTERNAL · nightly batch</small></div>
+          <div class="anode ext oos" style="left:77%;top:222px" data-at="3">Payments<small>out of scope</small></div>
+          <div class="archlegend"><span><i style="background:#f5faff;border:1px solid #abc9e6"></i>Application</span><span><i style="background:#fff5f7;border:1px solid #dca0ad"></i>New in this epic</span><span><i style="background:#fff9eb;border:1px solid #dec47e"></i>External system</span></div>
+        </div>
+        <div>
+          <div class="card pv" data-at="3" style="padding:13px 14px">
+            <h3>The facts, written down</h3>
+            <div class="factrow"><span>Integration</span><span>Portal → Claims API (REST) · Policy Store ↔ Mainframe (nightly batch — manual change window)</span></div>
+            <div class="factrow"><span>Technology</span><span>Python · Flask · server-rendered UI · SQLite</span></div>
+            <div class="factrow"><span>Security</span><span>Role-based access · sponsor sees own members only</span></div>
+            <div class="factrow"><span>Deployment</span><span>Single service per repo · release via approved pipeline</span></div>
+          </div>
+          <div class="card pv" data-at="4" style="padding:13px 14px;margin-top:12px">
+            <h3>Who builds where <span class="badge green">v1 · Accepted</span></h3>
+            <div class="pvrow"><span><b>Portal Team</b> → <span class="mono">maplesure-sponsor-portal</span></span><span class="mono">US-001 · US-002</span></div>
+            <div class="pvrow"><span><b>Claims API Team</b> → <span class="mono">maplesure-claims-api</span></span><span class="mono">US-003</span></div>
+            <div class="pvrow"><span><b>Mainframe</b> → change ticket to owning team</span><span class="badge amber">Manual</span></div>
+            <div style="display:flex;gap:8px;margin-top:10px"><button class="btn blue">Request revision</button><button class="btn green">Accept architecture</button></div>
+            <p class="mini" style="margin-top:8px">AI-generated, human-accepted — and still editable: a lead can propose a change, the agent refines it, and acceptance resets until a human signs again.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 8 · BUILD & REVIEW — DELIVERY PACKS -->
+<section class="slide" data-stage="build" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Three teams, three duties","Beat 2 · What each package contains","Beat 3 · Delivered to each repo"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — delivery packs</div>
+      <h2 style="margin-top:5px">Each team gets its own briefing, in its own repo</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Packaging Agent · builds each team's briefing</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> QA Lead · signs every test plan</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="metric-strip compact" data-at="1">
+    <div class="metric-pill"><b>3</b><span>Team briefings</span><small>Each team receives only the stories and responsibilities it owns.</small></div>
+    <div class="metric-pill"><b>4</b><span>Pack assets</span><small>Briefing, blueprint, Git workflow, and signed test plan travel together.</small></div>
+    <div class="metric-pill"><b>2</b><span>Target repos</span><small>Packages land directly in the repository where the work will happen.</small></div>
+    <div class="metric-pill"><b>0</b><span>Unsafe pushes</span><small>No package touches live code; everything arrives on a safe side branch.</small></div>
+  </div>
+
+  <div class="packrow">
+    <div class="card teampack" data-at="1" style="margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h4>Portal Team</h4><span class="st3-on badge green">DELIVERED</span></div>
+      <p class="duty">The sponsor-facing screens.</p>
+      <div><span class="storychip"><b>US-001</b><small>Claim form</small></span><span class="storychip"><b>US-002</b><small>Pre-population</small></span></div>
+      <div class="st3-on branchchip" style="margin-top:8px">→ maplesure-sponsor-portal</div>
+    </div>
+    <div class="fa" data-at="2">→</div>
+    <div class="card pv" data-at="2" style="padding:11px 14px">
+      <h3 style="font-size:12.5px">Their delivery package</h3>
+      <div class="ptiles">
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><b>The briefing</b><small>stories &amp; assignments</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg><b>The blueprint</b><small>accepted architecture v1</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><b>Git workflow</b><small>branch · PR · human merges</small></div>
+        <div class="ptile qa"><span class="qastamp">QA LEAD ✓</span><svg class="ic" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg><b>Test plan</b><small>one test per criterion</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="packrow">
+    <div class="card teampack" data-at="1" style="margin-bottom:0">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h4>Claims API Team</h4><span class="st3-on badge green">DELIVERED</span></div>
+      <p class="duty">The service behind the portal.</p>
+      <div><span class="storychip"><b>US-003</b><small>Documents &amp; status</small></span></div>
+      <div class="st3-on branchchip" style="margin-top:8px">→ maplesure-claims-api</div>
+    </div>
+    <div class="fa" data-at="2">→</div>
+    <div class="card pv" data-at="2" style="padding:11px 14px">
+      <h3 style="font-size:12.5px">Their delivery package</h3>
+      <div class="ptiles">
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><b>The briefing</b><small>US-003 · waits on US-002</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg><b>The blueprint</b><small>same architecture v1</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg><b>Git workflow</b><small>same rules, every team</small></div>
+        <div class="ptile qa"><span class="qastamp">QA LEAD ✓</span><svg class="ic" viewBox="0 0 24 24"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><polyline points="9 14 11 16 15 12"/></svg><b>Test plan</b><small>their own criteria</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout" data-at="2" style="margin-top:6px"><b>The test plan is AI-generated but never AI-approved:</b> the QA Lead reviews it, can edit it, and must sign it before any package can be delivered.</div>
+
+  <div class="callout st3-on" style="margin-top:8px;background:var(--greenp);border-left-color:var(--green);color:#265d4c"><b>Delivered for real:</b> each package lands in that team's own repository, on a safe side branch — it never touches the team's live code.</div>
+</div>
+</section>
+
+<!-- 9 · BUILD & REVIEW — DEVELOPER WORKSPACES -->
+<section class="slide" data-stage="build" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · The briefing arrives","Beat 2 · Building — the dashboard follows","Beat 3 · Done — the next story unlocks"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — developer workspaces</div>
+      <h2 style="margin-top:5px">The developer builds. The dashboard follows by itself.</h2>
+      <div class="agentline"><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Developers · own every line of code</span><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Sync Agent · reads GitHub, never writes</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="wsplit">
+    <div>
+      <div class="kicker" style="font-size:10px;margin-bottom:8px">The developer's world · <span class="badge green" style="font-size:8.5px">Human Controlled</span> <span class="badge blue" style="font-size:8.5px">AI Assisted</span></div>
+      <div class="card devstep" data-at="1">
+        <div class="lico b"><svg class="ic" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+        <div><h4>1 · Gets the briefing</h4><p>The package arrives in the team's own repository. The developer opens it in the tools they already use — nothing new to install, nothing to log into.</p></div>
+      </div>
+      <div class="card devstep" data-at="2">
+        <div class="lico r"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <div><h4>2 · Builds where they always build</h4><p>Own editor, own Git — AI assists if they choose. They save their work in small steps and open a <b>pull request</b>: "my work is ready to be looked at."</p></div>
+      </div>
+      <div class="card devstep" data-at="3">
+        <div class="lico g"><svg class="ic" viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+        <div><h4>3 · Finishes properly</h4><p>A teammate reviews the work, a human merges it in, and the automated checks come back green. Nobody reports anything — finishing <i>is</i> the report.</p></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="kicker" style="font-size:10px;margin-bottom:8px">The S7 dashboard — same moment, by itself</div>
+      <div class="appmock on" data-at="1">
+        <div class="appmock-top"><div class="amark">MS</div><div><small>MapleSure Insurance</small><b>S7 Delivery Control Centre</b></div><span class="runchip">S7-00019</span><span class="envchip">Simulation</span></div>
+        <div class="appmock-step">
+          <span class="stg done"><i>✓</i>Intake</span><span class="ln"></span>
+          <span class="stg done"><i>✓</i>Planning</span><span class="ln"></span>
+          <span class="stg act"><i>3</i>Build &amp; Review</span><span class="ln"></span>
+          <span class="stg"><i>4</i>Final Gating</span><span class="ln"></span>
+          <span class="stg"><i>5</i>Release</span>
+        </div>
+        <div class="appmock-body">
+          <div class="appnav">
+            <div class="grp">RUN</div>
+            <div class="itm">Overview</div>
+            <div class="itm">Intake</div>
+            <div class="itm">Planning</div>
+            <div class="itm parent">Build &amp; Review ▾</div>
+            <div class="itm sub">Architecture</div>
+            <div class="itm sub">Delivery Packs</div>
+            <div class="itm sub subact">Developer Workspaces</div>
+            <div class="itm sub">Build &amp; Test Evidence</div>
+            <div class="itm sub">Independent Review</div>
+            <div class="grp">DETAIL</div>
+            <div class="itm">Traceability</div>
+            <div class="itm">Approvals</div>
+          </div>
+          <div class="appmain">
+            <div><h5>Developer Workspaces</h5><div class="sub5">Human-controlled workspaces provisioned from approved delivery packs.</div></div>
+            <div class="approw"><b class="mono">US-001</b> Claim submission form · J. Smith<span class="stat apill grey" data-s="1">BRIEFED — NOT STARTED</span><span class="stat apill warn" data-s="2">IN DEVELOPMENT · PR #112 · CHECKS RUNNING</span><span class="stat apill ok" data-s="3">DONE · MERGED · CHECKS GREEN</span></div>
+            <div class="approw"><b class="mono">US-002</b> Member pre-population · R. Patel<span class="st3-off apill grey"><svg class="ic sm" viewBox="0 0 24 24" style="width:9px;height:9px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> WAITING ON US-001</span><span class="st3-on apill ok">UNLOCKED — READY TO START</span></div>
+            <div class="approw"><b class="mono">US-003</b> Documents &amp; status · Claims API Team<span class="apill grey"><svg class="ic sm" viewBox="0 0 24 24" style="width:9px;height:9px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> WAITING ON US-002</span></div>
+          </div>
+        </div>
+        <div class="appfoot"><span><b>S7 Delivery Control Centre</b> · v2.1.0</span><span>Governed</span><span>Traceable</span><span>Human-approved</span><span>Audit-ready</span></div>
+      </div>
+      <p class="mini" data-at="1" style="margin-top:7px"><b>Nobody types a status.</b> The dashboard reads the commits, pull requests and checks straight from GitHub — it changes because the work changed.</p>
+      <div class="card pv" data-at="2" style="margin-top:10px;padding:11px 13px">
+        <h3 style="font-size:12.5px">Why US-002 is locked</h3>
+        <p class="mini" style="margin-top:5px">It depends on US-001 — so it can't <i>start</i> until US-001 is genuinely finished. When US-001 merged, US-002 unlocked on its own. A lead can override, but only with a written reason that goes on record.</p>
+      </div>
+    </div>
+  </div>
+  <div class="learnstrip" data-at="3"><svg class="ic sm" viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="15" y2="11"/></svg> <b>Self-learning happens here too</b> — whatever a developer has to correct in the AI's briefing becomes a new playbook rule, the same loop as "Every human correction teaches the AI."</div>
+</div>
+</section>
+
+<!-- 10 · BUILD & REVIEW — EVIDENCE -->
+<section class="slide" data-stage="build" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Tests run in the workspace","Beat 2 · The checklist fills itself","Beat 3 · A failure blocks the door"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — build &amp; test evidence</div>
+      <h2 style="margin-top:5px">Tests run in the workspace. The checklist ticks itself.</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Evidence Agent · joins tests to criteria</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Developers · make the tests pass</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="wsplit">
+    <div>
+      <div class="kicker" style="font-size:10px;margin-bottom:8px">In the developer's workspace</div>
+      <div class="card pv" data-at="1" style="padding:12px 14px">
+        <h3 style="font-size:13px">Every change runs the ready-made tests</h3>
+        <p class="mini" style="margin-top:5px">The same tests that shipped in the package — one per acceptance criterion.</p>
+        <div class="pvrow"><span>Select a plan, then a member</span><span class="status ok">WORKS</span></div>
+        <div class="pvrow"><span>Member details fill in automatically</span><span class="status ok">WORKS</span></div>
+        <div class="pvrow" style="background:#fff6f7"><span>Typo in member id — sponsor's half-typed claim is lost</span><span class="status bad">FAILS</span></div>
+      </div>
+      <div class="card pv" data-at="3" style="margin-top:10px;padding:12px 14px;border-left:4px solid var(--red)">
+        <h3 style="font-size:12.5px">What the failure means, in plain words</h3>
+        <p class="mini" style="margin-top:5px">A sponsor who mistypes a member id should get a clear message and keep what they typed. Right now, their draft disappears. That's criterion AC-04 — not yet met.</p>
+      </div>
+    </div>
+
+    <div>
+      <div class="kicker" style="font-size:10px;margin-bottom:8px">The evidence dashboard — same moment, by itself</div>
+      <div class="appmock" data-at="2">
+        <div class="appmock-top"><div class="amark">MS</div><div><small>MapleSure Insurance</small><b>S7 Delivery Control Centre</b></div><span class="runchip">S7-00019</span><span class="envchip">Simulation</span></div>
+        <div class="appmock-step">
+          <span class="stg done"><i>✓</i>Intake</span><span class="ln"></span>
+          <span class="stg done"><i>✓</i>Planning</span><span class="ln"></span>
+          <span class="stg act"><i>3</i>Build &amp; Review</span><span class="ln"></span>
+          <span class="stg"><i>4</i>Final Gating</span><span class="ln"></span>
+          <span class="stg"><i>5</i>Release</span>
+        </div>
+        <div class="appmock-body">
+          <div class="appnav">
+            <div class="grp">RUN</div>
+            <div class="itm">Overview</div>
+            <div class="itm">Intake</div>
+            <div class="itm">Planning</div>
+            <div class="itm parent">Build &amp; Review ▾</div>
+            <div class="itm sub">Architecture</div>
+            <div class="itm sub">Delivery Packs</div>
+            <div class="itm sub">Developer Workspaces</div>
+            <div class="itm sub subact">Build &amp; Test Evidence</div>
+            <div class="itm sub">Independent Review</div>
+            <div class="grp">DETAIL</div>
+            <div class="itm">Traceability</div>
+            <div class="itm">Approvals</div>
+          </div>
+          <div class="appmain">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div><h5>Build &amp; Test Evidence</h5><div class="sub5">Engineering evidence collected back from developer workspaces.</div></div>
+              <button class="appbtn">↓ Export Evidence</button>
+            </div>
+            <div class="apptiles">
+              <div class="apptile"><div class="v">12</div><div class="l">Tests</div></div>
+              <div class="apptile"><div class="v g">11</div><div class="l">Passed</div></div>
+              <div class="apptile"><div class="v r">1</div><div class="l">Failed</div></div>
+              <div class="apptile"><div class="v">92.9%</div><div class="l">Coverage</div></div>
+            </div>
+            <div class="appacs">
+              <div class="ah"><span>Acceptance Criteria Coverage — 2 / 3</span><span style="color:#85847a;font-size:7px">synced from CI · 2 min ago</span></div>
+              <div class="appacrow" style="transition-delay:.2s"><b>AC-01</b> Sponsor selects plan &amp; member<span class="tname">test_ac01_select_plan_member</span><span class="pill ok">PASS</span></div>
+              <div class="appacrow" style="transition-delay:.45s"><b>AC-02</b> Member details pre-populated<span class="tname">test_ac02_prepopulate_member</span><span class="pill ok">PASS</span></div>
+              <div class="appacrow" style="transition-delay:.7s"><b>AC-04</b> Bad member id → clear error, draft kept<span class="tname">test_ac04_invalid_member_id</span><span class="pill bad">FAIL</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="appfoot"><span><b>S7 Delivery Control Centre</b> · v2.1.0</span><span>Governed</span><span>Traceable</span><span>Human-approved</span><span>Audit-ready</span></div>
+      </div>
+      <p class="mini" data-at="2" style="margin-top:7px"><b>No human fills this in.</b> Each tick is earned by its matching test passing in the workspace — the checklist is a mirror, not a form.</p>
+      <div class="callout red" data-at="3" style="margin-top:10px"><b>And the door stays shut:</b> while any criterion is red, this story cannot enter Independent Review. The gate reads the evidence — not the mood of the room.</div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 11 · BUILD & REVIEW — INDEPENDENT REVIEW -->
+<section class="slide" data-stage="build" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Separation of duties","Beat 2 · Evidence-based review","Beat 3 · Human decision recorded"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — independent review</div>
+      <h2 style="margin-top:5px">No work approves itself</h2>
+      <div class="agentline"><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Independent reviewer · a different human decides</span><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Agents · assemble the review dossier</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px"><span class="beatlabel">Ready</span><div class="stepdots"></div></div>
+  </div>
+
+  <div class="review-flow" data-at="1">
+    <div class="flow-node">
+      <div class="flow-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+      <b>Developer</b><small>Authors the change in the assigned workspace.</small>
+    </div>
+    <div class="flow-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="flow-node">
+      <div class="flow-ico"><svg class="ic" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg></div>
+      <b>GitHub PR</b><small>Code review remains where the code already lives.</small>
+    </div>
+    <div class="flow-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="flow-node reviewer">
+      <div class="flow-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div>
+      <b>Independent reviewer</b><small>A different person checks the approved plan, architecture and evidence.</small>
+    </div>
+    <div class="flow-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="flow-node decision">
+      <div class="flow-ico"><svg class="ic" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></div>
+      <b>Recorded decision</b><small>Approve or return to rework. The verdict is versioned.</small>
+    </div>
+  </div>
+
+  <div class="leader-note" data-at="1"><b>Executive meaning:</b> the author cannot approve their own work. S7 makes separation of duties visible before a story can move into quality gating.</div>
+
+  <div class="review-grid">
+    <div class="card pv" data-at="2">
+      <h3>Review against the approved intent <span class="badge green">Human review</span></h3>
+      <div class="pvrow" style="margin-top:9px">Requirements traceability <span class="status ok">PASS</span></div>
+      <div class="pvrow">AC coverage — every criterion evidenced <span class="status ok">PASS</span></div>
+      <div class="pvrow">Scope adherence — only claim-intake touched <span class="status ok">PASS</span></div>
+      <div class="pvrow">Code quality — PR review complete <span class="status ok">PASS</span></div>
+      <p class="mini" style="margin-top:8px">The reviewer is not validating a summary produced by the same workstream. They can resolve every claim back to the accepted plan, tests and pull request.</p>
+    </div>
+    <div class="decision-panel" data-at="3">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3>Decision — US-001</h3><span class="status ok" data-at="3" style="transition-delay:1.15s">APPROVED</span></div>
+      <div class="decision-row"><span class="mini" style="width:76px">Reviewer</span><b>E. Wilson</b></div>
+      <div class="decision-row"><span class="mini" style="width:76px">Author</span><span>J. Smith</span></div>
+      <div class="decision-row"><span class="mini" style="width:76px">Separation</span><span class="status ok">CONFIRMED</span></div>
+      <div class="decision-row"><span class="mini" style="width:76px">Evidence</span><span>4 / 4 checks resolved</span></div>
+      <div style="display:flex;gap:8px;margin-top:11px"><button class="btn blue">Request rework</button><span class="cwrap"><button class="btn green">Approve</button><svg class="clickcur" data-at="3" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg></span></div>
+      <p class="mini" style="margin-top:8px">Rework returns the story to its workspace with the finding attached. History is appended, never overwritten.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 11B · BUILD & REVIEW — BUILD SUMMARY -->
+<section class="slide" data-stage="build" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Executive snapshot","Beat 2 · Dependency state","Beat 3 · What blocks quality"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">03 · Build &amp; Review — build summary</div>
+      <h2 style="margin-top:5px">One view of what is done, what is moving, and what is blocked</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Sync Agent · keeps this view honest</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px"><span class="beatlabel">Ready</span><div class="stepdots"></div></div>
+  </div>
+
+  <div class="leader-note" data-at="1"><b>Executive meaning:</b> the build is progressing, but one failing acceptance criterion still prevents the stream from converging. The blocker is explicit, evidenced, and owned.</div>
+
+  <div class="summary-metrics" data-at="1">
+    <div class="summary-metric ok"><div class="num">1</div><div class="label">Done &amp; approved</div><p class="mini" style="margin-top:7px">US-001 has independent approval and can move toward quality.</p></div>
+    <div class="summary-metric warn"><div class="num">1</div><div class="label">In rework</div><p class="mini" style="margin-top:7px">US-002 is back with the developer because AC-04 is failing.</p></div>
+    <div class="summary-metric bad"><div class="num">1</div><div class="label">Blocked</div><p class="mini" style="margin-top:7px">US-003 cannot start while its upstream dependency remains open.</p></div>
+  </div>
+
+  <div class="story-pipeline" data-at="2">
+    <div class="story-state ok"><div class="sid">US-001</div><h4>Claim submission form</h4><p>Approved by E. Wilson. Evidence complete.</p><span class="status ok" style="margin-top:8px">READY FOR QUALITY</span></div>
+    <div class="pipeline-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="story-state warn"><div class="sid">US-002</div><h4>Member pre-population</h4><p>AC-04 failing. Returned to developer with evidence attached.</p><span class="status warn" style="margin-top:8px">IN REWORK</span></div>
+    <div class="pipeline-arrow"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg></div>
+    <div class="story-state bad"><div class="sid">US-003</div><h4>Documents &amp; status</h4><p>Depends on US-002, so the workspace stays locked.</p><span class="status bad" style="margin-top:8px">BLOCKED</span></div>
+  </div>
+
+  <div class="blocker-callout" data-at="3">
+    <div class="bi"><svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+    <div><b>Quality Gate cannot begin yet</b><p>AC-04 in US-002 remains unresolved. Once its test passes and the story is independently approved, US-003 can unlock and the build can converge.</p></div>
+    <div class="next-action">Next action · fix AC-04</div>
+  </div>
+</div>
+</section>
+
+
+<!-- STAGE DIVIDER · FINAL GATING -->
+<section class="slide stage-divider" data-stage="quality">
+<div class="inner">
+  <div class="divider-wrap reveal">
+    <div>
+      <div class="stage-eyebrow">Stage 04</div>
+      <div class="stage-title">Final Gating</div>
+      <p class="stage-thesis">Independent inspection checks that the implementation still matches the approved intent.</p>
+      <div class="stage-track"><div class="stage-stop done">Intake</div><div class="stage-stop done">Planning</div><div class="stage-stop done">Build & Review</div><div class="stage-stop current">Final Gating</div><div class="stage-stop">Release</div></div>
+    </div>
+    <aside class="stage-side">
+      <b>What changes now</b>
+      <div class="stage-note">Agents inspect drift, pull requests and evidence. A named human still decides whether the gate passes.</div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- 12 · FINAL GATING — QUALITY GATE -->
+<section class="slide" data-stage="quality" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · The inspection agents wake","Beat 2 · Drift found — and governed","Beat 3 · A human passes the gate"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">04 · Final Gating — the quality gate</div>
+      <h2 style="margin-top:5px">Independent agents inspect. A human passes the gate.</h2>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="agentbar" data-at="1">
+    <div class="agsrc"><svg class="ic sm" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> Build &amp; Review <span class="mini" style="font-weight:600">· evidence &amp; approvals</span></div>
+    <div class="agline"><i></i></div>
+    <div class="agrow">
+      <div class="agbox"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg> Drift Agent</div>
+      <div class="agbox"><svg class="ic" viewBox="0 0 24 24"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg> PR Agent</div>
+      <div class="agbox"><svg class="ic" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Evidence Agent</div>
+    </div>
+  </div>
+
+  <div class="wsplit">
+    <div>
+      <div class="card pv" data-at="2" style="padding:13px 14px">
+        <div style="display:flex;align-items:center;gap:10px"><h3 style="font-size:13px">Drift Agent — the code vs blueprint v1</h3><div class="qmeter"><i></i></div><span style="font-size:10.5px;font-weight:850;color:var(--green)">96% aligned</span></div>
+        <div class="pvrow" style="margin-top:9px"><span>Claim-intake screens follow the blueprint</span><span class="status ok">ALIGNED</span></div>
+        <div class="pvrow" style="background:#fff9ec"><span>Portal calls Policy Store directly — bypasses the Claims API</span><span class="status warn">DRIFT</span></div>
+        <div class="pvrow st3-on" style="background:#f4fbf7"><span>Architect decided: <b>fix the code</b> — corrected in PR #118</span><span class="status ok">RESOLVED</span></div>
+        <p class="mini" style="margin-top:8px">Every drift finding goes to a human architect: either the code is corrected, or the blueprint is deliberately updated — never a silent divergence.</p>
+      </div>
+      <div class="card pv" data-at="2" style="padding:13px 14px;margin-top:10px">
+        <h3 style="font-size:13px">PR Agent — every pull request re-checked</h3>
+        <div class="pvrow" style="margin-top:8px"><span>Only files each story owns were touched</span><span class="status ok">PASS</span></div>
+        <div class="pvrow"><span>No unreviewed commit reached the main branch</span><span class="status ok">PASS</span></div>
+        <div class="pvrow"><span>Every merge was made by a human</span><span class="status ok">PASS</span></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="appmock" data-at="3">
+        <div class="appmock-top"><div class="amark">MS</div><div><small>MapleSure Insurance</small><b>S7 Delivery Control Centre</b></div><span class="runchip">S7-00019</span><span class="envchip">Simulation</span></div>
+        <div class="appmock-step">
+          <span class="stg done"><i>✓</i>Intake</span><span class="ln"></span>
+          <span class="stg done"><i>✓</i>Planning</span><span class="ln"></span>
+          <span class="stg done"><i>✓</i>Build &amp; Review</span><span class="ln"></span>
+          <span class="stg act"><i>4</i>Final Gating</span><span class="ln"></span>
+          <span class="stg"><i>5</i>Release</span>
+        </div>
+        <div class="appmock-body">
+          <div class="appnav">
+            <div class="grp">RUN</div>
+            <div class="itm">Overview</div>
+            <div class="itm">Intake</div>
+            <div class="itm">Planning</div>
+            <div class="itm">Build &amp; Review</div>
+            <div class="itm parent">Final Gating</div>
+            <div class="itm">Release</div>
+            <div class="grp">DETAIL</div>
+            <div class="itm">Traceability</div>
+            <div class="itm">Approvals</div>
+          </div>
+          <div class="appmain">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+              <div><h5>Final Gating — Quality Gate</h5><div class="sub5">Only verified work passes into release readiness.</div></div>
+              <span class="cwrap"><button class="appbtn" style="background:var(--green);color:#fff;border-color:var(--green)">Pass Quality Gate ✓</button><svg class="clickcur" data-at="3" style="width:18px;height:18px" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg></span>
+            </div>
+            <div class="approw"><b class="mono">QC-01</b> All stories approved by independent review<span class="apill ok">PASS</span></div>
+            <div class="approw"><b class="mono">QC-02</b> Every acceptance criterion evidenced by a current test<span class="apill ok">PASS</span></div>
+            <div class="approw"><b class="mono">QC-03</b> Approvals ledger complete — every gate signed<span class="apill ok">PASS</span></div>
+            <div class="approw"><b class="mono">QC-04</b> No unresolved architecture drift<span class="apill ok">PASS</span></div>
+            <div class="approw"><b class="mono">QC-05</b> Coverage at main-branch tip — 92.9% ≥ 80% target<span class="apill ok">PASS</span></div>
+            <div class="approw" data-at="3" style="background:#f4fbf7;border-color:#9acbb7;transition-delay:1.2s"><b>Quality Gate passed by E. Wilson — QA Lead</b><span class="apill ok">SIGNED ✓</span></div>
+          </div>
+        </div>
+        <div class="appfoot"><span><b>S7 Delivery Control Centre</b> · v2.1.0</span><span>Governed</span><span>Traceable</span><span>Human-approved</span><span>Audit-ready</span></div>
+      </div>
+      <p class="mini" data-at="3" style="margin-top:7px"><b>The agents report. The human decides.</b> Passing the gate is a signed click — and it refuses to be clickable while any check is red.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+
+<!-- STAGE DIVIDER · RELEASE -->
+<section class="slide stage-divider" data-stage="release">
+<div class="inner">
+  <div class="divider-wrap reveal">
+    <div>
+      <div class="stage-eyebrow">Stage 05</div>
+      <div class="stage-title">Release</div>
+      <p class="stage-thesis">The final human decision turns proven work into a governed release with its history attached.</p>
+      <div class="stage-track"><div class="stage-stop done">Intake</div><div class="stage-stop done">Planning</div><div class="stage-stop done">Build & Review</div><div class="stage-stop done">Final Gating</div><div class="stage-stop current">Release</div></div>
+    </div>
+    <aside class="stage-side">
+      <b>What changes now</b>
+      <div class="stage-note">By this point the release decision is not based on confidence or memory — it is backed by evidence and approvals.</div>
+    </aside>
+  </div>
+</div>
+</section>
+
+<!-- 13 · RELEASE -->
+<section class="slide" data-stage="release" data-steps="3" data-step="0" data-beats='["Ready","Beat 1 · Release readiness","Beat 2 · A human approves","Beat 3 · Released — with its audit trail"]'>
+<div class="inner">
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px;margin-bottom:10px">
+    <div>
+      <div class="kicker">05 · Release</div>
+      <h2 style="margin-top:5px">A human presses the button. Everything else is already proven.</h2>
+      <div class="agentline"><span class="agentchip"><i></i><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg> Release Agent · assembles readiness</span><span class="agentchip human"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Delivery Lead · releases</span></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <span class="beatlabel">Ready</span>
+      <div class="stepdots"></div>
+    </div>
+  </div>
+
+  <div class="gategrid">
+    <div>
+      <div class="card pv" data-at="1">
+        <h3>Release readiness <span class="badge blue">Assembled by the Release Agent</span></h3>
+        <div class="pvrow" style="margin-top:8px"><span>All stories built, reviewed &amp; independently approved</span><span class="status ok">READY</span></div>
+        <div class="pvrow"><span>Quality Gate signed by the QA Lead</span><span class="status ok">READY</span></div>
+        <div class="pvrow"><span>Architecture drift resolved — code matches blueprint</span><span class="status ok">READY</span></div>
+        <div class="pvrow"><span>Evidence bundle complete — every claim checkable</span><span class="status ok">READY</span></div>
+      </div>
+      <div class="card pv" data-at="2" style="margin-top:12px">
+        <h3>Gate 2 — Release approval <span class="badge red">Human decision</span></h3>
+        <div class="cwrap" style="margin-top:10px"><button class="btn green">Approve release ✓</button><svg class="clickcur" data-at="2" viewBox="0 0 24 24" fill="#36362f" stroke="#fff" stroke-width="1.1"><path d="M5.5 2.5 L19 11.5 L12.3 12.8 L15.6 19.6 L12.7 21 L9.4 14.2 L5.5 17.5 Z"/></svg></div>
+        <div class="signer" style="margin-top:9px">
+          <div class="avatar" style="background:var(--red)">DL</div>
+          <div><b style="font-size:12px">M. Tremblay — Delivery Lead</b><div class="mini">Reads the readiness above — every line resolves to evidence, not opinion.</div></div>
+          <span class="status ok" data-at="2" style="margin-left:auto;transition-delay:1.15s">APPROVED</span>
+        </div>
+        <p class="mini" style="margin-top:8px">The same discipline as Gate 1: a named human, a recorded click, and no autonomy where it matters. The release script runs only after this signature.</p>
+      </div>
+    </div>
+
+    <div class="card pv" data-at="3">
+      <h3>Released</h3>
+      <div style="margin-top:10px"><span class="relchip"><svg class="ic" viewBox="0 0 24 24" style="stroke:#fff"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Sponsor Portal · Release 1.0 <small>disability online claim submission</small></span></div>
+      <p class="sub" style="font-size:11.5px;margin-top:10px">And the release ships with its own memory — one audit bundle holding everything the room just watched happen:</p>
+      <div class="ptiles">
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg><b>Evidence</b><small>every test &amp; CI run</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><b>Approvals</b><small>who signed what, when</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg><b>Architecture</b><small>the accepted blueprint</small></div>
+        <div class="ptile"><svg class="ic" viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><b>Activity log</b><small>every edit, on record</small></div>
+      </div>
+      <p class="mini" style="margin-top:9px">Six months from now, "why does the portal do this?" has an answer that opens in one click.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 14 · TAKEAWAY -->
+<section class="slide" data-stage="release">
+<div class="inner takeaway reveal">
+  <div class="takeaway-copy">
+    <div class="kicker">The takeaway</div>
+    <h1 style="margin-top:12px">AI does not remove control.<br><span style="color:var(--red)">It makes control visible.</span></h1>
+    <p class="lede" style="margin-top:22px">One requirement travelled the whole road — structured by AI, decided by humans, built in the developer's own tools, proven by evidence, and released with its full history attached.</p>
+  </div>
+
+  <div class="final-road" aria-label="Requirement to release journey">
+    <div class="road-stop"><div class="dot">01</div><b>Requirement</b><small>source captured</small></div>
+    <div class="road-stop"><div class="dot">02</div><b>Plan</b><small>stories &amp; ownership</small></div>
+    <div class="road-stop"><div class="dot">03</div><b>Architecture</b><small>blueprint accepted</small></div>
+    <div class="road-stop"><div class="dot">04</div><b>Build</b><small>workspaces &amp; PRs</small></div>
+    <div class="road-stop"><div class="dot">05</div><b>Evidence</b><small>tests prove ACs</small></div>
+    <div class="road-stop"><div class="dot">06</div><b>Review</b><small>different human</small></div>
+    <div class="road-stop"><div class="dot">07</div><b>Gate</b><small>independent inspection</small></div>
+    <div class="road-stop"><div class="dot">08</div><b>Release</b><small>history attached</small></div>
+  </div>
+
+  <div class="principles">
+    <div class="principle"><b>Human decides</b>AI proposes, structures and inspects — named people make the decisions that matter.</div>
+    <div class="principle"><b>AI accelerates</b>The system removes repetitive coordination without taking ownership away from teams.</div>
+    <div class="principle"><b>Evidence proves</b>Status is earned from repositories, tests, reviews and signatures rather than manually reported.</div>
+  </div>
+</div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <span>MapleSure Insurance is fictional · all demo data is synthetic.</span>
+  <span class="hint">→ plays the next beat · ← rewinds</span>
+  <div class="nav"><button id="prev">←</button><span class="counter"><span id="cur">1</span> / <span id="total">2</span></span><button id="next">→</button></div>
+</footer>
+
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+let index=0;
+const progress=document.getElementById('progress'),cur=document.getElementById('cur'),total=document.getElementById('total'),stagePill=document.getElementById('stagePill'),stageNav=[...document.querySelectorAll('.stage-nav .sn')];
+const stageOrder=['intake','planning','build','quality','release'];
+const stageLabel={intake:'Stage 1 · Intake',planning:'Stage 2 · Planning',build:'Stage 3 · Build & Review',quality:'Stage 4 · Final Gating',release:'Stage 5 · Release'};
+total.textContent=slides.length;
+
+function maxStep(s){return +(s.dataset.steps||0)}
+function setStep(s,n){
+  const prevN=+(s.dataset.step||0);
+  s.dataset.step=n;
+  s.querySelectorAll('[data-at]').forEach(el=>{
+    const at=+el.dataset.at;
+    el.classList.toggle('on',at<=n);
+    el.classList.toggle('beat-current',n>0&&at===n);
+    el.classList.toggle('beat-past',n>0&&at<n);
+  });
+  const dots=s.querySelector('.stepdots');
+  if(dots)[...dots.children].forEach((d,i)=>d.classList.toggle('hit',i<n));
+  const bl=s.querySelector('.beatlabel');
+  if(bl){const names=JSON.parse(s.dataset.beats||'[]');bl.textContent=names[n]||(n?'Beat '+n:'Ready')}
+  if(n>prevN&&n===maxStep(s)){
+    setTimeout(()=>s.scrollTo({top:s.scrollHeight,behavior:'smooth'}),550);
+  }else if(n>prevN&&n>=3){
+    const revealed=s.querySelectorAll('[data-at="'+n+'"]');
+    if(revealed.length)setTimeout(()=>revealed[revealed.length-1].scrollIntoView({behavior:'smooth',block:'nearest'}),350);
+  }else if(n<=2){
+    s.scrollTo({top:0,behavior:'smooth'});
+  }
+}
+function show(i){
+  index=Math.max(0,Math.min(slides.length-1,i));
+  slides.forEach((s,j)=>s.classList.toggle('active',j===index));
+  const active=slides[index];
+  cur.textContent=index+1;
+  progress.style.width=((index+1)/slides.length*100)+'%';
+  const stage=active.dataset.stage||'intake';
+  const si=Math.max(0,stageOrder.indexOf(stage));
+  stagePill.textContent=stageLabel[stage]||stageLabel.intake;
+  stageNav.forEach((el,j)=>{el.classList.toggle('active',j===si);el.classList.toggle('done',j<si)});
+}
+function next(){
+  const s=slides[index],c=+(s.dataset.step||0);
+  if(c<maxStep(s)){setStep(s,c+1);return}
+  show(index+1);
+}
+function prev(){
+  const s=slides[index],c=+(s.dataset.step||0);
+  if(c>0){setStep(s,c-1);return}
+  show(index-1);
+}
+document.getElementById('next').addEventListener('click',next);
+document.getElementById('prev').addEventListener('click',prev);
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next()}
+  if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev()}
+  if(e.key==='Home'){show(0)}
+  if(e.key==='End'){show(slides.length-1)}
+});
+slides.forEach(s=>{
+  if(!s.dataset.steps)return;
+  const dots=s.querySelector('.stepdots');
+  if(dots){dots.innerHTML='';for(let i=0;i<maxStep(s);i++)dots.appendChild(document.createElement('i'))}
+  setStep(s,+(s.dataset.step||0));
+});
+show(0);
+</script>
+</body>
+</html>
