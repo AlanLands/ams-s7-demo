@@ -279,6 +279,15 @@ Intake roles narrowed the same day: `upload_intake_document` and
 `pass_intake_gate` are `BUSINESS_OWNER` only, extraction rides the upload
 permission, and the combined intake button split in two.
 
+**Clarification popup raised by the analysis itself, added 2026-08-10.**
+Intake analysis opens its clarification round automatically: the
+analysis's own `clarification_questions` become the pending round (both
+modes, no extra model call, provenance the analysis's own) and surface as
+an auto-opening popup for the business (`ClarificationPopup.tsx`); the
+separate "Ask AI Clarification" button is gone. Answering is permission
+`answer_clarification` (Business Owner + analysts). Re-running analysis
+never re-opens an asked or answered round.
+
 **Dependency-gated developer workspaces, added 2026-08-10.** The Dependency
 Map's waves are enforced per story (never per team): context publishes to
 every team, but starting a story is blocked until each dependency is proven

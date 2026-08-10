@@ -288,6 +288,18 @@ are `BUSINESS_OWNER` only, extraction rides the upload permission, and the
 combined intake button split in two because no single role may both create
 the epic and sign the gate.
 
+**Clarification popup raised by the analysis itself, added 2026-08-10.**
+Running intake analysis now opens its clarification round automatically:
+the analysis's own `clarification_questions` become the pending round
+(`_queue_analysis_clarifications`, both modes, no extra model call —
+provenance is the analysis's own) and the app surfaces them as an
+auto-opening popup addressed to the business
+(`apps/control/web/src/pages/intake/ClarificationPopup.tsx`); the separate
+"Ask AI Clarification" button is gone. Answering is a new permission
+`answer_clarification` (Business Owner + analysts); asking further rounds
+stays `ask_clarification`. Re-running analysis never re-opens a round that
+was already asked or answered.
+
 **Dependency-gated developer workspaces, added 2026-08-10.** The Dependency
 Map's waves are now enforced, per story and never per team: context is
 published to every team, but *starting work* on a story is blocked until each

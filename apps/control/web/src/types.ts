@@ -115,6 +115,7 @@ export interface ClarificationState {
   pending: string[]
   rounds_used: number
   max_rounds: number
+  provenance?: string
 }
 
 export interface NewAppState {

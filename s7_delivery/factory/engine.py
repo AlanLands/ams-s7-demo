@@ -547,6 +547,7 @@ class Engine:
         self._stage_in_progress(Stage.INTAKE)
         if self.run().mode is DemoMode.LIVE:
             self._intake_analyse_live()
+            self._queue_analysis_clarifications()
             return
         analysis = seed.ANALYSIS.model_copy(update={"generated_at": now_iso()})
         self.store.write_json(analysis, "intake", "analysis.json")
@@ -560,6 +561,36 @@ class Engine:
             stage=Stage.INTAKE, actor="intake-analysis", actor_type="simulation",
             workflow="intake-analysis", artifact="ANL-001", duration_s=6.0,
             outcome="created", details="requirement analysed; open questions surfaced",
+        )
+        self._queue_analysis_clarifications()
+
+    def _queue_analysis_clarifications(self) -> None:
+        """The analysis's own open questions become the pending clarification
+        round the moment analysis completes — the AI asks the business
+        directly, with no separate ask step. Only the first round seeds this
+        way: once a transcript exists (questions asked or answered),
+        re-running analysis never re-opens the round. No extra model call —
+        the questions are the ones the analysis itself produced, so their
+        provenance is the analysis's own."""
+        analysis = self.store.read_json_or(None, "intake", "analysis.json")
+        questions = (analysis or {}).get("clarification_questions") or []
+        clar = self._clarifications()
+        if not questions or clar["transcript"] or clar["pending"]:
+            return
+        clar["transcript"].append(
+            {"role": "assistant", "text": "\n".join(questions)}
+        )
+        clar["pending"] = [str(q) for q in questions]
+        clar["rounds_used"] = 1
+        clar["provenance"] = (analysis or {}).get("provenance", "simulated")
+        self.store.write_json(clar, "intake", "clarifications.json")
+        is_live = self.run().mode is DemoMode.LIVE
+        self._activity(
+            stage=Stage.INTAKE, actor="intake-analysis",
+            actor_type="live_ai" if is_live else "simulation",
+            workflow="clarification", outcome="asked",
+            details=f"{len(questions)} questions for the business,"
+                    " raised by the analysis",
         )
 
     def _intake_analyse_live(self) -> None:
@@ -633,7 +664,7 @@ class Engine:
         )
 
     def intake_clarify_answer(self, role: Role, answers: list[str]) -> None:
-        roles.require("ask_clarification", role)
+        roles.require("answer_clarification", role)
         clar = self._clarifications()
         if not clar["pending"]:
             raise EngineError("There are no open questions to answer")

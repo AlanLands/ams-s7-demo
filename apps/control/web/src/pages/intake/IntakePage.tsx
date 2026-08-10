@@ -3,6 +3,7 @@ import { useRun } from '../../state/RunContext'
 import { SourceRequirementCard } from './SourceRequirementCard'
 import { ExtractionCard } from './ExtractionCard'
 import { AdvancedAnalysisSection } from './AdvancedAnalysisSection'
+import { ClarificationPopup } from './ClarificationPopup'
 
 export function IntakePage() {
   const { data, act } = useRun()
@@ -44,6 +45,7 @@ export function IntakePage() {
         </div>
 
         <AdvancedAnalysisSection />
+        <ClarificationPopup />
 
         <div className="card info-bar">
           <p>The extracted epic will be used by AI Planner to create stories, acceptance criteria, dependencies and route work to teams.</p>

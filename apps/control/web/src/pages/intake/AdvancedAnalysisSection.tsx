@@ -411,7 +411,9 @@ export function AdvancedAnalysisSection() {
         )}
 
         <div className="actions-row">
-          {isLive && <button type="button" className="outline" onClick={() => act('/intake/clarify', {}, 'Clarifying questions requested')}>Ask AI Clarification</button>}
+          {/* No separate "ask clarification" button: running the analysis
+              raises its open questions as an auto-opening popup for the
+              Business Owner (ClarificationPopup). */}
           <button type="button" className="outline" onClick={() => act('/intake/analyse', {}, isLive ? 'Live analysis regenerated' : 'Intake analysis regenerated')}>⟳ Regenerate Analysis</button>
           <button type="button" className="outline" onClick={() => act('/intake/create-epic', {}, 'Epic created')}>Generate Epic</button>
           <button type="button" className="outline approve" onClick={() => act('/intake/pass-gate', {}, 'Intake gate passed')}>✓ Pass Intake Gate</button>

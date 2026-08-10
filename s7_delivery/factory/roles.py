@@ -33,6 +33,11 @@ PERMISSIONS: dict[str, set[Role]] = {
     "create_epic": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "connect_repository": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "ask_clarification": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
+    # The AI's clarification questions are directed at the business — the
+    # Business Owner answers them (analysts may relay answers gathered
+    # offline). Asking stays analyst work; answering is business input.
+    "answer_clarification": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST,
+                             Role.DELIVERY_LEAD},
     "route_requirement": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "setup_new_application": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_new_application_repo": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
