@@ -268,6 +268,26 @@ which sync joins by test name into per-AC evidence. Simulation mode is
 unchanged end to end: skeletons generate, QA approves, publish stays a
 pseudo-commit, no git and no network.
 
+**Editable architecture and test plans — leads propose, the system refines,
+added 2026-08-10.** Both artifacts are now editable through a propose →
+refine → re-approve loop (`factory/refine.py`). `architecture_revise`
+records the lead's proposal verbatim (HUMAN), refines it — a real model
+call in live runs (badged `LIVE_AI`/`REPLAYED_AI`), deterministic rules in
+simulation (badged `RULE_BASED` and labelled "no AI call" — § Staged output
+applies) — and folds the refined section into the new immutable
+`architecture/v<N+1>/architecture.md`; acceptance always resets.
+`test_plan_amend` (permission `amend_test_plan`, QA Lead only) is the same
+loop as an **amendment overlay** on one story's skeletons: refined cases
+append under governed `test_qa_*` names, so the AC-derived names CI
+evidence joins on never move; the pack gets a new version with QA approval
+reset — the QA lead's own edit re-enters the approval gate — and stored
+amendments (`build/tests/<story>/qa-amendment.json`) survive pack
+regeneration. Intake gate roles also narrowed the same day: the requirement
+is the business's artifact — `upload_intake_document` and `pass_intake_gate`
+are `BUSINESS_OWNER` only, extraction rides the upload permission, and the
+combined intake button split in two because no single role may both create
+the epic and sign the gate.
+
 **Known-repository memory and repo removal, added 2026-08-10.** A global
 `artifacts/known_repos.json` registry (gitignored) remembers every
 successfully connected repository across runs, keyed by URL and written on

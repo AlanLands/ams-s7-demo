@@ -180,6 +180,7 @@ def architecture_md(
     repos: list[dict],
     version: int,
     revision_note: str = "",
+    revision_detail: str = "",
 ) -> str:
     apps = _apps(stories, analysis)
     repo_rows = repository_map(stories, repos)["teams"]
@@ -291,6 +292,8 @@ def architecture_md(
     ]
     if revision_note:
         lines += ["", "## Revision Notes", "", f"- v{version}: {revision_note}"]
+    if revision_detail:
+        lines += ["", f"## Revision v{version} — Proposed Change", "", revision_detail]
     return "\n".join(lines) + "\n"
 
 
@@ -358,13 +361,14 @@ def render_pack(
     repos: list[dict],
     version: int,
     revision_note: str = "",
+    revision_detail: str = "",
 ) -> dict[str, object]:
     """All five canonical files, keyed by filename (spec §5)."""
     return {
         "architecture.md": architecture_md(
             epic=epic, requirement=requirement, stories=stories,
             analysis=analysis, repos=repos, version=version,
-            revision_note=revision_note,
+            revision_note=revision_note, revision_detail=revision_detail,
         ),
         "repository-map.json": repository_map(stories, repos),
         "dependency-map.json": dependency_map(stories),

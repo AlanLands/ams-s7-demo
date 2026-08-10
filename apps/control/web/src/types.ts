@@ -488,6 +488,9 @@ export interface ArchitectureMeta {
   accepted_by: string
   accepted_at: string
   revision_note: string
+  revision_proposal?: string
+  revision_refined?: string
+  refinement_provenance?: string
   files: string[]
   provenance: Provenance
   plan_version: number

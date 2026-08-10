@@ -62,7 +62,12 @@ type PubDisplay = { cls: string; label: string; sub: string }
 /** Local shape for `build/tests/{storyId}/test-manifest.json` — rule-based
  * skeletons rendered from each story's acceptance criteria (Task 4). */
 interface TestManifestRow { ac_id: string; test_name: string; file: string }
-interface TestManifest { story_id: string; stack: string; runnable: boolean; provenance: string; tests: TestManifestRow[] }
+interface QaTestRow { case_id: string; description: string; test_name: string; file: string }
+interface QaAmendment { proposal: string; proposed_by: string; provenance: string; amended_at: string }
+interface TestManifest {
+  story_id: string; stack: string; runnable: boolean; provenance: string; tests: TestManifestRow[]
+  qa_tests?: QaTestRow[]; qa_amendment?: QaAmendment
+}
 
 /** Display mapping over stored status + staleness — see spec: no invented
  * enum is persisted; PUBLISHING is a transient client-side state. */
@@ -141,6 +146,7 @@ export function DeliveryPacks() {
   const [previewTab, setPreviewTab] = useState<PreviewTab>('overview')
   const [tabText, setTabText] = useState('')
   const [manifests, setManifests] = useState<Record<string, TestManifest | null>>({})
+  const [amendDrafts, setAmendDrafts] = useState<Record<string, string>>({})
   const [skeletons, setSkeletons] = useState<Record<string, string>>({})
   const [approving, setApproving] = useState(false)
   const [approver, setApprover] = useState('')
@@ -637,11 +643,50 @@ export function DeliveryPacks() {
                                 <td><code>{t.test_name}</code></td>
                               </tr>
                             ))}
+                            {(m?.qa_tests ?? []).map((t) => (
+                              <tr key={t.case_id}>
+                                <td className="mono">{t.case_id}</td>
+                                <td>{t.description}</td>
+                                <td><code>{t.test_name}</code></td>
+                              </tr>
+                            ))}
                             {m && m.tests.length === 0 ? (
                               <tr><td colSpan={3}><span className="hint">No acceptance criteria to cover.</span></td></tr>
                             ) : null}
                           </tbody>
                         </table>
+                      </div>
+                      {m?.qa_amendment ? (
+                        <p className="hint" style={{ margin: '6px 0 0' }}>
+                          QA amendment by {m.qa_amendment.proposed_by} — refined{' '}
+                          {m.qa_amendment.provenance === 'rule_based'
+                            ? 'by deterministic rules (no AI call in simulation)'
+                            : 'by the model'}. Proposal: “{m.qa_amendment.proposal}”
+                        </p>
+                      ) : null}
+                      <div className="dp-tp-amend">
+                        <textarea
+                          rows={2}
+                          style={{ width: '100%', marginTop: 8 }}
+                          placeholder="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets"
+                          value={amendDrafts[sid] ?? ''}
+                          onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
+                        />
+                        <button
+                          className="outline"
+                          style={{ marginTop: 6 }}
+                          disabled={!(amendDrafts[sid] ?? '').trim()}
+                          onClick={async () => {
+                            const ok = await act(
+                              `/delivery-packs/${selectedPack.delivery_pack_id}/amend-test-plan`,
+                              { story_id: sid, proposal: (amendDrafts[sid] ?? '').trim() },
+                              'Test plan amended — QA approval reset',
+                            )
+                            if (ok) setAmendDrafts((prev) => ({ ...prev, [sid]: '' }))
+                          }}
+                        >
+                          ✎ Amend Test Plan (QA Lead)
+                        </button>
                       </div>
                       {file ? (
                         <details

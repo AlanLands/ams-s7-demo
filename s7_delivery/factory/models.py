@@ -314,6 +314,13 @@ class ArchitectureMeta(BaseModel):
     accepted_by: str = ""
     accepted_at: str = ""
     revision_note: str = ""
+    # editable-architecture (2026-08-10): the lead's proposal verbatim (HUMAN),
+    # the refined section folded into architecture.md, and the provenance of
+    # that refinement (LIVE_AI/REPLAYED_AI in live runs, RULE_BASED in
+    # simulation — never a fake AI badge). Defaults keep older runs loading.
+    revision_proposal: str = ""
+    revision_refined: str = ""
+    refinement_provenance: str = ""
     files: list[str] = []
     provenance: Provenance = Provenance.SIMULATED
     # enrichment (spec 2026-08-09): all derived at render time from real

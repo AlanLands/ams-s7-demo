@@ -96,7 +96,18 @@ def pytest_file_name(story_id: str) -> str:
     return f"test_{_story_slug(story_id)}.py"
 
 
-def render_pytest(story: dict) -> dict[str, str]:
+def qa_case_names(cases: list[dict], base_names: list[str]) -> list[str]:
+    """Governed names for QA-amendment cases: `test_qa_<n>_<slug>`, deduped
+    against the AC-derived base names so a collision can never displace a
+    name CI evidence joins on."""
+    names = [
+        f"test_qa_{i + 1}_{slug_test_name(c['description'])[len('test_'):]}"
+        for i, c in enumerate(cases)
+    ]
+    return dedupe_names(list(base_names) + names)[len(base_names):]
+
+
+def render_pytest(story: dict, qa_cases: list[dict] | None = None) -> dict[str, str]:
     """One pytest file per story, one deliberately-failing test per AC."""
     lines = [
         f'"""Acceptance tests for {story["story_id"]} — {_py_safe(story.get("title", ""))}',
@@ -108,12 +119,20 @@ def render_pytest(story: dict) -> dict[str, str]:
         "import pytest",
         "",
     ]
-    for ac, name in zip(story.get("acceptance_criteria", []), story_test_names(story)):
+    base_names = story_test_names(story)
+    for ac, name in zip(story.get("acceptance_criteria", []), base_names):
         lines += [
             "",
             f"def {name}():",
             f'    """{ac["ac_id"]}: {_py_safe(ac["text"])}"""',
             f'    pytest.fail("Not implemented: {ac["ac_id"]}")',
+        ]
+    for case, name in zip(qa_cases or [], qa_case_names(qa_cases or [], base_names)):
+        lines += [
+            "",
+            f"def {name}():",
+            f'    """{case["case_id"]} (QA amendment): {_py_safe(case["description"])}"""',
+            f'    pytest.fail("Not implemented: {case["case_id"]}")',
         ]
     return {pytest_file_name(story["story_id"]): "\n".join(lines) + "\n"}
 
@@ -122,7 +141,7 @@ def junit_class_name(story_id: str) -> str:
     return "".join(p for p in story_id.split("-") if p) + "AcceptanceTest"
 
 
-def render_junit(story: dict) -> dict[str, str]:
+def render_junit(story: dict, qa_cases: list[dict] | None = None) -> dict[str, str]:
     """One JUnit 5 class per story, package `s7`, one failing @Test per AC.
     Method names deliberately match the pytest names (snake_case) so CI
     evidence joins per-AC identically on both stacks."""
@@ -140,13 +159,23 @@ def render_junit(story: dict) -> dict[str, str]:
         " * by name. */",
         f"class {name} {{",
     ]
-    for ac, method in zip(story.get("acceptance_criteria", []), story_test_names(story)):
+    base_names = story_test_names(story)
+    for ac, method in zip(story.get("acceptance_criteria", []), base_names):
         lines += [
             "",
             "    @Test",
             f"    void {method}() {{",
             f"        // {ac['ac_id']}: {_java_safe(ac['text'])}",
             f'        fail("Not implemented: {ac["ac_id"]}");',
+            "    }",
+        ]
+    for case, method in zip(qa_cases or [], qa_case_names(qa_cases or [], base_names)):
+        lines += [
+            "",
+            "    @Test",
+            f"    void {method}() {{",
+            f"        // {case['case_id']} (QA amendment): {_java_safe(case['description'])}",
+            f'        fail("Not implemented: {case["case_id"]}");',
             "    }",
         ]
     lines += ["}", ""]
@@ -171,11 +200,20 @@ def resolve_stack(repo: dict | None, repo_dir: Path | None) -> str | None:
     return None
 
 
-def render_story_tests(story: dict, stack: str | None) -> tuple[dict[str, str], dict]:
+def render_story_tests(
+    story: dict, stack: str | None, amendment: dict | None = None
+) -> tuple[dict[str, str], dict]:
     """(files, manifest) for one story. Unknown stacks still render
-    pytest-style files, marked non-runnable (reference only)."""
+    pytest-style files, marked non-runnable (reference only). A QA
+    amendment (see engine.test_plan_amend) appends its cases under
+    governed `test_qa_*` names; the AC-derived names never move."""
     runnable = stack in ("pytest", "maven")
-    files = render_junit(story) if stack == "maven" else render_pytest(story)
+    qa_cases = (amendment or {}).get("cases") or []
+    files = (
+        render_junit(story, qa_cases)
+        if stack == "maven"
+        else render_pytest(story, qa_cases)
+    )
     # Deliberately no generated_at: identical inputs must produce identical
     # bytes, or a regeneration that changed nothing still reads as a change
     # (and republishes a "new" pack).
@@ -195,4 +233,25 @@ def render_story_tests(story: dict, stack: str | None) -> tuple[dict[str, str], 
             )
         ],
     }
+    if qa_cases:
+        # QA-amendment cases live under their own key: the `tests` list stays
+        # the pure per-AC join that ci_sync/simulate rely on.
+        manifest["qa_tests"] = [
+            {
+                "case_id": case["case_id"],
+                "description": case["description"],
+                "test_name": name,
+                "file": next(iter(files)),
+            }
+            for case, name in zip(
+                qa_cases, qa_case_names(qa_cases, story_test_names(story))
+            )
+        ]
+        manifest["qa_amendment"] = {
+            k: amendment[k]
+            for k in (
+                "proposal", "proposed_by", "provenance", "amended_at",
+            )
+            if k in (amendment or {})
+        }
     return files, manifest

@@ -717,6 +717,19 @@ def post_test_plan_approve(run_id: str, pack_id: str, body: AcceptBody) -> dict:
     return eng.state()
 
 
+class AmendTestPlanBody(BaseModel):
+    role: str
+    story_id: str
+    proposal: str
+
+
+@app.post("/api/runs/{run_id}/delivery-packs/{pack_id}/amend-test-plan")
+def post_test_plan_amend(run_id: str, pack_id: str, body: AmendTestPlanBody) -> dict:
+    eng = _engine(run_id)
+    eng.test_plan_amend(_role(body.role), pack_id, body.story_id, body.proposal)
+    return eng.state()
+
+
 class DeveloperBody(BaseModel):
     role: str
     developer: str

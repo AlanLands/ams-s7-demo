@@ -19,7 +19,15 @@ import re
 import subprocess
 from typing import Any
 
-from s7_delivery.factory import architecture_checks, build_phases, gates, roles, seed
+from common.llm import LLMError
+from s7_delivery.factory import (
+    architecture_checks,
+    build_phases,
+    gates,
+    refine,
+    roles,
+    seed,
+)
 from s7_delivery.factory.models import (
     STAGE_ORDER,
     AcceptanceCriterion,
@@ -1791,7 +1799,8 @@ class Engine:
         )
 
     def _write_architecture_pack(
-        self, version: int, revision_note: str, actor: str, prov: Provenance
+        self, version: int, revision_note: str, actor: str, prov: Provenance,
+        revision_detail: str = "", revision_meta: dict | None = None,
     ) -> dict:
         from s7_delivery.factory import architecture as arch
 
@@ -1804,6 +1813,7 @@ class Engine:
             repos=self._connected_repos(),
             version=version,
             revision_note=revision_note,
+            revision_detail=revision_detail,
         )
         vdir = f"v{version}"
         serialized: dict[str, str] = {}
@@ -1833,6 +1843,7 @@ class Engine:
             file_sizes={name: len(text.encode()) for name, text in serialized.items()},
             validations=architecture_checks.run_checks(stories, repos, files),
             landscape=arch.landscape(stories, analysis, repos),
+            **(revision_meta or {}),
         ).model_dump(mode="json")
         self.store.write_json(meta, "architecture", "meta.json")
         return meta
@@ -1869,7 +1880,13 @@ class Engine:
 
     def architecture_revise(self, role: Role, feedback: str) -> None:
         """New immutable version; prior version directories are retained so
-        any pack referencing v1 stays resolvable."""
+        any pack referencing v1 stays resolvable.
+
+        The lead's proposal is recorded verbatim (HUMAN) and then refined —
+        a real model call in live runs, deterministic rules in simulation
+        (refine.py) — and the refined section is folded into the new
+        version's architecture.md. Acceptance always resets: the proposer
+        still cannot ship their own edit without the acceptance checkpoint."""
         roles.require("revise_architecture", role)
         meta = self._architecture_meta()
         if meta is None:
@@ -1879,8 +1896,25 @@ class Engine:
         phase = self._build_phase()
         version = meta["version"] + 1
         prov = self._blueprint_provenance()
+        current_md = ""
+        if self.store.exists("architecture", f"v{meta['version']}", "architecture.md"):
+            current_md = self.store.path(
+                "architecture", f"v{meta['version']}", "architecture.md"
+            ).read_text(encoding="utf-8")
+        try:
+            refined, refine_prov = refine.refine_architecture_proposal(
+                feedback.strip(), current_md, self.run().mode
+            )
+        except LLMError as exc:
+            raise EngineError(f"Could not refine the proposal: {exc}") from exc
         new_meta = self._write_architecture_pack(
-            version, feedback.strip(), "architecture-service", prov
+            version, feedback.strip(), "architecture-service", prov,
+            revision_detail=refined,
+            revision_meta={
+                "revision_proposal": feedback.strip(),
+                "revision_refined": refined,
+                "refinement_provenance": refine_prov.value,
+            },
         )
         build_phases.advance(
             self.store, phase, BuildReviewPhase.ARCHITECTURE_READY, actor=role.value
@@ -1955,6 +1989,27 @@ class Engine:
                 p.setdefault("test_plan_approved_by", "")
                 p.setdefault("test_plan_approved_at", "")
         return packs
+
+    def _story_stack(self, story: dict) -> str | None:
+        """A story's target_repository is free text a human can type
+        ("Claims API"). Only a name that matches a *connected* repo has a
+        clone directory — and only such a name is a safe path segment.
+        Anything else means "stack unknown": reference-only skeletons, never
+        a StoreError that kills the caller."""
+        from s7_delivery.factory import test_skeletons
+
+        repo = next(
+            (r for r in self._connected_repos()
+             if r["name"] == story.get("target_repository", "")),
+            None,
+        )
+        repo_dir = None
+        if repo is not None:
+            try:
+                repo_dir = self.store.path("repos", repo["name"])
+            except StoreError:
+                repo_dir = None
+        return test_skeletons.resolve_stack(repo, repo_dir)
 
     def _has_test_manifest(self, story_id: str) -> bool:
         try:
@@ -2035,24 +2090,14 @@ class Engine:
                 ),
                 "build", "stories", story["story_id"],
             )
-            # A story's target_repository is free text a human can type
-            # ("Claims API"). Only a name that matches a *connected* repo has
-            # a clone directory — and only such a name is a safe path segment.
-            # Anything else means "stack unknown": reference-only skeletons,
-            # never a StoreError that kills the whole generation.
-            repo = next(
-                (r for r in self._connected_repos()
-                 if r["name"] == story.get("target_repository", "")),
-                None,
+            # A stored QA amendment survives regeneration — silently dropping
+            # the QA lead's cases on a refresh would undo a human's work.
+            amendment = self.store.read_json_or(
+                None, "build", "tests", story["story_id"], "qa-amendment.json"
             )
-            repo_dir = None
-            if repo is not None:
-                try:
-                    repo_dir = self.store.path("repos", repo["name"])
-                except StoreError:
-                    repo_dir = None
-            stack = test_skeletons.resolve_stack(repo, repo_dir)
-            t_files, t_manifest = test_skeletons.render_story_tests(story, stack)
+            t_files, t_manifest = test_skeletons.render_story_tests(
+                story, self._story_stack(story), amendment
+            )
             self._write_files(
                 {**t_files, "test-manifest.json": t_manifest},
                 "build", "tests", story["story_id"],
@@ -2146,6 +2191,103 @@ class Engine:
             workflow="test-plan-approval", artifact=pack_id, outcome="passed",
             details=f"Test plan for {pack['team']} pack v{pack['version']}"
                     " approved; publication enabled",
+        )
+
+    def test_plan_amend(
+        self, role: Role, pack_id: str, story_id: str, proposal: str
+    ) -> None:
+        """QA-lead amendment overlay on one story's test plan. The proposal
+        is recorded verbatim (HUMAN) and refined into concrete cases — a
+        real model call in live runs, deterministic rules in simulation
+        (refine.py) — appended under governed `test_qa_*` names; the
+        AC-derived names never move, so CI evidence keeps joining per AC.
+        The pack gets a new version with QA approval reset: the QA lead's
+        own edit still passes back through the approval checkpoint, and a
+        published pack needs a fresh publish to carry it."""
+        from s7_delivery.factory import test_skeletons
+
+        roles.require("amend_test_plan", role)
+        phase = self._build_phase()
+        build_phases.require_at_least(
+            phase, BuildReviewPhase.DELIVERY_PACKS_READY, "Test plan amendment"
+        )
+        if not proposal.strip():
+            raise EngineError("An amendment needs content — the proposal is empty")
+        packs = self._packs()
+        idx = next(
+            (i for i, p in enumerate(packs)
+             if p["delivery_pack_id"] == pack_id), None,
+        )
+        if idx is None:
+            raise EngineError(f"Unknown delivery pack {pack_id}")
+        old = packs[idx]
+        if story_id not in old.get("story_ids", []):
+            raise EngineError(f"{story_id} is not part of {pack_id}")
+        story = next(
+            (s for s in self._stories() if s["story_id"] == story_id), None
+        )
+        if story is None:
+            raise EngineError(f"Unknown story {story_id}")
+        if not self._has_test_manifest(story_id):
+            raise EngineError(
+                "No test plan generated for this story — regenerate delivery"
+                " packs first"
+            )
+        try:
+            cases, refine_prov = refine.refine_test_amendment(
+                proposal.strip(), story, self.run().mode
+            )
+        except LLMError as exc:
+            raise EngineError(f"Could not refine the amendment: {exc}") from exc
+        amendment = {
+            "story_id": story_id,
+            "proposal": proposal.strip(),
+            "proposed_by": role.value,
+            "cases": cases,
+            "provenance": refine_prov.value,
+            "amended_at": now_iso(),
+        }
+        self.store.write_json(
+            amendment, "build", "tests", story_id, "qa-amendment.json"
+        )
+        t_files, t_manifest = test_skeletons.render_story_tests(
+            story, self._story_stack(story), amendment
+        )
+        self._write_files(
+            {**t_files, "test-manifest.json": t_manifest},
+            "build", "tests", story_id,
+        )
+        # Changed test content: new pack version, publication reset (a new
+        # version needs a new publish) — only what already reached the
+        # repository stays recorded. _write_team_pack starts the new version
+        # unapproved, which is the reset this edit must not skip.
+        plan = self.store.read_json_or(None, "planning", "plan.json")
+        arch_meta = self._architecture_meta()
+        pack = self._write_team_pack(
+            team=old["team"], all_stories=self._stories(),
+            all_tasks=self._tasks(), version=old["version"] + 1,
+            plan_version=plan["plan_version"],
+            architecture_version=arch_meta["version"],
+            assignments=self._assignments(),
+            prov=self._blueprint_provenance(),
+        )
+        pack["published_version"] = old.get("published_version", 0)
+        pack["published_at"] = old.get("published_at", "")
+        packs[idx] = pack
+        self._save_packs(packs)
+        self._record(
+            artifact_id=f"TESTPLAN-{story_id}", artifact_type="test-plan",
+            payload=amendment, author=role.value, stage=Stage.BUILD_REVIEW,
+            action="amend", outcome="amended", inputs=[story_id],
+            version=pack["version"],
+        )
+        self._activity(
+            stage=Stage.BUILD_REVIEW, actor=role.value, actor_type="human",
+            workflow="test-plan-amendment", artifact=pack_id,
+            outcome="amended",
+            details=f"{story_id}: {len(cases)} QA case(s) added"
+                    f" ({refine_prov.value}); {old['team']} pack"
+                    f" v{pack['version']} awaits QA approval",
         )
 
     def _assignments(self) -> dict[str, str]:

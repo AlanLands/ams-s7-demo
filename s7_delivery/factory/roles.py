@@ -56,6 +56,10 @@ PERMISSIONS: dict[str, set[Role]] = {
     # QA approves the AC test plan; the service that generated it never
     # approves its own tests — same separation as architecture acceptance.
     "approve_test_plan": {Role.QA_LEAD},
+    # QA may amend the plan (an overlay of extra cases, refined by the
+    # system), but every amendment resets the approval — the edit still
+    # passes back through the checkpoint before publication.
+    "amend_test_plan": {Role.QA_LEAD},
     "publish_delivery_pack": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "assign_developer": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
     "sync_git_evidence": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},

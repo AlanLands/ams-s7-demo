@@ -16,7 +16,7 @@ import { useRun } from '../../state/RunContext'
 import { Modal } from '../../components/Modal'
 import { Badge, Prov } from '../../components/Badge'
 import { TeamChip } from '../planning/TeamChip'
-import type { ArchLandscape, PlanStory } from '../../types'
+import type { ArchLandscape, PlanStory, Provenance } from '../../types'
 import { buildOf, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm } from './buildHelpers'
 
 function basename(path: string): string {
@@ -508,10 +508,12 @@ export function Architecture() {
 
             {showRevise ? (
               <div className="card" style={{ marginTop: '8px' }}>
-                <h3>⟳ Request AI Revision</h3>
+                <h3>⟳ Propose a Revision</h3>
                 <p className="hint">
-                  Your comment goes to the generator; the pack is re-produced as a new immutable version —
-                  v{arch.version} is preserved and validations re-run. Nothing is edited in place.
+                  Describe the change you want. Your proposal is kept verbatim, refined by the system
+                  (a real model call in live runs, deterministic rules in simulation) and folded into a
+                  new immutable version — v{arch.version} is preserved, validations re-run, and
+                  acceptance resets. Nothing is edited in place.
                 </p>
                 <textarea rows={3} style={{ width: '100%', marginTop: '8px' }}
                   placeholder="What should the next architecture version change?"
@@ -566,6 +568,23 @@ export function Architecture() {
                 </button>
               </div>
             </div>
+
+            {arch.revision_proposal ? (
+              <div className="card rail-card">
+                <h3>Last Revision Proposal</h3>
+                <p className="hint">
+                  Proposed by a lead (human, verbatim below), refined{' '}
+                  {arch.refinement_provenance === 'rule_based'
+                    ? 'by deterministic rules — simulation runs no AI call'
+                    : 'by the model'}{' '}
+                  and folded into v{arch.version}&apos;s architecture.md.{' '}
+                  <Prov provenance={(arch.refinement_provenance ?? 'rule_based') as Provenance} />
+                </p>
+                <blockquote className="hint" style={{ margin: '8px 0 0', paddingLeft: 10, borderLeft: '3px solid var(--border-strong)' }}>
+                  {arch.revision_proposal}
+                </blockquote>
+              </div>
+            ) : null}
 
             <div className="card rail-card">
               <h3>Architecture Validations</h3>
