@@ -307,6 +307,26 @@ for known repos, plus per-repo remove (blocked once the plan is signed —
 repositories are load-bearing after G1) and forget-from-registry. Engine
 method `intake_remove_repo` and registry helpers live in `factory/repos.py`.
 
+**Demo mode and the release/design document, added 2026-08-10.** A fourth
+environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /
+Replay / Live) — presenter-facing, fully offline, simulation semantics
+everywhere except three deltas: epic creation always presents the seeded
+MapleSure epic even when an upload produced an extraction; the Sync buttons
+drive a scripted storyline (`factory/demo_sync.py`, state in
+`demo/script.json`) — US-001 green, US-002 green, US-003 arrives with a
+failed git push and stays the only red item until an explicit per-story
+rerun fixes it, then US-004+US-005 advance together and US-006+US-007
+complete the walk, every step driving real engine actions; and badge
+presentation — on-screen `SIMULATED`/`RULE_BASED` chips render as one
+neutral `DEMO` chip in demo runs only, stored provenance never altered,
+nothing ever rendered as live AI (the agreed application of the
+staged-output rule to the demo room). The **release/design document**
+(`factory/release_doc.py`, `release_document_generate`, Release page card)
+renders the run's own records — plan approvals, per-story developer/tester/
+review/changes, every acceptance criterion with its result, release
+approvals — as portable markdown plus a self-contained MapleSure-red-themed
+HTML page with download endpoints; any mode, always badged `RULE_BASED`.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** Intake
 now opens with an extraction front door: upload `.txt`/`.md`/`.pdf`/`.docx`
 or paste text, and the requirement's title, objective, summary and numbered

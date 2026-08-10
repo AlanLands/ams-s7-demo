@@ -329,6 +329,30 @@ registry entry itself, independent of any run). Engine method
 `intake_remove_repo` and registry helpers `known_repos`/`remember_repo`/
 `forget_repo` live in `factory/repos.py`.
 
+**Demo mode and the release/design document, added 2026-08-10.** A fourth
+environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /
+Replay / Live) — presenter-facing and fully offline. Demo behaves as
+simulation in every engine branch except three deliberate deltas: epic
+creation always presents the seeded MapleSure epic even when an upload
+produced an extraction (`intake_create_epic`); the Sync buttons drive a
+scripted storyline (`factory/demo_sync.py`, state in `demo/script.json`) —
+US-001 green, US-002 green, US-003 arrives with a failed git push and stays
+the run's only red item until an explicit per-story rerun fixes it, then
+US-004+US-005 advance together (parallel iteration) and US-006+US-007
+complete the walk, every step driving real engine actions (macros, not
+fixtures); and **badge presentation** — on-screen `SIMULATED`/`RULE_BASED`
+chips render as one neutral `DEMO` chip in demo runs only, while **stored
+provenance is never altered** and nothing ever renders as live AI. That
+presentation rule is the agreed application of § Staged output to the demo
+room: the label ships, worded for the environment. Separately, the
+**release/design document** (`factory/release_doc.py`,
+`release_document_generate`, Release page card) renders the run's own
+records — plan approvals, per-story developer/tester/review verdict/changes,
+every acceptance criterion with its result, release approvals — as portable
+markdown plus a self-contained MapleSure-red-themed HTML page with download
+endpoints. It exists in every mode and is always badged `RULE_BASED`: a
+deterministic rendering, never presented as AI output.
+
 **Intake upload/paste requirement extraction, added 2026-08-08.** The
 Intake stage now opens with a genuine extraction front door: upload a file
 (`.txt`/`.md`/`.pdf`/`.docx`) or paste text, and the requirement's title,
