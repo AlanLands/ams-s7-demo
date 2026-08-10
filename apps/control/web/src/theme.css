@@ -405,6 +405,7 @@ ul.plain li:last-child { border-bottom: 0; }
 .prov-live_ai { border-color: var(--red); color: var(--red-dark); background: var(--red-pale); }
 .prov-staged { border: 2px solid var(--amber); background: #f9e2ac; color: #4d3800; }
 .prov-rule_based { border-color: #2f6b5e; color: #1e453c; background: #e3f1ee; }
+.prov-demo { border-color: var(--border-strong); color: var(--muted); background: var(--surface-2); }
 
 /* --- tables ---------------------------------------------------------------*/
 

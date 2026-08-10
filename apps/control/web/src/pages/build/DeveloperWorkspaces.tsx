@@ -566,9 +566,40 @@ export function DeveloperWorkspaces() {
     if (!runId) return
     setSyncing(true)
     try {
-      await apiPost(`/api/runs/${runId}/workspaces/sync-git`, { role })
+      if (data?.run.mode === 'demo') {
+        // Demo runs advance the scripted sync storyline instead of touching git.
+        const res = await apiPost<{ result: { status: string; stories: string[] } }>(
+          `/api/runs/${runId}/demo/sync`, { role },
+        )
+        const { status, stories } = res.result
+        await refresh()
+        if (status === 'advanced') {
+          notify(`Synced — ${stories.join(', ')} completed`)
+        } else if (status === 'failure' || status === 'failure_pending') {
+          notify(`Sync failed for ${stories.join(', ')} — git push rejected. Rerun the story to retry.`, true)
+        } else {
+          notify('Storyline complete — all stories synced and acceptance criteria met')
+        }
+      } else {
+        await apiPost(`/api/runs/${runId}/workspaces/sync-git`, { role })
+        await refresh()
+        notify('Synced from Git — showing real pushed commits (story id matched in commit messages)')
+      }
+    } catch (err) {
+      notify((err as Error).message, true)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const doRerun = async () => {
+    const failed = data?.demo?.failed_story
+    if (!runId || !failed) return
+    setSyncing(true)
+    try {
+      await apiPost(`/api/runs/${runId}/demo/rerun`, { role, story_id: failed })
       await refresh()
-      notify('Synced from Git — showing real pushed commits (story id matched in commit messages)')
+      notify(`${failed} rerun — push succeeded, story green`)
     } catch (err) {
       notify((err as Error).message, true)
     } finally {
@@ -625,16 +656,28 @@ export function DeveloperWorkspaces() {
         <button
           className="ghost"
           style={{ marginLeft: 'auto' }}
-          disabled={data.run.mode !== 'live' || syncing}
-          title={data.run.mode !== 'live'
-            ? 'Live runs only — simulation has no real repository clone'
-            : 'git fetch + read-only inspection; commits are matched by story/task id in the message'}
+          disabled={(data.run.mode !== 'live' && data.run.mode !== 'demo') || syncing}
+          title={data.run.mode === 'live'
+            ? 'git fetch + read-only inspection; commits are matched by story/task id in the message'
+            : data.run.mode === 'demo'
+              ? 'Advance the demo sync — completed stories arrive one iteration at a time'
+              : 'Live and demo runs only — simulation has no real repository clone'}
           onClick={() => void doSyncGit()}
         >
           {syncing
             ? <LoaderCircle className="btn-ico spin" />
             : <GitCommitHorizontal className="btn-ico" />} Sync from Git
         </button>
+        {data.demo?.fix_pending ? (
+          <button
+            className="ghost danger-ghost"
+            disabled={syncing}
+            title={`${data.demo.failed_story} failed to push — rerun to retry`}
+            onClick={() => void doRerun()}
+          >
+            <RotateCcw className="btn-ico" /> Rerun {data.demo.failed_story} sync
+          </button>
+        ) : null}
         <span className="hint" style={{ flexBasis: '100%' }}>
           Human-controlled engineering workspaces provisioned from approved S7 delivery packs. Developers
           implement using their normal IDE, CLI and Git workflows.

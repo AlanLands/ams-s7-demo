@@ -93,3 +93,25 @@ def test_script_survives_engine_reload(demo_run, tmp_path):
     eng.demo_sync_advance(Role.DELIVERY_LEAD)
     reloaded = Engine(eng.run_id, root=tmp_path)
     assert reloaded.state()["demo"]["step"] == 1
+
+
+# --- HTTP surface (mirrors tests/test_control_api.py's client pattern) ------
+
+def test_demo_endpoints_http(tmp_path, monkeypatch):
+    import s7_delivery.factory.store as store_module
+    from fastapi.testclient import TestClient
+    from apps.control.server import app
+
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+
+    run_id = client.post("/api/runs", json={"mode": "demo"}).json()["run"]["run_id"]
+
+    # Demo sync on a run without workspaces is a 409, not a crash
+    res = client.post(f"/api/runs/{run_id}/demo/sync", json={"role": "delivery_lead"})
+    assert res.status_code == 409
+
+    # A simulation run refuses the demo surface outright
+    sim_id = client.post("/api/runs", json={"mode": "simulation"}).json()["run"]["run_id"]
+    res = client.post(f"/api/runs/{sim_id}/demo/sync", json={"role": "delivery_lead"})
+    assert res.status_code == 409 and "demo mode" in res.json()["detail"]

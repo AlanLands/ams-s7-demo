@@ -233,7 +233,9 @@ export function IndependentReview() {
   const reviewerLabel = review?.reviewer
     ?? (data.run.mode === 'live'
       ? 'independent-reviewer (live model, isolated from development)'
-      : 'independent-reviewer (simulated, isolated from development)')
+      : data.run.mode === 'demo'
+        ? 'independent-reviewer (demo, isolated from development)'
+        : 'independent-reviewer (simulated, isolated from development)')
   const trace = [
     ['REQ', 'REQ-2026-114'],
     ['Plan', `PLAN v${data.planning?.plan?.plan_version ?? '—'}`],
@@ -430,7 +432,9 @@ export function IndependentReview() {
                   ? <a href={links.prUrl} target="_blank" rel="noopener noreferrer">{ws?.pull_request}</a>
                   : (ws?.pull_request || '—')}
                 {!links.prUrl && ws?.pull_request
-                  ? <span className="hint" title="Simulated PR — no remote to open"> (simulated)</span>
+                  ? (data.run.mode === 'demo'
+                    ? <span className="hint" title="Demo PR — no remote to open"> (demo)</span>
+                    : <span className="hint" title="Simulated PR — no remote to open"> (simulated)</span>)
                   : null}
               </span>
               <b>Commit</b><span className="mono"><GitCommitHorizontal className="dp-badge-ico" />

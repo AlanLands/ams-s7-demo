@@ -161,7 +161,7 @@ export function blockerSeverity(
  * SIMULATED when publications exist but are simulation pseudo-commits;
  * NOT PUBLISHED otherwise. Never pretends a simulated push is a live remote.
  */
-export function gitIntegrationState(pubs: GitPublication[]): {
+export function gitIntegrationState(pubs: GitPublication[], mode?: string): {
   state: 'connected' | 'simulated' | 'not_published'
   label: string
   sub: string
@@ -171,6 +171,11 @@ export function gitIntegrationState(pubs: GitPublication[]): {
     return { state: 'connected', label: 'CONNECTED', sub: `${done.length} branch(es) published` }
   }
   if (done.length > 0) {
+    // Demo-mode presentation rule: the same honest state, worded for the
+    // demo environment (spec 2026-08-10-demo-mode).
+    if (mode === 'demo') {
+      return { state: 'simulated', label: 'DEMO', sub: 'Demo environment — no real git touched' }
+    }
     return { state: 'simulated', label: 'SIMULATED', sub: 'No real git touched in simulation' }
   }
   return { state: 'not_published', label: 'NOT PUBLISHED', sub: 'Publish delivery packs first' }

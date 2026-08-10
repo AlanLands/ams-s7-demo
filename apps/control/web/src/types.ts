@@ -672,10 +672,19 @@ export interface RunState {
   approvals?: ApprovalRecord[]
   quality?: QualityReport
   release?: ReleaseRecord
+  demo?: DemoScriptState | null
   staleness?: StaleArtifact[]
   amendments?: Amendment[]
   design?: DesignRecord
   [section: string]: unknown
+}
+
+export interface DemoScriptState {
+  step: number
+  failed_story: string
+  fix_pending: boolean
+  complete: boolean
+  history: string[]
 }
 
 export interface RoleInfo {

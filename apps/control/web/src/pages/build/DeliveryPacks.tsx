@@ -71,7 +71,7 @@ interface TestManifest {
 
 /** Display mapping over stored status + staleness — see spec: no invented
  * enum is persisted; PUBLISHING is a transient client-side state. */
-function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: boolean): PubDisplay {
+function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: boolean, mode?: string): PubDisplay {
   if (pack.publication_status === 'published') {
     if (stale) return { cls: 'st-stale', label: 'OUT OF DATE', sub: 'Pack changed since publish' }
     if ((pack.published_version ?? 0) < pack.version) {
@@ -84,7 +84,9 @@ function pubDisplay(pack: DeliveryPack, pub: GitPublication | undefined, stale: 
     return {
       cls: 'st-passed',
       label: 'PUBLISHED',
-      sub: pub?.simulated ? 'Simulated — no git touched' : 'Synced to Git',
+      sub: pub?.simulated
+        ? (mode === 'demo' ? 'Demo — no git touched' : 'Simulated — no git touched')
+        : 'Synced to Git',
     }
   }
   if (pack.publication_status === 'failed') return { cls: 'st-blocked', label: 'FAILED', sub: 'See publication record' }
@@ -433,7 +435,7 @@ export function DeliveryPacks() {
               <tbody>
                 {filtered.map((p) => {
                   const { stale, pub, published } = packState(p)
-                  const pd = pubDisplay(p, pub, stale)
+                  const pd = pubDisplay(p, pub, stale, data.run.mode)
                   const busy = publishing.has(p.delivery_pack_id)
                   const isSelected = selectedPack?.delivery_pack_id === p.delivery_pack_id
                   const isExpanded = expanded.has(p.delivery_pack_id)
@@ -555,7 +557,7 @@ export function DeliveryPacks() {
       <aside className="rail">
         {selectedPack ? (() => {
           const { stale, pub, published } = packState(selectedPack)
-          const pd = pubDisplay(selectedPack, pub, stale)
+          const pd = pubDisplay(selectedPack, pub, stale, data.run.mode)
           const busy = publishing.has(selectedPack.delivery_pack_id)
           const contents: [ReactIcon, string, string][] = [
             [Layers3, 'Architecture Reference', `v${selectedPack.architecture_version} (by reference)`],
@@ -660,7 +662,9 @@ export function DeliveryPacks() {
                         <p className="hint" style={{ margin: '6px 0 0' }}>
                           QA amendment by {m.qa_amendment.proposed_by} — refined{' '}
                           {m.qa_amendment.provenance === 'rule_based'
-                            ? 'by deterministic rules (no AI call in simulation)'
+                            ? (data.run.mode === 'demo'
+                              ? 'by deterministic rules (demo environment)'
+                              : 'by deterministic rules (no AI call in simulation)')
                             : 'by the model'}. Proposal: “{m.qa_amendment.proposal}”
                         </p>
                       ) : null}
@@ -779,8 +783,9 @@ export function DeliveryPacks() {
             </p>
             {data.run.mode !== 'live' ? (
               <p className="hint">
-                <Prov provenance="simulated" /> This run is in simulation: publish records a deterministic
-                pseudo-commit and touches no real git repository.
+                <Prov provenance="simulated" /> {data.run.mode === 'demo'
+                  ? 'Demo environment: publish records a deterministic pseudo-commit and touches no real git repository.'
+                  : 'This run is in simulation: publish records a deterministic pseudo-commit and touches no real git repository.'}
               </p>
             ) : null}
             <div className="actions-row" style={{ marginTop: '12px' }}>
@@ -811,8 +816,8 @@ export function DeliveryPacks() {
           </div>
           {successPub.simulated ? (
             <p className="hint" style={{ marginTop: '8px' }}>
-              Simulated publication — no git repository was touched; the record above is the deterministic
-              demo engine's pseudo-commit.
+              {data.run.mode === 'demo' ? 'Demo publication' : 'Simulated publication'} — no git
+              repository was touched; the record above is the deterministic demo engine's pseudo-commit.
             </p>
           ) : null}
           <div className="actions-row" style={{ marginTop: '12px' }}>

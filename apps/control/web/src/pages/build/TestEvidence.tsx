@@ -172,7 +172,12 @@ export function TestEvidence() {
 
   const doSync = async () => {
     setSyncing(true)
-    await act('/workspaces/sync-git', {}, 'Synced — real commits and CI results, where available')
+    if (data.run.mode === 'demo') {
+      // Demo runs advance the scripted sync storyline instead of touching git.
+      await act('/demo/sync', {}, 'Synced — demo storyline advanced')
+    } else {
+      await act('/workspaces/sync-git', {}, 'Synced — real commits and CI results, where available')
+    }
     setSyncing(false)
   }
 
@@ -186,10 +191,12 @@ export function TestEvidence() {
           <h2>Build &amp; Test Evidence</h2>
           <span className="hint">Engineering evidence collected from CI pipelines, automated tests and quality checks.</span>
           <span className="arch-head-actions">
-            <button className="outline" disabled={data.run.mode !== 'live' || syncing}
-              title={data.run.mode !== 'live'
-                ? 'Git evidence sync needs a live run — simulation has no real repository clone'
-                : 'Pull real commits and CI results from the connected repositories'}
+            <button className="outline" disabled={(data.run.mode !== 'live' && data.run.mode !== 'demo') || syncing}
+              title={data.run.mode === 'live'
+                ? 'Pull real commits and CI results from the connected repositories'
+                : data.run.mode === 'demo'
+                  ? 'Advance the demo sync — completed stories arrive one iteration at a time'
+                  : 'Git evidence sync needs a live or demo run — simulation has no real repository clone'}
               onClick={() => void doSync()}>
               {syncing ? <LoaderCircle className="btn-ico spin" /> : <RefreshCw className="btn-ico" />} Sync Now
             </button>
@@ -285,7 +292,9 @@ export function TestEvidence() {
                         <span className="repo-cell"><Workflow /><span className="mono">
                           {w?.ci_evidence ? `Run #${w.ci_evidence.run_id}` : t.task_id.replace('TASK', 'BUILD')}
                         </span></span>
-                        <span className="hint dp-sub">{w?.ci_evidence ? 'GitHub Actions' : 'Simulated CI'}</span>
+                        <span className="hint dp-sub">
+                          {w?.ci_evidence ? 'GitHub Actions' : data.run.mode === 'demo' ? 'Demo CI' : 'Simulated CI'}
+                        </span>
                       </td>
                       <td><CiBadge ci={w?.ci_status} /></td>
                       <td>
@@ -364,7 +373,9 @@ export function TestEvidence() {
           <span>
             {workspaces.some((w) => w.ci_evidence)
               ? 'Evidence is collected from configured CI/CD systems — here, real GitHub Actions results (badged HUMAN) shown alongside the simulated baseline test plan (badged SIMULATED). Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
-              : 'Evidence is collected from configured CI/CD systems — in this demo, from the deterministic simulation engine, badged SIMULATED. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'}
+              : data.run.mode === 'demo'
+                ? 'Evidence is collected from configured CI/CD systems — in this demo environment, from the deterministic demo engine. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
+                : 'Evidence is collected from configured CI/CD systems — in this demo, from the deterministic simulation engine, badged SIMULATED. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'}
           </span>
         </div>
       </div>
@@ -401,7 +412,7 @@ export function TestEvidence() {
               <b>CI System</b><span>
                 {(ws?.ci_evidence || ws?.red_baseline)
                   ? <>GitHub Actions <Prov provenance="human" /></>
-                  : <>Simulated CI <Prov provenance="simulated" /></>}
+                  : <>{data.run.mode === 'demo' ? 'Demo CI' : 'Simulated CI'} <Prov provenance="simulated" /></>}
               </span>
               <b>Last Run</b><span>{task.last_activity ? hhmm(task.last_activity) : '—'}</span>
             </div>

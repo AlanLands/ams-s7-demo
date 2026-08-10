@@ -105,7 +105,7 @@ export function BuildOverview() {
   const phaseIdx = phase ? PHASE_ORDER.indexOf(phase) : -1
   const activity = (data.activity ?? []).filter((a) => a.stage === 'build_review').slice(-5).reverse()
   const teamNames = teams.map((t) => t.team)
-  const git = gitIntegrationState(pubs)
+  const git = gitIntegrationState(pubs, data.run.mode)
   const qualityReady = (build.quality_handoff ?? []).filter((q) => q.ready).length
 
   const total = totals?.total ?? 0

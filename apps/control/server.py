@@ -735,6 +735,25 @@ class DeveloperBody(BaseModel):
     developer: str
 
 
+class DemoRerunBody(BaseModel):
+    role: str
+    story_id: str
+
+
+@app.post("/api/runs/{run_id}/demo/sync")
+def post_demo_sync(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    result = eng.demo_sync_advance(_role(body.role))
+    return {"result": result, **eng.state()}
+
+
+@app.post("/api/runs/{run_id}/demo/rerun")
+def post_demo_rerun(run_id: str, body: DemoRerunBody) -> dict:
+    eng = _engine(run_id)
+    result = eng.demo_rerun_story(_role(body.role), body.story_id)
+    return {"result": result, **eng.state()}
+
+
 @app.post("/api/runs/{run_id}/workspaces/sync-git")
 def post_workspaces_sync_git(run_id: str, body: RoleBody) -> dict:
     eng = _engine(run_id)

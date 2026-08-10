@@ -17,6 +17,7 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
   const source = data?.intake?.source
   const ext = data?.intake?.extraction
   const isLive = data?.run?.mode === 'live'
+  const mode = data?.run?.mode
 
   const done = Boolean(source && ext)
   const title = done
@@ -121,8 +122,9 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
 
           {!isLive && (
             <p className="hint" style={{ marginTop: 10 }}>
-              Simulation mode demonstrates extraction from your actual document; downstream planning still
-              follows the rehearsed demo scenario, exactly as it does for every run in simulation mode today.
+              {mode === 'demo'
+                ? 'The demo environment demonstrates extraction from your actual document; downstream planning follows the rehearsed demo scenario.'
+                : 'Simulation mode demonstrates extraction from your actual document; downstream planning still follows the rehearsed demo scenario, exactly as it does for every run in simulation mode today.'}
             </p>
           )}
         </div>
