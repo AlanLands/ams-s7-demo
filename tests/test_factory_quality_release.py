@@ -10,7 +10,7 @@ from s7_delivery.factory.roles import PermissionError_
 def drive_to_quality(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_generate(Role.DELIVERY_LEAD)
     eng.planning_sign_off(Role.BUSINESS_OWNER, "P. Moreau")
     order = ["US-001", "US-002", "US-003", "US-004", "US-005", "US-006", "US-007"]

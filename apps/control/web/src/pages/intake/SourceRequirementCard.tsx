@@ -57,7 +57,10 @@ export function SourceRequirementCard({ extracting, onExtractStart, onExtractEnd
   return (
     <div className="card">
       <h3>1. Source Requirement</h3>
-      <p className="hint">Upload file or paste requirement text</p>
+      <p className="hint">
+        Upload file or paste requirement text — the Business Owner provides the requirement
+        (switch to the Business Owner role).
+      </p>
       <div className="tabs" style={{ marginTop: 10 }}>
         <button type="button" className={tab === 'upload' ? 'on' : ''} onClick={() => setTab('upload')}>Upload File</button>
         <button type="button" className={tab === 'paste' ? 'on' : ''} onClick={() => setTab('paste')}>Paste Text</button>

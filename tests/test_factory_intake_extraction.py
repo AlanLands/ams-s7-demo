@@ -21,7 +21,7 @@ def eng(tmp_path):
 
 
 def test_set_source_updates_requirement(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
     req = eng.state()["intake"]["requirement"]
     assert req["description"] == SOURCE_TEXT
     assert req["source_type"] == "Uploaded document"
@@ -29,7 +29,7 @@ def test_set_source_updates_requirement(eng):
 
 
 def test_set_source_paste_uses_placeholder_source_document(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, source_kind="paste")
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, source_kind="paste")
     req = eng.state()["intake"]["requirement"]
     assert req["source_type"] == "Pasted text"
     assert req["source_documents"] == ["pasted-text"]
@@ -37,12 +37,12 @@ def test_set_source_paste_uses_placeholder_source_document(eng):
 
 def test_set_source_rejects_empty_text(eng):
     with pytest.raises(EngineError, match="empty"):
-        eng.intake_set_source(Role.PRODUCT_ANALYST, "   ")
+        eng.intake_set_source(Role.BUSINESS_OWNER, "   ")
 
 
 def test_set_source_rejects_oversized_text(eng):
     with pytest.raises(EngineError, match="20,000"):
-        eng.intake_set_source(Role.PRODUCT_ANALYST, "x" * 20_001)
+        eng.intake_set_source(Role.BUSINESS_OWNER, "x" * 20_001)
 
 
 def test_set_source_rejects_oversized_text_with_trailing_whitespace(eng):
@@ -53,23 +53,23 @@ def test_set_source_rejects_oversized_text_with_trailing_whitespace(eng):
     # fed to the parser/LLM by intake_extract, not the stripped copy.
     text = ("a" * 20_000) + (" " * 200)
     with pytest.raises(EngineError, match="20,000"):
-        eng.intake_set_source(Role.PRODUCT_ANALYST, text)
+        eng.intake_set_source(Role.BUSINESS_OWNER, text)
 
 
 def test_set_source_persists_raw_upload_bytes(eng, tmp_path):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md",
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md",
                            source_kind="upload", raw_content=SOURCE_TEXT.encode())
     assert eng.store.exists("intake", "documents", "epic.md")
 
 
 def test_extract_requires_source_first(eng):
     with pytest.raises(EngineError, match="Provide a source"):
-        eng.intake_extract(Role.PRODUCT_ANALYST)
+        eng.intake_extract(Role.BUSINESS_OWNER)
 
 
 def test_extract_produces_rule_based_extraction_in_simulation(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     state = eng.state()
     ext = state["intake"]["extraction"]
     assert ext["method"] == "rule_based"
@@ -79,14 +79,14 @@ def test_extract_produces_rule_based_extraction_in_simulation(eng):
 
 
 def test_extract_patches_requirement_title(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     assert eng.state()["intake"]["requirement"]["title"] == "Claims Deductible Handling"
 
 
 def test_extract_records_provenance_and_activity(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     state = eng.state()
     assert any(r["artifact_id"] == "EXT-001" for r in state["provenance_ledger"])
     assert any(a["workflow"] == "intake-extraction" for a in state["activity"])
@@ -124,8 +124,8 @@ def test_create_epic_still_requires_analysis_first(eng):
 
 
 def test_create_epic_from_extraction_uses_extracted_content(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
     epic = eng.state()["intake"]["epic"]
@@ -142,8 +142,8 @@ def test_create_epic_from_extraction_uses_extracted_content(eng):
 
 
 def test_edit_extraction_updates_fields_and_stamps_editor(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": "Corrected Title"})
     ext = eng.state()["intake"]["extraction"]
     assert ext["epic_title"] == "Corrected Title"
@@ -152,8 +152,8 @@ def test_edit_extraction_updates_fields_and_stamps_editor(eng):
 
 
 def test_edit_extraction_rejects_unknown_fields(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     with pytest.raises(EngineError, match="not editable"):
         eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"method": "live_llm"})
 
@@ -167,8 +167,8 @@ def test_edit_extraction_rejects_malformed_requirements_as_engine_error(eng):
     """A pydantic ValidationError (extracted_requirements must be a list of
     {rule_id, text} dicts, not plain strings) must surface as EngineError,
     not escape as a raw pydantic exception (final review finding 2)."""
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     with pytest.raises(EngineError, match="Invalid extraction patch"):
         eng.intake_edit_extraction(
             Role.BUSINESS_OWNER, {"extracted_requirements": ["just a string"]}
@@ -178,15 +178,15 @@ def test_edit_extraction_rejects_malformed_requirements_as_engine_error(eng):
 def test_edit_extraction_rejects_blank_title(eng):
     """A blank epic_title is valid `str` for pydantic and would otherwise be
     silently accepted (final review finding 2) — reject it explicitly."""
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     with pytest.raises(EngineError, match="blank"):
         eng.intake_edit_extraction(Role.BUSINESS_OWNER, {"epic_title": ""})
 
 
 def test_finalize_runs_analysis_when_missing_then_creates_epic(eng):
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     eng.intake_finalize(Role.PRODUCT_ANALYST)
     state = eng.state()
     assert state["intake"]["analysis"] is not None
@@ -196,7 +196,7 @@ def test_finalize_runs_analysis_when_missing_then_creates_epic(eng):
 def test_finalize_does_not_rerun_existing_analysis(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     first_generated_at = eng.state()["intake"]["analysis"]["generated_at"]
-    eng.intake_set_source(Role.PRODUCT_ANALYST, SOURCE_TEXT, filename="epic.md", source_kind="upload")
-    eng.intake_extract(Role.PRODUCT_ANALYST)
+    eng.intake_set_source(Role.BUSINESS_OWNER, SOURCE_TEXT, filename="epic.md", source_kind="upload")
+    eng.intake_extract(Role.BUSINESS_OWNER)
     eng.intake_finalize(Role.PRODUCT_ANALYST)
     assert eng.state()["intake"]["analysis"]["generated_at"] == first_generated_at

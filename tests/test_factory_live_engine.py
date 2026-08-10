@@ -156,7 +156,7 @@ def _signed_off_engine(tmp_path, monkeypatch, repo_name="maplesure-sponsor-porta
     )
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_add_story(Role.DELIVERY_LEAD, {
         "title": "Add disability claim submission endpoint",
         "accountable_team": "Services Team",
@@ -308,7 +308,7 @@ def test_live_planning_generate(tmp_path, monkeypatch):
     )
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
 
     monkeypatch.setattr(
         live_intake, "run_plan",
@@ -584,7 +584,7 @@ def test_signoff_blocks_on_a_story_whose_repository_was_removed(tmp_path, monkey
     )
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_add_story(Role.DELIVERY_LEAD, {
         "title": "Add disability claim submission endpoint",
         "accountable_team": "Services Team",

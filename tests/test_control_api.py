@@ -49,7 +49,7 @@ def test_unknown_run_is_404(client):
 def test_forbidden_role_is_403(client, run_id):
     client.post(f"/api/runs/{run_id}/intake/analyse", json={"role": "product_analyst"})
     client.post(f"/api/runs/{run_id}/intake/create-epic", json={"role": "product_analyst"})
-    client.post(f"/api/runs/{run_id}/intake/pass-gate", json={"role": "delivery_lead"})
+    client.post(f"/api/runs/{run_id}/intake/pass-gate", json={"role": "business_owner"})
     client.post(f"/api/runs/{run_id}/planning/generate", json={"role": "delivery_lead"})
     res = client.post(
         f"/api/runs/{run_id}/planning/sign-off",
@@ -69,7 +69,7 @@ def test_locked_plan_edit_is_409(client, run_id):
     for path, body in [
         ("/intake/analyse", {"role": "product_analyst"}),
         ("/intake/create-epic", {"role": "product_analyst"}),
-        ("/intake/pass-gate", {"role": "delivery_lead"}),
+        ("/intake/pass-gate", {"role": "business_owner"}),
         ("/planning/generate", {"role": "delivery_lead"}),
         ("/planning/sign-off", {"role": "business_owner", "approver": "P. Moreau"}),
     ]:
@@ -147,8 +147,9 @@ def test_demo_release_rejected(client):
 
 @pytest.fixture()
 def planned_run(client, run_id):
-    for step in ("analyse", "create-epic", "pass-gate"):
-        client.post(f"/api/runs/{run_id}/intake/{step}", json={"role": "delivery_lead"})
+    for step, role in (("analyse", "delivery_lead"), ("create-epic", "delivery_lead"),
+                       ("pass-gate", "business_owner")):
+        client.post(f"/api/runs/{run_id}/intake/{step}", json={"role": role})
     client.post(f"/api/runs/{run_id}/planning/generate", json={"role": "delivery_lead"})
     return run_id
 
@@ -282,7 +283,7 @@ Apply policy deductible during claim intake to ensure valid claim processing.
 def test_upload_source_extracts_and_updates_requirement(client, run_id):
     res = client.post(
         f"/api/runs/{run_id}/intake/upload-source",
-        data={"role": "product_analyst"},
+        data={"role": "business_owner"},
         files={"file": ("epic.md", SOURCE_TEXT.encode(), "text/markdown")},
     )
     assert res.status_code == 200
@@ -294,7 +295,7 @@ def test_upload_source_extracts_and_updates_requirement(client, run_id):
 def test_upload_source_rejects_unsupported_extension(client, run_id):
     res = client.post(
         f"/api/runs/{run_id}/intake/upload-source",
-        data={"role": "product_analyst"},
+        data={"role": "business_owner"},
         files={"file": ("epic.xlsx", b"data", "application/octet-stream")},
     )
     assert res.status_code == 400
@@ -305,7 +306,7 @@ def test_upload_source_rejects_oversized_file(client, run_id):
     oversized = b"x" * (10 * 1024 * 1024 + 1)
     res = client.post(
         f"/api/runs/{run_id}/intake/upload-source",
-        data={"role": "product_analyst"},
+        data={"role": "business_owner"},
         files={"file": ("epic.txt", oversized, "text/plain")},
     )
     assert res.status_code == 400
@@ -315,7 +316,7 @@ def test_upload_source_rejects_oversized_file(client, run_id):
 def test_paste_source_extracts(client, run_id):
     res = client.post(
         f"/api/runs/{run_id}/intake/paste-source",
-        json={"role": "product_analyst", "text": SOURCE_TEXT},
+        json={"role": "business_owner", "text": SOURCE_TEXT},
     )
     assert res.status_code == 200
     assert res.json()["intake"]["extraction"]["epic_title"] == "Claims Deductible Handling"
@@ -323,15 +324,15 @@ def test_paste_source_extracts(client, run_id):
 
 def test_re_extract(client, run_id):
     client.post(f"/api/runs/{run_id}/intake/paste-source",
-                json={"role": "product_analyst", "text": SOURCE_TEXT})
-    res = client.post(f"/api/runs/{run_id}/intake/re-extract", json={"role": "product_analyst"})
+                json={"role": "business_owner", "text": SOURCE_TEXT})
+    res = client.post(f"/api/runs/{run_id}/intake/re-extract", json={"role": "business_owner"})
     assert res.status_code == 200
     assert res.json()["intake"]["extraction"]["method"] == "rule_based"
 
 
 def test_patch_extraction(client, run_id):
     client.post(f"/api/runs/{run_id}/intake/paste-source",
-                json={"role": "product_analyst", "text": SOURCE_TEXT})
+                json={"role": "business_owner", "text": SOURCE_TEXT})
     res = client.patch(
         f"/api/runs/{run_id}/intake/extraction",
         json={"role": "business_owner", "patch": {"epic_title": "Corrected"}},
@@ -342,7 +343,7 @@ def test_patch_extraction(client, run_id):
 
 def test_finalize_epic_creates_epic_from_extraction(client, run_id):
     client.post(f"/api/runs/{run_id}/intake/paste-source",
-                json={"role": "product_analyst", "text": SOURCE_TEXT})
+                json={"role": "business_owner", "text": SOURCE_TEXT})
     res = client.post(f"/api/runs/{run_id}/intake/finalize-epic", json={"role": "product_analyst"})
     assert res.status_code == 200
     state = res.json()
@@ -351,12 +352,12 @@ def test_finalize_epic_creates_epic_from_extraction(client, run_id):
 
 
 def test_default_role_delivery_lead_can_edit_extraction(client, run_id):
-    """final review finding 3: delivery_lead is the app's own default role
-    (apps/control/static/app.js `state.role`) — it must be able to complete
-    the whole upload/paste panel, including the edit-extraction step, not
-    403 on the app's own default."""
+    """The Business Owner sources the requirement (upload_intake_document is
+    theirs alone); the delivery_lead — the app's own default role — still
+    completes the rest of the panel: finalize-epic and the edit-extraction
+    step must not 403 on the app's own default."""
     client.post(f"/api/runs/{run_id}/intake/paste-source",
-                json={"role": "delivery_lead", "text": SOURCE_TEXT})
+                json={"role": "business_owner", "text": SOURCE_TEXT})
     res = client.post(f"/api/runs/{run_id}/intake/finalize-epic", json={"role": "delivery_lead"})
     assert res.status_code == 200
     res = client.patch(
@@ -368,14 +369,14 @@ def test_default_role_delivery_lead_can_edit_extraction(client, run_id):
 
 
 def test_upload_source_403_is_atomic_no_partial_state(client, run_id):
-    """final review finding 3: business_owner is permitted for
-    upload_intake_document but not run_intake_analysis (roles.py) — both
-    permissions must be checked before either engine call runs, so a 403
-    never leaves a half-written source.json / overwritten requirement
-    behind."""
+    """final review finding 3 (updated for business-only sourcing):
+    product_analyst holds run_intake_analysis but not upload_intake_document
+    (roles.py) — the permission must be checked before either engine call
+    runs, so a 403 never leaves a half-written source.json / overwritten
+    requirement behind."""
     res = client.post(
         f"/api/runs/{run_id}/intake/upload-source",
-        data={"role": "business_owner"},
+        data={"role": "product_analyst"},
         files={"file": ("epic.md", SOURCE_TEXT.encode(), "text/markdown")},
     )
     assert res.status_code == 403
@@ -388,7 +389,7 @@ def test_upload_source_403_is_atomic_no_partial_state(client, run_id):
 def test_paste_source_403_is_atomic_no_partial_state(client, run_id):
     res = client.post(
         f"/api/runs/{run_id}/intake/paste-source",
-        json={"role": "business_owner", "text": SOURCE_TEXT},
+        json={"role": "product_analyst", "text": SOURCE_TEXT},
     )
     assert res.status_code == 403
     state = client.get(f"/api/runs/{run_id}").json()
@@ -405,7 +406,7 @@ def signed_run(client, run_id):
     """Drive a run through G1 over HTTP."""
     client.post(f"/api/runs/{run_id}/intake/analyse", json={"role": "product_analyst"})
     client.post(f"/api/runs/{run_id}/intake/create-epic", json={"role": "product_analyst"})
-    client.post(f"/api/runs/{run_id}/intake/pass-gate", json={"role": "delivery_lead"})
+    client.post(f"/api/runs/{run_id}/intake/pass-gate", json={"role": "business_owner"})
     client.post(f"/api/runs/{run_id}/planning/generate", json={"role": "product_analyst"})
     res = client.post(
         f"/api/runs/{run_id}/planning/sign-off",
@@ -656,7 +657,7 @@ def test_run_repo_remove_after_plan_signoff_is_409(client, live_run_id, tmp_path
     monkeypatch.setattr(live_intake, "run_analysis", _fake_run_analysis)
     client.post(f"/api/runs/{live_run_id}/intake/analyse", json={"role": "product_analyst"})
     client.post(f"/api/runs/{live_run_id}/intake/create-epic", json={"role": "product_analyst"})
-    client.post(f"/api/runs/{live_run_id}/intake/pass-gate", json={"role": "delivery_lead"})
+    client.post(f"/api/runs/{live_run_id}/intake/pass-gate", json={"role": "business_owner"})
     client.post(
         f"/api/runs/{live_run_id}/stories",
         json={"role": "delivery_lead", "story": {

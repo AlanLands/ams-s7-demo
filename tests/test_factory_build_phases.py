@@ -23,7 +23,7 @@ def eng(tmp_path):
 def run_to_signoff(e: Engine) -> None:
     e.intake_analyse(Role.PRODUCT_ANALYST)
     e.intake_create_epic(Role.PRODUCT_ANALYST)
-    e.intake_pass_gate(Role.DELIVERY_LEAD)
+    e.intake_pass_gate(Role.BUSINESS_OWNER)
     e.planning_generate(Role.PRODUCT_ANALYST)
     e.planning_sign_off(Role.BUSINESS_OWNER, "Jordan Blake", "approved")
 
@@ -126,7 +126,7 @@ def test_gate1_checklist_does_not_require_architecture(eng):
 def test_gate1_blocks_on_missing_estimate(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_generate(Role.PRODUCT_ANALYST)
     eng.edit_story(Role.ENGINEERING_LEAD, "US-001", {"estimate": 0})
     with pytest.raises(EngineError, match="blocked"):

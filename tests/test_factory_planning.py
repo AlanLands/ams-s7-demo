@@ -15,7 +15,7 @@ def eng(tmp_path):
 def run_intake(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
 
 
 def run_planning(eng):
@@ -34,7 +34,7 @@ def test_epic_requires_analysis(eng):
 def test_intake_gate_blocks_without_epic(eng):
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     with pytest.raises(EngineError, match="Epic created"):
-        eng.intake_pass_gate(Role.DELIVERY_LEAD)
+        eng.intake_pass_gate(Role.BUSINESS_OWNER)
     assert eng.gate(GateId.INTAKE).status == Status.BLOCKED
 
 

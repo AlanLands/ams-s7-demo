@@ -19,7 +19,7 @@ def eng(tmp_path):
     e = Engine.create(DemoMode.SIMULATION, root=tmp_path)
     e.intake_analyse(Role.PRODUCT_ANALYST)
     e.intake_create_epic(Role.PRODUCT_ANALYST)
-    e.intake_pass_gate(Role.DELIVERY_LEAD)
+    e.intake_pass_gate(Role.BUSINESS_OWNER)
     e.planning_generate(Role.DELIVERY_LEAD)
     e.planning_sign_off(Role.BUSINESS_OWNER, "P. Moreau")
     return e

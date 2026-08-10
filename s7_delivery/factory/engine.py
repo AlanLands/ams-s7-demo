@@ -691,7 +691,10 @@ class Engine:
         )
 
     def intake_extract(self, role: Role) -> None:
-        roles.require("run_intake_analysis", role)
+        # Extraction structures the source the Business Owner provided — it is
+        # part of the upload act, not the analysts' deeper analysis, so it
+        # rides `upload_intake_document` rather than `run_intake_analysis`.
+        roles.require("upload_intake_document", role)
         source = self.store.read_json_or(None, "intake", "source.json")
         if source is None:
             raise EngineError("Provide a source document or pasted text before extracting")

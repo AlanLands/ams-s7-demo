@@ -22,8 +22,13 @@ class PermissionError_(Exception):
 # Action names are the engine's method names — one vocabulary end to end.
 PERMISSIONS: dict[str, set[Role]] = {
     # intake
+    # The requirement is the business's own artifact: only the Business Owner
+    # uploads/pastes it (extraction of what they provided rides the same
+    # permission), and only the Business Owner signs off the intake gate —
+    # the same separation as `sign_off_plan`. Analysts run the deeper
+    # analysis and shape the epic; they do not source or sign the requirement.
     "edit_requirement": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
-    "upload_intake_document": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
+    "upload_intake_document": {Role.BUSINESS_OWNER},
     "run_intake_analysis": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_epic": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "connect_repository": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
@@ -31,7 +36,7 @@ PERMISSIONS: dict[str, set[Role]] = {
     "route_requirement": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "setup_new_application": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_new_application_repo": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},
-    "pass_intake_gate": {Role.DELIVERY_LEAD, Role.PRODUCT_ANALYST},
+    "pass_intake_gate": {Role.BUSINESS_OWNER},
     # planning
     "generate_plan": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "edit_story": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD, Role.PRODUCT_ANALYST},

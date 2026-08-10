@@ -91,20 +91,33 @@ export function ExtractionCard({ extracting, extractError, onRetry }: Props) {
 
           <div className="actions-row split" style={{ marginTop: 14 }}>
             <button type="button" className="outline" onClick={() => setDrawerOpen(true)}>✎ Edit Extracted Epic</button>
-            <button
-              type="button"
-              className="primary sq"
-              disabled={finalizing}
-              onClick={async () => {
-                setFinalizing(true)
-                const ok = await act('/intake/finalize-epic', {}, 'Epic created')
-                if (ok) await act('/intake/pass-gate', {}, 'Intake gate passed')
-                setFinalizing(false)
-              }}
-            >
-              Create Epic &amp; Pass Intake Gate →
-            </button>
+            <span className="btns">
+              <button
+                type="button"
+                className="primary sq"
+                disabled={finalizing}
+                onClick={async () => {
+                  setFinalizing(true)
+                  await act('/intake/finalize-epic', {}, 'Epic created — Business Owner signs off the intake gate')
+                  setFinalizing(false)
+                }}
+              >
+                Create Epic →
+              </button>
+              <button
+                type="button"
+                className="outline approve"
+                disabled={finalizing}
+                onClick={() => act('/intake/pass-gate', {}, 'Intake gate passed')}
+              >
+                ✓ Pass Intake Gate
+              </button>
+            </span>
           </div>
+          <p className="hint" style={{ marginTop: 8 }}>
+            The intake gate sign-off is the Business Owner's decision — switch to the Business Owner
+            role to pass it.
+          </p>
 
           {!isLive && (
             <p className="hint" style={{ marginTop: 10 }}>

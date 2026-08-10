@@ -35,7 +35,7 @@ def _signed_off_run_with_repo(tmp_path, monkeypatch, repo_name="maplesure-claims
     )
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_add_story(Role.DELIVERY_LEAD, {
         "title": "Add disability claim submission endpoint",
         "accountable_team": "Services Team",

@@ -308,10 +308,10 @@ async def post_intake_upload_source(
     except extraction.ExtractionError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     r = _role(role)
-    # Check both permissions before either engine call, so a 403 is atomic —
-    # no partial write of source.json followed by a refused extraction.
+    # Both engine calls below require the same single permission, checked
+    # here before either runs, so a 403 stays atomic — no partial write of
+    # source.json followed by a refused extraction.
     roles.require("upload_intake_document", r)
-    roles.require("run_intake_analysis", r)
     eng.intake_set_source(r, text, filename=filename, source_kind="upload", raw_content=content)
     eng.intake_extract(r)
     return eng.state()
@@ -326,9 +326,8 @@ class PasteSourceBody(BaseModel):
 def post_intake_paste_source(run_id: str, body: PasteSourceBody) -> dict:
     eng = _engine(run_id)
     r = _role(body.role)
-    # Check both permissions before either engine call — see upload-source.
+    # Single permission checked before either engine call — see upload-source.
     roles.require("upload_intake_document", r)
-    roles.require("run_intake_analysis", r)
     eng.intake_set_source(r, body.text, source_kind="paste")
     eng.intake_extract(r)
     return eng.state()

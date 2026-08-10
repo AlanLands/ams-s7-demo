@@ -24,7 +24,7 @@ _DEVELOPERS = {
 def _intake_and_plan(eng: Engine) -> None:
     eng.intake_analyse(Role.PRODUCT_ANALYST)
     eng.intake_create_epic(Role.PRODUCT_ANALYST)
-    eng.intake_pass_gate(Role.DELIVERY_LEAD)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
     eng.planning_generate(Role.DELIVERY_LEAD)
     eng.planning_sign_off(Role.BUSINESS_OWNER, "P. Moreau", "Plan approved for build")
     # Gate 1 opens governed-context generation, not AI development: blueprint
