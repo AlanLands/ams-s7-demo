@@ -673,10 +673,18 @@ export interface RunState {
   quality?: QualityReport
   release?: ReleaseRecord
   demo?: DemoScriptState | null
+  release_document?: ReleaseDocumentMeta | null
   staleness?: StaleArtifact[]
   amendments?: Amendment[]
   design?: DesignRecord
   [section: string]: unknown
+}
+
+export interface ReleaseDocumentMeta {
+  generated_at: string
+  generated_by: string
+  provenance: string
+  sections: string[]
 }
 
 export interface DemoScriptState {

@@ -892,6 +892,34 @@ def post_release_handover(run_id: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+@app.post("/api/runs/{run_id}/release/document")
+def post_release_document(run_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.release_document_generate(_role(body.role))
+    return eng.state()
+
+
+@app.get("/api/runs/{run_id}/release/document.html")
+def get_release_document_html(run_id: str) -> FileResponse:
+    eng = _engine(run_id)
+    path = eng.store.path("release", "release-document.html")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Document not generated yet")
+    return FileResponse(path, media_type="text/html")
+
+
+@app.get("/api/runs/{run_id}/release/document.md")
+def get_release_document_md(run_id: str) -> FileResponse:
+    eng = _engine(run_id)
+    path = eng.store.path("release", "release-document.md")
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Document not generated yet")
+    return FileResponse(
+        path, media_type="text/markdown",
+        filename=f"release-document-{run_id}.md",
+    )
+
+
 # --- governance: staleness & self-correction (spec §15, §16) ----------------
 
 

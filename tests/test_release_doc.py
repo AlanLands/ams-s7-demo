@@ -66,3 +66,34 @@ def test_document_meta_in_state(finished_run):
 def test_meta_absent_before_generation(tmp_path):
     eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
     assert eng.state()["release_document"] is None
+
+
+# --- HTTP surface -----------------------------------------------------------
+
+def test_document_endpoints_http(tmp_path, monkeypatch):
+    import s7_delivery.factory.store as store_module
+    from fastapi.testclient import TestClient
+    from apps.control.server import app
+
+    monkeypatch.setattr(store_module, "RUNS_ROOT", tmp_path)
+    client = TestClient(app)
+    run_id = client.post("/api/runs", json={"mode": "simulation"}).json()["run"]["run_id"]
+
+    # Not generated yet: 404 on the files, 409 before the release stage
+    assert client.get(f"/api/runs/{run_id}/release/document.html").status_code == 404
+    res = client.post(f"/api/runs/{run_id}/release/document", json={"role": "release_manager"})
+    assert res.status_code == 409
+
+    # Drive a full run through the demo scenario endpoint machinery instead
+    # of HTTP clicks — the engine tests already cover the walk.
+    from s7_delivery.factory import demo
+    from s7_delivery.factory.engine import Engine
+    eng = Engine(run_id)
+    demo.happy_path(eng)
+
+    res = client.post(f"/api/runs/{run_id}/release/document", json={"role": "release_manager"})
+    assert res.status_code == 200 and res.json()["release_document"]["provenance"] == "rule_based"
+    html = client.get(f"/api/runs/{run_id}/release/document.html")
+    assert html.status_code == 200 and "MapleSure" in html.text
+    md = client.get(f"/api/runs/{run_id}/release/document.md")
+    assert md.status_code == 200 and "attachment" in md.headers.get("content-disposition", "")
