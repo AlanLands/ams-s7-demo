@@ -73,7 +73,10 @@
 html, body { height: 100%; }
 
 body {
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 620px at 10% -10%, rgba(162, 10, 41, .05), transparent 62%),
+    radial-gradient(950px 560px at 98% 112%, rgba(18, 92, 67, .06), transparent 62%),
+    var(--bg);
   color: var(--text);
   font-family: var(--font);
   font-size: 16px;
@@ -333,6 +336,24 @@ ul.points li b { font-weight: 600; color: var(--ink); }
 }
 #wires path.live.lit { stroke-dashoffset: 0 !important; }
 
+/* a small pulse of energy travels along every settled connector — the run is
+   alive, not a static diagram. pathLength normalises every wire to 100 units
+   so one keyframe serves them all; per-wire delays keep it organic. */
+#wires path.pulse {
+  stroke: #2ea87c;
+  stroke-width: 2.25;
+  stroke-dasharray: 6 94;
+  opacity: 0;
+}
+#wires path.pulse.lit {
+  opacity: .9;
+  animation: flowdash 2.6s linear infinite;
+}
+@keyframes flowdash {
+  from { stroke-dashoffset: 100; }
+  to   { stroke-dashoffset: 0; }
+}
+
 .node {
   position: relative;
   z-index: 1;
@@ -378,6 +399,12 @@ ul.points li b { font-weight: 600; color: var(--ink); }
   color: var(--red-dark);
   transform: translateY(-2px);
   box-shadow: 0 2px 0 0 var(--red);
+  animation: halo 2.4s var(--ease) infinite;
+}
+@keyframes halo {
+  0%   { box-shadow: 0 2px 0 0 var(--red), 0 0 0 0 rgba(162, 10, 41, .22); }
+  65%  { box-shadow: 0 2px 0 0 var(--red), 0 0 0 9px rgba(162, 10, 41, 0); }
+  100% { box-shadow: 0 2px 0 0 var(--red), 0 0 0 0 rgba(162, 10, 41, 0); }
 }
 .node.current .n { color: var(--red-dark); }
 
@@ -426,11 +453,31 @@ footer.foot {
 .track .fill { height: 100%; width: 0; background: var(--red); border-radius: 999px; transition: width .55s var(--ease); }
 
 .hint { flex: none; font-size: 11px; color: var(--border-strong); font-weight: 600; white-space: nowrap; }
-.hint kbd {
+.hint kbd, .cover .begin kbd {
   font-family: var(--font); font-size: 11px; font-weight: 600;
   border: 1px solid var(--border); border-bottom-width: 2px;
   border-radius: 4px; padding: 1px 5px; background: var(--surface); color: var(--muted);
 }
+
+.map-legend {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lg { display: flex; align-items: center; gap: 6px; }
+.lg-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: var(--surface);
+}
+.lg-line { width: 18px; height: 2px; background: var(--green); border-radius: 2px; }
+@media (max-width: 1080px) { .map-legend { display: none; } }
 
 /* ----------------------------------------------------------- closing frame */
 
@@ -468,13 +515,69 @@ footer.foot {
 .chip .d { font-size: 11.5px; color: var(--green); opacity: .8; font-weight: 600; }
 
 /* closing-frame layout switch: the copy centres in the space the beat panel
-   used, and the map grows to become the subject rather than the footnote */
-#deck.finale .copy, #deck.finale .rail, #deck.finale .ghost { display: none; }
+   used, and the map grows to become the subject rather than the footnote.
+   The cover frame borrows the same layout so open and close mirror. */
+#deck.finale .copy, #deck.finale .rail, #deck.finale .ghost,
+#deck.coverframe .copy, #deck.coverframe .rail, #deck.coverframe .ghost { display: none; }
 #deck.finale .closing { display: flex; }
-#deck.finale .map-wrap { flex: 0 0 auto; padding: clamp(20px, 3.4vh, 38px) clamp(18px, 2vw, 34px); }
-#deck.finale .map { row-gap: clamp(26px, 5vh, 60px); }
-#deck.finale .node { padding: 13px 15px; }
-#deck.finale .node .lbl { font-size: clamp(12px, 1.6vh, 14.5px); }
+#deck.coverframe .cover { display: flex; }
+#deck.finale .map-wrap, #deck.coverframe .map-wrap { flex: 0 0 auto; padding: clamp(20px, 3.4vh, 38px) clamp(18px, 2vw, 34px); }
+#deck.finale .map, #deck.coverframe .map { row-gap: clamp(26px, 5vh, 60px); }
+#deck.finale .node, #deck.coverframe .node { padding: 13px 15px; }
+#deck.finale .node .lbl, #deck.coverframe .node .lbl { font-size: clamp(12px, 1.6vh, 14.5px); }
+
+/* ------------------------------------------------------------ cover frame */
+
+.cover {
+  position: relative;
+  z-index: 1;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(12px, 2vh, 22px);
+  text-align: center;
+  grid-column: 1 / -1;
+}
+.cover .over-kicker {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--red);
+}
+.cover h1 { font-size: clamp(34px, 5.6vh, 60px); max-width: 24ch; margin-bottom: 0; }
+.cover .sub { font-size: clamp(15px, 2vh, 19px); color: var(--muted); max-width: 58ch; text-wrap: balance; }
+.cover .sub em { font-style: normal; font-weight: 600; color: var(--red-dark); }
+.cover .begin {
+  margin-top: clamp(4px, 1.2vh, 12px);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* -------------------------------------------------------- closing stats -- */
+
+.stats { display: flex; gap: clamp(28px, 4vw, 64px); justify-content: center; align-items: baseline; }
+.stat { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.stat .v {
+  font-size: clamp(38px, 6vh, 60px);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -.03em;
+  color: var(--red-dark);
+  font-variant-numeric: tabular-nums;
+}
+.stat .k {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
 /* --------------------------------------------------------------- motion --- */
 
@@ -495,6 +598,7 @@ footer.foot {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   .chip { opacity: 1; transform: none; }
   #wires path { stroke-dashoffset: 0 !important; }
+  #wires path.pulse { display: none !important; }
 }
 
 /* keep the deck usable on a laptop screen or a low projector */
@@ -552,11 +656,25 @@ footer.foot {
       </div>
     </aside>
 
+    <div class="cover" id="cover">
+      <div class="over-kicker">MapleSure Insurance &middot; AI-Assisted SDLC</div>
+      <h1>From business requirement to production release.</h1>
+      <p class="sub">
+        One governed run of the <em>S7 Delivery Control Centre</em> &mdash; AI assisted at
+        every stage, human approved at every gate, and honest about which is which.
+      </p>
+      <div class="begin"><kbd>&rarr;</kbd> begin the walkthrough</div>
+    </div>
+
     <div class="closing" id="closing">
       <h1>Business requirement to production release &mdash; one governed run.</h1>
+      <div class="stats" id="stats">
+        <div class="stat"><span class="v" data-n="12">0</span><span class="k">Stages</span></div>
+        <div class="stat"><span class="v" data-n="5">0</span><span class="k">Human decision points</span></div>
+        <div class="stat"><span class="v" data-n="0">0</span><span class="k">Unlabelled artifacts</span></div>
+      </div>
       <p class="sub">
-        Twelve stages, five human decision points, one provenance chain. Every artifact
-        knows what produced it and what it derives from &mdash; and
+        Every artifact knows what produced it and what it derives from &mdash; and
         <em>simulated is always labelled simulated</em>.
       </p>
       <div class="chips" id="chips">
@@ -577,6 +695,10 @@ footer.foot {
     <div class="honesty">
       Honest badging throughout &mdash; <span>simulated is always labelled simulated</span>,
       rule-based is never called AI.
+    </div>
+    <div class="map-legend" aria-hidden="true">
+      <span class="lg"><span class="lg-dot"></span>Human decision point</span>
+      <span class="lg"><span class="lg-line"></span>Run progress</span>
     </div>
     <div class="progress">
       <div class="track"><div class="fill" id="fill"></div></div>
@@ -788,9 +910,10 @@ footer.foot {
     }
   ];
 
-  var N = STAGES.length;               /* 12 stages, index 0..11              */
-  var FINALE = N;                      /* index 12 is the closing frame       */
-  var LAST = FINALE;
+  var N = STAGES.length;               /* 12 stages                            */
+  var COVER = 0;                       /* frame 0 is the cover                 */
+  var FINALE = N + 1;                  /* frame 13 is the closing frame        */
+  var LAST = FINALE;                   /* stage k lives at frame k + 1         */
 
   /* --------------------------------------------------------------- build -- */
 
@@ -798,8 +921,10 @@ footer.foot {
   var map = document.getElementById("map");
   var wires = document.getElementById("wires");
   var nodes = [];
+  var numSpans = [];
   var tracks = [];
   var lives = [];
+  var pulses = [];
 
   /* Serpentine layout: row 1 runs left to right, row 2 runs right to left,
      so stage 7 sits directly beneath stage 6 and the return connector is a
@@ -817,9 +942,10 @@ footer.foot {
       b.style.gridRow = "1";
       b.style.gridColumn = String(i + 1);
     }
-    (function (idx) { b.addEventListener("click", function (e) { e.stopPropagation(); go(idx); }); })(i);
+    (function (idx) { b.addEventListener("click", function (e) { e.stopPropagation(); go(idx + 1); }); })(i);
     map.appendChild(b);
     nodes.push(b);
+    numSpans.push(b.querySelector(".n"));
   }
 
   var SVGNS = "http://www.w3.org/2000/svg";
@@ -834,6 +960,14 @@ footer.foot {
     lv.setAttribute("class", "live");
     wires.appendChild(lv);
     lives.push(lv);
+  }
+  for (var r = 0; r < N - 1; r++) {          /* pulse layer rides above the live */
+    var pu = document.createElementNS(SVGNS, "path");
+    pu.setAttribute("class", "pulse");
+    pu.setAttribute("pathLength", "100");
+    pu.style.animationDelay = (r * 0.21) + "s";
+    wires.appendChild(pu);
+    pulses.push(pu);
   }
 
   function pad(n) { return n < 10 ? "0" + n : String(n); }
@@ -866,6 +1000,7 @@ footer.foot {
       }
       tracks[i].setAttribute("d", d);
       lives[i].setAttribute("d", d);
+      pulses[i].setAttribute("d", d);
       var len = lives[i].getTotalLength() || 1;
       lives[i].style.strokeDasharray = len;
       if (!lives[i].classList.contains("lit")) lives[i].style.strokeDashoffset = len;
@@ -896,13 +1031,46 @@ footer.foot {
     el.classList.add(cls);
   }
 
-  function render(prev) {
-    var finale = idx === FINALE;
-    deck.classList.toggle("finale", finale);
+  var elCover = document.getElementById("cover");
+  var statVals = Array.prototype.slice.call(document.querySelectorAll("#stats .v"));
+  var statTimer = null;
 
-    if (!finale) {
-      var s = STAGES[idx];
-      elGhost.textContent = pad(idx + 1);
+  function resetStats() {
+    if (statTimer) { cancelAnimationFrame(statTimer); statTimer = null; }
+    statVals.forEach(function (v) { v.textContent = "0"; });
+  }
+  function runStats() {
+    resetStats();
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) {
+      statVals.forEach(function (v) { v.textContent = v.getAttribute("data-n"); });
+      return;
+    }
+    var t0 = null, DUR = 950;
+    function tick(ts) {
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / DUR);
+      var e = 1 - Math.pow(1 - k, 3);
+      statVals.forEach(function (v) {
+        v.textContent = String(Math.round(e * Number(v.getAttribute("data-n"))));
+      });
+      statTimer = k < 1 ? requestAnimationFrame(tick) : null;
+    }
+    statTimer = requestAnimationFrame(tick);
+  }
+
+  function render(prev) {
+    var cover = idx === COVER;
+    var finale = idx === FINALE;
+    var si = idx - 1;                  /* stage index; -1 on the cover frame */
+    deck.classList.toggle("finale", finale);
+    deck.classList.toggle("coverframe", cover);
+
+    if (cover) restart(elCover, "anim");
+
+    if (!finale && !cover) {
+      var s = STAGES[si];
+      elGhost.textContent = pad(si + 1);
       elKicker.innerHTML = s.kicker;
       elTitle.innerHTML = s.title;
 
@@ -941,12 +1109,15 @@ footer.foot {
 
     /* node + wire states */
     for (var i = 0; i < N; i++) {
-      nodes[i].classList.toggle("done", finale || i < idx);
-      nodes[i].classList.toggle("current", !finale && i === idx);
+      var isDone = finale || i < si;
+      nodes[i].classList.toggle("done", isDone);
+      nodes[i].classList.toggle("current", !finale && i === si);
+      numSpans[i].textContent = isDone ? "✓" : pad(i + 1);
     }
     for (var w = 0; w < lives.length; w++) {
-      var lit = finale || idx > w;
+      var lit = finale || si > w;
       lives[w].classList.toggle("lit", lit);
+      pulses[w].classList.toggle("lit", lit);
       if (!lit) {
         var len = lives[w].getTotalLength() || 1;
         lives[w].style.strokeDashoffset = len;
@@ -957,8 +1128,8 @@ footer.foot {
     requestAnimationFrame(function () { requestAnimationFrame(layout); });
     setTimeout(layout, 600);
 
-    elCount.textContent = finale ? "Complete" : "Stage " + (idx + 1) + " / " + N;
-    elFill.style.width = Math.round(((idx + 1) / (LAST + 1)) * 100) + "%";
+    elCount.textContent = cover ? "Overview" : finale ? "Complete" : "Stage " + (si + 1) + " / " + N;
+    elFill.style.width = Math.round((idx / LAST) * 100) + "%";
 
     if (finale) {
       chips.forEach(function (c, i) {
@@ -967,8 +1138,10 @@ footer.foot {
         c.style.animationDelay = (0.34 + i * 0.13) + "s";
         c.classList.add("in");
       });
+      runStats();
     } else {
       chips.forEach(function (c) { c.classList.remove("in"); });
+      resetStats();
     }
   }
 
