@@ -2,6 +2,8 @@
 
 **The dashboard is the governed control plane. The developer's own
 environment is the engineering execution plane.** S7 never imitates an IDE.
+The developer-side view of this model — what to actually do after cloning —
+is DEVELOPER_ONBOARDING.md.
 
 ## What a workspace is
 
