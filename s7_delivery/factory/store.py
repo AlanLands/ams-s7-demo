@@ -101,6 +101,12 @@ class RunStore:
         except StoreError:
             return default
 
+    def read_text(self, *segments: str) -> str:
+        target = self.path(*segments)
+        if not target.exists():
+            raise StoreError(f"Missing artifact: {target.relative_to(self.root)}")
+        return target.read_text(encoding="utf-8")
+
     def write_text(self, text: str, *segments: str) -> Path:
         target = self.path(*segments)
         target.parent.mkdir(parents=True, exist_ok=True)

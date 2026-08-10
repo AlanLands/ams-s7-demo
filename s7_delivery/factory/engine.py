@@ -332,6 +332,9 @@ class Engine:
             "demo": self.store.read_json_or(None, "demo", "script.json"),
             "quality": self.store.read_json_or(None, "quality", "quality-report.json"),
             "release": self.store.read_json_or(None, "release", "release-record.json"),
+            "release_document": self.store.read_json_or(
+                None, "release", "release-document.json"
+            ),
             "staleness": stale,
             "amendments": self.store.read_ledger("amendments.jsonl"),
             "approvals": self.store.read_ledger("approvals.jsonl"),
@@ -4079,6 +4082,48 @@ class Engine:
 
     def _release(self) -> dict | None:
         return self.store.read_json_or(None, "release", "release-record.json")
+
+    def release_document_generate(self, role: Role) -> dict:
+        """Render the release/design document from run state (any mode).
+
+        A deterministic rendering of the run's own records — never AI
+        output, so it is badged rule_based in every mode (spec
+        2026-08-10-demo-mode §4)."""
+        roles.require("generate_release_document", role)
+        if self._release() is None:
+            raise EngineError(
+                "The release stage has not been reached — request release "
+                "approval first"
+            )
+        from s7_delivery.factory import release_doc
+
+        data = release_doc.document_data(self.state())
+        self.store.write_text(
+            release_doc.render_markdown(data), "release", "release-document.md"
+        )
+        self.store.write_text(
+            release_doc.render_html(data), "release", "release-document.html"
+        )
+        meta = {
+            "generated_at": now_iso(),
+            "generated_by": role.value,
+            "provenance": Provenance.RULE_BASED.value,
+            "sections": data["toc"],
+        }
+        self.store.write_json(meta, "release", "release-document.json")
+        self._record(
+            artifact_id="RELDOC-001", artifact_type="release_document",
+            payload=meta, author=f"release-document ({role.value})",
+            stage=Stage.RELEASE, action="generate-document", outcome="created",
+            inputs=[data["release"]["release_id"] or "release-record"],
+        )
+        self._activity(
+            stage=Stage.RELEASE, actor="release-document",
+            actor_type="simulation", workflow="release-document",
+            artifact="RELDOC-001", duration_s=4.0, outcome="created",
+            details="Release & design document rendered from run records",
+        )
+        return meta
 
     def release_request_approval(self, role: Role) -> None:
         roles.require("request_release_approval", role)
