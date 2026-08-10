@@ -37,41 +37,51 @@ CHROME_CANDIDATES = (
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
 )
 
+# Palette lifted from apps/control/web/src/theme.css so the document reads as
+# the same product as the app it describes (warm neutrals, MapleSure red,
+# governance green) — not the generic blue it used to be.
 CSS = """
 @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
 * { box-sizing: border-box; }
 body {
-  font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-  font-size: 10.2pt; line-height: 1.5; color: #1b2430; margin: 0;
+  font-family: "Source Sans 3", "Source Sans Pro", -apple-system, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+  font-size: 10.2pt; line-height: 1.5; color: #36362f; margin: 0;
   -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-h1 { font-size: 21pt; margin: 0 0 2mm; color: #12283f; letter-spacing: -0.2px; }
+h1 { font-size: 21pt; margin: 0 0 2mm; color: #36362f; letter-spacing: -0.2px; }
+h1::after {
+  content: ""; display: block; width: 26mm; height: 1.2mm;
+  background: #a20a29; margin-top: 2.4mm; border-radius: 1mm;
+}
 h2 {
-  font-size: 13pt; margin: 9mm 0 3mm; color: #12283f;
-  border-bottom: 2px solid #d7dee6; padding-bottom: 1.6mm;
+  font-size: 13pt; margin: 9mm 0 3mm; color: #36362f;
+  border-bottom: 2px solid #e4d3d7; padding-bottom: 1.6mm;
   break-after: avoid;
 }
-h3 { font-size: 11pt; margin: 6mm 0 2mm; color: #2c4a68; break-after: avoid; }
+h2::before { content: "— "; color: #a20a29; }
+h3 { font-size: 11pt; margin: 6mm 0 2mm; color: #850822; break-after: avoid; }
 p { margin: 0 0 3mm; }
-a { color: #1d4e80; }
-hr { border: 0; border-top: 1px solid #dde3ea; margin: 7mm 0; }
-strong { color: #0f2136; }
+a { color: #a20a29; }
+hr { border: 0; border-top: 1px solid #d2d2cf; margin: 7mm 0; }
+strong { color: #1f1f1a; }
+em { color: #850822; }
 code {
   font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.8pt;
-  background: #eef2f6; padding: 0.5mm 1.2mm; border-radius: 2px; color: #1b3a5c;
+  background: #f1f1ee; padding: 0.5mm 1.2mm; border-radius: 2px; color: #850822;
 }
 pre {
-  background: #f5f8fa; border: 1px solid #dfe6ed; border-left: 3px solid #4a7fb5;
+  background: #f7f7f5; border: 1px solid #d2d2cf; border-left: 3px solid #a20a29;
   padding: 3mm 4mm; border-radius: 3px;
   white-space: pre-wrap; overflow-wrap: anywhere;
   font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.4pt;
   line-height: 1.42; break-inside: avoid; margin: 0 0 4mm;
 }
-pre code { background: none; padding: 0; font-size: inherit; color: #24405c; }
+pre code { background: none; padding: 0; font-size: inherit; color: #36362f; }
 blockquote {
-  margin: 0 0 4mm; padding: 2.6mm 4mm; background: #eef4fa;
-  border-left: 3px solid #4a7fb5; border-radius: 0 3px 3px 0;
-  font-size: 10.6pt; color: #14304d;
+  margin: 0 0 4mm; padding: 2.6mm 4mm; background: #f7e9ec;
+  border-left: 3px solid #a20a29; border-radius: 0 3px 3px 0;
+  font-size: 10.6pt; color: #4a1420;
 }
 blockquote p { margin: 0; }
 table {
@@ -79,14 +89,23 @@ table {
   font-size: 8.9pt; break-inside: avoid;
 }
 th {
-  background: #12283f; color: #fff; text-align: left;
-  padding: 2mm 2.6mm; font-weight: 600; border: 1px solid #12283f;
+  background: #850822; color: #fff; text-align: left;
+  padding: 2mm 2.6mm; font-weight: 600; border: 1px solid #850822;
 }
-td { padding: 1.9mm 2.6mm; border: 1px solid #dde3ea; vertical-align: top; }
-tbody tr:nth-child(even) td { background: #f6f9fb; }
+td { padding: 1.9mm 2.6mm; border: 1px solid #d9d9d5; vertical-align: top; }
+tbody tr:nth-child(even) td { background: #f4f4f1; }
 ul, ol { margin: 0 0 3.5mm; padding-left: 6mm; }
 li { margin-bottom: 1.2mm; }
-.subtitle { color: #5a6b7d; font-size: 9.6pt; margin: 0 0 5mm; }
+.subtitle { color: #525146; font-size: 9.6pt; margin: 0 0 5mm; }
+figure { margin: 0 0 5mm; break-inside: avoid; }
+figure img {
+  width: 100%; border: 1px solid #d2d2cf; border-radius: 2.5mm;
+  box-shadow: 0 1mm 2.5mm rgba(54, 54, 47, .13);
+}
+figcaption {
+  font-size: 8.6pt; color: #525146; margin-top: 1.6mm;
+  padding-left: 3mm; border-left: 2.5px solid #125c43; font-weight: 600;
+}
 """
 
 INLINE = (
@@ -145,6 +164,15 @@ def convert(md: str) -> str:
                 "<tr>" + "".join(f"<td>{inline(c)}</td>" for c in r) + "</tr>" for r in body
             )
             out.append(f"<table><thead><tr>{th}</tr></thead><tbody>{rows}</tbody></table>")
+            continue
+
+        # Image on its own line: ![caption](path) → captioned figure.
+        image = re.fullmatch(r"!\[([^\]]*)\]\(([^)]+)\)", stripped)
+        if image:
+            caption, src = image.groups()
+            cap = f"<figcaption>{inline(caption)}</figcaption>" if caption else ""
+            out.append(f'<figure><img src="{html.escape(src)}" alt="">{cap}</figure>')
+            i += 1
             continue
 
         if re.fullmatch(r"-{3,}", stripped):

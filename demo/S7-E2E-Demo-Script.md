@@ -165,6 +165,8 @@ Routing** card show **Verdict: Fits connected repos**, with reasoning text
 and the candidate repository named. Then click **Create Epic & Pass Intake
 Gate →** at the bottom of the Extraction card.
 
+![The Intake stage after live AI extraction — the pasted requirement, structured, in run S7-00002](guide-screens/intake-extraction.jpg)
+
 ---
 
 ## Step 3 — Clarifications, then analysis grounded in the repo
@@ -215,6 +217,10 @@ Sign-off**. In the **Gate 1: Plan Sign-off** rail, fill **Approver name** and
 met; after signing, **Plan Sign-off** shows Signed by / At / Version, and the
 plan becomes read-only.
 
+![Epic to Stories in the rehearsed run — 4 stories, 12 acceptance criteria, every Gate-1 condition green](guide-screens/epic-to-stories.jpg)
+
+![Plan Sign-off after G1 — the plan is signed and locked, and stays read-only from here](guide-screens/plan-signoff.jpg)
+
 ---
 
 ## Step 5 — Architecture pack: generated, versioned, human-accepted
@@ -262,6 +268,8 @@ Git** is enabled.
 test name); the disabled **Publish to Git** button with tooltip *"Test plan
 awaiting QA approval"*; then, after approval, the green **Approved by QA
 Lead** line and the button going live.
+
+![Delivery Packs at the end of the rehearsed run — three team packs, all published and synced to Git](guide-screens/delivery-packs.jpg)
 
 ---
 
@@ -380,6 +388,8 @@ sourced from the real pipeline. In the rehearsed run this sync brought back
 linking to its actual GitHub Actions run) **and 89.2% line coverage** read
 from JaCoCo.
 
+![Build & Test Evidence after Sync from Git — real GitHub Actions runs, real committer, per-story results](guide-screens/build-test-evidence.jpg)
+
 ---
 
 ## Step 10 — Independent Review
@@ -429,6 +439,8 @@ hand-off) reported *not applicable* — worth pointing at, because a system
 that will say "not applicable" out loud is a system whose "passed" means
 something.
 
+![Final Gating in the rehearsed run — explicit conditions with evidence, and the score marked informational-only](guide-screens/final-gating.jpg)
+
 ---
 
 ## Step 12 — Release: five-role approval chain, deploy, handover
@@ -454,6 +466,8 @@ maintenance**.
 timestamps; the **Deployment** card (pipeline, strategy, artifacts, smoke
 tests); the **Transition to maintenance** card (support team, runbook,
 hypercare days) — a genuinely complete run, top to bottom.
+
+![Release in the rehearsed run — all five role approvals recorded, release completed](guide-screens/release-approvals.jpg)
 
 ---
 
