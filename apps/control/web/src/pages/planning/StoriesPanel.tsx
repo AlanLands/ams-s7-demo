@@ -15,6 +15,15 @@ import { TeamChip } from './TeamChip'
 // dropdown edit strip: viewing and editing are now the same lightweight
 // gesture. When the plan is locked the drawer opens read-only.
 
+// Only sprint 1 stories come out of planning as "ready" (s7_delivery/factory
+// engine.py: `Status.READY if sprint <= 1 else Status.PLANNED`); every later
+// sprint is "planned" until its turn comes up. Spelled out here since the
+// badge text alone reads as ambiguous.
+const STORY_STATUS_HINT: Record<string, string> = {
+  ready: 'In Sprint 1 — ready to pull now.',
+  planned: 'Scheduled into a future sprint — not ready to pull yet.',
+}
+
 function exportStories(stories: PlanStory[]) {
   const blob = new Blob([JSON.stringify(stories, null, 2)], { type: 'application/json' })
   const a = document.createElement('a')
@@ -143,7 +152,7 @@ export function StoriesPanel({ stories, editable = false }: { stories: PlanStory
                     <div className="bc-foot">
                       <span className="hint">{`S${s.sprint} · ${s.estimate} pts`}</span>
                       <span className="chip req-id">{`${(s.acceptance_criteria ?? []).length} AC`}</span>
-                      <Badge status={s.status} />
+                      <Badge status={s.status} title={STORY_STATUS_HINT[s.status]} />
                     </div>
                   </div>
                 ))}
@@ -174,7 +183,7 @@ export function StoriesPanel({ stories, editable = false }: { stories: PlanStory
                 <td><TeamChip name={s.accountable_team} /></td>
                 <td>{`S${s.sprint}`}</td>
                 <td>{`${s.estimate} pts`}</td>
-                <td><Badge status={s.status} /></td>
+                <td><Badge status={s.status} title={STORY_STATUS_HINT[s.status]} /></td>
                 <td>
                   <button
                     type="button"
