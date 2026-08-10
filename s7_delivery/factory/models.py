@@ -41,6 +41,10 @@ class DemoMode(StrEnum):
     SIMULATION = "simulation"
     REPLAY = "replay"
     LIVE = "live"
+    # Presenter-facing scripted environment: simulation semantics everywhere,
+    # plus the seeded epic regardless of upload, the scripted Sync storyline,
+    # and DEMO-chip badge presentation (spec 2026-08-10-demo-mode).
+    DEMO = "demo"
 
 
 class Status(StrEnum):

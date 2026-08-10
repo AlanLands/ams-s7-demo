@@ -146,7 +146,7 @@ export interface StageState {
 
 export interface RunRecord {
   run_id: string
-  mode: 'simulation' | 'replay' | 'live'
+  mode: 'simulation' | 'replay' | 'live' | 'demo'
   created_at: string
   stages: StageState[]
   status: string

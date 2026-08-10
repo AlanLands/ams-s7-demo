@@ -788,6 +788,11 @@ class Engine:
         if not self.store.exists("intake", "analysis.json"):
             raise EngineError("Run intake analysis before creating the epic")
         extraction = self.store.read_json_or(None, "intake", "extraction.json")
+        # Demo runs always present the seeded MapleSure epic: the upload is
+        # shown on the intake page, but epic creation ignores it (spec
+        # 2026-08-10-demo-mode, story-source decision).
+        if extraction is not None and self.run().mode is DemoMode.DEMO:
+            extraction = None
         if extraction is not None:
             req = self.store.read_json("intake", "requirement.json")
             req_count = len(extraction.get("extracted_requirements", []))

@@ -58,7 +58,8 @@ export function Header() {
               window.location.reload()
             }}
           >
-            <option value="simulation">Demo</option>
+            <option value="demo">Demo</option>
+            <option value="simulation">Simulation</option>
             <option value="replay">Replay</option>
             <option value="live">Live</option>
           </select>
