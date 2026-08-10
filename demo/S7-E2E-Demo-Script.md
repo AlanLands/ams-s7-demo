@@ -1,4 +1,4 @@
-# S7 Delivery Control Centre — End-to-End Live Demo Script
+# S7 Control Centre — Live End-to-End Demo Guide
 
 **Audience:** the client (referred to only as "the client" — never by name).
 **Insurer fiction:** MapleSure Insurance. **Length:** ~15 minutes.
@@ -55,6 +55,34 @@ drafts; a named human approves every phase change. Developers write code
 normally, in their own tools — S7 never touches their editor. Independent
 review, not self-approval, gates release. Every artifact says, on its face,
 whether it's AI-generated, rule-based, human-edited, or simulated.*
+
+---
+
+## The rehearsed run — what actually happened (run S7-00002)
+
+This guide is not hypothetical. The full flow below was executed live, end
+to end, the night before the demo — real model calls, a real GitHub
+repository, real CI runs. Every number in this table is read from that
+run's own committed artifacts, not estimated.
+
+| Stage | What actually happened |
+|---|---|
+| **Intake** | The requirement in Step 2 was pasted and AI-extracted live — title, business objective, and 3 numbered requirements, badged **AI Extraction** |
+| **Routing** | With zero repos connected the verdict short-circuited to **New application needed** with **no model call at all**; the conversational setup then named the app and **created the real GitHub repo** `advisor-signin-enhancements` (Java 21 / Spring Boot / Maven), CI workflow bootstrapped automatically |
+| **Planning (G1)** | Live plan: **4 stories, 12 acceptance criteria** — US-1 *Device Recognition*, US-2 *Account Lockout Policy*, US-3 *Audit Logging*, US-4 *Automated Testing* — routed across Platform, Data and QA Automation teams; Business Owner signed and the plan locked |
+| **Architecture** | Five-file pack generated **after** G1, never before, into immutable `architecture/v1/`; accepted by the Engineering Lead |
+| **Test plans** | 12 rule-based failing tests, one per acceptance criterion (e.g. `test_given_an_advisor_signs_in_when_they_choose_rem…`); the **QA Lead approved all three team packs** — publish stayed hard-blocked (HTTP 409) until each approval landed |
+| **Publication** | Three real branches — `s7/s7-00002-platform-team`, `…-data-team`, `…-qa-automation` — carrying only `AGENTS.md`, `.s7/**` and `src/test/java/s7/**`; GitHub Actions ran **red on each branch**, the honest baseline |
+| **Developer loop** | **4 pull requests merged**: #1 US-1/US-2 device recognition + lockout, #2 US-3 audit logging, #3 US-4 automated tests, #4 US-4 JaCoCo coverage — 15 JUnit tests on `main`, every commit carrying its story id |
+| **Evidence sync** | All **12 acceptance criteria flipped failed → passed**, each row linking to its real GitHub Actions run; line coverage **89.2%**, read from JaCoCo through CI — never self-reported |
+| **Independent review** | 4 reviews executed by the isolated reviewer role (never the author) — all approved |
+| **Final Gating** | **10 of 12 checks passed**; QC-08 *Operational readiness* and QC-12 *Performance test hand-off* honestly reported **not applicable** rather than silently green |
+| **Release** | Five-role approval chain completed; deployment `DEP-001` recorded (pipeline reference badged *simulated* — there is no production MapleSure to deploy to); smoke tests 8/8; transition to maintenance accepted with runbook, knowledge-article update `KB-2026-0473` and a 7-day hypercare window |
+
+One distinction to keep ready if asked: everything upstream — extraction,
+planning, architecture, publication, code, CI, review — was genuinely live.
+The deployment record itself is a governed simulation **and says so on its
+face**. That labelling discipline is the product.
 
 ---
 
@@ -179,7 +207,7 @@ Sign-off**. In the **Gate 1: Plan Sign-off** rail, fill **Approver name** and
 - **"This is Gate 1 — a named human, a required note, a genuine e-signature
   render. It's not a checkbox; the plan is provably locked after this, and
   every downstream artifact traces back to this exact version."**
-- **"Notice what G1 does *not* authorize: it approves the plan, not
+- **"Notice what G1 does NOT authorize: it approves the plan, not
   production code. Architecture generation is the next, separate step —
   the AI still hasn't written anything executable."**
 
@@ -279,6 +307,54 @@ to a terminal/IDE window showing: `git clone`, opening `.s7/` and
 - **"The only convention we ask for is the story id in the commit message —
   that's what lets S7 match real commits back to the story automatically."**
 
+**What the developer actually receives** — this is the real branch S7
+published in the rehearsed run, nothing added:
+
+```
+s7/s7-00002-platform-team            ← the branch S7 published
+├── AGENTS.md                        ← start here: the story, the rules, the finish line
+├── .s7/
+│   ├── shared/
+│   │   ├── architecture.md          ← the accepted v1 architecture pack
+│   │   ├── engineering-rules.md
+│   │   ├── git-workflow.md          ← governed branch/commit/PR conventions
+│   │   └── assigned-stories.json
+│   ├── stories/US-1/
+│   │   ├── story.md                 ← the story exactly as signed off at G1
+│   │   ├── acceptance-criteria.md
+│   │   └── test-manifest.json       ← which test proves which criterion
+│   └── tasks/TASK-001/
+│       ├── task.md
+│       └── test-plan.md             ← the QA-approved test plan
+└── src/test/java/s7/
+    ├── US1AcceptanceTest.java       ← red on purpose — the finish line, in code
+    └── US2AcceptanceTest.java
+```
+
+Plain markdown and JSON — readable in any IDE, by any human, by any AI
+assistant. No plugin, no proprietary format.
+
+**And what they do with it** — the actual command sequence from the
+rehearsed run (PR #1, merged the same evening):
+
+```
+$ git clone github.com/AlanLands/advisor-signin-enhancements && cd advisor-signin-enhancements
+$ git switch s7/s7-00002-platform-team     # read the context S7 published
+$ cat AGENTS.md .s7/stories/US-1/story.md  # own IDE, own AI assistant — S7 isn't watching
+
+$ git switch -c feature/us-1-us-2-signin-security main
+$ mvn test                                 # RED — the acceptance tests fail, as designed
+      ...implement device recognition and lockout, normally...
+$ mvn test                                 # GREEN — 15 tests pass
+$ git commit -m "US-1 / US-2: device recognition and account lockout"
+$ git push && gh pr create                 # PR #1 → review → merge to main
+```
+
+The story id at the front of the commit message is the whole integration
+contract — it is how Sync from Git attributes that commit, that PR and
+that CI run back to US-1 and US-2 without S7 ever touching the developer's
+machine.
+
 **Audience sees:** (live) a real commit landing on the branch, a PR opening,
 CI re-running; (rehearsed) the same, narrated over a short recorded clip.
 
@@ -299,7 +375,10 @@ Workspaces**). Click **Sync Now** / **Sync from Git**.
 
 **Audience sees:** commit hash, PR link, CI badge (Passed/Running/Failed)
 populate; the AC-by-AC test table flips from initial-red to current-result,
-sourced from the real pipeline.
+sourced from the real pipeline. In the rehearsed run this sync brought back
+**4 merged PRs, all 12 acceptance criteria failed → passed** (each row
+linking to its actual GitHub Actions run) **and 89.2% line coverage** read
+from JaCoCo.
 
 ---
 
@@ -344,7 +423,11 @@ the evidence table.
 
 **Audience sees:** the Quality evidence table (Check / Name / Status /
 Evidence / Owner), risks and approved exceptions panels, and the **Decide
-final gate (QA Lead)** action.
+final gate (QA Lead)** action. In the rehearsed run the gate passed **10 of
+12 checks**, with QC-08 (operational readiness) and QC-12 (performance
+hand-off) reported *not applicable* — worth pointing at, because a system
+that will say "not applicable" out loud is a system whose "passed" means
+something.
 
 ---
 

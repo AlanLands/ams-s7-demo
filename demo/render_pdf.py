@@ -62,7 +62,8 @@ code {
 }
 pre {
   background: #f5f8fa; border: 1px solid #dfe6ed; border-left: 3px solid #4a7fb5;
-  padding: 3mm 4mm; border-radius: 3px; overflow-x: auto;
+  padding: 3mm 4mm; border-radius: 3px;
+  white-space: pre-wrap; overflow-wrap: anywhere;
   font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8.4pt;
   line-height: 1.42; break-inside: avoid; margin: 0 0 4mm;
 }
@@ -89,7 +90,9 @@ li { margin-bottom: 1.2mm; }
 """
 
 INLINE = (
-    (re.compile(r"`([^`]+)`"), lambda m: f"<code>{html.escape(m.group(1))}</code>"),
+    # The text fed to inline() is already escaped; re-escaping here would
+    # print `&&` inside code spans as `&amp;&amp;`.
+    (re.compile(r"`([^`]+)`"), lambda m: f"<code>{m.group(1)}</code>"),
     (re.compile(r"\*\*([^*]+)\*\*"), lambda m: f"<strong>{m.group(1)}</strong>"),
     (re.compile(r"(?<![*\w])\*([^*]+)\*(?!\*)"), lambda m: f"<em>{m.group(1)}</em>"),
 )
