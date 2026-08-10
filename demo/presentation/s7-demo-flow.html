@@ -218,6 +218,47 @@ ul.points li::before {
 }
 ul.points li b { font-weight: 600; color: var(--ink); }
 
+/* ------------------------------------------------- stage sub-flow strip -- */
+/* a small detour diagram inside one stage — dashed border because it shows
+   the part of the flow that happens OUTSIDE S7, on the developer's machine */
+
+.substrip {
+  display: none;
+  margin-top: clamp(12px, 2vh, 22px);
+  padding: 11px 13px 12px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  max-width: 58ch;
+}
+.substrip.on { display: block; }
+.substrip .sub-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 9px;
+}
+.substrip .sub-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.sub-step {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+.sub-step .t { font-size: 11px; font-weight: 600; color: var(--ink); line-height: 1.2; }
+.sub-step .d { font-size: 9px; color: var(--muted); font-family: var(--mono); line-height: 1.3; }
+.sub-step.red { border-color: var(--red); background: var(--red-pale); }
+.sub-step.red .t, .sub-step.red .d { color: var(--red-dark); }
+.sub-step.green { border-color: var(--green); background: var(--green-pale); }
+.sub-step.green .t, .sub-step.green .d { color: var(--green); }
+.sub-arrow { color: var(--border-strong); font-size: 12px; font-weight: 600; user-select: none; }
+@media (max-height: 760px) { .sub-step .d { display: none; } }
+
 /* ------------------------------------------------------------- side rail -- */
 
 .rail {
@@ -639,6 +680,7 @@ footer.foot {
       <div class="kicker"><span class="rule"></span><span id="kicker">Intake</span></div>
       <h1 id="title">Title</h1>
       <ul class="points" id="points"></ul>
+      <div class="substrip" id="substrip"></div>
     </div>
 
     <aside class="rail" id="rail">
@@ -817,9 +859,19 @@ footer.foot {
       title: "Developer workspaces — human controlled, AI assisted",
       points: [
         "The developer works in <b>their own IDE, CLI and Git</b>, with their own model and their own permissions. S7 does not follow them in.",
-        "One workspace per story. Assignment is a human action, recorded like every other decision in the run.",
         "S7 reads back what really happened: <b>commits, pull requests and CI status from GitHub</b> — never a mock of them."
       ],
+      sub: {
+        label: "The detour S7 never enters — the developer's own machine",
+        steps: [
+          ["Clone the branch", "s7/s7-00002-…", ""],
+          ["Read the context", "AGENTS.md · .s7/", ""],
+          ["Run the tests", "RED — by design", "red"],
+          ["Implement", "own IDE · own AI", ""],
+          ["Test again", "GREEN — all pass", "green"],
+          ["PR → merge", "\"US-1: …\" commit", ""]
+        ]
+      },
       actors: [
         ["Human", "Owns implementation, end to end"],
         ["AI", "Assists inside the developer's own tooling"],
@@ -1015,6 +1067,7 @@ footer.foot {
   var elCopy = document.getElementById("copy");
   var elRail = document.getElementById("rail");
   var elKicker = document.getElementById("kicker");
+  var elSub = document.getElementById("substrip");
   var elTitle = document.getElementById("title");
   var elPoints = document.getElementById("points");
   var elActors = document.getElementById("actors");
@@ -1101,6 +1154,35 @@ footer.foot {
 
       elArtifact.textContent = s.artifact;
       elArtifactIco.textContent = s.ico;
+
+      elSub.classList.toggle("on", !!s.sub);
+      elSub.innerHTML = "";
+      if (s.sub) {
+        var lab = document.createElement("div");
+        lab.className = "sub-label";
+        lab.textContent = s.sub.label;
+        elSub.appendChild(lab);
+        var row = document.createElement("div");
+        row.className = "sub-steps";
+        s.sub.steps.forEach(function (st, j) {
+          if (j > 0) {
+            var ar = document.createElement("span");
+            ar.className = "sub-arrow";
+            ar.textContent = "→";
+            ar.style.animation = "soften .4s var(--ease) both";
+            ar.style.animationDelay = (0.40 + j * 0.09) + "s";
+            row.appendChild(ar);
+          }
+          var box = document.createElement("span");
+          box.className = "sub-step" + (st[2] ? " " + st[2] : "");
+          box.innerHTML = '<span class="t">' + st[0] + '</span>' +
+                          (st[1] ? '<span class="d">' + st[1] + "</span>" : "");
+          box.style.animation = "rise .42s var(--ease) both";
+          box.style.animationDelay = (0.36 + j * 0.09) + "s";
+          row.appendChild(box);
+        });
+        elSub.appendChild(row);
+      }
 
       restart(elCopy, "anim");
       restart(elRail, "anim-soft");
