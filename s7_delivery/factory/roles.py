@@ -38,6 +38,11 @@ PERMISSIONS: dict[str, set[Role]] = {
     # offline). Asking stays analyst work; answering is business input.
     "answer_clarification": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST,
                              Role.DELIVERY_LEAD},
+    # Business rules are business input, like clarification answers: the
+    # Business Owner owns them, analysts may capture them. Human rules are
+    # BR-H<n>; the AI's BR-<n> extractions stay immutable.
+    "manage_business_rules": {Role.BUSINESS_OWNER, Role.PRODUCT_ANALYST,
+                              Role.DELIVERY_LEAD},
     "route_requirement": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "setup_new_application": {Role.PRODUCT_ANALYST, Role.DELIVERY_LEAD},
     "create_new_application_repo": {Role.DELIVERY_LEAD, Role.ENGINEERING_LEAD},

@@ -321,6 +321,7 @@ class Engine:
                 "source": self.store.read_json_or(None, "intake", "source.json"),
                 "extraction": self.store.read_json_or(None, "intake", "extraction.json"),
                 "analysis": self.store.read_json_or(None, "intake", "analysis.json"),
+                "human_business_rules": self._human_business_rules(),
                 "epic": self.store.read_json_or(None, "intake", "epic.json"),
                 "repos": self.store.read_json_or([], "intake", "repos.json"),
                 "clarifications": self.store.read_json_or(None, "intake", "clarifications.json"),
@@ -991,6 +992,109 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="connect-repository", artifact=name,
             outcome="removed", details=f"{name} disconnected from this run",
+        )
+
+    # --- human business rules ------------------------------------------------
+    # Stored apart from analysis.json deliberately: re-running analysis
+    # overwrites that file wholesale, and human input must survive it.
+
+    def _human_business_rules(self) -> list[dict]:
+        return self.store.read_json_or(
+            {"rules": []}, "intake", "business_rules.json"
+        )["rules"]
+
+    def merged_business_rules(self) -> list[dict]:
+        """AI-extracted rules then human-added rules — the canonical set
+        planning must cover."""
+        analysis = self.store.read_json_or(None, "intake", "analysis.json")
+        ai_rules = list((analysis or {}).get("business_rules", []))
+        human = [{"rule_id": r["rule_id"], "text": r["text"]}
+                 for r in self._human_business_rules()]
+        return ai_rules + human
+
+    def _business_rules_open_for_change(self) -> None:
+        if self.run().plan_locked:
+            raise EngineError(
+                "Plan is signed — the rule set it was approved against is "
+                "locked; use an amendment instead"
+            )
+
+    def intake_add_business_rule(self, role: Role, text: str) -> str:
+        roles.require("manage_business_rules", role)
+        self._business_rules_open_for_change()
+        text = text.strip()
+        if not text:
+            raise EngineError("A business rule cannot be empty")
+        rules = self._human_business_rules()
+        next_n = 1 + max(
+            (int(r["rule_id"].removeprefix("BR-H")) for r in rules), default=0
+        )
+        rule = {
+            "rule_id": f"BR-H{next_n}", "text": text,
+            "added_by": role.value, "added_at": now_iso(),
+            "provenance": "human",
+        }
+        rules.append(rule)
+        self.store.write_json({"rules": rules}, "intake", "business_rules.json")
+        self._record(
+            artifact_id=rule["rule_id"], artifact_type="business_rule",
+            payload=rule, author=role.value, stage=Stage.INTAKE,
+            action="add", outcome="created",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="business-rules", artifact=rule["rule_id"],
+            outcome="created", details=text[:120],
+        )
+        return rule["rule_id"]
+
+    def _own_business_rule(self, rule_id: str) -> tuple[list[dict], dict]:
+        rules = self._human_business_rules()
+        target = next((r for r in rules if r["rule_id"] == rule_id), None)
+        if target is None:
+            if not rule_id.startswith("BR-H"):
+                raise EngineError(
+                    f"Rule {rule_id!r} is AI-extracted and immutable — add a "
+                    "human rule alongside it instead"
+                )
+            raise EngineError(f"Unknown business rule {rule_id!r}")
+        return rules, target
+
+    def intake_edit_business_rule(self, role: Role, rule_id: str, text: str) -> None:
+        roles.require("manage_business_rules", role)
+        self._business_rules_open_for_change()
+        text = text.strip()
+        if not text:
+            raise EngineError("A business rule cannot be empty")
+        rules, target = self._own_business_rule(rule_id)
+        target["text"] = text
+        self.store.write_json({"rules": rules}, "intake", "business_rules.json")
+        self._record(
+            artifact_id=rule_id, artifact_type="business_rule", payload=target,
+            author=role.value, stage=Stage.INTAKE, action="edit",
+            outcome="amended",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="business-rules", artifact=rule_id,
+            outcome="amended", details=text[:120],
+        )
+
+    def intake_remove_business_rule(self, role: Role, rule_id: str) -> None:
+        roles.require("manage_business_rules", role)
+        self._business_rules_open_for_change()
+        rules, target = self._own_business_rule(rule_id)
+        rules.remove(target)
+        self.store.write_json({"rules": rules}, "intake", "business_rules.json")
+        self._record(
+            artifact_id=rule_id, artifact_type="business_rule", payload=target,
+            author=role.value, stage=Stage.INTAKE, action="remove",
+            outcome="removed",
+        )
+        self._activity(
+            stage=Stage.INTAKE, actor=role.value, actor_type="human",
+            workflow="business-rules", artifact=rule_id,
+            outcome="removed", details=target["text"][:120],
         )
 
     def _connected_repos(self) -> list[dict]:
