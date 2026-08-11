@@ -89,3 +89,31 @@ def test_merged_rules_are_ai_then_human(eng):
     ai_count = len(eng.state()["intake"]["analysis"]["business_rules"])
     assert len(merged) == ai_count + 1
     assert merged[-1]["rule_id"] == "BR-H1"
+
+
+def test_live_planning_receives_merged_rules(eng, monkeypatch):
+    """The analysis dict handed to run_plan must carry human rules too."""
+    run_intake(eng)
+    eng.intake_add_business_rule(Role.BUSINESS_OWNER, "Human rule for planning")
+
+    seen = {}
+
+    def fake_run_plan(epic, analysis, packs, transcript, teams):
+        seen["rule_ids"] = [r["rule_id"] for r in analysis["business_rules"]]
+        raise RuntimeError("stop here")
+
+    monkeypatch.setattr(
+        "s7_delivery.factory.live_intake.run_plan", fake_run_plan
+    )
+    # Force the live branch without a real repo/context pack.
+    monkeypatch.setattr(
+        type(eng), "_context_packs", lambda self: {"fake-repo": "# pack"},
+        raising=True,
+    )
+    run = eng.run()
+    run.mode = DemoMode.LIVE
+    monkeypatch.setattr(type(eng), "run", lambda self: run, raising=True)
+
+    with pytest.raises(RuntimeError, match="stop here"):
+        eng.planning_generate(Role.DELIVERY_LEAD)
+    assert "BR-H1" in seen["rule_ids"]

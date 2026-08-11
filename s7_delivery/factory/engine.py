@@ -1658,6 +1658,10 @@ class Engine:
         if epic is None:
             raise EngineError("Create the epic before generating the plan")
         analysis = self.store.read_json("intake", "analysis.json")
+        # Human-added rules join the AI extraction: planning must cover the
+        # whole merged set, and the cache key hashes rule ids, so adding a
+        # rule forces a fresh plan call rather than replaying a stale one.
+        analysis = {**analysis, "business_rules": self.merged_business_rules()}
         transcript = self._clarifications()["transcript"]
         t0 = time.monotonic()
         stories, confidence, rationale, usage = live_intake.run_plan(
