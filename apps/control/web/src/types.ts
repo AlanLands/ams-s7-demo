@@ -126,9 +126,18 @@ export interface NewAppState {
   transcript?: { role: string; text: string }[]
 }
 
+export interface HumanBusinessRule {
+  rule_id: string
+  text: string
+  added_by: string
+  added_at: string
+  provenance: string
+}
+
 export interface IntakeState {
   requirement?: Requirement
   analysis?: IntakeAnalysis
+  human_business_rules?: HumanBusinessRule[]
   epic?: EpicRecord
   extraction?: RequirementExtraction
   source?: SourceRecord

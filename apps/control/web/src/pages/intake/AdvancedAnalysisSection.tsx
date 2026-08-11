@@ -16,6 +16,9 @@ export function AdvancedAnalysisSection() {
   const [knownRepos, setKnownRepos] = useState<KnownRepo[]>([])
   const [confirmRemoveRepo, setConfirmRemoveRepo] = useState<string | null>(null)
   const [confirmForgetUrl, setConfirmForgetUrl] = useState<string | null>(null)
+  const [newRuleText, setNewRuleText] = useState('')
+  const [editingRule, setEditingRule] = useState<string | null>(null)
+  const [editRuleText, setEditRuleText] = useState('')
 
   const isLive = data?.run?.mode === 'live'
   const repos = data?.intake?.repos ?? []
@@ -49,6 +52,7 @@ export function AdvancedAnalysisSection() {
   const unlocked = Boolean(data.intake?.source) || grounded
   const req = data.intake?.requirement
   const analysis = data.intake?.analysis
+  const humanRules = data.intake?.human_business_rules ?? []
   const epic = data.intake?.epic
   const clar = data.intake?.clarifications
   const routing = data.intake?.routing
@@ -175,18 +179,96 @@ export function AdvancedAnalysisSection() {
           </div>
         ) : null}
 
-        {analysis?.business_rules?.length ? (
-          <details className="card sub-fold" style={{ marginBottom: 12 }}>
+        {(analysis?.business_rules?.length || humanRules.length) ? (
+          <details className="card sub-fold" style={{ marginBottom: 12 }} open={humanRules.length > 0}>
             <summary>
-              <h3>AI Extracted Business Rules</h3>
-              <span className="chip tag">{analysis.business_rules.length}</span>
-              <Prov provenance={analysis.provenance} />
+              <h3>Business Rules</h3>
+              <span className="chip tag">{(analysis?.business_rules?.length ?? 0) + humanRules.length}</span>
+              {analysis ? <Prov provenance={analysis.provenance} /> : null}
             </summary>
-            <ul className="plain fold-body">
-              {analysis.business_rules.map((r) => (
-                <li key={r.rule_id}><span className="chip priority-high" style={{ marginRight: 8 }}>{r.rule_id}</span>{r.text}</li>
-              ))}
-            </ul>
+            <div className="fold-body">
+              <ul className="plain">
+                {(analysis?.business_rules ?? []).map((r) => (
+                  <li key={r.rule_id}><span className="chip priority-high" style={{ marginRight: 8 }}>{r.rule_id}</span>{r.text}</li>
+                ))}
+                {humanRules.map((r) => (
+                  <li key={r.rule_id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span className="chip priority-high">{r.rule_id}</span>
+                    <span className="chip tag">HUMAN</span>
+                    {editingRule === r.rule_id ? (
+                      <>
+                        <input
+                          type="text"
+                          value={editRuleText}
+                          onChange={(e) => setEditRuleText(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          className="primary sq"
+                          onClick={async () => {
+                            if (await act(`/intake/business-rules/${r.rule_id}/edit`, { text: editRuleText }, 'Rule updated')) setEditingRule(null)
+                          }}
+                        >
+                          Save
+                        </button>
+                        <button type="button" className="ghost" onClick={() => setEditingRule(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ flex: 1 }}>{r.text}</span>
+                        {!planLocked && (
+                          <>
+                            <button
+                              type="button"
+                              className="ghost"
+                              style={{ padding: '3px 10px', fontSize: 11.5 }}
+                              onClick={() => { setEditingRule(r.rule_id); setEditRuleText(r.text) }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="ghost"
+                              style={{ padding: '3px 10px', fontSize: 11.5 }}
+                              onClick={() => act(`/intake/business-rules/${r.rule_id}/remove`, {}, 'Rule removed')}
+                            >
+                              Remove
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {!planLocked && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Add a business rule the analysis missed…"
+                    value={newRuleText}
+                    onChange={(e) => setNewRuleText(e.target.value)}
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="primary sq"
+                    disabled={!newRuleText.trim()}
+                    onClick={async () => {
+                      if (await act('/intake/business-rules', { text: newRuleText.trim() }, 'Rule added')) setNewRuleText('')
+                    }}
+                  >
+                    Add rule
+                  </button>
+                </div>
+              )}
+              {planLocked && (
+                <p className="hint" style={{ marginTop: 8 }}>
+                  Plan is signed — the rule set it was approved against is locked.
+                </p>
+              )}
+            </div>
           </details>
         ) : null}
 

@@ -200,6 +200,34 @@ def post_intake_remove_repo(run_id: str, name: str, body: RoleBody) -> dict:
     return eng.state()
 
 
+class BusinessRuleBody(BaseModel):
+    role: str
+    text: str
+
+
+@app.post("/api/runs/{run_id}/intake/business-rules")
+def post_intake_add_business_rule(run_id: str, body: BusinessRuleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_add_business_rule(_role(body.role), body.text)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/business-rules/{rule_id}/edit")
+def post_intake_edit_business_rule(
+    run_id: str, rule_id: str, body: BusinessRuleBody
+) -> dict:
+    eng = _engine(run_id)
+    eng.intake_edit_business_rule(_role(body.role), rule_id, body.text)
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/intake/business-rules/{rule_id}/remove")
+def post_intake_remove_business_rule(run_id: str, rule_id: str, body: RoleBody) -> dict:
+    eng = _engine(run_id)
+    eng.intake_remove_business_rule(_role(body.role), rule_id)
+    return eng.state()
+
+
 # --- known-repos registry (global, no run scope — spec: "if I already
 # connected the repository once, it should not ask me again if I reset") -----
 
