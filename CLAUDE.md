@@ -329,6 +329,22 @@ registry entry itself, independent of any run). Engine method
 `intake_remove_repo` and registry helpers `known_repos`/`remember_repo`/
 `forget_repo` live in `factory/repos.py`.
 
+**Human business rules and planner coverage retry, added 2026-08-11.** The
+intake surface's business-rules fold now accepts human input: rules a person
+adds carry `BR-H<n>` ids and HUMAN provenance in a separate
+`intake/business_rules.json` (surviving analysis re-runs), editable and
+removable — human rules only, AI extractions stay immutable — until plan
+sign-off locks the set (`manage_business_rules`: Business Owner + analysts).
+Planning covers the merged AI + human set, and because the plan cache key
+hashes rule ids, adding a rule forces a fresh model call. Separately,
+`live_intake.run_plan` gained a bounded corrective retry: when the only
+validation failure is business rules claimed by no story (the S7-00022
+failure — 12 rules, 8 claimed), one follow-up call names the unclaimed ids
+and hands back the draft for revision, under distinct cache-key material so
+a recorded miss can never replay as the correction; a second miss raises the
+original error. Structural failures (teams, repos, estimates, ACs) still
+fail hard with no retry.
+
 **Demo mode and the release/design document, added 2026-08-10.** A fourth
 environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /
 Replay / Live) — presenter-facing and fully offline. Demo behaves as
