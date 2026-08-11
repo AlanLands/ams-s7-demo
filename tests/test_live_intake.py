@@ -454,7 +454,7 @@ def test_run_plan_retries_once_on_unclaimed_rules(monkeypatch):
     assert stories[0].traces_to == ["BR-01"]
     # The corrective prompt names the unclaimed rule and carries the draft.
     retry_task = fake.calls[1]["prompt"].task
-    assert "BR-01" in retry_task and "unclaimed" in retry_task
+    assert "BR-01" in retry_task and "claimed by no story" in retry_task
     # Distinct cache key: the recorded first response can never be replayed
     # as the retry.
     assert fake.calls[0]["cache_key"] != fake.calls[1]["cache_key"]
@@ -470,11 +470,67 @@ def test_run_plan_retry_still_unclaimed_raises(monkeypatch):
     assert len(fake.calls) == 2  # bounded: exactly one retry
 
 
-def test_run_plan_no_retry_for_structural_failures(monkeypatch):
+def test_run_plan_retries_repairable_structural_failures(monkeypatch):
+    """A defect the model can see and fix — wrong team — gets the same
+    single corrective pass as unclaimed rules."""
     bad_team = {**GOOD_PLAN,
                 "stories": [dict(GOOD_STORY, accountable_team="Invented Team")]}
     fake = fake_complete_seq([bad_team, GOOD_PLAN])
     monkeypatch.setattr(live_intake, "complete", fake)
+    stories, _, _, _ = live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    assert len(fake.calls) == 2
+    assert stories[0].accountable_team == "Data Team"
+    assert "team roster" in fake.calls[1]["prompt"].task
+
+
+def test_run_plan_retries_missing_acceptance_criteria(monkeypatch):
+    """The exact demo-room failure: a story with one AC is the model's
+    defect to repair, not the human's error to relay."""
+    thin = {**GOOD_PLAN, "stories": [dict(
+        GOOD_STORY,
+        acceptance_criteria=[{"ac_id": "US-001-AC1", "text": "only one"}],
+    )]}
+    fake = fake_complete_seq([thin, GOOD_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    stories, _, _, _ = live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    assert len(fake.calls) == 2
+    assert len(stories[0].acceptance_criteria) == 2
+    assert "at least 2 acceptance criteria" in fake.calls[1]["prompt"].task
+
+
+def test_run_plan_retry_names_every_defect_at_once(monkeypatch):
+    """One corrective pass carries the full defect list, not just the
+    first problem found."""
+    messy = {**GOOD_PLAN, "stories": [dict(
+        GOOD_STORY,
+        accountable_team="Invented Team",
+        acceptance_criteria=[{"ac_id": "US-001-AC1", "text": "only one"}],
+    )]}
+    fake = fake_complete_seq([messy, GOOD_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    retry_task = fake.calls[1]["prompt"].task
+    assert "team roster" in retry_task
+    assert "at least 2 acceptance criteria" in retry_task
+    assert "BR-01" in retry_task  # traces_to lost with the discarded story
+
+
+def test_run_plan_structural_failure_after_retry_raises(monkeypatch):
+    bad_team = {**GOOD_PLAN,
+                "stories": [dict(GOOD_STORY, accountable_team="Invented Team")]}
+    fake = fake_complete_seq([bad_team, bad_team])
+    monkeypatch.setattr(live_intake, "complete", fake)
     with pytest.raises(LLMError, match="team"):
         live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
-    assert len(fake.calls) == 1  # structural failures never retry
+    assert len(fake.calls) == 2  # bounded: exactly one retry
+
+
+def test_run_plan_unrecoverable_shape_never_retries(monkeypatch):
+    """No story list at all is not repairable-by-correction — it fails
+    immediately, no second call."""
+    fake = fake_complete_seq([{"stories": [], "confidence": 0, "rationale": ""},
+                              GOOD_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    with pytest.raises(LLMError, match="1-10"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    assert len(fake.calls) == 1

@@ -315,13 +315,17 @@ removable — human rules only, AI extractions stay immutable — until plan
 sign-off locks the set (`manage_business_rules`: Business Owner + analysts).
 Planning covers the merged AI + human set, and because the plan cache key
 hashes rule ids, adding a rule forces a fresh model call. Separately,
-`live_intake.run_plan` gained a bounded corrective retry: when the only
-validation failure is business rules claimed by no story (the S7-00022
-failure — 12 rules, 8 claimed), one follow-up call names the unclaimed ids
-and hands back the draft for revision, under distinct cache-key material so
-a recorded miss can never replay as the correction; a second miss raises the
-original error. Structural failures (teams, repos, estimates, ACs) still
-fail hard with no retry.
+`live_intake.run_plan` gained a bounded corrective retry (extended
+2026-08-11, same day): every repairable defect in the model's draft —
+unclaimed business rules (the S7-00022 failure — 12 rules, 8 claimed),
+too few acceptance criteria, off-roster team, unconnected repository, bad
+estimate, duplicate story ids, dangling dependencies — is collected into
+one defect list, and one follow-up call names them all and hands back the
+draft for revision, under distinct cache-key material so a recorded miss
+can never replay as the correction. Repairing its own draft is the model's
+job; the human gate judges the plan's content, not its formatting. A
+second miss raises with the full defect list; only an unrecoverable shape
+(no usable story list) fails immediately with no retry.
 
 **Demo mode and the release/design document, added 2026-08-10.** A fourth
 environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /

@@ -102,6 +102,18 @@ Every other validation (teams, repos, estimates, ACs, dependencies) keeps
 failing hard with no retry. This is the reference architecture's bounded
 loop: one triaged repair, then report, never silently accept.
 
+**Amended later the same day (user decision):** the corrective pass now
+covers *every repairable defect*, not just unclaimed rules — too few
+acceptance criteria, off-roster team, unconnected repository, bad
+estimate, duplicate story ids, dangling dependencies. All defects are
+collected into one list (`_collect_plan_defects`) and named together in a
+single retry; a second failure raises with the full defect list. Only an
+unrecoverable shape (no usable story list) fails immediately. Rationale:
+a missing acceptance criterion is the same class of defect as an
+unclaimed rule — the model can see and fix it, and the human gate exists
+to judge the plan's content, not to relay formatting errors. The bound is
+unchanged: exactly one retry, never silent acceptance.
+
 ## Testing
 
 - `tests/test_live_intake.py`: retry succeeds on second response; retry

@@ -432,10 +432,22 @@ _PLAN_SHAPE = """{
 }"""
 
 
-def _parse_plan_stories(data: dict, *, epic: dict, packs: dict, teams: list[str]) -> list:
-    """Validate the model's plan structurally and return Story objects.
-    Raises LLMError on any failure. Rule coverage is checked by the caller —
-    it is the one failure with a bounded corrective retry."""
+def _collect_plan_defects(
+    data: dict, *, epic: dict, packs: dict, teams: list[str], rule_ids: list[str]
+) -> tuple[list, list[str]]:
+    """Validate the model's plan and return (stories, defects).
+
+    Every defect the model can see and repair — wrong team, missing
+    acceptance criteria, bad estimate, dangling dependency, unclaimed
+    business rule — is collected as a string rather than raised, so the
+    caller can run one bounded corrective pass naming all of them at once.
+    Only an unrecoverable shape (no usable story list) raises directly:
+    there is no draft to hand back for correction.
+
+    The stories list is only trustworthy when defects is empty; a story
+    with a named defect may still appear in it (or be absent, if it failed
+    model validation), and the caller must discard the batch either way.
+    """
     from s7_delivery.factory.models import Status, Story
 
     raw_stories = data.get("stories")
@@ -443,29 +455,29 @@ def _parse_plan_stories(data: dict, *, epic: dict, packs: dict, teams: list[str]
         raise LLMError("plan must contain 1-10 stories")
 
     provenance = provenance_now()
+    defects: list[str] = []
     stories: list[Story] = []
     seen: set[str] = set()
     for raw in raw_stories:
         sid = str(raw.get("story_id", ""))
         if not sid or sid in seen:
-            raise LLMError(f"missing or duplicate story_id {sid!r}")
+            defects.append(f"missing or duplicate story_id {sid!r}")
+            continue
         seen.add(sid)
         if raw.get("accountable_team") not in teams:
-            raise LLMError(
+            defects.append(
                 f"story {sid}: accountable_team {raw.get('accountable_team')!r} "
                 "is not on the team roster"
             )
         if raw.get("target_repository") not in packs:
-            raise LLMError(
+            defects.append(
                 f"story {sid}: target_repository {raw.get('target_repository')!r} "
                 "is not a connected repository"
             )
         if raw.get("estimate") not in _POINT_SCALE:
-            raise LLMError(f"story {sid}: estimate must be one of {_POINT_SCALE}")
+            defects.append(f"story {sid}: estimate must be one of {_POINT_SCALE}")
         if len(raw.get("acceptance_criteria") or []) < 2:
-            raise LLMError(
-                f"story {sid}: needs at least 2 acceptance criteria"
-            )
+            defects.append(f"story {sid}: needs at least 2 acceptance criteria")
         _excluded = {"provenance", "status", "version", "epic_id"}  # ours to set
         try:
             story = Story(
@@ -475,7 +487,8 @@ def _parse_plan_stories(data: dict, *, epic: dict, packs: dict, teams: list[str]
                 provenance=provenance,
             )
         except Exception as exc:
-            raise LLMError(f"story {sid} failed validation: {exc}") from exc
+            defects.append(f"story {sid} failed validation: {exc}")
+            continue
         if story.sprint != 1:
             story = story.model_copy(update={"status": Status.PLANNED})
         stories.append(story)
@@ -484,13 +497,15 @@ def _parse_plan_stories(data: dict, *, epic: dict, packs: dict, teams: list[str]
     for s in stories:
         dangling = [d for d in s.dependencies if d not in ids]
         if dangling:
-            raise LLMError(f"story {s.story_id} depends on unknown stories {dangling}")
-    return stories
+            defects.append(
+                f"story {s.story_id} depends on unknown stories {dangling}"
+            )
 
-
-def _unclaimed_rules(stories: list, rule_ids: list[str]) -> list[str]:
     claimed = {rid for s in stories for rid in s.traces_to}
-    return [rid for rid in rule_ids if rid not in claimed]
+    unclaimed = [rid for rid in rule_ids if rid not in claimed]
+    if unclaimed:
+        defects.append(f"business rules claimed by no story: {unclaimed}")
+    return stories, defects
 
 
 def run_plan(
@@ -539,35 +554,43 @@ exactly matching:
         key_material=base_key,
     )
 
-    stories = _parse_plan_stories(data, epic=epic, packs=packs, teams=teams)
-    unclaimed = _unclaimed_rules(stories, rule_ids)
-    if unclaimed:
-        # One bounded corrective pass: name the miss, hand back the draft,
-        # demand full coverage. Distinct key material so the recorded first
-        # response can never be replayed as the answer to this correction.
+    stories, defects = _collect_plan_defects(
+        data, epic=epic, packs=packs, teams=teams, rule_ids=rule_ids
+    )
+    if defects:
+        # One bounded corrective pass: name every defect, hand back the
+        # draft, demand a full correction. Repairing its own draft is the
+        # model's job — the human gate judges the plan's content, not its
+        # formatting. Distinct key material so the recorded first response
+        # can never be replayed as the answer to this correction.
+        defect_list = "\n".join(f"- {d}" for d in defects)
         retry_task = f"""{task}
 
-Your previous draft left these business rules unclaimed: {unclaimed}.
+Your previous draft failed validation with these defects:
+{defect_list}
+
 That draft's stories were:
 {json.dumps(data.get("stories", []), indent=2)}
 
-Revise the plan so EVERY business rule id is claimed by at least one
-story's "traces_to" — extend existing stories' traces_to where a story
-already delivers the rule, or add stories (still 8 at most). Return the
-complete corrected JSON in the same shape."""
+Return the complete corrected JSON in the same shape, fixing every defect:
+every story needs a unique story_id, 2 to 4 acceptance criteria, an
+accountable_team from the roster, a connected target_repository, an
+estimate from {_POINT_SCALE}, dependencies only on story ids in this plan,
+and every business rule id claimed by at least one story's "traces_to"."""
         data, retry_usage = _call(
             role=PLAN_ROLE,
             ref=_ref(epic, packs),
             task=retry_task,
             beat="plan",
-            key_material=base_key + f"coverage-retry:{json.dumps(unclaimed)}",
+            key_material=base_key + f"correction:{json.dumps(defects)}",
         )
         for k, v in retry_usage.items():
             usage[k] = usage.get(k, 0) + v if isinstance(v, (int, float)) else v
-        stories = _parse_plan_stories(data, epic=epic, packs=packs, teams=teams)
-        unclaimed = _unclaimed_rules(stories, rule_ids)
-        if unclaimed:
-            raise LLMError(f"business rules claimed by no story: {unclaimed}")
+        stories, defects = _collect_plan_defects(
+            data, epic=epic, packs=packs, teams=teams, rule_ids=rule_ids
+        )
+        if defects:
+            raise LLMError("; ".join(defects))
 
     provenance = provenance_now()
     confidence = {
