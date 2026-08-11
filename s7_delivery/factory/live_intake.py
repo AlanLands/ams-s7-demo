@@ -432,50 +432,11 @@ _PLAN_SHAPE = """{
 }"""
 
 
-def run_plan(
-    epic: dict,
-    analysis: dict,
-    packs: dict[str, str],
-    transcript: list[dict],
-    teams: list[str],
-) -> tuple[list, dict, dict, dict]:
+def _parse_plan_stories(data: dict, *, epic: dict, packs: dict, teams: list[str]) -> list:
+    """Validate the model's plan structurally and return Story objects.
+    Raises LLMError on any failure. Rule coverage is checked by the caller —
+    it is the one failure with a bounded corrective retry."""
     from s7_delivery.factory.models import Status, Story
-
-    # Volatile timestamps must not enter prompt or key material, or the beat
-    # can never replay across runs (each run stamps its own epic afresh).
-    epic = {k: v for k, v in epic.items() if k not in {"created_at", "generated_at"}}
-
-    if not packs:
-        raise LLMError("Live planning needs a connected repository.")
-    rule_ids = [r["rule_id"] for r in analysis.get("business_rules", [])]
-    roster = "\n".join(f"- {t}" for t in teams)
-    task = f"""The approved epic:
-{json.dumps(epic, indent=2)}
-
-The intake analysis' business rules (every rule id must be claimed by at
-least one story's "traces_to"):
-{json.dumps(analysis.get("business_rules", []), indent=2)}
-
-Clarification conversation so far:
-{_transcript_text(transcript)}
-
-The team roster. Assign each story's accountable_team from this list ONLY:
-{roster}
-
-Break the epic into 4 to 8 stories across sprints 1 to 3. Every story needs
-2 to 4 acceptance criteria, each independently testable. Every story's
-target_repository must be one of the connected repositories. Return JSON
-exactly matching:
-{_PLAN_SHAPE}"""
-    data, usage = _call(
-        role=PLAN_ROLE,
-        ref=_ref(epic, packs),
-        task=task,
-        beat="plan",
-        key_material=json.dumps(epic, sort_keys=True)
-        + json.dumps(rule_ids)
-        + json.dumps(transcript, sort_keys=True),
-    )
 
     raw_stories = data.get("stories")
     if not isinstance(raw_stories, list) or not 1 <= len(raw_stories) <= 10:
@@ -524,12 +485,91 @@ exactly matching:
         dangling = [d for d in s.dependencies if d not in ids]
         if dangling:
             raise LLMError(f"story {s.story_id} depends on unknown stories {dangling}")
+    return stories
 
+
+def _unclaimed_rules(stories: list, rule_ids: list[str]) -> list[str]:
     claimed = {rid for s in stories for rid in s.traces_to}
-    unclaimed = [rid for rid in rule_ids if rid not in claimed]
-    if unclaimed:
-        raise LLMError(f"business rules claimed by no story: {unclaimed}")
+    return [rid for rid in rule_ids if rid not in claimed]
 
+
+def run_plan(
+    epic: dict,
+    analysis: dict,
+    packs: dict[str, str],
+    transcript: list[dict],
+    teams: list[str],
+) -> tuple[list, dict, dict, dict]:
+    # Volatile timestamps must not enter prompt or key material, or the beat
+    # can never replay across runs (each run stamps its own epic afresh).
+    epic = {k: v for k, v in epic.items() if k not in {"created_at", "generated_at"}}
+
+    if not packs:
+        raise LLMError("Live planning needs a connected repository.")
+    rule_ids = [r["rule_id"] for r in analysis.get("business_rules", [])]
+    roster = "\n".join(f"- {t}" for t in teams)
+    task = f"""The approved epic:
+{json.dumps(epic, indent=2)}
+
+The intake analysis' business rules (every rule id must be claimed by at
+least one story's "traces_to"):
+{json.dumps(analysis.get("business_rules", []), indent=2)}
+
+Clarification conversation so far:
+{_transcript_text(transcript)}
+
+The team roster. Assign each story's accountable_team from this list ONLY:
+{roster}
+
+Break the epic into 4 to 8 stories across sprints 1 to 3. Every story needs
+2 to 4 acceptance criteria, each independently testable. Every story's
+target_repository must be one of the connected repositories. Return JSON
+exactly matching:
+{_PLAN_SHAPE}"""
+    base_key = (
+        json.dumps(epic, sort_keys=True)
+        + json.dumps(rule_ids)
+        + json.dumps(transcript, sort_keys=True)
+    )
+    data, usage = _call(
+        role=PLAN_ROLE,
+        ref=_ref(epic, packs),
+        task=task,
+        beat="plan",
+        key_material=base_key,
+    )
+
+    stories = _parse_plan_stories(data, epic=epic, packs=packs, teams=teams)
+    unclaimed = _unclaimed_rules(stories, rule_ids)
+    if unclaimed:
+        # One bounded corrective pass: name the miss, hand back the draft,
+        # demand full coverage. Distinct key material so the recorded first
+        # response can never be replayed as the answer to this correction.
+        retry_task = f"""{task}
+
+Your previous draft left these business rules unclaimed: {unclaimed}.
+That draft's stories were:
+{json.dumps(data.get("stories", []), indent=2)}
+
+Revise the plan so EVERY business rule id is claimed by at least one
+story's "traces_to" — extend existing stories' traces_to where a story
+already delivers the rule, or add stories (still 8 at most). Return the
+complete corrected JSON in the same shape."""
+        data, retry_usage = _call(
+            role=PLAN_ROLE,
+            ref=_ref(epic, packs),
+            task=retry_task,
+            beat="plan",
+            key_material=base_key + f"coverage-retry:{json.dumps(unclaimed)}",
+        )
+        for k, v in retry_usage.items():
+            usage[k] = usage.get(k, 0) + v if isinstance(v, (int, float)) else v
+        stories = _parse_plan_stories(data, epic=epic, packs=packs, teams=teams)
+        unclaimed = _unclaimed_rules(stories, rule_ids)
+        if unclaimed:
+            raise LLMError(f"business rules claimed by no story: {unclaimed}")
+
+    provenance = provenance_now()
     confidence = {
         "value": data.get("confidence"),
         "basis": "Planning model self-assessment of the draft decomposition "

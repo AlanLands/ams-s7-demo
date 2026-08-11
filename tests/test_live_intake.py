@@ -417,3 +417,64 @@ def test_run_extraction_needs_no_connected_repos(monkeypatch):
     monkeypatch.setattr(live_intake, "complete", fake_complete(GOOD_EXTRACTION))
     result, _ = live_intake.run_extraction(SOURCE_TEXT)
     assert result["epic_title"]
+
+
+# --- coverage retry --------------------------------------------------------
+
+
+def fake_complete_seq(responses: list[dict]):
+    """Return each canned response in turn; records every call."""
+    calls: list[dict] = []
+
+    def _fake(prompt, *, json_mode=False, cache_key=None, usage_out=None, **kw):
+        calls.append({"prompt": prompt, "cache_key": cache_key})
+        if usage_out is not None:
+            usage_out.update({"input_tokens": 1000, "output_tokens": 300})
+        return json.dumps(responses[min(len(calls) - 1, len(responses) - 1)])
+
+    _fake.calls = calls
+    return _fake
+
+
+UNCOVERED_PLAN = {
+    "stories": [dict(GOOD_STORY, traces_to=[])],
+    "confidence": 70,
+    "rationale": "Missed the rule.",
+}
+
+
+def test_run_plan_retries_once_on_unclaimed_rules(monkeypatch):
+    fake = fake_complete_seq([UNCOVERED_PLAN, GOOD_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    monkeypatch.setenv("LLM_MODE", "live")
+    stories, confidence, rationale, usage = live_intake.run_plan(
+        EPIC, ANALYSIS, PACKS, [], TEAMS
+    )
+    assert len(fake.calls) == 2
+    assert stories[0].traces_to == ["BR-01"]
+    # The corrective prompt names the unclaimed rule and carries the draft.
+    retry_task = fake.calls[1]["prompt"].task
+    assert "BR-01" in retry_task and "unclaimed" in retry_task
+    # Distinct cache key: the recorded first response can never be replayed
+    # as the retry.
+    assert fake.calls[0]["cache_key"] != fake.calls[1]["cache_key"]
+    # Usage totals cover both calls.
+    assert usage["input_tokens"] == 2000
+
+
+def test_run_plan_retry_still_unclaimed_raises(monkeypatch):
+    fake = fake_complete_seq([UNCOVERED_PLAN, UNCOVERED_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    with pytest.raises(LLMError, match="BR-01"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    assert len(fake.calls) == 2  # bounded: exactly one retry
+
+
+def test_run_plan_no_retry_for_structural_failures(monkeypatch):
+    bad_team = {**GOOD_PLAN,
+                "stories": [dict(GOOD_STORY, accountable_team="Invented Team")]}
+    fake = fake_complete_seq([bad_team, GOOD_PLAN])
+    monkeypatch.setattr(live_intake, "complete", fake)
+    with pytest.raises(LLMError, match="team"):
+        live_intake.run_plan(EPIC, ANALYSIS, PACKS, [], TEAMS)
+    assert len(fake.calls) == 1  # structural failures never retry
