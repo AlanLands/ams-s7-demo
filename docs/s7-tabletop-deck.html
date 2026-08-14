@@ -16,9 +16,11 @@
   gold #c7a566, 1600x900 stage scaled to the viewport, dot rail bottom-right)
   so the two read as one set.
 
-  HARD RULE 2 — no client name appears anywhere in this repo. The S1–S6 deck
-  names both parties; this one does not. Set CLIENT_NAME in the BRAND block
-  at the bottom of this file at presentation time only; never commit a value.
+  HARD RULE 2 — exception, granted explicitly 2026-08-14: this deck names both
+  parties in its footer ("TCS – Canada Life Confidential"), matching the S1–S6
+  deck, at the presenter's direct instruction. The rest of the repo still holds
+  to the rule — the client name lives in this file's BRAND block and nowhere
+  else. Clear CLIENT_NAME to restore the neutral footer.
 
   HARD RULE 1 / § Staged output — every figure on these slides is either
   measured by this repo or explicitly marked as not yet measured. Nothing is
@@ -102,6 +104,13 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 .ftr{position:absolute;left:44px;right:44px;bottom:17px;display:flex;justify-content:space-between;
   font-family:var(--font-mono);font-size:10px;font-weight:500;text-transform:uppercase;
   letter-spacing:.16em;color:var(--stone);z-index:30}
+
+/* ---------- built-by note ---------- */
+.stamp{position:absolute;right:88px;bottom:112px;z-index:30;
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:10px;font-weight:500;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--stone);white-space:nowrap}
+.stamp::before{content:"";width:26px;height:1px;background:var(--gold)}
 
 /* ---------- reveal engine ---------- */
 [data-at]{opacity:0;transform:translateY(16px);
@@ -733,7 +742,7 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
   <div class="t-orb one"></div><div class="t-orb two"></div>
   <div class="t-frame"></div>
   <div class="hdr" style="top:64px;left:84px;right:84px">
-    <div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b data-brand="supplier">Supplier response</b></div>
+    <div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b data-brand="supplier">TCS</b></div>
     <span class="xsym">×</span>
     <div class="mark alt"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/><path d="M8 11v3a2 2 0 0 0 2 2h3"/></svg></i><b>AI-assisted SDLC</b></div>
   </div>
@@ -753,8 +762,9 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
       <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/><path d="M4.5 16.5C3 17.8 2.5 21.5 2.5 21.5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1"/><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/></svg>Runs offline from a fresh clone</span>
     </div>
   </div>
+  <div class="stamp">Built by TCS</div>
   <div class="ftr" style="left:84px;right:84px;bottom:58px">
-    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> Confidential</p>
+    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> <span data-brand="conf">TCS Confidential</span></p>
     <p style="display:flex;align-items:center;gap:8px"><span class="blink"></span>Click, or press → to present full screen</p>
   </div>
 </section>
@@ -1566,8 +1576,9 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
     </article>
   </div>
 
+  <div class="stamp" style="top:210px;right:110px;bottom:auto">Built by TCS</div>
   <div class="ftr" style="left:84px;right:84px;bottom:52px">
-    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> Confidential</p>
+    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> <span data-brand="conf">TCS Confidential</span></p>
     <p style="display:flex;align-items:center;gap:8px"><span class="blink"></span>Thank you</p>
   </div>
 </section>
@@ -1578,10 +1589,11 @@ button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
 
 <script>
 /* ── BRAND ────────────────────────────────────────────────────────────────
-   Hard rule 2: no client name is committed to this repo. Set this at
-   presentation time only; leave it empty for anything that ships.        */
-const CLIENT_NAME = "";
-const SUPPLIER_NAME = "";
+   Committed by explicit instruction (2026-08-14) as a one-file exception to
+   hard rule 2 — see the note at the top of this file. Clearing CLIENT_NAME
+   restores the neutral "TCS Confidential" footer everywhere.             */
+const CLIENT_NAME = "Canada Life";
+const SUPPLIER_NAME = "TCS";
 /* ─────────────────────────────────────────────────────────────────────── */
 
 /* ---------- slide 05 data ---------- */
@@ -1982,11 +1994,18 @@ addEventListener("keydown", e=>{
   else if(/^[0-9]$/.test(k)) go(k === "0" ? 9 : +k - 1, 0);  // 1–9 → slides 1–9, 0 → slide 10, End → last
 });
 
-/* brand fill-in, presentation time only */
+/* brand fill-in */
 if(SUPPLIER_NAME) document.querySelectorAll('[data-brand="supplier"]').forEach(n => n.textContent = SUPPLIER_NAME);
 if(CLIENT_NAME){
-  document.querySelectorAll(".ftr p:first-child").forEach(n =>
-    n.innerHTML = CLIENT_NAME + ' <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> ' + n.textContent);
+  const CONF = (SUPPLIER_NAME ? SUPPLIER_NAME + " – " : "") + CLIENT_NAME + " Confidential";
+  const SEP = ' <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> ';
+  // Title and closing slides carry a dedicated conf span…
+  document.querySelectorAll('[data-brand="conf"]').forEach(n => n.textContent = CONF);
+  // …every other slide's footer gets the same line appended.
+  document.querySelectorAll(".ftr p:first-child").forEach(n => {
+    if(n.querySelector('[data-brand="conf"]')) return;
+    n.innerHTML = n.textContent + SEP + CONF;
+  });
 }
 
 /* open at #slide[.beat] when given, otherwise at the top */
