@@ -26,6 +26,7 @@ from s7_delivery.factory import (
     architecture_checks,
     build_phases,
     coverage,
+    design as design_mod,
     gates,
     refine,
     roles,
@@ -1486,6 +1487,10 @@ class Engine:
             },
             "provenance": "simulated",
             "version": 1,
+            # The client-named design step: DFD + relationship diagrams,
+            # curated MapleSure content — scripted and labelled like every
+            # other seeded artifact.
+            "diagrams": design_mod.curated_diagrams(),
         }
         self.store.write_json(design, "planning", "design.json")
         self._record(
@@ -1740,6 +1745,26 @@ class Engine:
         self.store.write_json(payloads, "planning", "stories.original.json")
         self.store.write_json(confidence, "planning", "confidence.json")
         self.store.write_json(rationale, "planning", "rationale.json")
+        # The design step, live: DFD + relationship diagrams derived from
+        # the run's own stories and repositories — RULE_BASED, a real
+        # rendering of real records, never presented as the model's design.
+        live_design = {
+            "design_id": "DES-001",
+            "title": "Delivery design — derived from the plan",
+            "rules": {},
+            "provenance": self._blueprint_provenance().value,
+            "version": 1,
+            "diagrams": design_mod.derived_diagrams(
+                payloads, self._connected_repos()
+            ),
+        }
+        self.store.write_json(live_design, "planning", "design.json")
+        self._record(
+            artifact_id="DES-001", artifact_type="design", payload=live_design,
+            author="planning (rule-based derivation)", stage=Stage.PLANNING,
+            action="design", outcome="created",
+            inputs=[payloads[0]["epic_id"] if payloads else "ANL-001", "ANL-001"],
+        )
         for s in payloads:
             self._record(
                 artifact_id=s["story_id"], artifact_type="story", payload=s,

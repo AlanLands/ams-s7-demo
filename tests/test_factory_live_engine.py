@@ -770,3 +770,28 @@ def test_replay_run_never_creates_real_repositories(tmp_path):
     eng = Engine.create(DemoMode.REPLAY, root=tmp_path / "runs")
     with pytest.raises(EngineError, match="[Rr]eplay"):
         eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
+
+
+def test_live_planning_writes_derived_design(tmp_path, monkeypatch):
+    """Live runs get a real design artifact — derived from the run's own
+    stories and repos, badged rule_based, never an AI claim."""
+    eng = _live_engine_with_repo(tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        live_intake, "run_analysis",
+        lambda req, packs, transcript: (_fake_analysis(), {}),
+    )
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    eng.intake_create_epic(Role.PRODUCT_ANALYST)
+    eng.intake_pass_gate(Role.BUSINESS_OWNER)
+    monkeypatch.setattr(
+        live_intake, "run_plan",
+        lambda epic, analysis, packs, transcript, teams: (
+            [_fake_story()], {"value": 78, "basis": "b", "provenance": "live_ai"},
+            {"text": "why", "provenance": "live_ai"}, {},
+        ),
+    )
+    eng.planning_generate(Role.DELIVERY_LEAD)
+    d = eng.state()["design"]
+    assert d is not None
+    assert d["provenance"] == "rule_based"
+    assert d["diagrams"]["dfd"]["mermaid"].startswith("flowchart")

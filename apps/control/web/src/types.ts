@@ -304,8 +304,21 @@ export interface Amendment {
   verification_status: string
 }
 
+export interface DesignDiagram {
+  title: string
+  mermaid: string
+  notes?: string
+}
+
 export interface DesignRecord {
   version: number
+  design_id?: string
+  title?: string
+  provenance?: string
+  rules?: Record<string, string>
+  /** DFD + relationship diagrams — curated (SIMULATED) in simulation/demo,
+   * derived from the plan (RULE_BASED) in live/replay. */
+  diagrams?: { dfd: DesignDiagram; relationship: DesignDiagram }
 }
 
 // --- planning (Epic to Stories / Dependency Map / Routing by Team / Plan

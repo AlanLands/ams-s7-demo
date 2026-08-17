@@ -2,6 +2,7 @@ import { useRun } from '../state/RunContext'
 
 const PLANNING_SUBS: [string, string][] = [
   ['epic_to_stories', 'Epic to Stories'],
+  ['design', 'Design'],
   ['dependency_map', 'Dependency Map'],
   ['routing_by_team', 'Routing by Team'],
   ['plan_summary', 'Plan Summary'],

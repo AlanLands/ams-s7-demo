@@ -327,6 +327,18 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Design step (DFD + relationship diagrams) in the Control Centre, added
+2026-08-17.** The client-named "through design" phase finally exists on
+the app surface: `factory/design.py` supplies the curated MapleSure DFD
+and entity-relationship diagrams (ported from `staged.py`) for
+simulation/demo runs (SIMULATED), and derives a delivery data-flow +
+relationship diagram from the run's own stories and repositories for
+live/replay runs (RULE_BASED) — no mode makes a model call for design,
+and live runs now write a design artifact where before they wrote none.
+Rendered on a new Planning → Design page via a build-time-bundled mermaid
+(no CDN, hard rule 4); the FlowStrip Design node navigates there. The
+staleness demo's version flip is untouched.
+
 **Coverage model wired into the Control Centre, added 2026-08-17.** The
 plan's stories now carry a rule-based stream routing and AI-coverage
 classification (`factory/coverage.py`): team → stream

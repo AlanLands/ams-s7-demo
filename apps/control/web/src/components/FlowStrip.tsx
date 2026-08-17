@@ -66,7 +66,7 @@ const NODES: FlowNodeDef[] = [
   { id: 'intake', label: 'Epic', stage: 'intake', required: true, done: (d) => Boolean(d.intake?.epic) },
   { id: 'epic_to_stories', label: 'Stories', stage: 'planning', required: true, done: (d) => Boolean(d.planning?.stories?.length) },
   { id: 'plan_summary', label: 'Sprint Planning', stage: 'planning', required: true, done: (d) => Boolean(d.planning?.plan) },
-  { id: 'epic_to_stories', label: 'Design', stage: 'planning', required: false, done: (d) => d.design?.version !== undefined },
+  { id: 'design', label: 'Design', stage: 'planning', required: false, done: (d) => d.design?.version !== undefined },
   { id: 'build_overview', label: 'Build', stage: 'build_review', required: true },
   { id: 'quality', label: 'Final Gating', stage: 'quality', required: true },
   { id: 'release', label: 'Release', stage: 'release', required: true, done: (d) => Boolean(d.release?.deployment) },
