@@ -546,6 +546,9 @@ class ActivityEvent(BaseModel):
     skill: str = ""
     artifact: str = ""
     duration_s: float = 0.0
+    # "measured" (a real clock ran) or "scripted" (a storyline literal).
+    # Empty on zero-duration events.
+    duration_basis: str = ""
     outcome: str = ""
     details: str = ""
 

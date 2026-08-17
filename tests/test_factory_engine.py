@@ -155,3 +155,25 @@ def test_defect_target_criterion_present():
     stories = {s.story_id: s for s in build_stories()}
     ac_ids = [ac.ac_id for ac in stories["US-003"].acceptance_criteria]
     assert "US-003-AC3" in ac_ids
+
+
+def test_stage_time_separates_measured_from_scripted():
+    """A scripted 45s must never present as measured workflow time."""
+    activity = [
+        {"actor_type": "simulation", "stage": "build_review",
+         "duration_s": 45.0, "duration_basis": "scripted"},
+        {"actor_type": "live_ai", "stage": "intake",
+         "duration_s": 3.2, "duration_basis": "measured"},
+    ]
+    s = Engine._activity_summary(activity)
+    assert s["stage_time_basis"] == {"measured_s": 3.2, "scripted_s": 45.0}
+
+
+def test_simulated_durations_are_badged_scripted(engine):
+    """Every simulation-path event that carries a duration declares it
+    scripted — the ledger never implies a stopwatch that never ran."""
+    engine.intake_analyse(Role.PRODUCT_ANALYST)
+    events = engine.state()["activity"]
+    timed = [e for e in events if e.get("duration_s", 0) > 0
+             and e.get("actor_type") == "simulation"]
+    assert all(e.get("duration_basis") == "scripted" for e in timed)

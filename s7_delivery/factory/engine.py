@@ -299,9 +299,15 @@ class Engine:
         skill: str = "",
         artifact: str = "",
         duration_s: float = 0.0,
+        duration_basis: str = "",
         outcome: str = "",
         details: str = "",
     ) -> None:
+        # Durations are honest or absent: live_ai durations are real
+        # time.monotonic measurements; every other timed event is a
+        # storyline literal unless the caller says otherwise.
+        if duration_s and not duration_basis:
+            duration_basis = "measured" if actor_type == "live_ai" else "scripted"
         self.store.append(
             ActivityEvent(
                 run_id=self.run_id,
@@ -312,6 +318,7 @@ class Engine:
                 skill=skill,
                 artifact=artifact,
                 duration_s=duration_s,
+                duration_basis=duration_basis,
                 outcome=outcome,
                 details=details,
             ),
@@ -536,6 +543,7 @@ class Engine:
             "gate_retries": 0,
         }
         stage_time: dict[str, float] = {}
+        time_basis: dict[str, float] = {"measured_s": 0.0, "scripted_s": 0.0}
         for ev in activity:
             # A simulated workflow is not an AI workflow — never conflate
             # them (the staged-output labelling rule applied to the ledger).
@@ -553,10 +561,18 @@ class Engine:
                 by_outcome["gate_failures"] += 1
             if "gate" in ev.get("workflow", "") and ev.get("outcome") == "retried":
                 by_outcome["gate_retries"] += 1
+            duration = float(ev.get("duration_s", 0))
             stage_time[ev.get("stage", "?")] = (
-                stage_time.get(ev.get("stage", "?"), 0.0) + float(ev.get("duration_s", 0))
+                stage_time.get(ev.get("stage", "?"), 0.0) + duration
             )
+            if duration:
+                basis = ev.get("duration_basis") or (
+                    "measured" if ev.get("actor_type") == "live_ai" else "scripted"
+                )
+                key = "measured_s" if basis == "measured" else "scripted_s"
+                time_basis[key] = round(time_basis[key] + duration, 2)
         return {"counters": by_outcome, "stage_time_s": stage_time,
+                "stage_time_basis": time_basis,
                 "total_events": len(activity)}
 
     # --- stage helpers ------------------------------------------------------
@@ -1176,7 +1192,8 @@ class Engine:
             stage=Stage.INTAKE, actor="requirement-routing",
             actor_type="live_ai" if packs else "system",
             workflow="requirement-routing",
-            duration_s=round(time.monotonic() - t0, 2), outcome="created",
+            duration_s=round(time.monotonic() - t0, 2),
+            duration_basis="measured", outcome="created",
             details=f"verdict={verdict.verdict}; "
             f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )

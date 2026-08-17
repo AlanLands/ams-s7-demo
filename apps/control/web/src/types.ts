@@ -702,7 +702,14 @@ export interface RunState {
   provenance?: ProvenanceRecord[]
   provenance_ledger?: ProvenanceLedgerEntry[]
   activity?: ActivityEvent[]
-  activity_summary?: { counters?: Record<string, number>; total_events?: number; stage_time_s?: Record<string, number> }
+  activity_summary?: {
+    counters?: Record<string, number>
+    total_events?: number
+    stage_time_s?: Record<string, number>
+    /** Honest split of where timed seconds came from: a real clock
+     * (measured) vs storyline literals (scripted). */
+    stage_time_basis?: { measured_s: number; scripted_s: number }
+  }
   traceability?: TraceRow[]
   approvals?: ApprovalRecord[]
   quality?: QualityReport

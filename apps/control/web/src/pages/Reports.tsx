@@ -21,17 +21,26 @@ export function Reports() {
   const run = data.run
   const stageTime = s.stage_time_s ?? {}
   const total = Object.values(stageTime).reduce((a, b) => a + b, 0)
+  const basis = s.stage_time_basis ?? { measured_s: 0, scripted_s: 0 }
+  const timeLabel = basis.measured_s > 0 && basis.scripted_s > 0
+    ? 'Workflow time (measured + scripted)'
+    : basis.measured_s > 0
+      ? 'Workflow time (measured)'
+      : 'Workflow time (scripted)'
 
   return (
     <section>
       <SectionTitle
         title="Reports"
-        hint="Computed from the activity ledger — durations are simulated workflow durations"
+        hint="Computed from the activity ledger — measured durations come from a real clock; scripted ones are storyline literals and say so"
       />
       <div className="grid cols-4">
         <div className="card metric">
           <div className="v">{`${Math.round(total)}s`}</div>
-          <div className="l">Total workflow time</div>
+          <div className="l">{timeLabel}</div>
+          {basis.measured_s > 0 && basis.scripted_s > 0 ? (
+            <div className="hint">{`${Math.round(basis.measured_s)}s measured · ${Math.round(basis.scripted_s)}s scripted`}</div>
+          ) : null}
         </div>
         <div className="card metric">
           <div className="v">{String(s.counters?.ai_workflows ?? 0)}</div>
