@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapleSure S7 — Epic to Release | Improved Storyboard</title>
+<style>
+:root{
+  --ink:#292923;--text:#36362f;--muted:#66655b;
+  --bg:#f2f2ef;--surface:#fff;--surface2:#fafaf8;
+  --border:#d8d8d3;--border2:#b6b5ac;
+  --red:#a20a29;--red2:#850822;--redp:#f8e9ed;
+  --green:#125c43;--greenp:#dff0e8;
+  --amber:#806112;--amberp:#fbefd6;
+  --blue:#2d6597;--bluep:#eaf3fb;
+  --purple:#6b4ca1;--purplep:#f0ebf9;
+  --radius:14px;--radius-sm:9px;--pill:999px;
+  --shadow:0 10px 35px rgba(40,40,35,.08);
+  --shadow-sm:0 2px 8px rgba(40,40,35,.06);
+  --font:"Segoe UI",Inter,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:var(--font);color:var(--text)}
+button{font:inherit}
+code,.mono{font-family:var(--mono)}
+.brandline{position:fixed;z-index:1000;top:0;left:0;right:0;height:4px;background:var(--red)}
+.top{
+  position:fixed;z-index:999;top:4px;left:0;right:0;height:64px;
+  display:flex;align-items:center;justify-content:space-between;padding:0 30px;
+  background:rgba(255,255,255,.97);border-bottom:1px solid var(--border)
+}
+.brand{display:flex;align-items:center;gap:12px}.mark{width:36px;height:36px;border-radius:8px;background:var(--red);color:#fff;display:grid;place-items:center;font-weight:800;font-family:Georgia,serif}
+.brand small{display:block;color:var(--red);font-size:9px;text-transform:uppercase;letter-spacing:.13em;font-weight:800}.brand b{font-size:14px}
+.topright{display:flex;gap:8px}.pill{padding:6px 11px;border:1px solid var(--border2);border-radius:var(--pill);font-size:11px;font-weight:700;background:var(--surface2);color:var(--muted)}
+.pill.safe{color:var(--green);background:var(--greenp);border-color:#9acbb7}
+.progress{position:fixed;z-index:1000;top:67px;height:3px;background:var(--red);transition:width .25s}
+.deck{position:fixed;inset:70px 0 54px}
+.slide{position:absolute;inset:0;display:none;padding:28px clamp(34px,5vw,78px);overflow:auto}
+.slide.active{display:flex;align-items:center}
+.inner{width:min(1280px,100%);margin:auto}
+.kicker{font-size:11px;letter-spacing:.15em;text-transform:uppercase;font-weight:800;color:var(--red)}
+h1{font-size:clamp(36px,5.1vw,64px);line-height:1.02;letter-spacing:-.045em;color:var(--ink)}
+h2{font-size:clamp(26px,3.2vw,39px);line-height:1.08;letter-spacing:-.03em;color:var(--ink)}
+h3{font-size:18px;letter-spacing:-.015em;color:var(--ink)}
+.lede{font-size:clamp(17px,1.6vw,21px);line-height:1.5;color:var(--muted);max-width:76ch}
+.sub{font-size:14px;color:var(--muted);line-height:1.5}
+.mini{font-size:11px;color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card.pad{padding:20px}.card.soft{background:var(--surface2)}
+.badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:var(--pill);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;border:1px solid}
+.badge.green{color:var(--green);background:var(--greenp);border-color:#8fc3ad}.badge.blue{color:var(--blue);background:var(--bluep);border-color:#abc8e5}.badge.red{color:var(--red2);background:var(--redp);border-color:#df9cab}.badge.amber{color:#674c0c;background:var(--amberp);border-color:#dfbd6c}.badge.purple{color:var(--purple);background:var(--purplep);border-color:#c4b2e4}
+.btn{border-radius:9px;padding:10px 15px;border:1px solid var(--border2);background:#fff;font-size:12px;font-weight:800;color:var(--text)}
+.btn.primary{background:var(--red);border-color:var(--red);color:#fff}.btn.green{background:var(--green);border-color:var(--green);color:#fff}.btn.blue{color:var(--blue);border-color:#9cbde0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.grid6{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+.metric{padding:16px 17px}.metric .ico{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;margin-bottom:10px;font-size:15px;font-weight:900}.metric .v{font-size:28px;font-weight:850;color:var(--ink)}.metric .l{font-size:11px;font-weight:800;margin-top:2px}.metric .d{font-size:9.5px;color:var(--muted);margin-top:3px}
+.ico.g{background:var(--greenp);color:var(--green)}.ico.b{background:var(--bluep);color:var(--blue)}.ico.r{background:var(--redp);color:var(--red)}.ico.a{background:var(--amberp);color:var(--amber)}.ico.p{background:var(--purplep);color:var(--purple)}
+.hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:36px;align-items:center}
+.promise{padding:30px;border-left:5px solid var(--red)}
+.flow5{display:grid;grid-template-columns:1fr 60px 1fr 60px 1fr 60px 1fr 60px 1fr;align-items:center}
+.flowbox{min-height:145px;padding:20px;border:1px solid var(--border);border-radius:var(--radius);background:#fff}.flowbox.current{border:2px solid var(--red);background:var(--redp)}.flowbox.done{border-color:#93c1ad}.flowbox .n{font-size:10px;color:var(--muted);font-weight:850}.flowbox b{display:block;font-size:20px;margin-top:8px}.flowbox p{font-size:12px;line-height:1.4;color:var(--muted);margin-top:7px}.arrow{height:2px;background:var(--border2);position:relative}.arrow:after{content:"";position:absolute;right:-2px;top:-4px;border-left:7px solid var(--border2);border-top:5px solid transparent;border-bottom:5px solid transparent}
+.stagebar{display:flex;align-items:center;margin-bottom:16px;padding:9px 12px;background:#fff;border:1px solid var(--border);border-radius:12px}
+.stage{display:flex;align-items:center;gap:7px;white-space:nowrap;font-size:10px;font-weight:800}.stage i{font-style:normal;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--border2);color:var(--muted)}.stage.done{color:var(--green)}.stage.done i{background:var(--green);color:#fff;border-color:var(--green)}.stage.active{color:var(--red)}.stage.active i{background:var(--red);color:#fff;border-color:var(--red)}.stage-line{height:1px;background:var(--border);flex:1;margin:0 10px}
+.browser{background:#fff;border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.browser-head{height:48px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);padding:0 18px;background:#fff}.browser-head b{font-size:14px}.browser-body{padding:16px}.browser-grid{display:grid;grid-template-columns:1fr 310px;gap:14px}
+.toolbar{display:flex;gap:8px;align-items:center}.control{height:34px;border:1px solid var(--border);background:#fff;border-radius:8px;padding:0 11px;font-size:10px;color:var(--muted);display:flex;align-items:center}
+table{width:100%;border-collapse:collapse;font-size:10.5px}th{text-align:left;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;font-size:9px;padding:10px 9px;background:#fafafa}td{padding:11px 9px;border-top:1px solid #eeeeea;vertical-align:middle}tr.selected{background:#fff7f8}
+.status{display:inline-flex;padding:4px 7px;border-radius:6px;font-size:8.5px;font-weight:850;border:1px solid}.status.ok{background:var(--greenp);color:var(--green);border-color:#a5cfbd}.status.info{background:var(--bluep);color:var(--blue);border-color:#b9d1e8}.status.warn{background:var(--amberp);color:#6c500e;border-color:#e1bf74}.status.bad{background:var(--redp);color:var(--red2);border-color:#e1a8b4}
+.sidepanel{border:1px solid var(--border);border-radius:12px;padding:15px;background:#fff}.sidepanel .section{border-top:1px solid #ecece7;padding-top:10px;margin-top:10px}.kv{display:grid;grid-template-columns:95px 1fr;gap:6px;font-size:10px;margin:6px 0}.kv span:first-child{color:var(--muted)}
+.arch{display:grid;grid-template-columns:1fr 1fr;gap:18px}.arch-canvas{height:310px;border:1px solid var(--border);border-radius:12px;background:linear-gradient(#fff,#fbfbfa);position:relative;padding:18px}.node{position:absolute;padding:10px 14px;border:1px solid #abc9e6;border-radius:8px;background:#f5faff;font-size:10px;font-weight:800;text-align:center}.node.green{border-color:#98cdb6;background:#f1faf5}.node.red{border-color:#dca0ad;background:#fff5f7}.node.amber{border-color:#dec47e;background:#fff9eb}.node.purple{border-color:#c4b4e4;background:#f8f5fd}
+.connector{position:absolute;height:1px;background:#9da6b1;transform-origin:left center}
+.pack-list{display:flex;flex-direction:column;gap:9px}.pack-item{display:flex;justify-content:space-between;align-items:center;padding:10px 11px;border:1px solid var(--border);border-radius:9px;background:#fff;font-size:10.5px}
+.storyline{display:flex;align-items:center;gap:8px;margin-top:18px}.storyline .unit{flex:1;padding:13px;border-radius:11px;border:1px solid var(--border);background:#fff;text-align:center}.storyline .unit strong{font-size:12px}.storyline .unit small{display:block;color:var(--muted);font-size:9px;margin-top:4px}
+.callout{padding:15px 18px;border-radius:12px;background:var(--bluep);border-left:4px solid var(--blue);font-size:12px;line-height:1.45;color:#385671}.callout.red{background:var(--redp);border-left-color:var(--red);color:#6e2738}.callout.green{background:var(--greenp);border-left-color:var(--green);color:#265d4c}
+.quote{font-size:26px;line-height:1.42;font-style:italic;border-left:4px solid var(--red);padding-left:22px;color:var(--ink)}
+.notes{position:absolute;right:16px;bottom:16px;font-size:9px;color:#8a897f}
+.foot{position:fixed;z-index:1000;bottom:0;left:0;right:0;height:54px;background:#fff;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:11px;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:9px}.nav button{width:32px;height:32px;border-radius:50%;border:1px solid var(--border2);background:#fff;cursor:pointer}.nav button:hover{border-color:var(--red);color:var(--red)}
+.counter{font-family:var(--mono);font-weight:800;min-width:60px;text-align:center}
+.reveal>*{opacity:0;animation:up .45s ease forwards}.reveal>*:nth-child(2){animation-delay:.08s}.reveal>*:nth-child(3){animation-delay:.16s}.reveal>*:nth-child(4){animation-delay:.24s}.reveal>*:nth-child(5){animation-delay:.32s}
+@keyframes up{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+@media(max-width:900px){.hero-grid,.grid2,.arch,.browser-grid{grid-template-columns:1fr}.grid6{grid-template-columns:repeat(3,1fr)}}
+@media print{
+  .top,.foot,.brandline,.progress{display:none!important}.deck{position:static}.slide{position:relative;display:flex!important;min-height:100vh;page-break-after:always}.slide:not(.active){display:flex!important}
+}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header class="top">
+  <div class="brand"><div class="mark">MS</div><div><small>MapleSure Insurance</small><b>S7 Delivery Control Centre</b></div></div>
+  <div class="topright"><span class="pill safe">CUSTOMER-SAFE DEMO</span><span class="pill">Epic → Release</span></div>
+</header>
+<div class="progress" id="progress"></div>
+
+<main class="deck">
+
+<!-- 1 -->
+<section class="slide active">
+<div class="inner hero-grid reveal">
+  <div>
+    <div class="kicker">S7 full-scale application development & delivery</div>
+    <h1 style="margin-top:12px">From business requirement<br><span style="color:var(--red)">to governed delivery.</span></h1>
+    <p class="lede" style="margin-top:22px">AI prepares the work. Humans control the decisions. Developers build in their normal tools. S7 brings back the evidence.</p>
+    <div style="display:flex;gap:8px;margin-top:24px;flex-wrap:wrap"><span class="badge red">AI assisted</span><span class="badge green">Human governed</span><span class="badge blue">Evidence based</span></div>
+  </div>
+  <div class="card promise">
+    <div class="kicker">The customer story</div>
+    <h3 style="font-size:26px;margin-top:8px">S7 is the control plane — not the IDE.</h3>
+    <p class="lede" style="font-size:17px;margin-top:13px">It turns an approved requirement into architecture, delivery context, Git handoff, and traceable evidence for independent review.</p>
+    <div class="storyline">
+      <div class="unit"><strong>S7</strong><small>prepare + govern</small></div><div>→</div>
+      <div class="unit"><strong>Developer</strong><small>implement</small></div><div>→</div>
+      <div class="unit"><strong>S7</strong><small>prove + review</small></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">01 · WHAT WE ARE DEMONSTRATING</div>
+  <h2 style="margin-top:8px">One clean journey, five stages</h2>
+  <p class="lede" style="margin-top:10px">Keep the tabletop story at this level first. Drill into the mechanics only where the customer wants evidence.</p>
+  <div class="flow5" style="margin-top:42px">
+    <div class="flowbox done"><div class="n">01</div><b>Intake</b><p>Upload or paste the epic. AI extracts a structured requirement.</p></div><div class="arrow"></div>
+    <div class="flowbox done"><div class="n">02</div><b>Planning</b><p>Stories, ACs, teams, dependencies, estimates and sprint plan.</p></div><div class="arrow"></div>
+    <div class="flowbox current"><div class="n">03</div><b>Build & Review</b><p>Architecture → packs → developer workspaces → evidence → review.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">04</div><b>Quality</b><p>Only verified work enters consolidated quality assurance.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">05</div><b>Release</b><p>Human-controlled release readiness and handover.</p></div>
+  </div>
+  <div class="callout" style="margin-top:28px"><b>Key positioning:</b> AI is visible in every stage, but every irreversible hinge remains governed.</div>
+</div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">02 · INTAKE</div>
+  <h2 style="margin-top:8px">Start with the requirement — nothing more</h2>
+  <p class="lede" style="margin-top:10px">Intake is deliberately simple: source in, structured epic out.</p>
+  <div class="browser" style="margin-top:24px">
+    <div class="browser-head"><b>Intake — Requirement Input</b><span class="badge green">Extraction complete</span></div>
+    <div class="browser-body" style="display:grid;grid-template-columns:1fr 70px 1.25fr;align-items:center;gap:14px">
+      <div class="card pad">
+        <h3>1. Source Requirement</h3><p class="sub" style="margin-top:6px">Upload file or paste requirement text.</p>
+        <div style="height:180px;border:2px dashed #c5c7c5;border-radius:12px;display:grid;place-items:center;margin-top:14px;text-align:center"><div><div style="font-size:32px;color:var(--blue)">⇧</div><b>Drag & drop file</b><div class="mini">PDF · DOCX · TXT · MD</div></div></div>
+      </div>
+      <div style="font-size:34px;color:var(--blue);text-align:center">→</div>
+      <div class="card pad">
+        <h3>2. AI Extraction</h3>
+        <div class="kv" style="margin-top:15px"><span>Epic Title</span><b>Claims Deductible Handling</b></div>
+        <div class="kv"><span>Objective</span><span>Apply deductible during claim intake.</span></div>
+        <div class="kv"><span>Summary</span><span>Reject claims at/below deductible; calculate payable amount for accepted claims.</span></div>
+        <div style="margin-top:12px;display:grid;gap:7px"><div class="pack-item"><span><b>REQ-01</b> Policy carries deductible</span><span class="status ok">EXTRACTED</span></div><div class="pack-item"><span><b>REQ-02</b> Reject ≤ deductible</span><span class="status ok">EXTRACTED</span></div><div class="pack-item"><span><b>REQ-03</b> Store payable amount</span><span class="status ok">EXTRACTED</span></div></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">03 · PLANNING</div>
+  <h2 style="margin-top:8px">AI decomposes. Humans shape. Gate 1 locks.</h2>
+  <div class="grid2" style="margin-top:24px">
+    <div class="card pad">
+      <h3>Epic → Stories</h3>
+      <div class="storyline"><div class="unit"><strong>EPIC</strong><small>3 requirements</small></div><div>→</div><div class="unit"><strong>7 Stories</strong><small>18 ACs</small></div><div>→</div><div class="unit"><strong>5 Teams</strong><small>13 dependencies</small></div></div>
+      <div style="margin-top:20px"><div class="pack-item"><span>US-003 · Reject claims at/below deductible</span><span class="badge red">Claims Team</span></div><div class="pack-item"><span>US-004 · Calculate payable amount</span><span class="badge red">Claims Team</span></div><div class="pack-item"><span>US-006 · Regression scenarios</span><span class="badge blue">QA</span></div></div>
+    </div>
+    <div class="card pad">
+      <h3>Planning quality checks</h3>
+      <div style="display:grid;gap:9px;margin-top:15px"><div class="pack-item">✓ Stories reviewed <span class="status ok">PASS</span></div><div class="pack-item">✓ ACs testable <span class="status ok">PASS</span></div><div class="pack-item">✓ Teams assigned <span class="status ok">PASS</span></div><div class="pack-item">✓ Dependencies mapped <span class="status ok">PASS</span></div><div class="pack-item">✓ Estimates / sprint set <span class="status ok">PASS</span></div></div>
+    </div>
+  </div>
+  <div class="callout red" style="margin-top:18px"><b>Gate 1:</b> a named human approves and locks the plan. This authorises architecture and workspace preparation — it does not authorise autonomous code changes.</div>
+</div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">04 · BUILD & REVIEW</div>
+  <h2 style="margin-top:8px">Prepare → publish → develop → prove → review</h2>
+  <p class="lede" style="margin-top:10px">This is the heart of the S7 tabletop. Seven pages tell one continuous engineering story.</p>
+  <div class="grid4" style="margin-top:34px">
+    <div class="card pad"><div class="badge red">1</div><h3 style="margin-top:12px">Overview</h3><p class="sub">Control tower for teams, blockers and readiness.</p></div>
+    <div class="card pad"><div class="badge blue">2</div><h3 style="margin-top:12px">Architecture</h3><p class="sub">Canonical shared blueprint generated from the locked plan.</p></div>
+    <div class="card pad"><div class="badge amber">3</div><h3 style="margin-top:12px">Delivery Packs</h3><p class="sub">Team context previewed, downloaded or published to Git.</p></div>
+    <div class="card pad"><div class="badge green">4</div><h3 style="margin-top:12px">Developer Workspaces</h3><p class="sub">Human-controlled implementation in normal tools.</p></div>
+    <div class="card pad"><div class="badge purple">5</div><h3 style="margin-top:12px">Build & Test Evidence</h3><p class="sub">CI, tests, coverage and AC evidence collected back.</p></div>
+    <div class="card pad"><div class="badge red">6</div><h3 style="margin-top:12px">Independent Review</h3><p class="sub">Separate human reviewer validates implementation.</p></div>
+    <div class="card pad"><div class="badge green">7</div><h3 style="margin-top:12px">Build Summary</h3><p class="sub">Determines what is actually ready for Quality.</p></div>
+    <div class="card pad soft"><div class="badge blue">Principle</div><h3 style="margin-top:12px">Evidence over screenshots</h3><p class="sub">Every status should resolve to a versioned artifact, commit, test or review.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="kicker">BUILD & REVIEW · ARCHITECTURE</div>
+  <h2 style="margin-top:7px">One canonical blueprint for every team</h2>
+  <div class="arch" style="margin-top:18px">
+    <div class="arch-canvas">
+      <div class="node" style="left:40%;top:18px">Customer Portal / Mobile</div>
+      <div class="node green" style="left:43%;top:86px">API Gateway</div>
+      <div class="node red" style="left:5%;top:170px">Claims Intake</div>
+      <div class="node red" style="left:29%;top:170px">Policy Service</div>
+      <div class="node red" style="left:53%;top:170px">Document Service</div>
+      <div class="node red" style="left:77%;top:170px">Payment Service</div>
+      <div class="node purple" style="left:27%;top:250px">Shared Data</div>
+      <div class="node amber" style="left:58%;top:250px">External Systems</div>
+    </div>
+    <div class="card pad">
+      <div style="display:flex;justify-content:space-between;align-items:center"><h3>Architecture Pack</h3><span class="badge green">v1.0 · canonical</span></div>
+      <div class="pack-list" style="margin-top:14px"><div class="pack-item"><span>architecture.md</span><span class="status ok">READY</span></div><div class="pack-item"><span>repository-map.json</span><span class="status ok">READY</span></div><div class="pack-item"><span>dependency-map.json</span><span class="status ok">READY</span></div><div class="pack-item"><span>integration-guidelines.md</span><span class="status ok">READY</span></div><div class="pack-item"><span>engineering-rules.md</span><span class="status ok">READY</span></div></div>
+      <div style="display:flex;gap:8px;margin-top:14px"><button class="btn blue">Request AI Revision</button><button class="btn primary">Accept Architecture</button></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="browser">
+    <div class="browser-head"><div><b>Delivery Packs</b><div class="mini">Governed engineering context generated for each team.</div></div><div><button class="btn blue">↓ Download All</button> <button class="btn primary">⇧ Publish All to Git</button></div></div>
+    <div class="browser-body">
+      <div class="grid6">
+        <div class="card metric"><div class="ico p">□</div><div class="v">5</div><div class="l">Teams</div></div><div class="card metric"><div class="ico b">▦</div><div class="v">5</div><div class="l">Delivery Packs</div></div><div class="card metric"><div class="ico g">✓</div><div class="v">7</div><div class="l">Stories Covered</div></div><div class="card metric"><div class="ico a">◉</div><div class="v">26</div><div class="l">Artifacts Linked</div></div><div class="card metric"><div class="ico b">↓</div><div class="v">1.2 MB</div><div class="l">Pack Size</div></div><div class="card metric"><div class="ico g">✓</div><div class="v">0</div><div class="l">Publish Errors</div></div>
+      </div>
+      <div class="browser-grid" style="margin-top:14px">
+        <div class="card" style="overflow:hidden">
+          <table><tr><th>Team</th><th>Stories</th><th>Repository</th><th>Pack</th><th>Artifact</th><th>Publication</th><th>Actions</th></tr>
+          <tr><td><b>Policy Team</b></td><td>US-001, US-002</td><td>policy-service</td><td>v1.0</td><td><span class="status ok">CURRENT</span></td><td><span class="status ok">PUBLISHED</span></td><td>Preview · ↓ · ⇧</td></tr>
+          <tr class="selected"><td><b>Claims Team</b></td><td>US-003, US-004</td><td>claims-service</td><td>v1.0</td><td><span class="status ok">CURRENT</span></td><td><span class="status warn">READY TO PUBLISH</span></td><td>Preview · ↓ · ⇧</td></tr>
+          <tr><td><b>QA Automation</b></td><td>US-006</td><td>qa-automation</td><td>v1.0</td><td><span class="status ok">CURRENT</span></td><td><span class="status warn">READY</span></td><td>Preview · ↓ · ⇧</td></tr></table>
+        </div>
+        <aside class="sidepanel"><h3>Claims Team Pack</h3><div class="kv"><span>Repository</span><b>claims-service</b></div><div class="kv"><span>Status</span><span class="status warn">READY</span></div><div class="section"><b class="mini">Pack contents</b><div class="mini" style="line-height:1.8;margin-top:6px">✓ Architecture reference<br>✓ AGENTS.md<br>✓ Stories + ACs<br>✓ Task packs<br>✓ Test strategy<br>✓ Workspace manifest</div></div><button class="btn primary" style="width:100%;margin-top:13px">Publish to Git</button></aside>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="browser">
+    <div class="browser-head"><div><b>Developer Workspaces</b><div class="mini">Human-controlled engineering workspaces provisioned from approved delivery packs.</div></div><div><span class="badge green">Human Controlled</span> <span class="badge blue">AI Assisted</span></div></div>
+    <div class="browser-body">
+      <div class="grid6"><div class="card metric"><div class="v">5</div><div class="l">Workspaces Ready</div></div><div class="card metric"><div class="v">3</div><div class="l">Developers Assigned</div></div><div class="card metric"><div class="v">2</div><div class="l">Active Development</div></div><div class="card metric"><div class="v">4</div><div class="l">Open PRs</div></div><div class="card metric"><div class="v">2</div><div class="l">CI Running</div></div><div class="card metric"><div class="v">1</div><div class="l">Blocked</div></div></div>
+      <div class="browser-grid" style="margin-top:14px">
+        <div class="card" style="overflow:hidden"><table><tr><th>Team</th><th>Story</th><th>Repo</th><th>Branch</th><th>Developer</th><th>Pack</th><th>Commit</th><th>PR</th><th>CI</th><th>Status</th></tr>
+        <tr class="selected"><td>Claims</td><td><b>US-003</b><br><span class="mini">TASK-004</span></td><td>claims-service</td><td class="mono">s7/US-003</td><td>John Smith</td><td>v1.0</td><td class="mono">d7f91ab</td><td>#104</td><td>14/15</td><td><span class="status warn">IN DEVELOPMENT</span></td></tr>
+        <tr><td>Data</td><td><b>US-005</b></td><td>data-service</td><td class="mono">s7/US-005</td><td>Priya Nair</td><td>v1.0</td><td class="mono">b1e2d44</td><td>#106</td><td>28/28</td><td><span class="status info">TESTING</span></td></tr>
+        <tr><td>QA</td><td><b>US-006</b></td><td>qa-automation</td><td class="mono">s7/US-006</td><td>Riya Menon</td><td>v1.0</td><td class="mono">c8a2ee9</td><td>—</td><td>2/18</td><td><span class="status bad">BLOCKED</span></td></tr></table></div>
+        <aside class="sidepanel"><h3>US-003 · TASK-004</h3><div class="kv"><span>Task Pack</span><b>3 files</b></div><div class="kv"><span>Inherited</span><b>5 refs</b></div><div class="kv"><span>Artifact</span><span class="status ok">CURRENT</span></div><div class="section"><div class="mini">The developer works in the real repo using IDE / CLI / Git. S7 only tracks governed context and evidence.</div></div><button class="btn blue" style="width:100%;margin-top:13px">View Build Evidence</button></aside>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="browser">
+    <div class="browser-head"><div><b>Build & Test Evidence</b><div class="mini">Engineering evidence collected from commits, CI, tests, coverage and quality gates.</div></div><button class="btn blue">↓ Export Evidence</button></div>
+    <div class="browser-body">
+      <div class="grid6"><div class="card metric"><div class="v">28</div><div class="l">Builds</div></div><div class="card metric"><div class="v" style="color:var(--green)">19</div><div class="l">Passed</div></div><div class="card metric"><div class="v" style="color:var(--red)">6</div><div class="l">Failed</div></div><div class="card metric"><div class="v" style="color:var(--blue)">3</div><div class="l">Running</div></div><div class="card metric"><div class="v">1,248</div><div class="l">Tests</div></div><div class="card metric"><div class="v">89.2%</div><div class="l">Coverage</div></div></div>
+      <div class="browser-grid" style="margin-top:14px">
+        <div class="card" style="overflow:hidden"><table><tr><th>Story / Task</th><th>Repo</th><th>Commit</th><th>Build</th><th>CI</th><th>Tests</th><th>Coverage</th><th>Gates</th></tr>
+        <tr class="selected"><td><b>US-003</b><br>TASK-004</td><td>claims-service</td><td class="mono">d7f91ab</td><td>#1045</td><td><span class="status bad">FAILED</span></td><td>156 / 158</td><td>92.4%</td><td><span class="status bad">BLOCKED</span></td></tr>
+        <tr><td><b>US-005</b></td><td>data-service</td><td class="mono">b1e2d44</td><td>#1043</td><td><span class="status ok">PASSED</span></td><td>220 / 220</td><td>94.1%</td><td><span class="status ok">PASSED</span></td></tr></table></div>
+        <aside class="sidepanel"><h3>Failure Analysis · AC-02</h3><div class="kv"><span>Expected</span><b>≤ deductible → reject</b></div><div class="kv"><span>Observed</span><b style="color:var(--red)">Equality accepted</b></div><div class="kv"><span>Component</span><b>ClaimValidationService</b></div><div class="section"><span class="badge red">AI-assisted summary</span><p class="mini" style="margin-top:7px">Return TASK-004 to developer. Fix equality boundary and rerun CI.</p></div><button class="btn blue" style="width:100%;margin-top:13px">Open Developer Workspace</button></aside>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 10 -->
+<section class="slide">
+<div class="inner">
+  <div class="kicker">AC → TEST TRACEABILITY</div>
+  <h2 style="margin-top:8px">The strongest proof is not “tests passed” — it is “the requirement is evidenced.”</h2>
+  <div class="card pad" style="margin-top:26px">
+    <table style="font-size:13px"><tr><th>Acceptance Criterion</th><th>Linked Test</th><th>Commit</th><th>Status</th><th>Evidence</th></tr>
+      <tr><td><b>AC-01</b> Claim below deductible rejected</td><td class="mono">BelowDeductibleTest</td><td class="mono">d7f91ab</td><td><span class="status ok">PASS</span></td><td>BUILD-1045 / TEST-011</td></tr>
+      <tr style="background:#fff6f7"><td><b>AC-02</b> Claim equal deductible rejected</td><td class="mono">EqualToDeductibleTest</td><td class="mono">d7f91ab</td><td><span class="status bad">FAIL</span></td><td>BUILD-1045 / TEST-013</td></tr>
+      <tr><td><b>AC-03</b> Payable amount calculated</td><td class="mono">PayableAmountTest</td><td class="mono">d7f91ab</td><td><span class="status ok">PASS</span></td><td>BUILD-1045 / TEST-016</td></tr>
+    </table>
+  </div>
+  <div class="callout red" style="margin-top:20px"><b>Governance rule:</b> stale evidence, missing AC coverage, or failed mandatory gates cannot progress into Independent Review.</div>
+</div>
+</section>
+
+<!-- 11 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="browser">
+    <div class="browser-head"><div><b>Independent Review</b><div class="mini">Structured human review against approved context and engineering evidence.</div></div><span class="badge green">Human decision</span></div>
+    <div class="browser-body">
+      <div class="grid6"><div class="card metric"><div class="v">12</div><div class="l">Reviews</div></div><div class="card metric"><div class="v" style="color:var(--green)">6</div><div class="l">Approved</div></div><div class="card metric"><div class="v" style="color:var(--amber)">3</div><div class="l">In Review</div></div><div class="card metric"><div class="v" style="color:var(--purple)">1</div><div class="l">Rework</div></div><div class="card metric"><div class="v" style="color:var(--red)">2</div><div class="l">Rejected</div></div><div class="card metric"><div class="v">84%</div><div class="l">Avg. Quality</div></div></div>
+      <div class="browser-grid" style="margin-top:14px">
+        <div class="card" style="overflow:hidden"><table><tr><th>Review Item</th><th>Team</th><th>Reviewer</th><th>Status</th><th>Score</th><th>Checkpoints</th></tr>
+        <tr class="selected"><td><b>US-003</b><br>TASK-004</td><td>Claims</td><td>Emma Wilson · QA Lead</td><td><span class="status warn">IN REVIEW</span></td><td>82%</td><td>3/6 complete</td></tr>
+        <tr><td><b>US-001</b></td><td>Policy</td><td>Rahul Kumar</td><td><span class="status ok">APPROVED</span></td><td>92%</td><td>6/6</td></tr></table></div>
+        <aside class="sidepanel"><h3>Review Checkpoints</h3><div style="display:grid;gap:7px;margin-top:10px"><div class="pack-item">Requirements Traceability <span class="status ok">PASS</span></div><div class="pack-item">AC Coverage <span class="status ok">PASS</span></div><div class="pack-item">Code Quality <span class="status warn">PARTIAL</span></div><div class="pack-item">Scope Adherence <span class="status bad">FAIL</span></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:12px"><button class="btn blue">Request Rework</button><button class="btn green">Approve</button></div></aside>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 12 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">THE CORRECTION LOOP</div>
+  <h2 style="margin-top:8px">A failed review becomes a governed developer action — not a hidden retry.</h2>
+  <div class="flow5" style="margin-top:40px">
+    <div class="flowbox"><div class="n">REV-002</div><b>Finding</b><p>AC-02 equality boundary not implemented.</p></div><div class="arrow"></div>
+    <div class="flowbox current"><div class="n">TASK-004</div><b>Rework</b><p>Returned to the human-controlled developer workspace.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">COMMIT</div><b>Correction</b><p>Developer pushes a new code revision.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">EVIDENCE</div><b>Re-run CI</b><p>Fresh tests, coverage and quality gates collected.</p></div><div class="arrow"></div>
+    <div class="flowbox done"><div class="n">REV-003</div><b>Re-review</b><p>New immutable review package; prior result preserved.</p></div>
+  </div>
+  <div class="callout green" style="margin-top:28px"><b>No phase self-approves.</b> The evidence changes, the review version changes, and the full history remains traceable.</div>
+</div>
+</section>
+
+<!-- 13 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">BEYOND THIS RUN <span class="badge amber" style="margin-left:8px">Target design · not yet built</span></div>
+  <h2 style="margin-top:8px">The correction loop fixes this run. This is the loop that fixes the next one.</h2>
+  <p class="lede" style="margin-top:10px">A human correction shouldn't just patch one story — it should teach the agent that produced it, the same way a senior engineer corrects a junior developer.</p>
+  <div class="flow5" style="margin-top:36px">
+    <div class="flowbox"><div class="n">STEP 1</div><b>AI output</b><p>An agent generates code, a story, or a config from its current skill file.</p></div><div class="arrow"></div>
+    <div class="flowbox current"><div class="n">STEP 2</div><b>Human edits it</b><p>A developer corrects it in their own IDE — the same commit that unblocks the story.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">STEP 3</div><b>Signal, not silence</b><p>The diff between generated and shipped is captured, not quietly accepted.</p></div><div class="arrow"></div>
+    <div class="flowbox"><div class="n">STEP 4</div><b>Skill amendment</b><p>Recurring corrections roll into a versioned change to the agent's skill file, ledgered with the diffs that triggered it.</p></div><div class="arrow"></div>
+    <div class="flowbox done"><div class="n">STEP 5</div><b>Next run needs no human</b><p>The agent applies the amendment itself — that class of correction stops reaching the gate.</p></div>
+  </div>
+  <div class="grid2" style="margin-top:24px">
+    <div class="callout">
+      <b>Just like teaching a developer.</b> Correct it once, name why, and it doesn't happen again. The skill file is the durable memory — not a one-off prompt edit the next run has already forgotten.
+    </div>
+    <div class="callout green">
+      <b>Autonomy is earned, not assumed.</b> Checkpoints loosen only where the first-time-right rate holds up across many runs — today, every AI output is still reviewed by a human, on every run.
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 14 -->
+<section class="slide">
+<div class="inner">
+  <div class="stagebar"><div class="stage done"><i>1</i>Intake</div><div class="stage-line"></div><div class="stage done"><i>2</i>Planning</div><div class="stage-line"></div><div class="stage active"><i>3</i>Build & Review</div><div class="stage-line"></div><div class="stage"><i>4</i>Quality</div><div class="stage-line"></div><div class="stage"><i>5</i>Release</div></div>
+  <div class="browser">
+    <div class="browser-head"><div><b>Build Summary</b><div class="mini">Consolidated outcome before Quality handoff.</div></div><button class="btn blue">↓ Export Summary</button></div>
+    <div class="browser-body">
+      <div class="grid6"><div class="card metric"><div class="v">12</div><div class="l">Stories</div></div><div class="card metric"><div class="v" style="color:var(--green)">10</div><div class="l">Completed</div></div><div class="card metric"><div class="v">2</div><div class="l">In Progress</div></div><div class="card metric"><div class="v" style="color:var(--green)">6</div><div class="l">Approved</div></div><div class="card metric"><div class="v" style="color:var(--red)">1</div><div class="l">Blocked</div></div><div class="card metric"><div class="v">84%</div><div class="l">Overall Quality</div></div></div>
+      <div class="browser-grid" style="margin-top:14px">
+        <div class="card" style="overflow:hidden"><table><tr><th>Story</th><th>Team</th><th>Build</th><th>Review</th><th>Readiness</th><th>Score</th></tr>
+          <tr class="selected"><td><b>US-003</b></td><td>Claims</td><td><span class="status ok">PASSED</span></td><td><span class="status ok">APPROVED</span></td><td><span class="status ok">READY FOR QUALITY</span></td><td>92%</td></tr>
+          <tr><td><b>US-001</b></td><td>Policy</td><td><span class="status info">RUNNING</span></td><td><span class="status warn">IN REVIEW</span></td><td><span class="status warn">IN REVIEW</span></td><td>74%</td></tr>
+          <tr><td><b>US-006</b></td><td>QA</td><td><span class="status bad">FAILED</span></td><td><span class="status bad">REWORK</span></td><td><span class="status bad">BLOCKED</span></td><td>56%</td></tr></table></div>
+        <aside class="sidepanel"><h3>Ready for Quality</h3><div style="font-size:34px;font-weight:850;color:var(--green);margin:8px 0">3 stories</div><div class="mini">✓ US-001<br>✓ US-003<br>✓ US-005</div><button class="btn primary" style="width:100%;margin-top:15px">View Quality Handoff →</button></aside>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- 15 -->
+<section class="slide">
+<div class="inner reveal">
+  <div class="kicker">GOVERNANCE · TRACEABILITY · METRICS</div>
+  <h2 style="margin-top:8px">Every claim in the dashboard should resolve to evidence</h2>
+  <div class="grid3" style="margin-top:28px">
+    <div class="card pad"><h3>Traceability</h3><p class="sub" style="margin-top:8px">Requirement → Plan → Architecture → Pack → Story → Task → Commit → PR → Test → Review → Quality.</p></div>
+    <div class="card pad"><h3>Version + staleness</h3><p class="sub" style="margin-top:8px">Architecture or plan revisions mark downstream packs, tasks and evidence stale until refreshed or explicitly excepted.</p></div>
+    <div class="card pad"><h3>Provenance</h3><p class="sub" style="margin-top:8px">Artifact version, SHA-256 hash, producer, timestamp and input references are append-only.</p></div>
+  </div>
+  <div class="grid4" style="margin-top:18px">
+    <div class="card metric"><div class="v" style="color:var(--green)">↑</div><div class="l">Velocity</div><div class="d">story throughput</div></div>
+    <div class="card metric"><div class="v" style="color:var(--blue)">↓</div><div class="l">Cycle Time</div><div class="d">idea → evidence</div></div>
+    <div class="card metric"><div class="v" style="color:var(--green)">↑</div><div class="l">First-time-right</div><div class="d">less rework</div></div>
+    <div class="card metric"><div class="v" style="color:var(--red)">↓</div><div class="l">Defect leakage</div><div class="d">caught before Quality</div></div>
+  </div>
+</div>
+</section>
+
+<!-- 16 -->
+<section class="slide">
+<div class="inner hero-grid reveal">
+  <div>
+    <div class="kicker">THE TAKEAWAY</div>
+    <h1 style="margin-top:12px">AI does not remove engineering control.<br><span style="color:var(--red)">It makes the control visible.</span></h1>
+    <p class="lede" style="margin-top:22px">The customer sees where AI contributes, where humans decide, what developers actually receive, and what evidence proves the work is ready to move forward.</p>
+  </div>
+  <div class="card pad">
+    <h3 style="font-size:24px">30-second talk track</h3>
+    <p class="quote" style="font-size:20px;margin-top:18px">“S7 turns an approved requirement into governed engineering context. We publish that context to the developer’s real workspace, collect the build and test evidence back, and independently review it before Quality — and every correction a human makes teaches the agent, not just the ticket.”</p>
+    <div style="margin-top:22px;display:flex;gap:7px;flex-wrap:wrap"><span class="badge red">Prepare</span><span class="badge blue">Publish</span><span class="badge green">Develop</span><span class="badge purple">Prove</span><span class="badge red">Review</span></div>
+  </div>
+</div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <span>MapleSure Insurance is fictional · all demo data is synthetic.</span>
+  <div class="nav"><button id="prev">←</button><span class="counter"><span id="cur">1</span> / <span id="total">16</span></span><button id="next">→</button></div>
+</footer>
+
+<script>
+const slides=[...document.querySelectorAll('.slide')];
+let index=0;
+const progress=document.getElementById('progress'),cur=document.getElementById('cur'),total=document.getElementById('total');
+total.textContent=slides.length;
+function show(i){
+  index=Math.max(0,Math.min(slides.length-1,i));
+  slides.forEach((s,j)=>s.classList.toggle('active',j===index));
+  cur.textContent=index+1;
+  progress.style.width=((index+1)/slides.length*100)+'%';
+}
+document.getElementById('next').addEventListener('click',()=>show(index+1));
+document.getElementById('prev').addEventListener('click',()=>show(index-1));
+document.addEventListener('keydown',e=>{
+  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();show(index+1)}
+  if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();show(index-1)}
+  if(e.key==='Home')show(0);
+  if(e.key==='End')show(slides.length-1);
+});
+show(0);
+</script>
+</body>
+</html>

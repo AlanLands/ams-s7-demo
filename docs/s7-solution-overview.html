@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>S7 — Solution Overview: Agents, Governance, Integration &amp; Commercials</title>
+<style>
+@page { size: A4 landscape; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Source Sans 3", "Source Sans Pro", -apple-system, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+  color: #2b2b24; line-height: 1.4; font-size: 9pt;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+code { font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 8pt; }
+.page {
+  width: calc(297mm / 1.13); height: calc(209.5mm / 1.13); zoom: 1.13;
+  padding: 8mm 10mm 6mm;
+  background: #faf8f3; display: flex; flex-direction: column;
+  break-after: page; overflow: hidden; position: relative;
+}
+.page:last-child { break-after: auto; }
+
+/* ---- page chrome ---- */
+.phead { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 8px; }
+.phead .kicker { font-size: 8pt; font-weight: 800; letter-spacing: .2em;
+  text-transform: uppercase; color: #b3122e; margin-bottom: 2px; }
+.phead h1 { font-size: 19pt; font-weight: 800; color: #23231c; line-height: 1.08;
+  letter-spacing: -.01em; }
+.phead .sub { font-size: 9.5pt; color: #5f5f55; margin-top: 4px; max-width: 200mm; }
+.phead .mark { margin-left: auto; display: flex; align-items: center; gap: 7px; flex: 0 0 auto; }
+.phead .mark .s7 { background: #b3122e; color: #fff; font-weight: 800; font-size: 12pt;
+  border-radius: 8px; padding: 5px 9px; }
+.phead .mark .mt { font-size: 7pt; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: #7a7a6e; max-width: 34mm; line-height: 1.25; }
+.rule { height: 2.5px; background: #b3122e; border-radius: 2px; margin: 4px 0 10px; }
+.pfoot { margin-top: auto; padding-top: 6px; border-top: 1px solid #e2ded4;
+  display: flex; font-size: 7.5pt; font-weight: 700; color: #b3122e; }
+.pfoot .pn { margin-left: auto; color: #a09e92; font-weight: 600; }
+
+/* ---- section label ---- */
+.slabel { display: flex; align-items: center; gap: 8px; margin: 9px 0 7px; }
+.slabel .dot { width: 17px; height: 17px; border-radius: 50%; background: #b3122e;
+  color: #fff; font-size: 8.5pt; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; flex: 0 0 auto; }
+.slabel .st { font-size: 10.5pt; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: #2b2b24; white-space: nowrap; }
+.slabel .ln { flex: 1; height: 1px; background: #d8d4c8; }
+
+/* ---- icons ---- */
+.ic { width: 15px; height: 15px; stroke: currentColor; fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.icbox { width: 24px; height: 24px; border-radius: 7px; background: #f5e6e9;
+  color: #b3122e; display: flex; align-items: center; justify-content: center; flex: 0 0 auto; }
+.icbox.inv { background: #f5e6e9; color: #b3122e; }
+
+/* ---- value cards (p1) ---- */
+.vals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.val { background: #fff; border: 1px solid #e2ded4; border-radius: 10px;
+  padding: 9px 12px; display: flex; gap: 10px; align-items: flex-start; }
+.val .vt { font-size: 10pt; font-weight: 800; color: #23231c; }
+.val .vd { font-size: 8.5pt; color: #5f5f55; margin-top: 1px; }
+
+/* ---- pipeline (p1) ---- */
+.lanebox { background: #fff; border: 1px solid #e2ded4; border-radius: 12px;
+  padding: 9px 12px 8px; }
+.lanehead { display: flex; align-items: baseline; margin-bottom: 5px; }
+.lanehead .lt { font-size: 8.5pt; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: #b3122e; }
+.lanehead .lw { margin-left: auto; font-size: 7.5pt; color: #a09e92; font-weight: 600; }
+.lane { display: flex; align-items: stretch; }
+.stg { flex: 1; min-width: 0; background: #faf8f3; border: 1px solid #e2ded4;
+  border-radius: 8px; padding: 6px 7px 5px; }
+.stg.dark { background: #fff; border: 1.4px solid #d8a7b0; }
+.stg .n { font-size: 6.5pt; font-weight: 800; color: #b98b95; letter-spacing: .06em; }
+.stg .t { font-size: 8.6pt; font-weight: 800; color: #23231c; line-height: 1.12; margin: 1px 0 2px; }
+.stg .d { font-size: 7.2pt; color: #6f6f63; line-height: 1.25; }
+.stg .g { margin-top: 3px; font-size: 7pt; font-weight: 800; color: #b3122e;
+  display: flex; align-items: center; gap: 3px; }
+.stg .g .gd { font-size: 8pt; line-height: 1; }
+.arr { flex: 0 0 auto; align-self: center; padding: 0 3px; color: #b3122e; }
+.arr svg { width: 11px; height: 11px; stroke: currentColor; fill: none;
+  stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.pubbar { display: flex; align-items: center; gap: 10px; margin: 7px 0;
+  font-size: 8pt; font-weight: 800; color: #b3122e; letter-spacing: .04em; }
+.pubbar .pl { flex: 1; border-top: 1.5px dashed #d8a7b0; }
+.legend { font-size: 7.6pt; color: #7a7a6e; margin-top: 6px; }
+.legend b { color: #b3122e; }
+
+/* ---- agent cards (p2) ---- */
+.agrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ag { background: #fff; border: 1px solid #e2ded4; border-radius: 10px; padding: 8px 10px; }
+.ag .ah { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.ag .an { font-size: 9.2pt; font-weight: 800; color: #23231c; line-height: 1.1; }
+.ag .ad { font-size: 7.9pt; color: #5f5f55; line-height: 1.32; }
+.ag.dark { background: #fff; border: 1.4px solid #d8a7b0; }
+.ag.dark .kick { font-size: 6.8pt; font-weight: 800; letter-spacing: .1em;
+  text-transform: uppercase; color: #b3122e; margin-bottom: 2px; }
+.chips { display: flex; gap: 7px; margin-top: 9px; flex-wrap: wrap; }
+.chip { display: flex; align-items: center; gap: 5px; border: 1.4px solid #b3122e;
+  border-radius: 14px; padding: 3px 11px; font-size: 8pt; font-weight: 800; color: #b3122e; }
+.chip svg { width: 11px; height: 11px; stroke: currentColor; fill: none;
+  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---- governance (p3) ---- */
+.cols2 { display: grid; grid-template-columns: 43% 1fr; gap: 12px; }
+.gaterow { display: flex; align-items: center; gap: 8px; background: #fff;
+  border: 1px solid #e2ded4; border-radius: 8px; padding: 4.5px 10px; margin-bottom: 5px; }
+.gaterow .gd { color: #b3122e; font-size: 10pt; line-height: 1; flex: 0 0 auto; }
+.gaterow .gt { font-size: 8.8pt; font-weight: 800; color: #23231c; white-space: nowrap; }
+.gaterow .gr { font-size: 7.8pt; color: #6f6f63; margin-left: auto; text-align: right; }
+.qcgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.qc { background: #fff; border: 1px solid #e2ded4; border-radius: 8px; padding: 5px 9px; }
+.qc .qid { font-size: 6.8pt; font-weight: 800; color: #b3122e; letter-spacing: .06em; }
+.qc .qn { font-size: 8.4pt; font-weight: 800; color: #23231c; display: flex;
+  align-items: center; gap: 4px; }
+.qc .qn svg { width: 10px; height: 10px; stroke: #1d7a3e; fill: none;
+  stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+.qc .qd { font-size: 7.3pt; color: #6f6f63; line-height: 1.25; margin-top: 1px; }
+.flow { display: flex; align-items: stretch; gap: 0; margin-top: 8px; }
+.fnode { flex: 1; background: #fff; border: 1.4px solid #b3122e; border-radius: 8px;
+  padding: 6px 9px; text-align: center; }
+.fnode.dark { background: #b3122e; }
+.fnode .ft { font-size: 8.6pt; font-weight: 800; color: #23231c; }
+.fnode.dark .ft { color: #fff; }
+.fnode .fd { font-size: 7.3pt; color: #6f6f63; margin-top: 1px; }
+.fnode.dark .fd { color: #f2c7cf; }
+.strip { background: #efe9dd; border-radius: 8px; padding: 7px 11px; font-size: 8pt;
+  color: #4c4c42; margin-top: 8px; }
+.strip b { color: #b3122e; text-transform: uppercase; letter-spacing: .07em; font-size: 7.5pt; }
+
+/* ---- capabilities (p4) ---- */
+.capgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.capc { background: #fff; border: 1px solid #e2ded4; border-radius: 10px;
+  padding: 9px 11px; position: relative; min-height: 33mm; }
+.capc .bignum { position: absolute; top: 4px; right: 9px; font-size: 20pt; font-weight: 800;
+  color: #eee4e6; line-height: 1; }
+.capc .ct { font-size: 9.4pt; font-weight: 800; color: #b3122e; line-height: 1.15;
+  margin-bottom: 3px; padding-right: 16px; position: relative; }
+.capc .cd { font-size: 7.8pt; color: #5f5f55; line-height: 1.33; position: relative; }
+.darkband { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+  background: #fff; border: 1px solid #e2ded4; border-radius: 10px; margin-top: 10px; }
+.db { padding: 8px 13px; }
+.db + .db { border-left: 1px solid #e2ded4; }
+.db .dt { font-size: 8.8pt; font-weight: 800; color: #23231c; display: flex;
+  align-items: center; gap: 7px; }
+.db .dd { font-size: 7.8pt; color: #5f5f55; margin-top: 2px; }
+
+/* ---- integration (p5) ---- */
+.est3 { display: grid; grid-template-columns: 1fr 34px 1.05fr 34px 1fr; gap: 0;
+  align-items: stretch; }
+.estc { background: #fff; border: 1px solid #e2ded4; border-radius: 12px; padding: 9px 12px; }
+.estc.dark { background: #fff; border: 1.6px solid #b3122e; }
+.estc .ek { font-size: 7pt; font-weight: 800; letter-spacing: .12em;
+  text-transform: uppercase; color: #b3122e; }
+.estc .et { font-size: 10.5pt; font-weight: 800; color: #23231c; margin-bottom: 4px;
+  display: flex; align-items: center; gap: 8px; }
+.estc ul { list-style: none; }
+.estc li { font-size: 8pt; color: #5f5f55; padding-left: 11px; position: relative;
+  margin-bottom: 3.5px; line-height: 1.3; }
+.estc li::before { content: ""; position: absolute; left: 0; top: 5px; width: 5px;
+  height: 5px; border-radius: 50%; background: #b3122e; }
+.estflows { display: flex; flex-direction: column; justify-content: center; gap: 8px;
+  align-items: center; }
+.ef { text-align: center; font-size: 6.6pt; font-weight: 800; color: #6f6f63;
+  line-height: 1.15; }
+.ef svg { width: 14px; height: 14px; stroke: #b3122e; fill: none; stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto 1px; }
+.strips3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.need2 { display: grid; grid-template-columns: 1.15fr 1fr; gap: 12px; margin-top: 4px; }
+.numlist { list-style: none; }
+.numlist li { display: flex; gap: 8px; margin-bottom: 5px; font-size: 8.4pt;
+  color: #4c4c42; line-height: 1.32; }
+.numlist .n { flex: 0 0 auto; width: 15px; height: 15px; border-radius: 50%;
+  background: #b3122e; color: #fff; font-size: 7.5pt; font-weight: 800;
+  display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.numlist b { color: #23231c; }
+
+/* ---- SDLC (p6) ---- */
+.sdlcgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.ph { background: #fff; border: 1px solid #e2ded4; border-radius: 10px; padding: 7px 10px; }
+.ph .pht { display: flex; align-items: center; gap: 7px; margin-bottom: 3px; }
+.ph .pnum { width: 16px; height: 16px; border-radius: 50%; background: #b3122e;
+  color: #fff; font-size: 8pt; font-weight: 800; display: flex; align-items: center;
+  justify-content: center; flex: 0 0 auto; }
+.ph .pn2 { font-size: 9.6pt; font-weight: 800; color: #b3122e; }
+.ph .pd { font-size: 7.8pt; color: #5f5f55; line-height: 1.3; }
+.ph .pe { font-size: 7.3pt; color: #6f6f63; margin-top: 3px; padding-top: 3px;
+  border-top: 1px solid #eee9df; }
+.ph .pe b { color: #23231c; font-size: 7pt; text-transform: uppercase; letter-spacing: .05em; }
+.kpis { display: flex; flex-wrap: wrap; gap: 6px; }
+.kpi { font-size: 8.2pt; font-weight: 800; color: #b3122e; background: #fff;
+  border: 1.4px solid #b3122e; border-radius: 13px; padding: 2px 11px; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.7 8.9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1 1 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-branch" viewBox="0 0 24 24"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-badge" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-route" viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><circle cx="18" cy="5" r="3"/><path d="M12 19h4.5a3.5 3.5 0 0 0 0-7h-9a3.5 3.5 0 0 1 0-7H12"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-msg" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.8 2.2a2 2 0 0 0-1.6 0L2.6 6.1a1 1 0 0 0 0 1.8l8.6 3.9a2 2 0 0 0 1.6 0l8.6-3.9a1 1 0 0 0 0-1.8z"/><path d="m22 12.6-9.2 4.2a2 2 0 0 1-1.6 0L2 12.6"/><path d="m22 17.6-9.2 4.2a2 2 0 0 1-1.6 0L2 17.6"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.7 9.7 0 0 1 6.7 2.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.7 9.7 0 0 1-6.7-2.7L3 16"/><path d="M3 21v-5h5"/></symbol>
+    <symbol id="i-term" viewBox="0 0 24 24"><path d="m4 17 6-6-6-6"/><path d="M12 19h8"/></symbol>
+    <symbol id="i-flask" viewBox="0 0 24 24"><path d="M14 2v6a2 2 0 0 0 .2 1l5.5 10a2 2 0 0 1-1.7 3H6a2 2 0 0 1-1.8-3l5.5-10a2 2 0 0 0 .3-1V2"/><path d="M6.5 14h11"/><path d="M8.5 2h7"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/></symbol>
+    <symbol id="i-building" viewBox="0 0 24 24"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></symbol>
+    <symbol id="i-arr-r" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+    <symbol id="i-arr-l" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m11 18-6-6 6-6"/></symbol>
+    <symbol id="i-arr-lr" viewBox="0 0 24 24"><path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 13 4 4L19 7"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/><path d="M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  </defs>
+</svg>
+
+<!-- ============================ PAGE 1 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">S7 · Solution Overview</div>
+      <h1>Business requirement to evidence-backed release</h1>
+      <div class="sub">S7 is the governed control plane for an AI-assisted SDLC. Humans own
+      implementation; S7 generates governed context, publishes it, collects real delivery evidence
+      and orchestrates independent review.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">Full-Scale Application Development &amp; Delivery</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="vals">
+    <div class="val"><div class="icbox"><svg class="ic"><use href="#i-shield"/></svg></div>
+      <div><div class="vt">Human controlled</div>
+      <div class="vd">Named business, engineering and QA gates prevent any phase from
+      self-approving. Merging is always a human act.</div></div></div>
+    <div class="val"><div class="icbox"><svg class="ic"><use href="#i-branch"/></svg></div>
+      <div><div class="vt">Grounded in the estate</div>
+      <div class="vd">Every AI call is grounded in the connected repositories and each
+      application's own architecture context — a file in the repo, not a fine-tune.</div></div></div>
+    <div class="val"><div class="icbox"><svg class="ic"><use href="#i-badge"/></svg></div>
+      <div><div class="vt">Evidence backed</div>
+      <div class="vd">Acceptance criteria, tests, real CI results, reviewer findings and approvals
+      are joined into the release record — measured, never claimed.</div></div></div>
+  </div>
+
+  <div class="slabel"><div class="dot">1</div><div class="st">The pipeline at a glance</div><div class="ln"></div></div>
+
+  <div class="lanebox">
+    <div class="lanehead"><div class="lt">Control Centre · app-led</div>
+      <div class="lw">Humans decide, agents draft</div></div>
+    <div class="lane">
+      <div class="stg"><div class="n">01</div><div class="t">Intake &amp; Extraction</div>
+        <div class="d">The business document becomes a structured requirement.</div>
+        <div class="g"><span class="gd">◆</span>intake sign-off</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">02</div><div class="t">Routing</div>
+        <div class="d">Existing application or new-application path.</div>
+        <div class="g"><span class="gd">◆</span>human override</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">03</div><div class="t">Analysis &amp; Clarification</div>
+        <div class="d">Codebase-grounded impact, sizing, capped Q&amp;A.</div>
+        <div class="g"><span class="gd">◆</span>business answers</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">04</div><div class="t">Delivery Plan</div>
+        <div class="d">Stories, tasks, ACs, teams, estimates, dependencies.</div>
+        <div class="g"><span class="gd">◆</span>plan sign-off · G1</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">05</div><div class="t">Architecture Pack</div>
+        <div class="d">Versioned, immutable architecture context.</div>
+        <div class="g"><span class="gd">◆</span>acceptance</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">06</div><div class="t">Packs &amp; Test Plans</div>
+        <div class="d">Per-team, per-story delivery and QA packs.</div>
+        <div class="g"><span class="gd">◆</span>QA approval</div></div>
+    </div>
+
+    <div class="pubbar"><span class="pl"></span>git publication — governed context only, fresh
+    <code style="color:#b3122e">&nbsp;s7/…&nbsp;</code> branch, fully reversible<span class="pl"></span></div>
+
+    <div class="lanehead"><div class="lt">Developer workspace &amp; quality gate · CLI-led</div>
+      <div class="lw">Developers drive agents over the published artifacts</div></div>
+    <div class="lane">
+      <div class="stg dark"><div class="n">07</div><div class="t">Build</div>
+        <div class="d">Developer Agent in the developer's own workspace.</div>
+        <div class="g"><span class="gd">◆</span>human merge</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg dark"><div class="n">08</div><div class="t">Test · red → green</div>
+        <div class="d">Test Engineer Agent executes per-criterion tests.</div>
+        <div class="g"><span class="gd">◆</span>real CI</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg dark"><div class="n">09</div><div class="t">Independent Review</div>
+        <div class="d">Isolated reviewer checks the change against ACs.</div>
+        <div class="g"><span class="gd">◆</span>review verdict · G2</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">10</div><div class="t">Evidence &amp; Traceability</div>
+        <div class="d">Real CI results and quality checks joined per AC.</div>
+        <div class="g"><span class="gd">◆</span>quality gate</div></div>
+      <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+      <div class="stg"><div class="n">11</div><div class="t">Release</div>
+        <div class="d">Evidence-based release and design document.</div>
+        <div class="g"><span class="gd">◆</span>release approval</div></div>
+    </div>
+  </div>
+  <div class="legend"><b>◆</b> = a named human gate or hard evidence condition — no phase
+  self-approves, and merging into a working branch is always a human act the system never
+  automates.</div>
+
+  <div class="strip"><b>Where the control plane stops</b> — S7 never writes production code into
+  CL's applications. Implementation is developer-owned, in the developer's own IDE / CLI / Git;
+  S7 supplies the governed context, collects the evidence and holds the gates.</div>
+
+  <div class="pfoot">S7 · Solution Overview<span class="pn">01 / 06</span></div>
+</div>
+
+<!-- ============================ PAGE 2 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">Agents inside S7</div>
+      <h1>Separate roles, separate guardrails, one gateway</h1>
+      <div class="sub">Each agent has a bounded responsibility and its own prompt. The operating
+      model separates intake and planning, developer execution, and independent review — so no role
+      grades its own work.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">Agent operating model</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="slabel"><div class="dot">A</div><div class="st">Upstream · Control Centre</div><div class="ln"></div></div>
+  <div class="agrid">
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-file"/></svg></div>
+      <div class="an">Requirement Extraction Agent</div></div>
+      <div class="ad">Turns .txt / .md / .pdf / .docx input into a structured requirement: title,
+      objective, summary, numbered requirement bullets.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-route"/></svg></div>
+      <div class="an">Requirement Routing Agent</div></div>
+      <div class="ad">Chooses an already-onboarded application or a new-application path. A human
+      can override the verdict.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-search"/></svg></div>
+      <div class="an">Intake Analysis Agent</div></div>
+      <div class="ad">Analyzes the epic against the connected repositories, extracts business
+      rules, sizes the change, raises its own clarification questions.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-msg"/></svg></div>
+      <div class="an">Clarification Agent</div></div>
+      <div class="ad">Runs a capped Q&amp;A with the business owner. Questions come from the
+      analysis; the recorded answers feed the plan.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-home"/></svg></div>
+      <div class="an">New-Application Setup Agent</div></div>
+      <div class="ad">Produces a reviewable architecture + README scaffold for human approval
+      before any repository is created.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-list"/></svg></div>
+      <div class="an">Delivery Planning Agent</div></div>
+      <div class="ad">Creates stories, tasks, acceptance criteria, team assignments, estimates and
+      dependencies — with one bounded self-correction pass before a human sees the plan.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-layers"/></svg></div>
+      <div class="an">Architecture Refinement Agent</div></div>
+      <div class="ad">Refines a lead's proposed architecture change into a new immutable version.
+      Human acceptance always resets.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-refresh"/></svg></div>
+      <div class="an">Test-Plan Refinement Agent</div></div>
+      <div class="ad">Refines a QA lead's proposed amendment into additional cases as an overlay,
+      then returns the pack to QA approval.</div></div>
+  </div>
+
+  <div class="slabel"><div class="dot">B</div><div class="st">Downstream · Developer workspace &amp; independent review</div><div class="ln"></div></div>
+  <div class="agrid">
+    <div class="ag dark"><div class="ah"><div class="icbox inv"><svg class="ic"><use href="#i-term"/></svg></div>
+      <div class="an">Developer Agent</div></div>
+      <div class="ad">Implements the task in the developer's own CLI workspace, grounded in
+      <code style="color:#b3122e">AGENTS.md</code>, acceptance criteria and approved architecture
+      context. Reviewer findings triage back to it — never a blind retry.</div></div>
+    <div class="ag dark"><div class="ah"><div class="icbox inv"><svg class="ic"><use href="#i-flask"/></svg></div>
+      <div class="an">Test Engineer Agent</div></div>
+      <div class="ad">Authors and runs the change's tests from the deliberately failing per-AC
+      skeletons — so the evidence is a real red-to-green transition, per criterion.</div></div>
+    <div class="ag"><div class="ah"><div class="icbox"><svg class="ic"><use href="#i-eye"/></svg></div>
+      <div class="an">Independent Reviewer Agent</div></div>
+      <div class="ad">Isolated from developer and tester roles. Reviews the finished change against
+      the acceptance criteria — not the tests — issues the G2 verdict and returns named findings
+      for revision.</div></div>
+    <div class="ag dark"><div class="kick">Deliberately not agents</div>
+      <div class="an" style="font-size:8.6pt">Deterministic services that cannot invent results</div>
+      <div class="ad" style="margin-top:3px">Architecture-pack assembly, delivery packs,
+      rule-derived test skeletons, git publication, dependency wave gating, CI evidence joins,
+      staleness tracking, quality checks and the release document are computed from real run
+      data.</div></div>
+  </div>
+
+  <div class="chips">
+    <div class="chip"><svg><use href="#i-refresh"/></svg>Bounded revision loops</div>
+    <div class="chip"><svg><use href="#i-shield"/></svg>Role isolation</div>
+    <div class="chip"><svg><use href="#i-lock"/></svg>Audited gateway</div>
+    <div class="chip"><svg><use href="#i-eye"/></svg>Visible provenance</div>
+    <div class="chip"><svg><use href="#i-users"/></svg>Human-controlled merge</div>
+  </div>
+
+  <div class="strip"><b>One audited gateway</b> — every agent call runs through a single LLM
+  module with per-call telemetry, pointed at any OpenAI-compatible endpoint: CL's enterprise
+  gateway or a self-hosted model.</div>
+
+  <div class="pfoot">S7 · Solution Overview<span class="pn">02 / 06</span></div>
+</div>
+
+<!-- ============================ PAGE 3 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">No phase self-approves</div>
+      <h1>Human gates make the decisions; deterministic checks judge the evidence</h1>
+      <div class="sub">The quality gate combines an isolated reviewer verdict with nine checks
+      computed from the run's real evidence. A check that is arithmetic over evidence cannot
+      hallucinate — which is why it sits in judgment over the agents.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">Governance &amp; quality</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="cols2">
+    <div>
+      <div class="slabel"><div class="dot">1</div><div class="st">Named human gates</div><div class="ln"></div></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Intake sign-off</span><span class="gr">Business Owner — the requirement is the business's artifact</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Plan sign-off · G1</span><span class="gr">Delivery Lead — authorises downstream, never performs it</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Architecture acceptance</span><span class="gr">Engineering Lead — every revision resets acceptance</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Test-plan approval</span><span class="gr">QA Lead — an unapproved pack cannot publish</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Publication</span><span class="gr">Explicit action — governed context, disposable branch</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Workspace assignment</span><span class="gr">Every story assigned to a developer by a human</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Dependency override</span><span class="gr">Lead only — the one early unlock, reason recorded</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Independent review · G2</span><span class="gr">Isolated reviewer verdict on every completed task</span></div>
+      <div class="gaterow"><span class="gd">◆</span><span class="gt">Release approval</span><span class="gr">Human decision on the evidence-backed release document</span></div>
+    </div>
+    <div>
+      <div class="slabel"><div class="dot">2</div><div class="st">Automated quality verification</div><div class="ln"></div></div>
+      <div class="qcgrid">
+        <div class="qc"><div class="qid">QC-01</div><div class="qn">Req → story mapping<svg><use href="#i-check"/></svg></div>
+          <div class="qd">every story traces to the business requirement</div></div>
+        <div class="qc"><div class="qid">QC-02</div><div class="qn">AC → code mapping<svg><use href="#i-check"/></svg></div>
+          <div class="qd">every criterion covered by a completed task</div></div>
+        <div class="qc"><div class="qid">QC-03</div><div class="qn">AC → test mapping<svg><use href="#i-check"/></svg></div>
+          <div class="qd">every criterion carries a test</div></div>
+        <div class="qc"><div class="qid">QC-04</div><div class="qn">Test execution<svg><use href="#i-check"/></svg></div>
+          <div class="qd">all tests passing in the target repository's CI</div></div>
+        <div class="qc"><div class="qid">QC-05</div><div class="qn">Code coverage<svg><use href="#i-check"/></svg></div>
+          <div class="qd">measured coverage meets the agreed threshold</div></div>
+        <div class="qc"><div class="qid">QC-06</div><div class="qn">Security scan<svg><use href="#i-check"/></svg></div>
+          <div class="qd">no untracked critical or major findings</div></div>
+        <div class="qc"><div class="qid">QC-07</div><div class="qn">Review gaps<svg><use href="#i-check"/></svg></div>
+          <div class="qd">zero unresolved major reviewer findings</div></div>
+        <div class="qc"><div class="qid">QC-09</div><div class="qn">Dependency scan<svg><use href="#i-check"/></svg></div>
+          <div class="qd">no known-vulnerable dependencies</div></div>
+        <div class="qc"><div class="qid">QC-10</div><div class="qn">Standards check<svg><use href="#i-check"/></svg></div>
+          <div class="qd">engineering standards checks all green</div></div>
+      </div>
+
+      <div class="slabel" style="margin-top:10px"><div class="dot">3</div><div class="st">Decision flow</div><div class="ln"></div></div>
+      <div class="flow">
+        <div class="fnode"><div class="ft">Independent reviewer verdict</div>
+          <div class="fd">finished change vs acceptance criteria</div></div>
+        <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+        <div class="fnode"><div class="ft">Deterministic QC verdict</div>
+          <div class="fd">nine checks over recorded evidence</div></div>
+        <div class="arr"><svg><use href="#i-arr-r"/></svg></div>
+        <div class="fnode dark"><div class="ft">Human release approval</div>
+          <div class="fd">the final decision, with both in hand</div></div>
+      </div>
+
+      <div class="strip"><b>Traceability principle</b> — every artifact carries visible provenance
+      (AI, rule-based or human) and a chain back to the requirement that caused it. The S7 control
+      plane itself never writes production code into CL's applications.</div>
+    </div>
+  </div>
+
+  <div class="pfoot">S7 · Solution Overview<span class="pn">03 / 06</span></div>
+</div>
+
+<!-- ============================ PAGE 4 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">Ten core capabilities</div>
+      <h1>A governed engineering system — not ad-hoc prompting</h1>
+      <div class="sub">The capability set is designed around ordered phases, immutable versions,
+      traceability, and machine-checkable completeness before human review.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">Core capabilities</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="capgrid">
+    <div class="capc"><div class="bignum">1</div><div class="ct">Gated pipeline</div>
+      <div class="cd">A server-validated phase machine from intake to release. Out-of-order actions
+      are refused; each gate requires its named artifacts and sign-off.</div></div>
+    <div class="capc"><div class="bignum">2</div><div class="ct">Four-layer architecture</div>
+      <div class="cd">Stable rules, role prompts, reference context and task delta assembled in
+      fixed order, driven by one orchestrator.</div></div>
+    <div class="capc"><div class="bignum">3</div><div class="ct">Story quality standards</div>
+      <div class="cd">Purpose, testable ACs, dependencies, owning team and estimate enforced at
+      planning time — one bounded self-correction pass repairs defective drafts.</div></div>
+    <div class="capc"><div class="bignum">4</div><div class="ct">Provenance ledger</div>
+      <div class="cd">Every artifact records what produced it, when, and which upstream artifact it
+      derives from. Revisions create new immutable versions.</div></div>
+    <div class="capc"><div class="bignum">5</div><div class="ct">Factory activity log</div>
+      <div class="cd">Per-call telemetry including cache read/write tokens; an approvals ledger
+      records every gate decision and who took it.</div></div>
+    <div class="capc"><div class="bignum">6</div><div class="ct">Independent review protocol</div>
+      <div class="cd">An isolated reviewer verifies acceptance criteria against the finished
+      change. Critical or major gaps block and route back by role.</div></div>
+    <div class="capc"><div class="bignum">7</div><div class="ct">Traceability matrix</div>
+      <div class="cd">Acceptance criteria carry ids traced requirement → story → task → test → CI
+      result; the release document renders each criterion with its evidence.</div></div>
+    <div class="capc"><div class="bignum">8</div><div class="ct">Self-correction &amp; change management</div>
+      <div class="cd">Propose → refine → re-approve loops for architecture and test plans. Every
+      change creates a new version and resets acceptance.</div></div>
+    <div class="capc"><div class="bignum">9</div><div class="ct">Completeness gates</div>
+      <div class="cd">Machine-checkable checks before human review: every business rule claimed by
+      a story, every acceptance criterion testable and covered.</div></div>
+    <div class="capc"><div class="bignum">10</div><div class="ct">Staleness detection</div>
+      <div class="cd">When upstream artifacts change, downstream packs, workspaces and evidence are
+      marked stale and must be regenerated before release.</div></div>
+  </div>
+
+  <div class="darkband">
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-server"/></svg>Control plane</div>
+      <div class="dd">Governed orchestration, state, versions, evidence and approvals — one small
+      VM, local files, no estate integration.</div></div>
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-term"/></svg>Developer-owned implementation</div>
+      <div class="dd">Build and test happen in the developer's own IDE / CLI / Git environment —
+      Human Controlled · AI Assisted.</div></div>
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-badge"/></svg>No invented evidence</div>
+      <div class="dd">Where run data does not exist, S7 reports nothing rather than a guess — the
+      same discipline for KPIs, checks and documents.</div></div>
+  </div>
+
+  <div class="strip"><b>Built to port</b> — plain Python with pinned dependencies, local state,
+  and deterministic replay of every rehearsed run: a fresh install with no API key still executes
+  the full pipeline offline, which is how the system survives a locked-down environment.</div>
+
+  <div class="pfoot">S7 · Solution Overview<span class="pn">04 / 06</span></div>
+</div>
+
+<!-- ============================ PAGE 5 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">How it integrates at CL — deliberately loose</div>
+      <h1>S7 sits beside the estate; it does not replace the estate</h1>
+      <div class="sub">The control plane reads approved repositories, publishes only governed
+      context to disposable branches, consumes CI evidence, and routes every LLM call through the
+      approved gateway or a self-hosted model.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">Integration &amp; commercials</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="slabel"><div class="dot">1</div><div class="st">Integration model</div><div class="ln"></div></div>
+  <div class="est3">
+    <div class="estc">
+      <div class="ek">CL estate — untouched</div>
+      <div class="et"><svg class="ic"><use href="#i-building"/></svg>Existing engineering systems</div>
+      <ul>
+        <li>Application repositories — read access per onboarded application</li>
+        <li>CI pipeline — per-test results become S7 evidence</li>
+        <li>Enterprise LLM gateway or self-hosted model</li>
+        <li>The humans holding the named gates</li>
+      </ul>
+    </div>
+    <div class="estflows">
+      <div class="ef"><svg><use href="#i-arr-r"/></svg>repo<br>read</div>
+      <div class="ef"><svg><use href="#i-arr-l"/></svg>context<br>branch</div>
+      <div class="ef"><svg><use href="#i-arr-r"/></svg>CI<br>results</div>
+    </div>
+    <div class="estc dark">
+      <div class="ek">S7 — one small VM</div>
+      <div class="et"><svg class="ic"><use href="#i-server"/></svg>Governed control plane + web UI</div>
+      <ul>
+        <li>All pipeline state in local files — no database integration with CL systems</li>
+        <li>Plain Python — no Docker, no cloud-managed services, no CDN</li>
+        <li>Built for a locked-down environment</li>
+        <li>Per-application <code style="color:#b3122e">architecture.md</code> grounds every AI call</li>
+      </ul>
+    </div>
+    <div class="estflows">
+      <div class="ef"><svg><use href="#i-arr-lr"/></svg>packs<br>out</div>
+      <div class="ef"><svg><use href="#i-arr-l"/></svg>PRs<br>back</div>
+    </div>
+    <div class="estc">
+      <div class="ek">Developer workspace</div>
+      <div class="et"><svg class="ic"><use href="#i-term"/></svg>Human controlled, AI assisted</div>
+      <ul>
+        <li>Developers' own IDE / CLI / Git</li>
+        <li>Developer Agent implements against the published pack</li>
+        <li>Test Engineer Agent runs the red-to-green tests</li>
+        <li>Humans decide what is merged into working branches</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="strips3">
+    <div class="strip" style="margin-top:0"><b>Surgical publication</b> — only
+    <code>AGENTS.md</code>, <code>.s7/**</code> and the governed test root, on a fresh
+    <code>s7/…</code> branch per run.</div>
+    <div class="strip" style="margin-top:0"><b>Protected defaults</b> — S7 refuses to touch a
+    default branch and refuses to overwrite content it did not write.</div>
+    <div class="strip" style="margin-top:0"><b>Fully reversible</b> — delete the disposable context
+    branch and nothing remains in the application estate.</div>
+  </div>
+
+  <div class="need2">
+    <div>
+      <div class="slabel"><div class="dot">2</div><div class="st">What we need from CL</div><div class="ln"></div></div>
+      <ul class="numlist">
+        <li><span class="n">1</span><span><b>Approved LLM endpoint + keys</b> — their gateway or ours, their call.</span></li>
+        <li><span class="n">2</span><span><b>Repository access</b> — read per onboarded application, plus context-branch push (or export-only mode with no write access at all).</span></li>
+        <li><span class="n">3</span><span><b>CI visibility</b> — per-test results, or permission to add the bootstrapped workflow, so build/test evidence is real, not claimed.</span></li>
+        <li><span class="n">4</span><span><b>Named gate owners</b> — business owner, delivery/engineering lead and QA lead per project. Non-delegable by design.</span></li>
+        <li><span class="n">5</span><span><b>Architecture context sign-off</b> — per-application approval of the <code>architecture.md</code> that grounds every AI call.</span></li>
+      </ul>
+    </div>
+    <div>
+      <div class="slabel"><div class="dot">3</div><div class="st">Cost buckets</div><div class="ln"></div></div>
+      <ul class="numlist">
+        <li><span class="n">1</span><span><b>LLM consumption</b> — the main variable cost, metered per run; prompt-prefix ordering maximises provider-side caching, and cache tokens are logged per call, so cost per release is measured, not estimated.</span></li>
+        <li><span class="n">2</span><span><b>Hosting</b> — one small VM.</span></li>
+        <li><span class="n">3</span><span><b>Onboarding per application</b> — repository connection + context pack, one-off.</span></li>
+        <li><span class="n">4</span><span><b>Ongoing</b> — gate-keeper time (deliberately human-owned; the gates are the product, not overhead) plus licence/support under the commercial model.</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="pfoot">S7 · Solution Overview<span class="pn">05 / 06</span></div>
+</div>
+
+<!-- ============================ PAGE 6 ============================ -->
+<div class="page">
+  <div class="phead">
+    <div>
+      <div class="kicker">Every phase leaves a governed artifact</div>
+      <h1>End-to-end coverage, visible in artifacts, evidence and sign-offs</h1>
+      <div class="sub">S7's claim is coverage of the SDLC's deliverables, not depth in any one of
+      them: each phase produces a named, versioned artifact with visible provenance, and that
+      artifact is the input to the next phase's gate.</div>
+    </div>
+    <div class="mark"><span class="s7">S7</span><span class="mt">SDLC coverage &amp; data boundary</span></div>
+  </div>
+  <div class="rule"></div>
+
+  <div class="sdlcgrid">
+    <div class="ph"><div class="pht"><span class="pnum">1</span><span class="pn2">Requirement</span></div>
+      <div class="pd">Structured requirement from the business document, plus the extracted
+      business-rule set (AI + human-added rules).</div>
+      <div class="pe"><b>Sign-off</b> — Business Owner intake gate.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">2</span><span class="pn2">Analysis</span></div>
+      <div class="pd">Codebase-grounded impact analysis, sizing, and the clarification Q&amp;A
+      transcript.</div>
+      <div class="pe"><b>Evidence</b> — business answers recorded on the run.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">3</span><span class="pn2">Planning</span></div>
+      <div class="pd">Stories, tasks, acceptance-criteria ids, teams, estimates and the dependency
+      map with delivery waves.</div>
+      <div class="pe"><b>Sign-off</b> — completeness checks, then plan sign-off (G1).</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">4</span><span class="pn2">Design</span></div>
+      <div class="pd">Versioned architecture pack, refined through propose → refine →
+      re-approve.</div>
+      <div class="pe"><b>Sign-off</b> — Engineering Lead acceptance, reset on each revision.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">5</span><span class="pn2">Build</span></div>
+      <div class="pd">Per-team, per-story delivery packs; developer workspaces; implementation in
+      CL's own git.</div>
+      <div class="pe"><b>Evidence</b> — dependency-gated start, commits and PRs.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">6</span><span class="pn2">Test</span></div>
+      <div class="pd">QA-approved plan per story; per-acceptance-criterion tests taken from red to
+      green.</div>
+      <div class="pe"><b>Evidence</b> — real CI results joined to criteria by test name.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">7</span><span class="pn2">Review</span></div>
+      <div class="pd">Independent review verdict per completed task, with findings triaged back by
+      role.</div>
+      <div class="pe"><b>Sign-off</b> — review gate (G2) plus the nine QC checks.</div></div>
+    <div class="ph"><div class="pht"><span class="pnum">8</span><span class="pn2">Release</span></div>
+      <div class="pd">Release/design document rendering approvals, per-story verdicts and every
+      criterion with its result.</div>
+      <div class="pe"><b>Sign-off</b> — human release approval, evidence-backed.</div></div>
+  </div>
+
+  <div class="slabel"><div class="dot">K</div><div class="st">Delivery KPIs produced from run data</div><div class="ln"></div></div>
+  <div class="kpis">
+    <span class="kpi">velocity</span>
+    <span class="kpi">cycle time</span>
+    <span class="kpi">estimation accuracy</span>
+    <span class="kpi">defect leakage</span>
+    <span class="kpi">first-time-right rate</span>
+    <span class="kpi">on-time / on-budget delivery</span>
+    <span class="kpi">cost per release</span>
+  </div>
+
+  <div class="slabel" style="margin-top:9px"><div class="dot">IP</div><div class="st">IP &amp; data boundary</div><div class="ln"></div></div>
+  <div class="darkband" style="margin-top:0">
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-lock"/></svg>Ownership boundary</div>
+      <div class="dd">The control plane and tooling are our IP. Plans, architecture packs, delivery
+      packs, test plans, evidence records and release documents it produces are CL's.</div></div>
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-shield"/></svg>Model boundary</div>
+      <div class="dd">The LLM is accessed under enterprise terms with no training on CL data; the
+      gateway / self-hosted option keeps CL code and data inside their boundary.</div></div>
+    <div class="db"><div class="dt"><svg class="ic" style="color:#b3122e"><use href="#i-branch"/></svg>Estate boundary</div>
+      <div class="dd">The only content written into CL's estate is governed context on disposable
+      branches that a CL human chooses to merge — or not.</div></div>
+  </div>
+
+  <div class="strip"><b>Measurement discipline</b> — every gate decision, agent session and LLM
+  call is logged (including cache read/write tokens); each KPI traces to the records behind it.
+  Where the data does not exist yet, S7 reports nothing rather than a guess.</div>
+
+  <div class="pfoot">S7 · Full-Scale Application Development &amp; Delivery<span class="pn">06 / 06</span></div>
+</div>
+
+</body>
+</html>

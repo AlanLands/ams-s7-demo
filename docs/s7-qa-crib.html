@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>S7 Q&amp;A Crib — If They Ask, You Say</title>
+<style>
+@page { size: A4; margin: 14mm 14mm 16mm 14mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: "Source Sans 3", "Source Sans Pro", -apple-system, "Segoe UI",
+    Helvetica, Arial, sans-serif;
+  color: #36362f; margin: 0; line-height: 1.5;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.head { border-bottom: 3px solid #b3122e; padding-bottom: 10px; margin-bottom: 16px; }
+.head .brand { font-size: 10pt; letter-spacing: .18em; text-transform: uppercase;
+  font-weight: 800; color: #b3122e; }
+.head h1 { font-size: 20pt; margin: 4px 0 2px; }
+.head .sub { font-size: 10pt; color: #6f6f65; }
+.sect {
+  break-inside: avoid; margin: 20px 0 6px; padding: 5px 12px;
+  background: #b3122e; color: #fff; border-radius: 6px;
+  font-size: 11.5pt; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+}
+.qa { break-inside: avoid; margin: 12px 0 14px; }
+.q {
+  font-size: 12.5pt; font-weight: 800; color: #23231e; margin-bottom: 4px;
+}
+.q::before { content: "Q · "; color: #b3122e; }
+.a { font-size: 11.5pt; margin: 0 0 4px; }
+.a b, .a strong { color: #b3122e; }
+.a .lead { font-weight: 700; }
+.press {
+  font-size: 9.5pt; color: #6f6f65; border-left: 3px solid #d8d8cf;
+  padding-left: 10px; margin-top: 4px;
+}
+.press b { color: #4c4c43; }
+.warn {
+  font-size: 10pt; color: #8a5a00; background: #fdf4e3; border-radius: 6px;
+  padding: 8px 12px; margin: 10px 0;
+}
+.facts { font-size: 10pt; }
+.facts li { margin-bottom: 5px; }
+.foot { font-size: 8.5pt; color: #9a9a8e; margin-top: 14px; border-top: 1px solid #e4e4da; padding-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="head">
+  <div class="brand">MapleSure · S7 Control Centre</div>
+  <h1>Q&amp;A Crib — If They Ask, You Say</h1>
+  <div class="sub">Companion to the presenter teleprompt. Bold openers are the sentence to lead with;
+  the rest is your backing. Grey "if pressed" lines are ammunition, not part of the first answer.
+  <b>Golden rule: never claim more than the badge on screen claims.</b></div>
+</div>
+
+<div class="sect">The AI itself</div>
+
+<div class="qa">
+  <div class="q">Which LLM are you using? Which model do you prefer?</div>
+  <div class="a"><span class="lead">The system is deliberately model-agnostic.</span>
+  Every AI call goes through one module; the provider is a configuration switch — Anthropic,
+  OpenAI, or any OpenAI-compatible internal endpoint, which matters if your locked-down
+  environment supplies its own model. Any frontier model handles intake and planning; what
+  makes the difference is what surrounds the model: every call is grounded in the target
+  repository's own architecture file, rehearsed calls are recorded and replayed
+  deterministically, and prompts are structured so caching keeps cost down.</div>
+  <div class="press"><b>If pressed for a name:</b> don't endorse a vendor in the room — "we've
+  run it against multiple providers; the architecture makes the vendor swappable, and model
+  access inside your environment is a platform approval we've flagged as an open item."</div>
+</div>
+
+<div class="qa">
+  <div class="q">Was what we just watched real AI?</div>
+  <div class="a"><span class="lead">Point at the badge and answer with it.</span>
+  This environment is simulated end to end and every artifact says so on its face — that
+  labelling discipline is deliberate. Live mode runs the same intake, clarification and
+  planning as real model calls against real GitHub repositories; it has been run end to end,
+  including a real failing CI baseline and real merged pull requests.</div>
+  <div class="press"><b>If they want proof:</b> offer live mode as the encore after the
+  session, not mid-flow. A deterministic run five times out of five beats an impressive one
+  four times out of five.</div>
+</div>
+
+<div class="qa">
+  <div class="q">How do you stop hallucination / can we trust the output?</div>
+  <div class="a"><span class="lead">Three structural answers, not a promise.</span>
+  First, grounding: every call reads the target repo's own architecture file — components,
+  data model, and explicitly what is <i>not</i> part of the application. Second, separation:
+  no phase approves its own output — generation and review are different roles, and a blocked
+  review is never overwritten. Third, gates: a named human signs every decision that matters,
+  and the artifact trail proves who signed what, when, against which version.</div>
+</div>
+
+<div class="qa">
+  <div class="q">What does a run cost?</div>
+  <div class="a"><span class="lead">We log what the provider reports and invent nothing.</span>
+  Token counts and cache reads are recorded per call; where the provider reports no number,
+  the field stays blank rather than being estimated. Cost per release is a named KPI — we'll
+  quote it from our own measured runs, not from a projection.</div>
+</div>
+
+<div class="sect">Scope &amp; coverage</div>
+
+<div class="qa">
+  <div class="q">How much of the SDLC does the AI actually cover?</div>
+  <div class="a"><span class="lead">We don't claim 100%, on purpose.</span>
+  The assessment routes work across streams — frontend, services, data, document intake,
+  mainframe — and labels each task agentic, AI-assisted, or manual. A mainframe field change
+  is manual work that other streams wait on, and the plan says so. An articulated 40–70%
+  survives questioning; a claimed 100% does not.</div>
+</div>
+
+<div class="qa">
+  <div class="q">Does it write the production code?</div>
+  <div class="a"><span class="lead">No — by design. S7 is the governed control plane, not an
+  IDE.</span> Developers build in their own tools — human controlled, AI assisted. S7
+  generates the governed briefing each team works from, collects evidence from Git and CI
+  rather than status meetings, and runs independent review. The industry's own finding this
+  year is that the bottleneck has moved from writing code to review, quality and governance —
+  that's the part we built.</div>
+  <div class="press"><b>If they've seen a Devin-style demo:</b> "those tools execute inside
+  their own ecosystem; this is the neutral layer that governs an AI agent, a developer in an
+  IDE, and a manual mainframe team the same way — which is what a mixed estate actually needs."</div>
+</div>
+
+<div class="qa">
+  <div class="q">Where do the estimates come from?</div>
+  <div class="a"><span class="lead">Today, placeholders — and I'd rather tell you than have
+  you find out.</span> The intended grounding is historical delivery data: past stories and
+  what they actually took. Estimation accuracy is itself one of the delivery KPIs this is
+  measured on, so the system is designed to be caught out and corrected.</div>
+</div>
+
+<div class="qa">
+  <div class="q">Won't all these human gates slow delivery down?</div>
+  <div class="a"><span class="lead">Gates are where a workflow starts, not where it ends.</span>
+  Approval-on is the starting posture; a workflow earns the removal of a checkpoint by proving
+  itself over many runs. That makes autonomy a measurable maturity ladder instead of a leap of
+  faith — and the run records are exactly the evidence you'd use to climb it.</div>
+</div>
+
+<div class="sect">Fit &amp; maturity</div>
+
+<div class="qa">
+  <div class="q">Can this run in our environment?</div>
+  <div class="a"><span class="lead">It was built for a locked-down environment from day one.</span>
+  Plain Python, pinned dependencies, no cloud-managed services, no containers required, and a
+  fresh clone runs the full demonstration offline with zero API keys. The only external
+  dependency any AI feature needs is whichever model endpoint your platform team approves.</div>
+</div>
+
+<div class="qa">
+  <div class="q">How does this compare to Copilot / GitLab Duo / Rovo / Devin?</div>
+  <div class="a"><span class="lead">Different layer.</span> Those are strong execution tools
+  inside their own platforms. None of them is a vendor-neutral control plane spanning multiple
+  teams, multiple repositories and non-AI streams with a client-facing coverage model. The
+  handoff format we publish is the industry-standard one — the same convention GitHub
+  Copilot's own coding agent reads — so those tools plug <i>into</i> this rather than compete
+  with it.</div>
+</div>
+
+<div class="qa">
+  <div class="q">Is this a product we could deploy tomorrow?</div>
+  <div class="a"><span class="lead">It's a working operating model, demonstrated — not a
+  finished product.</span> The architecture is the industry's current direction: spec-driven
+  handoff, evidence-based status, explicit human governance. What a funded build adds is
+  depth — tracker integration, real static analysis behind the quality gate, estimation from
+  your historical data. The honest sentence: the skeleton is proven; the flesh is scoped.</div>
+</div>
+
+<div class="qa">
+  <div class="q">Can we try it with our own requirement document, right now?</div>
+  <div class="a"><span class="lead">Yes — in live mode, where extraction genuinely reads your
+  document.</span> In this simulation environment the downstream stages are seeded to the
+  rehearsed scenario, so I won't pretend your document drove them — that's precisely the
+  mislabelling this system exists to prevent. Happy to run a live extraction after the
+  session.</div>
+</div>
+
+<div class="warn"><b>Questions never to bluff:</b> production readiness, security
+certification, real client data handling, and any number (cost, coverage, accuracy) not
+measured on our own runs. The credibility of every badge depends on never overclaiming once.</div>
+
+<div class="sect">Back-pocket market facts</div>
+<ul class="facts">
+  <li>2026 industry consensus: the SDLC bottleneck has shifted <b>from code generation to
+  review, quality, governance and architecture</b> — the layer S7 is.</li>
+  <li>Explicit human-in-the-loop governance — who acts alone, who approves, who is
+  accountable — is now the stated enterprise requirement, not a differentiator we invented.</li>
+  <li>Spec-driven development is mainstream (GitHub Spec Kit, AWS Kiro, BMAD); versioned
+  specs referenced-not-copied is exactly our delivery-pack model.</li>
+  <li>The <b>AGENTS.md</b> convention our packs publish is read natively by mainstream coding
+  agents, including GitHub Copilot's.</li>
+</ul>
+
+<div class="foot">Sources on file: axify.io · tblocks.com · practiq.tech · marktechpost.com ·
+dev.to · github.com/github/spec-kit · ones.com · analyticsinsight.net — retrieved 2026-08-11.
+MapleSure Insurance is fictional; all demo data is synthetic.</div>
+
+</body>
+</html>
