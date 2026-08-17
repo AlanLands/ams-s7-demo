@@ -590,6 +590,9 @@ class DeliveryRun(BaseModel):
     run_id: str
     scenario_id: str
     mode: DemoMode = DemoMode.SIMULATION
+    # "project" (epic → design → gate → stories) or "enhancement"
+    # (S3-style: user stories enter directly and converge at sign-off).
+    entry_mode: str = "project"
     status: Status = Status.NOT_STARTED
     created_at: str = Field(default_factory=now_iso)
     stages: list[StageState]

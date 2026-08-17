@@ -43,6 +43,7 @@ def plan_signoff_gate(
     epic: dict | None = None,
     analysis: dict | None = None,
     connected_repos: list[dict] | None = None,
+    entry_mode: str = "project",
 ) -> list[dict]:
     """G1 — approve and lock the delivery plan, authorising architecture,
     delivery-pack and workspace generation. G1 deliberately does NOT require
@@ -51,8 +52,15 @@ def plan_signoff_gate(
     implementation; G1 only opens governed context generation.
     """
     conditions: list[dict] = []
-    conditions.append(_c("Epic defined", epic is not None,
-                         epic["epic_id"] if epic else "no epic on file"))
+    if entry_mode == "enhancement":
+        # Story-level entry: there is no epic and no intake analysis by
+        # design. The conditions say so rather than silently vanishing.
+        conditions.append(_c("Story-level entry (enhancement mode)", True,
+                             "stories entered directly from the backlog; "
+                             "epic and intake analysis do not apply"))
+    else:
+        conditions.append(_c("Epic defined", epic is not None,
+                             epic["epic_id"] if epic else "no epic on file"))
     conditions.append(_c("Stories reviewed and plan generated", bool(stories),
                          f"{len(stories)} stories" if stories else "no stories yet"))
     incomplete: list[str] = []
@@ -81,10 +89,11 @@ def plan_signoff_gate(
     no_sprint = [s["story_id"] for s in stories if not s.get("sprint")]
     conditions.append(_c("Every story planned into a sprint", bool(stories) and not no_sprint,
                          f"unplanned: {', '.join(no_sprint)}" if no_sprint else ""))
-    conditions.append(_c("Risks and assumptions reviewed", analysis is not None,
-                         f"{len(analysis.get('risks', []))} risks, "
-                         f"{len(analysis.get('assumptions', []))} assumptions on file"
-                         if analysis else "no intake analysis on file"))
+    if entry_mode != "enhancement":
+        conditions.append(_c("Risks and assumptions reviewed", analysis is not None,
+                             f"{len(analysis.get('risks', []))} risks, "
+                             f"{len(analysis.get('assumptions', []))} assumptions on file"
+                             if analysis else "no intake analysis on file"))
     unmapped = [s["story_id"] for s in stories
                 if not (s.get("target_repository") and s.get("target_application"))]
     conditions.append(_c("Repository and application mapping sufficient",

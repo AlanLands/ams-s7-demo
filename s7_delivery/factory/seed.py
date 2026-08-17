@@ -167,6 +167,75 @@ def _story(**kw) -> Story:
     return Story(**defaults)
 
 
+# S3-style enhancement backlog — the second entry mode. Work arrives as
+# user stories (no epic, no decomposition): the MapleSure retirement online
+# eligibility / enrollment check scenario from the brief. Simulated content,
+# labelled like every other seeded artifact.
+def build_enhancement_stories() -> list[Story]:
+    return [
+        _story(
+            story_id="ENH-001",
+            epic_id="CR-2026-208",
+            title="Online retirement eligibility check for members",
+            purpose=(
+                "Let a member verify retirement plan eligibility online from "
+                "policy number and member id instead of calling the service "
+                "desk."
+            ),
+            accountable_team="Portal Team",
+            target_application="MapleSure Retirement Portal",
+            target_component="eligibility journey",
+            target_repository="sponsorconnect-portal",
+            acceptance_criteria=[
+                AcceptanceCriterion(
+                    ac_id="ENH-001-AC1",
+                    text="A valid policy number + member id returns an eligibility result.",
+                ),
+                AcceptanceCriterion(
+                    ac_id="ENH-001-AC2",
+                    text="An ineligible member sees the reason category, not a bare refusal.",
+                ),
+            ],
+            impacts=["Member portal"],
+            feature_flag=FeatureFlag(name="retirement_eligibility_check"),
+            rollback_plan=RollbackPlan(method="Feature flag off; read-only feature."),
+            estimate=3,
+            sprint=1,
+            traces_to=["CR-2026-208"],
+        ),
+        _story(
+            story_id="ENH-002",
+            epic_id="CR-2026-208",
+            title="Enrollment window status on the eligibility result",
+            purpose=(
+                "Show whether the member's plan enrollment window is open, "
+                "closing, or closed alongside the eligibility result."
+            ),
+            accountable_team="Services Team",
+            target_application="MapleSure Retirement Portal",
+            target_component="eligibility API",
+            target_repository="sponsorconnect-api",
+            acceptance_criteria=[
+                AcceptanceCriterion(
+                    ac_id="ENH-002-AC1",
+                    text="The eligibility response carries the enrollment window state.",
+                ),
+                AcceptanceCriterion(
+                    ac_id="ENH-002-AC2",
+                    text="A closed window includes the next opening date when known.",
+                ),
+            ],
+            impacts=["Eligibility API"],
+            feature_flag=FeatureFlag(name="enrollment_window_status"),
+            rollback_plan=RollbackPlan(method="Feature flag off; additive response field."),
+            estimate=3,
+            sprint=1,
+            dependencies=["ENH-001"],
+            traces_to=["CR-2026-208"],
+        ),
+    ]
+
+
 # The planning model's self-assessment of its own draft. In simulation mode
 # this is a deterministic seed value like every other simulated figure on the
 # surface; in live mode it would come from the model. Rendered with that

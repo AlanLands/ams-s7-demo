@@ -349,6 +349,21 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Enhancement entry lane (S3-style), added 2026-08-17.** The second entry
+mode from the flow diagram exists: runs carry `entry_mode`
+("project" default / "enhancement"), settable at creation (`POST
+/api/runs {"entry_mode": "enhancement"}`, Settings → "New enhancement
+run"). Enhancement runs open at Planning — G0 is recorded as *not
+applicable — story-level entry* in the gate's own conditions (visible,
+never silently skipped) — and stories arrive by import/manual add, or via
+the scripted MapleSure retirement-eligibility backlog
+(`seed.build_enhancement_stories`, SIMULATED) in sim/demo;
+`planning_generate` refuses epic decomposition on live enhancement runs.
+G1's epic/analysis conditions become an explicit story-level-entry
+condition; sign-off, task seeding and the whole downstream are the
+project lane's own machinery — the convergence the flow diagram draws.
+Reset preserves entry mode.
+
 **Design step (DFD + relationship diagrams) in the Control Centre, added
 2026-08-17.** The client-named "through design" phase finally exists on
 the app surface: `factory/design.py` supplies the curated MapleSure DFD

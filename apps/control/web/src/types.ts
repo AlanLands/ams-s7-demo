@@ -156,6 +156,9 @@ export interface StageState {
 export interface RunRecord {
   run_id: string
   mode: 'simulation' | 'replay' | 'live' | 'demo'
+  /** "project" (epic → design → gate → stories) or "enhancement"
+   * (S3-style: user stories enter directly). */
+  entry_mode?: 'project' | 'enhancement'
   created_at: string
   stages: StageState[]
   status: string

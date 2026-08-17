@@ -127,13 +127,14 @@ class Engine:
 
     # --- lifecycle ----------------------------------------------------------
 
-    def _seed_state(self, mode: DemoMode) -> None:
+    def _seed_state(self, mode: DemoMode, entry_mode: str = "project") -> None:
         """Write the seeded starting state for this run — shared by create()
         and reset() so a reset run is grounded identically to a fresh one."""
         run = DeliveryRun(
             run_id=self.run_id,
             scenario_id=seed.SCENARIO.scenario_id,
             mode=mode,
+            entry_mode=entry_mode,
             status=Status.READY,
             stages=[StageState(stage=s) for s in STAGE_ORDER],
         )
@@ -151,12 +152,34 @@ class Engine:
             )
             self.store.write_json(seed.DEMO_ROUTING, "intake", "routing.json")
         self._gates_init()
+        if entry_mode == "enhancement":
+            # Story-level entry: G0 is recorded as not applicable — visibly,
+            # in the gate's own conditions, never silently skipped.
+            gate = self.gate(GateId.INTAKE)
+            gate.status = Status.PASSED
+            gate.conditions = [{
+                "condition": ("Entry is story-level (enhancement mode) — "
+                              "epic intake does not apply"),
+                "met": True,
+                "detail": "user stories enter directly and converge at plan sign-off",
+            }]
+            gate.decided_by = "system (enhancement entry)"
+            gate.decided_at = now_iso()
+            self._save_gate(gate)
+            run = self.run()
+            self._advance_stage(run, Stage.INTAKE)
+            self._save_run(run)
 
     @classmethod
-    def create(cls, mode: DemoMode = DemoMode.SIMULATION, root=None) -> Engine:
+    def create(
+        cls, mode: DemoMode = DemoMode.SIMULATION, root=None,
+        entry_mode: str = "project",
+    ) -> Engine:
+        if entry_mode not in ("project", "enhancement"):
+            raise EngineError(f"Unknown entry mode {entry_mode!r}")
         run_id = next_run_id(root)
         eng = cls(run_id, root=root)
-        eng._seed_state(mode)
+        eng._seed_state(mode, entry_mode)
         eng._record(
             artifact_id=seed.REQUIREMENT.request_id,
             artifact_type="requirement",
@@ -213,15 +236,16 @@ class Engine:
         roles.require("manage_run", role)
         import shutil
 
-        mode = self.run().mode
+        run = self.run()
+        mode, entry_mode = run.mode, run.entry_mode
         root = self.store.root
         if root.exists():
             shutil.rmtree(root)
-        self._seed_state(mode)
+        self._seed_state(mode, entry_mode)
         self._activity(
             stage=Stage.INTAKE, actor="system", actor_type="service",
             workflow="run-lifecycle", outcome="run reset to seed",
-            details=f"mode={mode.value}",
+            details=f"mode={mode.value} entry={entry_mode}",
         )
 
     # --- gates --------------------------------------------------------------
@@ -1460,6 +1484,18 @@ class Engine:
             raise EngineError("The plan is locked; use an amendment to change it")
         self._stage_in_progress(Stage.PLANNING)
 
+        if self.run().entry_mode == "enhancement":
+            # No epic to decompose: enhancement work arrives as stories.
+            # Simulation/demo script the backlog arrival (labelled); live
+            # runs import from the real backlog instead.
+            if self._llm_paths():
+                raise EngineError(
+                    "Enhancement runs start from user stories — import them "
+                    "from the backlog; there is no epic to decompose"
+                )
+            self._planning_seed_enhancement_backlog()
+            return
+
         if self._llm_paths():
             self._planning_generate_live()
             return
@@ -1781,8 +1817,35 @@ class Engine:
             f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
+    def _planning_seed_enhancement_backlog(self) -> None:
+        """Scripted backlog arrival for the enhancement lane (sim/demo)."""
+        stories = [s.model_dump(mode="json") for s in seed.build_enhancement_stories()]
+        self.store.write_json(stories, "planning", "stories.json")
+        self.store.write_json(stories, "planning", "stories.original.json")
+        self.store.write_json(
+            {"value": None,
+             "basis": "Enhancement entry: stories arrive from the backlog — "
+                      "no decomposition, no model confidence to report.",
+             "provenance": "simulated"},
+            "planning", "confidence.json",
+        )
+        for s in stories:
+            self._record(
+                artifact_id=s["story_id"], artifact_type="story", payload=s,
+                author="backlog import (simulated)", stage=Stage.PLANNING,
+                action="import", outcome="created",
+                inputs=[s["epic_id"]],
+            )
+        self._activity(
+            stage=Stage.PLANNING, actor="backlog", actor_type="simulation",
+            workflow="enhancement-backlog", outcome="created",
+            details=f"{len(stories)} stories entered at story level "
+                    "(enhancement mode)",
+        )
+
     def _planning_open_for_change(self) -> None:
-        if self.gate(GateId.INTAKE).status != Status.PASSED:
+        if self.run().entry_mode != "enhancement" \
+                and self.gate(GateId.INTAKE).status != Status.PASSED:
             raise EngineError("Planning opens after the intake gate (G0) passes")
         if self.run().plan_locked:
             raise EngineError("The signed plan is locked; changes require an amendment")
@@ -1960,6 +2023,7 @@ class Engine:
             # live/replay runs only: a simulation run has no clones to check
             connected_repos=self._connected_repos()
             if self._llm_paths() else None,
+            entry_mode=self.run().entry_mode,
         )
         gate = self.gate(GateId.PLAN_SIGNOFF)
         gate.conditions = conditions

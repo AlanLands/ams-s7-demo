@@ -16,9 +16,11 @@ const SCENARIO_LABELS = new Map<string, string>([
   ['full-run', 'Full run — alias of the happy path'],
 ])
 
-async function newRun() {
-  const created = await apiPost<{ run: { run_id: string } } & RunState>('/api/runs', { mode: 'simulation' })
+async function newRun(entryMode: 'project' | 'enhancement' = 'project') {
+  const created = await apiPost<{ run: { run_id: string } } & RunState>(
+    '/api/runs', { mode: 'simulation', entry_mode: entryMode })
   localStorage.setItem('s7cc.runId', created.run.run_id)
+  if (entryMode === 'enhancement') localStorage.setItem('s7cc.section', 'epic_to_stories')
   window.location.reload()
 }
 
@@ -45,11 +47,20 @@ export function Settings() {
         <div className="kv">
           <b>Run id</b><span className="mono">{run.run_id}</span>
           <b>Demo mode</b><span>{run.mode}</span>
+          <b>Entry mode</b><span>{run.entry_mode === 'enhancement' ? 'enhancement (stories in)' : 'project (epic in)'}</span>
           <b>Acting role</b><span>{role.replaceAll('_', ' ')}</span>
           <b>State storage</b><code>{`artifacts/runs/${run.run_id}/`}</code>
         </div>
         <div className="actions-row">
           <button type="button" className="primary" onClick={() => newRun()}>New run</button>
+          <button
+            type="button"
+            className="outline"
+            title="S3-style entry: user stories in directly, converging at plan sign-off — no epic, no decomposition"
+            onClick={() => newRun('enhancement')}
+          >
+            New enhancement run
+          </button>
           <button type="button" className="ghost danger-ghost" onClick={() => act('/reset', {}, 'Run reset to seeded state')}>Reset this run</button>
         </div>
       </div>

@@ -105,6 +105,9 @@ def get_runs() -> list[str]:
 
 class CreateRun(BaseModel):
     mode: str = "simulation"
+    # "project" (epic → design → gate → stories) or "enhancement"
+    # (S3-style: user stories enter directly).
+    entry_mode: str = "project"
 
 
 @app.post("/api/runs")
@@ -113,7 +116,10 @@ def post_runs(body: CreateRun) -> dict:
         mode = DemoMode(body.mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown mode {body.mode!r}") from exc
-    eng = Engine.create(mode)
+    try:
+        eng = Engine.create(mode, entry_mode=body.entry_mode)
+    except EngineError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return eng.state()
 
 

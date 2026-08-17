@@ -37,7 +37,22 @@ export function EpicToStories() {
           </>
         ) : (
           <div className="card empty-stories">
-            {epic ? (
+            {data?.run?.entry_mode === 'enhancement' ? (
+              <>
+                <p>
+                  Enhancement entry — work arrives as user stories from the backlog (no epic, no
+                  decomposition) and converges with the project lane at plan sign-off.
+                </p>
+                <button
+                  type="button"
+                  className="primary sq"
+                  title="Loads the enhancement backlog through the engine (scripted in simulation/demo; live runs import real backlog stories instead)"
+                  onClick={() => act('/planning/generate', {}, 'Backlog stories loaded')}
+                >
+                  Load backlog stories
+                </button>
+              </>
+            ) : epic ? (
               <>
                 <p>No stories yet — generate the AI draft decomposition to start planning.</p>
                 <button
