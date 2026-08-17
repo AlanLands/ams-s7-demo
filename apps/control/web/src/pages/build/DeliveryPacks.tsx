@@ -124,7 +124,7 @@ const TAB_FILES: Partial<Record<PreviewTab, string>> = {
 }
 
 export function DeliveryPacks() {
-  const { data, runId, act, goTo } = useRun()
+  const { data, runId, act, goTo, can } = useRun()
 
   const build = buildOf(data)
   const packs = build.delivery_packs ?? []
@@ -143,6 +143,7 @@ export function DeliveryPacks() {
   const [generating, setGenerating] = useState(false)
   const [confirmPublish, setConfirmPublish] = useState<string | null>(null)
   const [confirmAll, setConfirmAll] = useState(false)
+  const [approveFor, setApproveFor] = useState<string | null>(null)
   const [successFor, setSuccessFor] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState<PreviewTab>('overview')
@@ -274,12 +275,13 @@ export function DeliveryPacks() {
 
   const doApproveTestPlan = async (p: DeliveryPack) => {
     setApproving(true)
-    await act(
+    const ok = await act(
       `/delivery-packs/${p.delivery_pack_id}/approve-test-plan`,
       { approver },
       'Test plan approved',
     )
     setApproving(false)
+    return ok
   }
 
   const successPack = packs.find((p) => p.delivery_pack_id === successFor) ?? null
@@ -365,6 +367,18 @@ export function DeliveryPacks() {
           ) : null}
         </div>
 
+        {packs.some((p) => p.test_plan_status !== 'approved') ? (
+          <div className="card warn dp-action-banner">
+            <b>
+              {`⚠ ${packs.filter((p) => p.test_plan_status !== 'approved').length} pack${packs.filter((p) => p.test_plan_status !== 'approved').length === 1 ? '' : 's'} await QA test-plan approval`}
+            </b>
+            <span className="hint">
+              {' '}— the pipeline column below shows where each pack stands; approval is the QA Lead's
+              step between generation and publish.
+            </span>
+          </div>
+        ) : null}
+
         <div className="stat-row">
           <StatCard accent="purple" icon={<UsersRound />} value={String(teams.length)} label="Teams" sub="All teams covered" />
           <StatCard accent="blue" icon={<Boxes />} value={String(packs.length)} label="Delivery Packs" sub={readyPacks.length ? `${readyPacks.length} ready to publish` : 'All published'} />
@@ -427,7 +441,7 @@ export function DeliveryPacks() {
                   <th>Repository</th>
                   <th>Pack Version</th>
                   <th>Artifact Status</th>
-                  <th>Publication Status</th>
+                  <th>Pipeline</th>
                   <th>Last Updated</th>
                   <th>Actions</th>
                 </tr>
@@ -491,13 +505,49 @@ export function DeliveryPacks() {
                         <span className="hint dp-sub">{`${p.artifact_count ?? '—'} artifacts`}</span>
                       </td>
                       <td>
-                        {busy
-                          ? <span className="badge st-in_progress"><LoaderCircle className="dp-badge-ico spin" />PUBLISHING</span>
-                          : <span className={`badge ${pd.cls}`}>{pd.label}</span>}
-                        <span className="hint dp-sub">
-                          {busy ? 'Publishing…' : pd.sub}
-                          {published && pub?.simulated ? <> <Prov provenance="simulated" /></> : null}
-                        </span>
+                        <div className="pack-pipe" aria-label={`${p.team} pack pipeline`}>
+                          <span className="pp-node done">
+                            <span className="pp-dot">✓</span>
+                            <span className="pp-text">Generated<span className="hint">{`v${p.version}.0`}</span></span>
+                          </span>
+                          <span className="pp-link" aria-hidden="true" />
+                          {p.test_plan_status === 'approved' ? (
+                            <span className="pp-node done">
+                              <span className="pp-dot">✓</span>
+                              <span className="pp-text">QA approved<span className="hint">{p.test_plan_approved_by || 'QA Lead'}</span></span>
+                            </span>
+                          ) : (
+                            <span className="pp-node now">
+                              <span className="pp-dot">2</span>
+                              <span className="pp-text">
+                                QA approval
+                                {can('approve_test_plan') ? (
+                                  <button
+                                    className="link-btn"
+                                    onClick={(e) => { e.stopPropagation(); setApproveFor(p.delivery_pack_id) }}
+                                  >
+                                    Approve test plan…
+                                  </button>
+                                ) : (
+                                  <span className="hint">QA Lead only</span>
+                                )}
+                              </span>
+                            </span>
+                          )}
+                          <span className="pp-link" aria-hidden="true" />
+                          <span className={`pp-node ${published ? 'done' : busy ? 'now' : p.test_plan_status === 'approved' ? 'now' : 'next'}`}>
+                            <span className="pp-dot">
+                              {busy ? <LoaderCircle className="dp-badge-ico spin" /> : published ? '✓' : '3'}
+                            </span>
+                            <span className="pp-text">
+                              {busy ? 'Publishing…' : pd.label.charAt(0) + pd.label.slice(1).toLowerCase()}
+                              <span className="hint">
+                                {busy ? '' : published ? pd.sub : p.test_plan_status === 'approved' ? 'ready' : 'after QA'}
+                                {published && pub?.simulated ? <> <Prov provenance="simulated" /></> : null}
+                              </span>
+                            </span>
+                          </span>
+                        </div>
                       </td>
                       <td>
                         <span>{dmy(when)}</span>
@@ -830,6 +880,40 @@ export function DeliveryPacks() {
           </div>
         </Modal>
       ) : null}
+
+      {/* --- Inline QA approval (from the pipeline column) ---------------- */}
+      {approveFor ? (() => {
+        const p = packs.find((x) => x.delivery_pack_id === approveFor)
+        if (!p) return null
+        return (
+          <Modal title={`Approve Test Plan — ${p.team}`} onClose={() => setApproveFor(null)}>
+            <p className="hint">
+              {`Signs off the AC-derived test plan for ${p.story_ids.length} `}
+              {p.story_ids.length === 1 ? 'story' : 'stories'}
+              {' — the QA Lead\'s step between generation and publish. Regenerating the pack resets this approval.'}
+            </p>
+            <input
+              type="text"
+              placeholder="Approver name (QA Lead)"
+              value={approver}
+              onChange={(e) => setApprover(e.target.value)}
+              style={{ width: '100%', marginTop: '8px' }}
+            />
+            <div className="actions-row" style={{ marginTop: '12px' }}>
+              <button
+                className="primary approve"
+                disabled={approving || !approver.trim()}
+                onClick={async () => {
+                  if (await doApproveTestPlan(p)) setApproveFor(null)
+                }}
+              >
+                {approving ? 'Approving…' : 'Approve test plan'}
+              </button>
+              <button className="ghost" onClick={() => setApproveFor(null)}>Cancel</button>
+            </div>
+          </Modal>
+        )
+      })() : null}
 
       {/* --- Publish all confirm ------------------------------------------ */}
       {confirmAll ? (

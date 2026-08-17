@@ -157,6 +157,114 @@ function LandscapeDiagram({ landscape }: { landscape: ArchLandscape }) {
   )
 }
 
+const REV_SECTIONS = ['Integration points', 'Security', 'Data model', 'Teams & ownership', 'Other']
+
+/** The propose → refine → new version → re-accept loop, shown before the
+ * user types a word. Steps 2–4 run automatically on submit; the wizard's
+ * job is making that visible instead of a paragraph of hint text. */
+function RevisionWizard({ version, isLive, onSubmit, onClose }: {
+  version: number
+  isLive: boolean
+  onSubmit: (feedback: string) => Promise<boolean>
+  onClose: () => void
+}) {
+  const [section, setSection] = useState('')
+  const [text, setText] = useState('')
+  const steps: [string, string][] = [
+    ['Describe the change', 'you, in plain language — kept verbatim as your artifact'],
+    [isLive ? 'AI refines it' : 'System refines it',
+      isLive ? 'a real model call shapes it into a revision section' : 'deterministic rules — no AI call in simulation'],
+    [`New version v${version + 1}`, `immutable; v${version} stays frozen for the record`],
+    ['Re-accept', 'validations re-run and the human checkpoint resets'],
+  ]
+  return (
+    <Modal title="Propose a Revision" wide onClose={onClose}>
+      <ol className="rev-steps">
+        {steps.map(([label, sub], i) => (
+          <li key={label} className={i === 0 ? 'active' : ''}>
+            <span className="rev-step-dot">{i + 1}</span>
+            <span className="rev-step-text"><b>{label}</b><span className="hint">{sub}</span></span>
+            {i < steps.length - 1 ? <span className="rev-step-arrow" aria-hidden="true">→</span> : null}
+          </li>
+        ))}
+      </ol>
+      <p className="hint" style={{ margin: '6px 0 10px' }}>
+        Only step 1 is yours — steps 2–4 happen automatically when you submit. Nothing is ever edited in place.
+      </p>
+      <div className="rev-chips" role="group" aria-label="Which part of the architecture">
+        {REV_SECTIONS.map((s) => (
+          <button
+            key={s}
+            type="button"
+            className={`rev-chip${section === s ? ' on' : ''}`}
+            onClick={() => setSection(section === s ? '' : s)}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <textarea
+        rows={4}
+        style={{ width: '100%', marginTop: '10px' }}
+        placeholder={section ? `What should change about ${section.toLowerCase()}?` : 'What should the next architecture version change?'}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+      />
+      <div className="card warn rev-consequences">
+        {`⚠ On submit: v${version} stays frozen · validations re-run · acceptance resets on v${version + 1} · delivery packs and workspaces built on v${version} are marked stale until regenerated`}
+      </div>
+      <div className="actions-row" style={{ marginTop: '12px' }}>
+        <button
+          className="primary"
+          disabled={!text.trim()}
+          onClick={async () => {
+            const feedback = section ? `[${section}] ${text.trim()}` : text.trim()
+            if (await onSubmit(feedback)) onClose()
+          }}
+        >
+          {`Submit — the ${isLive ? 'AI' : 'system'} refines it next`}
+        </button>
+        <button className="ghost" onClick={onClose}>Cancel</button>
+      </div>
+    </Modal>
+  )
+}
+
+/** Version history as visible states: superseded versions, then the current
+ * one with its acceptance status — the 'acceptance resets' consequence made
+ * legible instead of narrated. */
+function VersionTimeline({ version, accepted, acceptedBy, revisionNote }: {
+  version: number
+  accepted: boolean
+  acceptedBy: string
+  revisionNote: string
+}) {
+  const nodes = Array.from({ length: version }, (_, i) => i + 1)
+  return (
+    <div className="card vtimeline" aria-label="Architecture version history">
+      {nodes.map((v) => {
+        const current = v === version
+        return (
+          <span key={v} className="vt-node-wrap">
+            <span className={`vt-node${current ? (accepted ? ' ok' : ' pending') : ' old'}`}>
+              <b className="mono">{`v${v}`}</b>
+              <span className="hint">
+                {current
+                  ? accepted ? `● accepted by ${acceptedBy || '—'}` : '◐ awaiting acceptance'
+                  : 'superseded — frozen'}
+              </span>
+              {current && v > 1 && revisionNote ? (
+                <span className="hint vt-note" title={revisionNote}>{revisionNote}</span>
+              ) : null}
+            </span>
+            {v < version ? <span className="vt-arrow" aria-hidden="true">→</span> : null}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Architecture() {
   const { data, runId, act, goTo } = useRun()
 
@@ -172,7 +280,6 @@ export function Architecture() {
   const [preview, setPreview] = useState<{ title: string; sections: { name: string; text: string }[] } | null>(null)
   const [showRevise, setShowRevise] = useState(false)
   const [showDiagram, setShowDiagram] = useState(false)
-  const [feedback, setFeedback] = useState('')
   const [approver, setApprover] = useState('')
 
   const fileUrl = useCallback(
@@ -336,6 +443,12 @@ export function Architecture() {
               </span>
             </div>
 
+            <VersionTimeline
+              version={arch.version}
+              accepted={accepted}
+              acceptedBy={arch.accepted_by}
+              revisionNote={arch.revision_note}
+            />
             <div className="card arch-strip">
               <div className="as-cell">
                 <div className="as-label">Architecture Version</div>
@@ -507,30 +620,13 @@ export function Architecture() {
             ) : null}
 
             {showRevise ? (
-              <div className="card" style={{ marginTop: '8px' }}>
-                <h3>⟳ Propose a Revision</h3>
-                <p className="hint">
-                  Describe the change you want. Your proposal is kept verbatim, refined by the system
-                  (a real model call in live runs, deterministic rules in simulation) and folded into a
-                  new immutable version — v{arch.version} is preserved, validations re-run, and
-                  acceptance resets. Nothing is edited in place.
-                </p>
-                <textarea rows={3} style={{ width: '100%', marginTop: '8px' }}
-                  placeholder="What should the next architecture version change?"
-                  value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-                <div className="actions-row" style={{ marginTop: '10px' }}>
-                  <button className="primary" disabled={!feedback.trim()}
-                    onClick={async () => {
-                      if (await act('/architecture/revise', { feedback }, 'Revision generated')) {
-                        setFeedback('')
-                        setShowRevise(false)
-                      }
-                    }}>
-                    Submit Revision Request
-                  </button>
-                  <button className="ghost" onClick={() => setShowRevise(false)}>Cancel</button>
-                </div>
-              </div>
+              <RevisionWizard
+                version={arch.version}
+                isLive={data?.run?.mode === 'live' || data?.run?.mode === 'replay'}
+                onSubmit={(fb) => act('/architecture/revise', { feedback: fb },
+                  `Revision generated — v${arch.version + 1} awaits acceptance`)}
+                onClose={() => setShowRevise(false)}
+              />
             ) : null}
           </>
         )}

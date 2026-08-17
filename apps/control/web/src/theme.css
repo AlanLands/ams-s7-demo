@@ -1766,3 +1766,42 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .ir-finding { border: 1px solid var(--red); border-left-width: 3px; border-radius: var(--radius-sm); padding: 8px 10px; margin: 6px 0; background: var(--red-pale); font-size: 12px; }
 .ir-trace { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; font-size: 11px; }
 .ir-trace .chip { font-size: 10px; padding: 1px 7px; }
+
+/* --- revision wizard (Architecture → Propose a Revision) ------------------ */
+.rev-steps { display: flex; align-items: flex-start; gap: 4px; list-style: none; margin: 4px 0 8px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-md); flex-wrap: wrap; }
+.rev-steps li { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 0; min-width: 130px; opacity: 0.62; }
+.rev-steps li.active { opacity: 1; }
+.rev-step-dot { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--surface); border: 1.5px solid var(--border-strong); color: var(--muted); }
+.rev-steps li.active .rev-step-dot { background: var(--red); border-color: var(--red); color: #fff; }
+.rev-step-text { display: flex; flex-direction: column; gap: 1px; font-size: 12.5px; line-height: 1.3; }
+.rev-step-text .hint { font-size: 11.5px; }
+.rev-step-arrow { align-self: center; color: var(--muted); padding: 0 2px; }
+.rev-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.rev-chip { border: 1px solid var(--border-strong); background: var(--surface); border-radius: var(--radius-pill); padding: 4px 12px; font-size: 12.5px; cursor: pointer; color: var(--text); }
+.rev-chip:hover { border-color: var(--red); }
+.rev-chip.on { background: var(--red-pale); border-color: var(--red); color: var(--red-dark); font-weight: 600; }
+.rev-consequences { margin-top: 10px; font-size: 12.5px; padding: 8px 12px; }
+
+/* --- architecture version timeline ---------------------------------------- */
+.vtimeline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 10px; }
+.vt-node-wrap { display: inline-flex; align-items: center; gap: 6px; }
+.vt-node { display: inline-flex; flex-direction: column; gap: 1px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; background: var(--surface-2); min-width: 96px; }
+.vt-node.old { opacity: 0.62; }
+.vt-node.ok { border-color: var(--green); background: var(--green-pale); }
+.vt-node.pending { border-color: var(--amber); background: var(--amber-pale); }
+.vt-node .hint { font-size: 11.5px; }
+.vt-note { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vt-arrow { color: var(--muted); }
+
+/* --- delivery-pack pipeline (Generated → QA → Publish) --------------------- */
+.dp-action-banner { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; padding: 10px 14px; }
+.pack-pipe { display: flex; align-items: flex-start; gap: 2px; min-width: 300px; }
+.pp-node { display: inline-flex; align-items: flex-start; gap: 6px; flex: 1 1 0; }
+.pp-dot { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--muted); }
+.pp-node.done .pp-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.pp-node.now .pp-dot { background: var(--amber); border-color: var(--amber); color: #fff; }
+.pp-node.next { opacity: 0.55; }
+.pp-text { display: flex; flex-direction: column; gap: 0; font-size: 12px; line-height: 1.3; }
+.pp-text .hint { font-size: 11px; }
+.pp-text .link-btn { font-size: 11.5px; padding: 0; text-align: left; }
+.pp-link { flex: none; width: 14px; height: 1.5px; background: var(--border-strong); margin-top: 10px; }
