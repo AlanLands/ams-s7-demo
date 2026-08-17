@@ -141,8 +141,14 @@ def story_gaps(story: dict) -> list[str]:
     return gaps
 
 
-def independent_review_gate(reviews: list[dict], tasks: list[dict]) -> list[dict]:
-    """G2 — every completed task has a passing review by an isolated reviewer."""
+def independent_review_gate(
+    reviews: list[dict], tasks: list[dict],
+    developers: dict[str, str] | None = None,
+) -> list[dict]:
+    """G2 — every completed task has a passing review by an isolated reviewer.
+
+    `developers` maps story_id → assigned developer; the independence
+    condition is checked against it, not asserted."""
     done = [t for t in tasks if t.get("status") in (Status.PASSED, Status.COMPLETED,
                                                     "passed", "completed")]
     latest: dict[str, dict] = {}
@@ -161,9 +167,27 @@ def independent_review_gate(reviews: list[dict], tasks: list[dict]) -> list[dict
            f"blocked: {', '.join(blocked)}" if blocked else ""),
         _c("Zero unresolved major gaps", bool(latest) and majors == 0,
            f"{majors} major gaps open" if majors else ""),
-        _c("Reviewer is not the developer", True,
-           "review executes under the independent_reviewer role only"),
+        _c("Reviewer is not the developer", *_reviewer_independence(
+            latest, tasks, developers or {})),
     ]
+
+
+def _reviewer_independence(
+    latest: dict[str, dict], tasks: list[dict], developers: dict[str, str]
+) -> tuple[bool, str]:
+    """Checked against the run's own records, never asserted: no review may
+    name the same person the workspace assignment names as developer."""
+    story_of = {t["task_id"]: t.get("story_id", "") for t in tasks}
+    overlaps = [
+        r["task_id"] for r in latest.values()
+        if r.get("reviewer")
+        and r["reviewer"] == developers.get(story_of.get(r["task_id"], ""))
+    ]
+    if overlaps:
+        return False, f"reviewer matches developer on: {', '.join(overlaps)}"
+    return True, ("verified against workspace assignments"
+                  if developers else
+                  "role separation enforced; no workspace assignments to cross-check")
 
 
 def quality_gate(report: dict | None, staleness: list[dict]) -> list[dict]:

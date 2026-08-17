@@ -3985,7 +3985,8 @@ class Engine:
         self._save_tasks(tasks)
 
         gate.conditions = gates.independent_review_gate(
-            list(self._latest_reviews().values()), tasks
+            list(self._latest_reviews().values()), tasks,
+            developers=self._assignments(),
         )
         all_done = all(t["status"] == Status.COMPLETED.value for t in tasks)
         if all_done and gates.all_met(gate.conditions):

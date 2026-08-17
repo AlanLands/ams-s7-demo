@@ -83,9 +83,10 @@ def isolated_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 
 def _fake_provider(seen: dict[str, object], usage: llm.Usage):
-    def caller(prompt: str, system: str | None, json_mode: bool):
+    def caller(prompt: str, system: str | None, json_mode: bool, model: str | None = None):
         seen["prompt"] = prompt
         seen["system"] = system
+        seen["model"] = model
         return "response", usage
 
     return caller

@@ -269,11 +269,11 @@ def _anthropic_system_blocks(system: str) -> list[dict[str, Any]]:
     return [{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}]
 
 
-def _call_anthropic(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_anthropic(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     import anthropic
 
     client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
-    model = _model_for("anthropic")
+    model = model or _model_for("anthropic")
     kwargs: dict[str, Any] = {}
     if system:
         kwargs["system"] = _anthropic_system_blocks(system)
@@ -299,9 +299,9 @@ def _bedrock_client() -> Any:
     )
 
 
-def _call_bedrock(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_bedrock(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     client = _bedrock_client()
-    model = _model_for("bedrock")
+    model = model or _model_for("bedrock")
     kwargs: dict[str, Any] = {}
     if system:
         kwargs["system"] = _anthropic_system_blocks(system)
@@ -326,11 +326,11 @@ def _openai_messages(prompt: str, system: str | None) -> list[dict[str, str]]:
     return messages
 
 
-def _call_openai(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_openai(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     from openai import OpenAI
 
     client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-    model = _model_for("openai")
+    model = model or _model_for("openai")
     kwargs: dict[str, Any] = {}
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -369,9 +369,9 @@ def _custom_model() -> str:
     return model
 
 
-def _call_custom(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_custom(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     client = _custom_client()
-    model = _custom_model()
+    model = model or _custom_model()
     kwargs: dict[str, Any] = {}
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -392,9 +392,9 @@ def _ollama_client() -> Any:
     return OpenAI(base_url=f"{base_url}/v1", api_key="ollama")
 
 
-def _call_ollama(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_ollama(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     client = _ollama_client()
-    model = _model_for("ollama")
+    model = model or _model_for("ollama")
     kwargs: dict[str, Any] = {}
     if json_mode:
         kwargs["response_format"] = {"type": "json_object"}
@@ -423,7 +423,7 @@ def _claude_cli_usage(raw: dict[str, Any]) -> Usage:
     )
 
 
-def _call_claude_cli(prompt: str, system: str | None, json_mode: bool) -> tuple[str, Usage]:
+def _call_claude_cli(prompt: str, system: str | None, json_mode: bool, model: str | None = None) -> tuple[str, Usage]:
     """Record-time provider: shells out to the local `claude` CLI, headless.
 
     Uses the CLI's own login, so no API key is involved. Demo-time never
@@ -431,7 +431,7 @@ def _call_claude_cli(prompt: str, system: str | None, json_mode: bool) -> tuple[
     on Claude Code exists only on the machine that records (hard rule 4).
     """
     cmd = ["claude", "-p", "--output-format", "json"]
-    model = os.environ.get("CLAUDE_CLI_MODEL")
+    model = model or os.environ.get("CLAUDE_CLI_MODEL")
     if model:
         cmd += ["--model", model]
     if system:
@@ -654,6 +654,8 @@ def complete(
     cache_key: str | None = None,
     retries: int = 2,
     usage_out: dict[str, Any] | None = None,
+    provider: str | None = None,
+    model: str | None = None,
 ) -> str:
     """Return a text completion from replay, cache, or the configured live provider.
 
@@ -671,8 +673,18 @@ def complete(
         system = system if system is not None else layered_system
 
     mode = _llm_mode()
-    provider = _resolve_provider()
-    model = _model_for(provider)
+    # Per-call overrides (e.g. an independent review by a *different* model).
+    # Both enter the cache key below, so a recording made under one model can
+    # never replay as another's output.
+    if provider is not None:
+        provider = provider.lower()
+        if provider not in _PROVIDER_CALLERS:
+            raise LLMError(
+                f"Unknown provider override {provider!r}; expected {_PROVIDER_NAMES}"
+            )
+    else:
+        provider = _resolve_provider()
+    model = model or _model_for(provider)
     scenario, beat = scenario_of(cache_key)
     path = _path_for_mode(
         mode=mode,
@@ -714,7 +726,7 @@ def complete(
     last_error: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            response, usage = caller(prompt, system, json_mode)
+            response, usage = caller(prompt, system, json_mode, model=model)
             _write_entry(
                 path,
                 prompt=prompt,
@@ -776,8 +788,18 @@ def stream_complete(
 ) -> Iterator[str]:
     """Yield text chunks from replay, cache, or the configured live provider."""
     mode = _llm_mode()
-    provider = _resolve_provider()
-    model = _model_for(provider)
+    # Per-call overrides (e.g. an independent review by a *different* model).
+    # Both enter the cache key below, so a recording made under one model can
+    # never replay as another's output.
+    if provider is not None:
+        provider = provider.lower()
+        if provider not in _PROVIDER_CALLERS:
+            raise LLMError(
+                f"Unknown provider override {provider!r}; expected {_PROVIDER_NAMES}"
+            )
+    else:
+        provider = _resolve_provider()
+    model = model or _model_for(provider)
     scenario, beat = scenario_of(cache_key)
     path = _path_for_mode(
         mode=mode,

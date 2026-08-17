@@ -23,6 +23,7 @@ Events line schema (the contract the console animates):
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -260,6 +261,18 @@ def _run_pytest(app_dir: Path) -> tuple[bool, str]:
     return proc.returncode == 0, proc.stdout
 
 
+def _reviewer_llm_kwargs() -> dict:
+    """Independent review by a *different* model when configured
+    (REVIEW_LLM_PROVIDER / REVIEW_LLM_MODEL). Empty when unset — the same
+    model reviews under an isolated prompt, and the events say which."""
+    kwargs: dict = {}
+    if os.environ.get("REVIEW_LLM_PROVIDER"):
+        kwargs["provider"] = os.environ["REVIEW_LLM_PROVIDER"]
+    if os.environ.get("REVIEW_LLM_MODEL"):
+        kwargs["model"] = os.environ["REVIEW_LLM_MODEL"]
+    return kwargs
+
+
 def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
     app_dir = root / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
@@ -290,10 +303,18 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
         status="done" if green else "fail",
     )
 
-    ev.emit("reviewer", "independent review against acceptance criteria", status="start")
+    reviewer_kwargs = _reviewer_llm_kwargs()
+    ev.emit(
+        "reviewer",
+        "independent review against acceptance criteria"
+        + (f" (second model: {reviewer_kwargs['model']})"
+           if "model" in reviewer_kwargs
+           else " (same model, isolated reviewer prompt)"),
+        status="start",
+    )
     review = parse_json_block(
         complete(_reviewer_prompt(story, task, app_dir, _sanitize(test_out)), system=_SYSTEM,
-                 json_mode=True, cache_key="s7:downstream:reviewer")
+                 json_mode=True, cache_key="s7:downstream:reviewer", **reviewer_kwargs)
     )
     verdict_ok = review.get("verdict") == "pass"
     ev.emit(
