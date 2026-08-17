@@ -1830,3 +1830,63 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .ps-link { width: 18px; height: 2px; background: var(--border-strong); border-radius: 1px; }
 .ps-link.filled { background: var(--green); }
 @media (max-width: 1100px) { .ps-label { display: none; } .ps-step.now .ps-label { display: inline; } }
+
+/* ==========================================================================
+   Governance polish pass (ui-ux-pro-max: Trust & Authority, density 8,
+   motion subtle). Refines — never fights — the token system above.
+   ========================================================================== */
+
+/* Modals: subtle entrance (200ms), grounded backdrop. */
+.modal-overlay { background: rgba(38, 34, 30, 0.42); backdrop-filter: blur(2px); animation: overlay-in 160ms ease-out; }
+.modal { animation: modal-in 200ms cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes overlay-in { from { opacity: 0; } }
+@keyframes modal-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
+.modal .card-head { border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px; }
+
+/* Phase strip: the page spine — current step reads as a red pill, steps are
+   comfortable targets, state changes ease in. */
+.phase-strip { padding: 8px 12px; background: linear-gradient(180deg, var(--surface), var(--surface-2)); }
+.ps-step { min-height: 36px; transition: background 150ms, color 150ms; }
+.ps-step.now { background: var(--red-pale); border-radius: var(--radius-pill); padding-right: 12px; }
+.ps-dot { transition: background 150ms, border-color 150ms, box-shadow 150ms; }
+.ps-link { transition: background 200ms; }
+
+/* Clickable table rows say so; the selected row carries the brand accent. */
+.dp-table tbody tr { cursor: pointer; transition: background 120ms; }
+.dp-table tbody tr td { border-left: 3px solid transparent; }
+.dp-table tbody tr td:first-child { border-left-width: 3px; }
+.dp-table tbody tr.dp-row-selected td:first-child { border-left-color: var(--red); }
+.dp-table tbody tr.dp-row-selected td { background: var(--red-pale); }
+thead th { letter-spacing: 0.04em; }
+
+/* Metric cards: value → label → hint hierarchy, quiet hover lift. */
+.card.metric { transition: box-shadow 150ms, transform 150ms; }
+.card.metric:hover { box-shadow: var(--shadow-sm); }
+.card.metric .v { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.15; }
+.card.metric .l { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+.card.metric .hint { margin-top: 4px; }
+.card.metric.muted { background: var(--surface-2); }
+.card.metric.muted .v { color: var(--muted); font-weight: 600; }
+
+/* Pipelines / wizard steps / timeline: states ease rather than snap. */
+.pp-dot, .rev-step-dot, .vt-node { transition: background 150ms, border-color 150ms, opacity 150ms; }
+.pp-node, .rev-steps li { transition: opacity 150ms; }
+.rev-chip { transition: background 150ms, border-color 150ms, color 150ms; min-height: 30px; }
+.vtimeline { background: linear-gradient(180deg, var(--surface), var(--surface-2)); }
+
+/* Action banner: match the warn card family but read as a headline, not a box. */
+.dp-action-banner { border-left-width: 4px; box-shadow: none; }
+.dp-action-banner b { font-size: 13.5px; }
+
+/* Build pages: consistent vertical rhythm between the strip, heads and cards. */
+.phase-strip + .page-head { margin-top: 2px; }
+.bo-compact .page-head h2 { letter-spacing: -0.01em; }
+
+/* Link-buttons inside pipelines get an underline affordance on hover only. */
+.pp-text .link-btn { text-decoration: none; }
+.pp-text .link-btn:hover { text-decoration: underline; }
+
+@media (prefers-reduced-motion: reduce) {
+  .modal, .modal-overlay { animation: none; }
+  .card.metric { transition: none; }
+}
