@@ -1,0 +1,2020 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S7 — Full-Scale Application Development &amp; Delivery</title>
+<!--
+  S7 tabletop deck — the counterpart to the S1–S6 use-case deck.
+
+  Self-contained by design: one file, no CDN, no npm, no build step, no fetch,
+  no module imports, no network of any kind. Opens from file:// and presents
+  offline (hard rule 4). Fonts fall back to system faces if the deck's first
+  choices are not installed — nothing is fetched.
+
+  Visual system is matched to the S1–S6 deck (paper #faf8f4, crimson #ba0c2f,
+  gold #c7a566, 1600x900 stage scaled to the viewport, dot rail bottom-right)
+  so the two read as one set.
+
+  HARD RULE 2 — exception, granted explicitly 2026-08-14: this deck names both
+  parties in its footer ("TCS – Canada Life Confidential"), matching the S1–S6
+  deck, at the presenter's direct instruction. The rest of the repo still holds
+  to the rule — the client name lives in this file's BRAND block and nowhere
+  else. Clear CLIENT_NAME to restore the neutral footer.
+
+  HARD RULE 1 / § Staged output — every figure on these slides is either
+  measured by this repo or explicitly marked as not yet measured. Nothing is
+  invented to fill a gap.
+
+  Navigation: → / space / Enter / click / PageDown advance a beat.
+              ← / Backspace / PageUp go back. 1–9 jump to slides 1–9,
+              0 to slide 10, End to the last slide. Home first.
+              R replays the current slide. F fullscreen.
+
+  Present mode: the first click or key press enters fullscreen. It cannot be
+  done on load — a browser only grants fullscreen inside a user gesture — and
+  it fires once, so Escape stays an exit and F stays the manual toggle.
+-->
+<style>
+:root{
+  --paper:#faf8f4; --paper-2:#f4f1ea; --paper-3:#efece5;
+  --ink:#16130e; --ink-soft:#3b3830; --stone:#5f5c52;
+  --crimson:#ba0c2f; --crimson-bright:#d31145; --crimson-deep:#7e0a22;
+  --crimson-wash:#fdf2f4;
+  --gold:#c7a566; --gold-bright:#e3c98f; --gold-ink:#a06a00; --gold-wash:#fbf6ea;
+  --mint-ink:#12693f; --mint-wash:#eef6f1;
+  --line:rgba(22,19,14,.10); --line-2:rgba(22,19,14,.16);
+  --font-display:"Fraunces","Fraunces Variable",Georgia,"Times New Roman",serif;
+  --font-sans:"Manrope","Manrope Variable","Segoe UI",system-ui,-apple-system,sans-serif;
+  --font-mono:"JetBrains Mono","JetBrains Mono Variable","Cascadia Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --card:0 1px 2px rgba(22,19,14,.04), 0 10px 26px -12px rgba(22,19,14,.16);
+  --card-lift:0 1px 2px rgba(22,19,14,.05), 0 18px 44px -22px rgba(22,19,14,.32);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--paper-3)}
+body{font-family:var(--font-sans);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+::selection{background:rgba(186,12,47,.18)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+/* ---------- stage ---------- */
+#stage{position:fixed;left:50%;top:50%;width:1600px;height:900px;transform-origin:50% 50%}
+/* The outgoing slide is hidden instantly, never cross-faded. Both slides are
+   opaque, so dissolving one into the other double-exposes two full pages of
+   text for the length of the transition — the incoming slide fades up from
+   the page ground instead. */
+.slide{position:absolute;inset:0;background:var(--paper);overflow:hidden;cursor:pointer;
+  opacity:0;visibility:hidden;transform:translateY(22px) scale(.99);transition:none}
+.slide.live{opacity:1;visibility:visible;transform:none;
+  transition:opacity .5s var(--ease),transform .5s var(--ease)}
+
+/* ---------- shared chrome ---------- */
+.grain{position:absolute;inset:0;opacity:.6;
+  background-image:radial-gradient(rgba(22,19,14,.055) 1px,transparent 1px);background-size:34px 34px}
+.wash{position:absolute;inset:0}
+.wash.a{background:radial-gradient(880px 460px at 8% -12%,rgba(186,12,47,.07),transparent 62%),
+                  radial-gradient(820px 460px at 94% 108%,rgba(199,165,102,.16),transparent 62%)}
+.wash.b{background:radial-gradient(760px 420px at 2% 12%,rgba(186,12,47,.08),transparent 66%),
+                  radial-gradient(900px 520px at 72% 105%,rgba(199,165,102,.17),transparent 68%)}
+
+.hdr{position:absolute;left:44px;top:16px;right:44px;display:flex;align-items:center;gap:16px;z-index:40}
+.lockup{display:flex;align-items:center;gap:14px;padding-right:16px;border-right:1px solid var(--line-2)}
+.mark{display:flex;align-items:center;gap:9px}
+.mark i{width:26px;height:26px;border-radius:7px;background:var(--crimson);display:grid;place-items:center;flex:0 0 auto}
+.mark i svg{width:16px;height:16px}
+.mark b{font-family:var(--font-display);font-size:17px;font-weight:600;letter-spacing:-.01em}
+.mark.alt i{background:var(--ink)}
+.xsym{font-family:var(--font-display);font-style:italic;font-size:15px;color:rgba(95,92,82,.6)}
+.hdr h2{font-family:var(--font-display);font-size:28px;font-weight:600;line-height:1;letter-spacing:-.025em}
+.hdr p{margin-top:5px;font-family:var(--font-mono);font-size:10.5px;font-weight:500;
+  text-transform:uppercase;letter-spacing:.2em;color:var(--stone)}
+.hint{margin-left:auto;display:flex;align-items:center;gap:12px}
+.hint .cue{text-align:right}
+.hint .cue b{display:block;font-family:var(--font-mono);font-size:10px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.14em;color:var(--crimson)}
+.hint .cue span{display:block;margin-top:2px;font-family:var(--font-mono);font-size:11.5px;color:var(--stone)}
+.hint .cnt{font-family:var(--font-mono);font-size:13px;font-variant-numeric:tabular-nums;color:var(--stone)}
+.pips{display:flex;gap:6px}
+.pips b{width:9px;height:9px;border-radius:99px;background:rgba(22,19,14,.15);transition:all .3s var(--ease);cursor:pointer}
+.pips b.done{background:rgba(186,12,47,.45)}
+.pips b.now{background:var(--crimson);transform:scale(1.25)}
+.blink{width:8px;height:8px;border-radius:99px;background:var(--crimson);animation:blink 1.6s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+.ftr{position:absolute;left:44px;right:44px;bottom:17px;display:flex;justify-content:space-between;
+  font-family:var(--font-mono);font-size:10px;font-weight:500;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--stone);z-index:30}
+
+/* ---------- built-by note ---------- */
+.stamp{position:absolute;right:88px;bottom:112px;z-index:30;
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--font-mono);font-size:10px;font-weight:500;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--stone);white-space:nowrap}
+.stamp::before{content:"";width:26px;height:1px;background:var(--gold)}
+
+/* ---------- reveal engine ---------- */
+[data-at]{opacity:0;transform:translateY(16px);
+  transition:opacity .5s var(--ease),transform .5s var(--ease),filter .5s var(--ease);filter:blur(4px)}
+[data-at].on{opacity:1;transform:none;filter:none}
+[data-at][data-anim="x"]{transform:translateX(-18px)}
+[data-at][data-anim="r"]{transform:translateX(18px)}
+[data-at][data-anim="s"]{transform:scale(.94)}
+[data-at][data-anim="v"]{transform:scaleY(.6);transform-origin:top}
+[data-at].on[data-anim]{transform:none}
+.dimmable{opacity:.32;filter:saturate(.35);transition:opacity .5s var(--ease),filter .5s var(--ease)}
+.dimmable.hot{opacity:1;filter:none}
+
+/* ---------- 01 title ---------- */
+.t-orb{position:absolute;border-radius:50%;filter:blur(64px)}
+.t-orb.one{right:-220px;top:-260px;width:780px;height:780px;
+  background:radial-gradient(circle,rgba(186,12,47,.14),rgba(228,19,63,.05) 55%,transparent 70%);
+  animation:drift1 24s ease-in-out infinite}
+.t-orb.two{left:-200px;bottom:-300px;width:720px;height:720px;
+  background:radial-gradient(circle,rgba(199,165,102,.20),rgba(199,165,102,.06) 55%,transparent 72%);
+  animation:drift2 26s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(-36px,26px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(32px,-22px)}}
+.t-frame{position:absolute;inset:26px;border:1px solid rgba(22,19,14,.10);border-radius:16px}
+.t-body{position:absolute;left:120px;top:224px;max-width:1260px}
+.t-kicker{display:flex;align-items:center;gap:16px}
+.t-kicker i{display:block;width:48px;height:2px;background:var(--crimson)}
+.t-kicker p{font-family:var(--font-mono);font-size:12.5px;font-weight:600;text-transform:uppercase;
+  letter-spacing:.3em;color:rgba(59,56,48,.72)}
+.t-h1{margin-top:26px;font-family:var(--font-display);font-weight:600;letter-spacing:-.015em;line-height:1.02}
+.t-h1 span{display:block;overflow:hidden;padding-bottom:4px}
+.t-h1 em{display:block;font-style:normal;font-size:100px;transform:translateY(112%);
+  animation:rise .9s var(--ease) forwards}
+.t-h1 .l1 em{animation-delay:.45s}
+.t-h1 .l2 em{animation-delay:.62s;background:linear-gradient(90deg,var(--crimson),var(--crimson-bright),var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes rise{to{transform:translateY(0)}}
+.t-lede{margin-top:24px;max-width:820px;font-size:21px;line-height:1.55;color:rgba(59,56,48,.9)}
+.t-lede em{font-family:var(--font-display);font-style:italic;color:var(--crimson)}
+.t-chips{margin-top:34px;display:flex;flex-wrap:wrap;gap:12px;max-width:1200px}
+.t-chips span{display:inline-flex;align-items:center;gap:8px;white-space:nowrap;
+  padding:9px 16px;border:1px solid rgba(59,56,48,.18);border-radius:99px;background:rgba(255,255,255,.5);
+  backdrop-filter:blur(8px);font-family:var(--font-mono);font-size:12px;font-weight:600;
+  text-transform:uppercase;letter-spacing:.14em;color:rgba(59,56,48,.9)}
+.t-chips svg{width:15px;height:15px;color:var(--crimson)}
+
+/* ---------- generic cards ---------- */
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--card)}
+.tag{display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:52px;padding:0 9px;
+  border-radius:8px;font-family:var(--font-mono);font-size:15px;font-weight:700;letter-spacing:.02em;
+  border:1px solid rgba(186,12,47,.35);background:var(--crimson-wash);color:var(--crimson)}
+.tag.gold{border-color:rgba(160,106,0,.45);background:var(--gold-wash);color:var(--gold-ink)}
+.tag.mint{border-color:rgba(18,105,63,.4);background:var(--mint-wash);color:var(--mint-ink)}
+.tag.dark{border-color:rgba(250,248,244,.2);background:rgba(250,248,244,.1);color:var(--paper)}
+.mono-cap{font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.16em}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:6px;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.badge.human{border:1px solid rgba(160,106,0,.4);background:var(--gold-wash);color:var(--gold-ink)}
+.badge.ai{border:1px solid rgba(186,12,47,.3);background:var(--crimson-wash);color:var(--crimson)}
+.badge.rule{border:1px solid rgba(22,19,14,.18);background:var(--paper-2);color:var(--ink-soft)}
+.badge.ok{border:1px solid rgba(18,105,63,.35);background:var(--mint-wash);color:var(--mint-ink)}
+
+/* ---------- 02 scope map ----------
+   A map, not a document: the per-stage detail this slide used to spell out in
+   prose lives on slide 07, one stage at a time. Here a stage is an icon, a
+   name and three keywords. */
+.sc-wrap{position:absolute;left:44px;right:44px;top:118px;bottom:60px;
+  display:grid;grid-template-rows:minmax(0,1fr) 90px 156px;gap:15px}
+.sc-row{display:grid;grid-template-columns:repeat(5,1fr);gap:15px}
+.st{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  overflow:hidden;padding:20px 16px;border-radius:14px;background:#fff;border:1px solid var(--line);
+  box-shadow:var(--card)}
+.st .no{position:absolute;left:15px;top:13px;font-family:var(--font-mono);font-size:12px;
+  font-weight:700;letter-spacing:.08em;color:rgba(186,12,47,.5)}
+.st .halo{width:124px;height:124px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 34%,var(--crimson-wash),rgba(253,242,244,0) 72%);
+  box-shadow:inset 0 0 0 1px rgba(186,12,47,.16)}
+.st .halo svg{width:58px;height:58px;color:var(--crimson)}
+.st h3{margin-top:19px;font-size:26px;font-weight:700;line-height:1.1;letter-spacing:-.025em;text-align:center}
+.st ul{margin-top:22px;width:100%;display:flex;flex-direction:column;gap:8px}
+.st li{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:8px;background:var(--paper-2);
+  font-family:var(--font-mono);font-size:12.3px;font-weight:600;line-height:1.2;color:var(--ink-soft)}
+.st li i{width:5px;height:5px;flex:0 0 auto;border-radius:50%;background:var(--crimson);opacity:.6}
+.st .wm{position:absolute;right:-26px;bottom:-28px;width:136px;height:136px;color:rgba(160,106,0,.055)}
+.gt{display:flex;align-items:center;gap:11px;padding:0 14px;border-radius:12px;
+  border:1px solid rgba(160,106,0,.42);background:var(--gold-wash)}
+.gt>svg{width:19px;height:19px;flex:0 0 auto;color:var(--gold-ink)}
+.gt .id{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:var(--gold-ink);color:var(--paper);
+  display:grid;place-items:center;font-family:var(--font-mono);font-size:13px;font-weight:800}
+.gt b{display:block;font-size:14.5px;font-weight:700;line-height:1.14;letter-spacing:-.01em}
+.gt span{display:block;margin-top:3px;font-family:var(--font-mono);font-size:10.2px;font-weight:700;
+  text-transform:uppercase;letter-spacing:.13em;color:var(--gold-ink)}
+.cv{position:relative;overflow:hidden;border-radius:14px;background:var(--ink);color:var(--paper);
+  display:grid;grid-template-columns:392px minmax(0,1fr);gap:26px;padding:20px 24px;box-shadow:var(--card-lift)}
+.cv .glow{position:absolute;right:-70px;top:-90px;width:260px;height:260px;border-radius:50%;
+  background:rgba(186,12,47,.22);filter:blur(70px)}
+.cv .mono-cap{position:relative;color:var(--gold-bright)}
+.cv h3{position:relative;margin-top:8px;font-size:25px;font-weight:700;line-height:1.1;letter-spacing:-.03em}
+.cv p{position:relative;margin-top:8px;font-size:13.6px;line-height:1.36;color:rgba(250,248,244,.72)}
+.cv-lanes{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:13px;align-content:center}
+.lane{display:flex;align-items:center;gap:13px;padding:13px 15px;border-radius:11px;
+  background:rgba(250,248,244,.06);border:1px solid rgba(250,248,244,.13)}
+.lane .fill{width:26px;height:26px;flex:0 0 auto;border-radius:50%;border:2px solid var(--gold-bright)}
+.lane .fill.all{background:var(--gold-bright)}
+.lane .fill.half{background:linear-gradient(90deg,var(--gold-bright) 50%,transparent 50%)}
+.lane b{display:block;font-size:15.5px;font-weight:700;line-height:1.14}
+.lane span{display:block;margin-top:3px;font-family:var(--font-mono);font-size:10.8px;
+  line-height:1.25;color:rgba(250,248,244,.62)}
+/* staggered entrance — beats the six-cards-at-once pop of the old grid */
+.sc-row>*:nth-child(2){transition-delay:.05s}
+.sc-row>*:nth-child(3){transition-delay:.1s}
+.sc-row>*:nth-child(4){transition-delay:.15s}
+.sc-row>*:nth-child(5){transition-delay:.2s}
+
+/* ---------- 03 data ---------- */
+.d-left{position:absolute;left:44px;top:126px;width:462px;height:636px;border-radius:16px;
+  background:var(--crimson);color:#fff;overflow:hidden;box-shadow:0 22px 54px -30px rgba(126,10,34,.48)}
+.d-left .ring{position:absolute;right:-112px;top:-112px;width:340px;height:340px;border-radius:50%;
+  border:70px solid rgba(255,255,255,.055)}
+.d-inner{position:relative;height:100%;display:flex;flex-direction:column;padding:32px 36px}
+.d-inner>.mono-cap{color:rgba(255,255,255,.75)}
+.d-hero{margin-top:44px}
+.d-hero .lbl{font-size:25px;font-weight:600;color:rgba(255,255,255,.86)}
+.d-hero .big{margin-top:4px;font-family:var(--font-display);font-size:88px;font-weight:600;
+  line-height:.88;letter-spacing:-.04em}
+.d-hero .sub{margin-top:18px;font-size:20px;font-weight:600;line-height:1.3;color:rgba(255,255,255,.84)}
+.d-file{margin-top:20px;display:flex;align-items:flex-start;gap:10px;padding:11px 13px;border-radius:10px;
+  background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.24);
+  font-family:var(--font-mono);font-size:12px;font-weight:600;line-height:1.35;word-break:break-word}
+.d-file svg{width:16px;height:16px;flex:0 0 auto;margin-top:1px}
+.d-foot{margin-top:auto;display:flex;align-items:center;gap:22px;
+  border-top:1px solid rgba(255,255,255,.22);padding-top:24px}
+.d-foot .big{font-family:var(--font-display);font-size:60px;font-weight:600;line-height:1;letter-spacing:-.03em}
+.d-foot p{font-size:16.5px;font-weight:700;line-height:1.24;color:rgba(255,255,255,.88)}
+.d-mid{position:absolute;left:580px;top:126px;width:590px;height:636px;border-radius:16px;
+  background:#fff;border:1px solid rgba(160,106,0,.25);padding:30px 34px;box-shadow:var(--card-lift);
+  display:flex;flex-direction:column}
+.d-mid h3{margin-top:9px;font-size:29px;font-weight:700;line-height:1.1;letter-spacing:-.025em}
+/* the extracted record — real values from a real run, not a mock-up */
+.d-rec{margin-top:18px;flex:1;display:flex;flex-direction:column}
+.d-rec>div{flex:1;display:grid;grid-template-columns:118px minmax(0,1fr);gap:14px;align-items:center;
+  padding:10px 0;border-bottom:1px solid var(--line)}
+.d-rec>div:last-child{border-bottom:0}
+.d-rec dt{font-family:var(--font-mono);font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.14em;color:var(--stone)}
+.d-rec dd{font-size:16.5px;font-weight:700;line-height:1.26;letter-spacing:-.012em}
+.d-rec dd em{display:block;margin-top:2px;font-style:normal;font-family:var(--font-mono);
+  font-size:11.5px;font-weight:600;color:var(--stone)}
+.d-counts{margin-top:auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.d-counts div{padding:13px 8px;border-radius:10px;background:var(--paper-2);text-align:center;
+  border:1px solid var(--line)}
+.d-counts b{display:block;font-family:var(--font-display);font-size:34px;font-weight:600;line-height:1;
+  letter-spacing:-.03em;color:var(--crimson)}
+.d-counts span{display:block;margin-top:7px;font-family:var(--font-mono);font-size:10px;font-weight:600;
+  line-height:1.28;color:var(--stone)}
+.d-prov{margin-top:16px;display:flex;align-items:center;gap:10px;padding-top:14px;
+  border-top:1px solid var(--line);font-family:var(--font-mono);font-size:11px;line-height:1.3;color:var(--stone)}
+.d-right{position:absolute;left:1226px;top:126px;width:330px;height:636px;border-radius:16px;
+  background:var(--ink);color:var(--paper);overflow:hidden;box-shadow:var(--card-lift)}
+.d-right .ring{position:absolute;right:-96px;bottom:-80px;width:270px;height:270px;border-radius:50%;
+  border:56px solid rgba(199,165,102,.10)}
+.d-right .in{position:relative;height:100%;padding:32px}
+.d-right .mono-cap{color:var(--gold-bright)}
+.d-right .q{margin-top:52px;font-size:31px;font-weight:700;line-height:1.16;letter-spacing:-.025em}
+.d-right .n{margin-top:22px;font-size:16px;line-height:1.45;color:rgba(250,248,244,.72)}
+.d-strip{position:absolute;left:44px;right:44px;bottom:44px;height:74px;display:flex;align-items:center}
+.d-strip .rule{position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line-2)}
+.d-gen{position:relative;margin:0 auto;display:flex;align-items:center;gap:12px;
+  background:var(--paper);padding:0 22px}
+.d-gen .it{display:flex;align-items:center;gap:10px;padding:10px 15px;border-radius:10px;
+  border:1px solid var(--line-2);background:#fff;box-shadow:var(--card)}
+.d-gen .it svg{width:19px;height:19px;flex:0 0 auto;color:var(--gold-ink)}
+.d-gen .it b{display:block;font-size:14.5px;font-weight:700;line-height:1.15;letter-spacing:-.01em}
+.d-gen .it span{display:block;margin-top:2px;font-family:var(--font-mono);font-size:10.4px;
+  line-height:1.2;color:var(--stone)}
+.d-gen .lead{font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--gold-ink);padding-right:4px}
+
+/* ---------- 04 flow ---------- */
+.f-chip{position:absolute;display:flex;align-items:center;gap:12px;padding:0 14px;height:64px;
+  border-radius:10px;background:#fff;border:1px solid var(--line);box-shadow:var(--card)}
+.f-chip svg{width:22px;height:22px;flex:0 0 auto;color:var(--crimson)}
+.f-chip b{display:block;font-size:16.5px;font-weight:700;line-height:1.15}
+.f-chip span{display:block;margin-top:2px;font-family:var(--font-mono);font-size:12px;color:var(--stone)}
+.f-col{position:absolute;width:288px;top:222px;height:300px;border-radius:12px;background:#fff;
+  border:1px solid var(--line);box-shadow:var(--card);padding:16px;display:flex;flex-direction:column;
+  transition:box-shadow .5s var(--ease),border-color .5s var(--ease),transform .5s var(--ease)}
+.f-col.hot{border-color:rgba(160,106,0,.6);box-shadow:0 0 0 3px rgba(160,106,0,.1),0 16px 36px -14px rgba(160,106,0,.4);
+  transform:translateY(-4px)}
+.f-col.done{border-color:rgba(18,105,63,.35)}
+.f-head{display:flex;align-items:flex-start;gap:11px}
+.f-head h3{flex:1;font-size:19px;font-weight:700;line-height:1.16;letter-spacing:-.02em}
+.f-steps{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+.f-steps li{display:flex;gap:8px;font-family:var(--font-mono);font-size:12.2px;line-height:1.3;color:var(--stone)}
+.f-steps li i{color:rgba(186,12,47,.55);font-style:normal}
+.f-out{margin-top:auto;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;
+  border:1px solid rgba(18,105,63,.3);background:rgba(18,105,63,.06);
+  font-family:var(--font-mono);font-size:12.4px;font-weight:700;line-height:1.2;color:var(--mint-ink);
+  opacity:0;transition:opacity .45s var(--ease)}
+/* hot as well as done: the last column is only ever hot, so gating the outcome
+   chip on done alone means the walk ends without its final payoff. */
+.f-col.hot .f-out,.f-col.done .f-out{opacity:1}
+.f-gate{position:absolute;top:542px;width:288px;height:50px;border-radius:10px;display:flex;align-items:center;
+  gap:10px;padding:0 12px;border:1px dashed rgba(160,106,0,.45);background:rgba(251,246,234,.5);
+  transition:all .5s var(--ease)}
+.f-gate.hot{border-style:solid;border-color:var(--gold-ink);background:var(--gold-wash);
+  box-shadow:0 0 0 3px rgba(160,106,0,.09)}
+.f-gate.done{border-style:solid;border-color:rgba(18,105,63,.4);background:var(--mint-wash)}
+.f-gate b{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--gold-ink)}
+.f-gate.done b{color:var(--mint-ink)}
+.f-gate span{font-family:var(--font-mono);font-size:11px;color:var(--stone);line-height:1.15}
+.f-bar{position:absolute;left:44px;right:44px;top:620px;height:92px;border-radius:12px;background:var(--ink);
+  color:var(--paper);display:flex;align-items:center;gap:24px;padding:0 22px;box-shadow:var(--card-lift)}
+.f-bar .kpi{flex:1;display:flex;flex-direction:column;gap:3px}
+.f-bar .kpi .mono-cap{color:var(--gold-bright)}
+.f-bar .kpi b{font-family:var(--font-mono);font-size:24px;font-weight:700;line-height:1.1}
+.f-bar .kpi span{font-family:var(--font-mono);font-size:11.5px;color:rgba(250,248,244,.6)}
+.f-seam{position:absolute;left:44px;right:44px;top:730px;height:74px;border-radius:12px;background:#fff;
+  border:1px dashed rgba(160,106,0,.45);display:flex;align-items:center;gap:18px;padding:0 22px}
+.f-seam .mono-cap{color:var(--gold-ink)}
+.f-seam p{font-size:16.5px;font-weight:600;color:var(--ink-soft)}
+.f-seam p b{color:var(--ink)}
+#fsvg{position:absolute;inset:0;pointer-events:none;z-index:5}
+#fsvg path.flow{stroke:var(--crimson);stroke-width:2.4;fill:none;stroke-linecap:round;
+  opacity:0;transition:opacity .4s var(--ease)}
+#fsvg path.flow.on{opacity:.85}
+#fsvg path.flow.gold{stroke:var(--gold-ink)}
+#fsvg .lbl{opacity:0;transition:opacity .4s var(--ease)}
+#fsvg .lbl.on{opacity:1}
+#fsvg .lbl rect{fill:#fff;stroke:rgba(186,12,47,.32)}
+#fsvg .lbl text{fill:var(--crimson-deep);font-family:var(--font-mono);font-size:10.5px;font-weight:700;
+  letter-spacing:.05em;text-anchor:middle}
+
+/* ---------- 05 technical ---------- */
+.a-wrap{position:absolute;left:44px;right:44px;top:110px;bottom:52px;
+  display:grid;grid-template-columns:236px minmax(0,1fr) 300px;gap:16px}
+.a-rail{display:grid;grid-template-columns:1fr 52px;gap:12px}
+.a-ui{border-radius:12px;background:rgba(255,255,255,.9);border:1px solid var(--line);padding:14px;
+  box-shadow:0 8px 22px -16px rgba(22,19,14,.5)}
+.a-ui .mono-cap{color:var(--crimson);display:flex;align-items:center;gap:8px}
+.a-ui .mono-cap svg{width:18px;height:18px}
+.a-mock{margin-top:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper-2);padding:10px}
+.a-mock .bar{display:flex;gap:6px;margin-bottom:8px}
+.a-mock .bar i{height:6px;border-radius:99px;display:block}
+.a-mock .bar i:first-child{width:32px;background:rgba(186,12,47,.6)}
+.a-mock .bar i:last-child{width:56px;background:rgba(22,19,14,.16)}
+.a-mock .g{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.a-mock .g i{height:38px;border:1px solid rgba(22,19,14,.08);background:#fff;border-radius:4px;display:block}
+.a-mock .g i.wide{grid-column:span 2;height:20px}
+.a-roles{flex:1;margin-top:12px;border-radius:12px;border:1px dashed rgba(160,106,0,.35);
+  background:rgba(251,246,234,.45);padding:14px}
+.a-roles .mono-cap{color:var(--gold-ink)}
+.a-roles ul{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.a-roles li{font-family:var(--font-mono);font-size:11.6px;line-height:1.3;color:var(--ink-soft)}
+.a-vert{border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.85);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:8px;
+  box-shadow:0 8px 18px -16px rgba(22,19,14,.55)}
+.a-vert svg{width:20px;height:20px;color:var(--crimson)}
+.a-vert span{writing-mode:vertical-rl;transform:rotate(180deg);font-size:12.5px;font-weight:700;
+  line-height:1.2;color:var(--ink-soft);text-align:center}
+.a-main{position:relative;min-width:0;border-left:1px dashed var(--line-2);border-right:1px dashed var(--line-2);
+  padding:0 16px;display:flex;flex-direction:column}
+.a-orch{height:44px;border-radius:10px;background:var(--ink);display:flex;align-items:center;
+  justify-content:center;gap:9px;box-shadow:0 8px 20px -14px rgba(22,19,14,.68)}
+.a-orch svg{width:18px;height:18px;color:var(--gold-bright)}
+.a-orch p{font-family:var(--font-mono);font-size:12px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--paper)}
+.a-grid{flex:1;margin-top:12px;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr);gap:12px}
+.a-cell{position:relative;border-radius:12px;background:rgba(255,255,255,.94);overflow:hidden;
+  box-shadow:0 10px 22px -16px rgba(22,19,14,.42);border:1px solid var(--line)}
+.a-cell .top{display:flex;align-items:center;gap:11px;min-height:60px;padding:10px 14px;
+  border-bottom:1px solid rgba(186,12,47,.12);background:rgba(253,242,244,.7)}
+.a-cell .top i{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:var(--crimson);color:#fff;
+  display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;font-weight:800}
+.a-cell .top h3{flex:1;min-width:0;font-size:16px;font-weight:800;line-height:1.14;letter-spacing:-.02em}
+.a-cell .top svg{width:24px;height:24px;color:rgba(186,12,47,.7);flex:0 0 auto}
+.a-cell ul{padding:10px 14px;display:flex;flex-direction:column;gap:5px}
+.a-cell li{display:flex;gap:9px;font-size:13.2px;font-weight:600;line-height:1.22;color:var(--ink-soft)}
+.a-cell li i{margin-top:.48em;width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:rgba(186,12,47,.7)}
+.a-cell li .star{margin-right:1px;color:var(--gold-ink);font-weight:700}
+.a-gov{margin-top:12px;height:102px;border-radius:12px;background:var(--ink);color:var(--paper);
+  display:grid;grid-template-columns:1fr 1.35fr 1.05fr;gap:14px;padding:12px 16px}
+.a-gov .mono-cap{color:var(--gold-bright);display:flex;align-items:center;gap:8px}
+.a-gov .mono-cap svg{width:17px;height:17px}
+.a-gov p{margin-top:6px;font-size:11.5px;line-height:1.25;color:rgba(250,248,244,.76)}
+.a-gov>div+div{border-left:1px solid rgba(250,248,244,.15);padding-left:14px}
+.a-side{display:grid;grid-template-rows:132px 1fr;gap:12px}
+.a-llm{border-radius:12px;background:rgba(255,255,255,.9);border:1px solid var(--line-2);
+  display:grid;grid-template-columns:1fr 20px 1fr;align-items:center;text-align:center;padding:14px 10px;
+  box-shadow:0 8px 22px -16px rgba(22,19,14,.5)}
+.a-llm .mono-cap{font-size:10px}
+.a-llm svg{width:38px;height:38px;margin:10px auto 0}
+.a-llm .arrow{font-family:var(--font-mono);font-size:19px;font-weight:700;color:rgba(95,92,82,.55)}
+.a-data{min-height:0;border-radius:12px;border:1px dashed var(--line-2);background:rgba(255,255,255,.7);padding:12px}
+.a-data .hd{display:flex;align-items:center;gap:9px;padding-bottom:11px;border-bottom:1px solid var(--line);
+  color:var(--crimson)}
+.a-data .hd svg{width:19px;height:19px}
+.a-data .hd h3{font-family:var(--font-mono);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.13em}
+.a-data ul{margin-top:11px;display:flex;flex-direction:column;gap:9px}
+.a-data li{min-height:46px;display:flex;align-items:center;gap:11px;padding:0 11px;border-radius:9px;
+  background:var(--paper);box-shadow:0 7px 14px -14px rgba(22,19,14,.64),inset 0 0 0 1px var(--line)}
+.a-data li svg{width:19px;height:19px;flex:0 0 auto;color:var(--gold-ink)}
+.a-data li b{font-size:13px;font-weight:700;color:var(--ink-soft);line-height:1.2}
+
+/* ---------- 06 why ---------- */
+.w-wrap{position:absolute;left:44px;right:44px;top:112px;bottom:28px;
+  display:grid;grid-template-columns:1.75fr .9fr;gap:20px}
+/* Flex column rather than height:calc(100% - 132px) against a min-height head:
+   the head grows with its copy, the calc does not, and the last row clips. */
+.w-main{border-radius:22px;border:1px solid rgba(222,215,207,.9);background:rgba(255,255,255,.9);
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:0 16px 45px rgba(36,28,20,.08)}
+.w-head{flex:0 0 auto;min-height:132px;display:flex;align-items:flex-start;justify-content:space-between;
+  gap:24px;padding:22px 28px;border-bottom:1px solid #e7e0d8}
+.w-head .mono-cap{color:var(--crimson);letter-spacing:.24em;font-size:11px}
+.w-head h2{margin-top:6px;font-size:27px;font-weight:600;line-height:1.15;letter-spacing:-.025em}
+.w-head p{margin-top:9px;max-width:820px;font-size:14.5px;font-weight:500;line-height:1.42;color:#504a44}
+.w-head .orb{width:48px;height:48px;flex:0 0 auto;border-radius:14px;background:var(--crimson);color:#fff;
+  display:grid;place-items:center;box-shadow:0 10px 24px rgba(200,16,46,.22)}
+.w-head .orb svg{width:24px;height:24px}
+.w-rows{flex:1;min-height:0;padding:0 28px}
+.w-row{height:33.33%;display:grid;grid-template-columns:72px 1fr;align-items:center;gap:20px;
+  border-bottom:1px solid #ebe5de}
+.w-row:last-child{border-bottom:0}
+.w-row .ic{position:relative;width:58px;height:58px;border-radius:18px;border:1px solid #efc8d0;
+  background:#fff3f5;color:var(--crimson);display:grid;place-items:center}
+.w-row .ic svg{width:27px;height:27px}
+.w-row .ic b{position:absolute;right:-8px;top:-8px;width:24px;height:24px;border-radius:50%;
+  background:var(--crimson);color:#fff;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:9px;font-weight:700}
+.w-row h3{font-size:21px;font-weight:600;line-height:1.2;letter-spacing:-.015em}
+.w-row ul{margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.w-row li{display:flex;gap:10px;align-items:flex-start;font-size:16px;line-height:1.33;color:#504a44}
+.w-row li i{margin-top:8px;width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:#d84c66}
+.w-side{position:relative;border-radius:22px;background:#171411;color:#fff;overflow:hidden;padding:24px 28px;
+  box-shadow:0 18px 48px rgba(24,19,15,.18)}
+.w-side .glow{position:absolute;right:-64px;top:-64px;width:208px;height:208px;border-radius:50%;
+  background:rgba(200,16,46,.2);filter:blur(64px)}
+.w-side .hd{position:relative;display:flex;align-items:flex-start;justify-content:space-between}
+.w-side .mono-cap{color:var(--gold-bright);letter-spacing:.23em;font-size:10px}
+.w-side h2{margin-top:8px;max-width:340px;font-size:30px;font-weight:600;line-height:1.05;letter-spacing:-.03em}
+.w-side .hd svg{width:30px;height:30px;color:var(--gold-bright)}
+.w-gates{position:relative;margin-top:20px}
+.w-gates .spine{position:absolute;left:15px;top:20px;bottom:20px;width:1px;
+  background:linear-gradient(180deg,var(--gold-bright),var(--crimson),var(--gold-bright))}
+.w-gate{position:relative;display:flex;align-items:center;gap:12px;min-height:43px}
+.w-gate b{position:relative;z-index:1;width:31px;height:31px;flex:0 0 auto;border-radius:50%;
+  border:1px solid rgba(214,185,105,.6);background:#171411;color:var(--gold-bright);display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:11px;font-weight:700}
+.w-gate b svg{width:15px;height:15px}
+.w-gate span{font-size:16px;font-weight:600;line-height:1.2;letter-spacing:-.01em}
+.w-gate span em{font-style:normal;font-family:var(--font-mono);font-size:11.5px;color:rgba(250,248,244,.6);
+  display:block;margin-top:2px}
+.w-out{margin-top:18px;border-top:1px solid rgba(255,255,255,.1);padding-top:16px}
+.w-out .mono-cap{font-size:9px;letter-spacing:.2em;color:#9d968f}
+.w-out .g{margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.w-out .g div{display:flex;align-items:center;gap:8px;font-size:14.5px;font-weight:500}
+.w-out .g div i{width:6px;height:6px;flex:0 0 auto;border-radius:50%;background:var(--gold-bright)}
+.w-out .g div.full{grid-column:span 2}
+
+/* ---------- 07 readiness ---------- */
+.r-wrap{position:absolute;left:44px;right:44px;top:112px;bottom:34px;
+  display:grid;grid-template-columns:318px 1fr;gap:20px}
+.r-nav{border-radius:20px;border:1px solid #ded7cf;background:rgba(255,255,255,.88);padding:16px;
+  box-shadow:0 16px 45px rgba(36,28,20,.08)}
+.r-nav .inner{position:relative;height:100%;display:grid;grid-template-rows:repeat(5,minmax(0,1fr));gap:10px}
+.r-nav .spine{position:absolute;left:27px;top:40px;bottom:40px;width:1px;background:#e4dcd4}
+.r-step{position:relative;z-index:1;display:grid;grid-template-columns:50px 1fr;align-items:center;gap:12px;
+  border-radius:15px;border:1px solid #e5ded6;background:#fbf9f6;padding:0 12px;text-align:left;
+  transition:all .35s var(--ease)}
+.r-step:hover{border-color:#d3c5bd}
+.r-step .ic{width:42px;height:42px;border-radius:13px;border:1px solid #e3dbd3;background:#fff;color:#8c837a;
+  display:grid;place-items:center;transition:all .35s var(--ease)}
+.r-step .ic svg{width:20px;height:20px}
+.r-step .mono-cap{font-size:9px;letter-spacing:.18em;color:var(--crimson)}
+.r-step .nm{margin-top:4px;display:block;font-size:14.5px;font-weight:600;line-height:1.16}
+.r-step.past .ic{border-color:#efd1d7;background:#fff1f4;color:var(--crimson)}
+.r-step.now{border-color:var(--crimson);background:var(--crimson);color:#fff;
+  box-shadow:0 12px 28px rgba(200,16,46,.2)}
+.r-step.now .ic{border-color:rgba(255,255,255,.25);background:rgba(255,255,255,.12);color:#fff}
+.r-step.now .mono-cap{color:rgba(255,255,255,.75)}
+.r-panel{position:relative;border-radius:20px;border:1px solid #ded7cf;background:rgba(255,255,255,.92);
+  overflow:hidden;box-shadow:0 18px 50px rgba(36,28,20,.09)}
+.r-glow{position:absolute;right:-100px;top:-120px;width:420px;height:420px;border-radius:50%;
+  background:rgba(200,16,46,.045);filter:blur(64px)}
+.r-hd{position:absolute;left:28px;right:28px;top:24px;height:104px;display:flex;align-items:center;gap:20px;
+  border-bottom:1px solid #e7e0d8}
+.r-hd .orb{width:72px;height:72px;flex:0 0 auto;border-radius:21px;background:var(--crimson);color:#fff;
+  display:grid;place-items:center;box-shadow:0 14px 30px rgba(200,16,46,.2)}
+.r-hd .orb svg{width:36px;height:36px}
+.r-hd .tagrow{display:flex;align-items:center;gap:12px}
+.r-hd .pill{padding:6px 12px;border-radius:99px;background:#fff0f3;color:var(--crimson);
+  font-family:var(--font-mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.18em}
+.r-hd .mono-cap{font-size:9px;letter-spacing:.2em;color:#8b837a}
+.r-hd h2{margin-top:9px;font-size:32px;font-weight:600;line-height:1.04;letter-spacing:-.03em}
+.r-body{position:absolute;left:28px;right:28px;top:150px;bottom:112px;
+  display:grid;grid-template-columns:minmax(0,1fr) 484px;gap:18px}
+.r-diff{display:flex;flex-direction:column;min-height:0}
+.r-diff .mono-cap{font-size:9px;letter-spacing:.22em;color:#8a827a}
+/* The list stretches to the panel: a fixed min-height left the left column
+   half-empty while the right one overflowed. */
+.r-list{flex:1;margin-top:12px;border-radius:16px;border:1px solid #e7e0d8;background:#fbf9f6;
+  overflow:hidden;display:flex;flex-direction:column}
+.r-list li{flex:1;display:grid;grid-template-columns:34px 1fr;align-items:center;gap:11px;min-height:58px;
+  padding:8px 16px;border-bottom:1px solid #e7e0d8}
+.r-list li:last-child{border-bottom:0}
+.r-list li .tick{width:28px;height:28px;border-radius:50%;background:#fff0f3;color:var(--crimson);
+  display:grid;place-items:center}
+.r-list li .tick svg{width:16px;height:16px}
+.r-list li p{font-size:15px;font-weight:500;line-height:1.28;color:#39332e}
+.r-list li p b{font-weight:800;color:#211d19}
+.r-req{border-radius:16px;background:#171411;color:#fff;overflow:hidden;display:flex;flex-direction:column}
+.r-req .hd{height:52px;flex:0 0 auto;display:flex;align-items:center;gap:11px;padding:0 18px;
+  border-bottom:1px solid rgba(255,255,255,.12);color:#e1c777}
+.r-req .hd svg{width:20px;height:20px}
+.r-req .hd p{font-family:var(--font-mono);font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.16em}
+.r-req .sec{padding:9px 16px;border-bottom:1px solid rgba(255,255,255,.12)}
+.r-req .sec:last-child{border-bottom:0}
+.r-req .sec.tok{flex:1;min-height:0;display:flex;flex-direction:column}
+.r-req .sec .k{display:flex;align-items:center;gap:8px;color:#e1c777}
+.r-req .sec .k svg{width:16px;height:16px}
+.r-req .sec .k p{font-family:var(--font-mono);font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.16em}
+.r-req .sec .v{margin-top:5px;font-size:13.2px;font-weight:600;line-height:1.28;color:rgba(255,255,255,.9)}
+.r-req .sec .v.dim{font-weight:500;color:rgba(255,255,255,.72)}
+.r-req .why{margin-top:6px;display:flex;gap:8px;padding:7px 9px;border-radius:8px;
+  border:1px solid rgba(225,199,119,.35);background:rgba(225,199,119,.08)}
+.r-req .why svg{width:14px;height:14px;flex:0 0 auto;margin-top:2px;color:#e1c777}
+.r-req .why span{font-size:12.1px;font-weight:500;line-height:1.3;color:rgba(255,255,255,.82)}
+.r-req .ctl{flex:1;margin-top:8px;display:flex;flex-direction:column;justify-content:space-evenly}
+.r-req .ctl li{display:flex;gap:8px;font-size:12.1px;font-weight:600;line-height:1.26;color:rgba(255,255,255,.9)}
+.r-req .ctl li i{margin-top:.44em;width:5px;height:5px;flex:0 0 auto;border-radius:50%;background:#e1c777}
+.r-foot{position:absolute;left:28px;right:28px;bottom:22px;height:76px;border-radius:16px;background:#171411;
+  color:#fff;display:flex;align-items:center;gap:16px;padding:0 20px}
+.r-foot .orb{width:44px;height:44px;flex:0 0 auto;border-radius:14px;background:#d6b969;color:#171411;
+  display:grid;place-items:center}
+.r-foot .orb svg{width:22px;height:22px}
+.r-foot .mono-cap{font-size:8px;letter-spacing:.22em;color:#d6b969}
+.r-foot p{margin-top:5px;font-size:18px;font-weight:600;line-height:1.2;letter-spacing:-.015em}
+
+/* ---------- 08 metrics ---------- */
+.m-wrap{position:absolute;left:44px;right:44px;top:118px;bottom:62px;
+  display:grid;grid-template-columns:346px minmax(0,1fr) 368px;gap:16px}
+.m-rec{position:relative;border-radius:16px;background:var(--ink);color:var(--paper);overflow:hidden;
+  padding:22px 24px;display:flex;flex-direction:column;box-shadow:var(--card-lift)}
+.m-rec .ring{position:absolute;right:-96px;top:-96px;width:250px;height:250px;border-radius:50%;
+  border:54px solid rgba(199,165,102,.09)}
+.m-rec .mono-cap{position:relative;color:var(--gold-bright)}
+.m-rec h3{position:relative;margin-top:10px;font-size:23px;font-weight:700;line-height:1.14;letter-spacing:-.025em}
+.m-rec>ul{position:relative;margin-top:14px;flex:1;display:flex;flex-direction:column;justify-content:space-between}
+.m-rec li{display:flex;gap:11px;padding:9px 0;border-top:1px solid rgba(250,248,244,.12)}
+.m-rec li:first-child{border-top:0}
+.m-rec li>svg{width:17px;height:17px;flex:0 0 auto;margin-top:2px;color:var(--gold-bright)}
+.m-rec li b{display:block;font-size:14.5px;font-weight:700;line-height:1.2}
+.m-rec li span{display:block;margin-top:3px;font-family:var(--font-mono);font-size:11.2px;
+  line-height:1.32;color:rgba(250,248,244,.66)}
+.m-kpi{min-width:0;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:var(--card-lift);
+  padding:20px 24px 16px;display:flex;flex-direction:column}
+.m-kpi>.mono-cap{color:var(--crimson)}
+.m-kpi h3{margin-top:9px;font-size:23px;font-weight:700;line-height:1.14;letter-spacing:-.025em}
+.m-kpi>ul{flex:1;margin-top:12px;display:flex;flex-direction:column;justify-content:space-between}
+.m-kpi li{display:grid;grid-template-columns:32px minmax(0,1fr) auto;align-items:center;gap:13px;
+  padding:8px 0;border-top:1px solid var(--line)}
+.m-kpi li:first-child{border-top:0}
+.m-kpi li .n{font-family:var(--font-mono);font-size:12px;font-weight:700;color:rgba(186,12,47,.55)}
+.m-kpi li b{display:block;font-size:17px;font-weight:700;line-height:1.18;letter-spacing:-.015em}
+.m-kpi li span.d{display:block;margin-top:3px;font-size:13.4px;line-height:1.28;color:var(--stone)}
+.m-note{margin-top:12px;display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:9px;
+  border:1px dashed rgba(160,106,0,.42);background:var(--gold-wash)}
+.m-note svg{width:17px;height:17px;flex:0 0 auto;color:var(--gold-ink)}
+.m-note p{font-size:13.4px;font-weight:600;line-height:1.26;color:var(--ink-soft)}
+.m-score{display:grid;grid-template-rows:auto repeat(4,1fr);gap:11px}
+.m-score>.hd{display:flex;align-items:center;gap:10px;color:var(--crimson)}
+.m-score>.hd svg{width:19px;height:19px}
+.m-dim{border-radius:12px;background:rgba(255,255,255,.92);border:1px solid var(--line);
+  box-shadow:var(--card);padding:12px 14px;display:flex;flex-direction:column;justify-content:center}
+.m-dim>b{font-size:16.5px;font-weight:700;line-height:1.15;letter-spacing:-.02em}
+.m-dim .r{margin-top:9px;display:flex;align-items:flex-start;gap:9px}
+.m-dim .r i{flex:0 0 auto;min-width:52px;text-align:center;padding:2px 6px;border-radius:6px;
+  font-family:var(--font-mono);font-size:9.5px;font-weight:700;font-style:normal;letter-spacing:.06em}
+.m-dim .r i.sup{border:1px solid var(--line-2);background:var(--paper-2);color:var(--stone)}
+.m-dim .r i.del{border:1px solid rgba(186,12,47,.3);background:var(--crimson-wash);color:var(--crimson)}
+.m-dim .r p{font-size:13px;line-height:1.28;color:var(--ink-soft)}
+
+/* ---------- 09 close ---------- */
+.c-body{position:absolute;left:96px;top:158px;right:96px}
+.c-h{font-family:var(--font-display);font-weight:600;letter-spacing:-.02em;line-height:1.04}
+.c-h span{display:block;padding-bottom:6px}
+.c-h em{display:block;font-style:normal;font-size:66px}
+.c-h .l2 em{background:linear-gradient(90deg,var(--crimson),var(--crimson-bright),var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.c-lede{margin-top:22px;max-width:960px;font-size:19.5px;line-height:1.52;color:rgba(59,56,48,.9)}
+.c-lede b{font-weight:700;color:var(--ink)}
+.c-grid{position:absolute;left:96px;right:96px;bottom:116px;height:256px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.c-card{display:flex;flex-direction:column;padding:20px}
+.c-card>svg{width:26px;height:26px;color:var(--crimson)}
+.c-card h4{margin-top:14px;font-size:19px;font-weight:700;line-height:1.16;letter-spacing:-.02em}
+.c-card p{margin-top:10px;font-size:15px;line-height:1.34;color:var(--ink-soft)}
+.c-card .fo{margin-top:auto;padding-top:12px;border-top:1px solid var(--line);
+  font-family:var(--font-mono);font-size:11.4px;line-height:1.32;color:var(--gold-ink)}
+
+/* ---------- 08 governance & quality ---------- */
+.q-wrap{position:absolute;left:44px;right:44px;top:118px;bottom:60px;
+  display:grid;grid-template-columns:432px minmax(0,1fr) 336px;gap:16px}
+.q-h{border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:var(--card-lift);
+  padding:20px 22px;display:flex;flex-direction:column;min-height:0}
+.q-h>.mono-cap{color:var(--crimson)}
+.q-h h3{margin-top:8px;font-size:23px;font-weight:700;line-height:1.12;letter-spacing:-.025em}
+.q-grp{flex:1;margin-top:14px;display:flex;flex-direction:column}
+.q-grp>p{font-family:var(--font-mono);font-size:9.6px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--gold-ink);padding-bottom:7px}
+.q-grp+.q-grp{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.q-row{flex:1;display:grid;grid-template-columns:34px minmax(0,1fr);align-items:center;gap:11px;
+  padding:5px 0}
+.q-row .g{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:11.5px;font-weight:800;
+  background:var(--crimson);color:#fff}
+.q-row .g.alt{background:var(--gold-wash);color:var(--gold-ink);border:1px solid rgba(160,106,0,.4)}
+.q-row b{display:block;font-size:15px;font-weight:700;line-height:1.15;letter-spacing:-.012em}
+.q-row span{display:block;margin-top:2px;font-family:var(--font-mono);font-size:10.6px;color:var(--stone)}
+.q-c{min-width:0;border-radius:16px;background:#fff;border:1px solid rgba(160,106,0,.28);
+  box-shadow:var(--card-lift);padding:20px 22px;display:flex;flex-direction:column}
+.q-c>.mono-cap{color:var(--gold-ink)}
+.q-c h3{margin-top:8px;font-size:23px;font-weight:700;line-height:1.12;letter-spacing:-.025em}
+.q-c-grid{flex:1;margin-top:14px;display:grid;grid-template-columns:repeat(3,1fr);
+  grid-template-rows:repeat(4,1fr);gap:9px}
+.qc{position:relative;border-radius:10px;border:1px solid var(--line);background:var(--paper-2);
+  padding:10px 11px;display:flex;flex-direction:column;justify-content:center}
+.qc.gate{border-color:rgba(186,12,47,.28);background:var(--crimson-wash)}
+.qc i{font-family:var(--font-mono);font-size:10px;font-weight:800;font-style:normal;
+  letter-spacing:.08em;color:var(--stone)}
+.qc.gate i{color:var(--crimson)}
+.qc b{margin-top:4px;font-size:13.4px;font-weight:700;line-height:1.18;letter-spacing:-.012em}
+.q-note{margin-top:13px;display:flex;gap:10px;align-items:flex-start;padding:11px 13px;border-radius:10px;
+  background:var(--ink);color:var(--paper)}
+.q-note svg{width:17px;height:17px;flex:0 0 auto;margin-top:1px;color:var(--gold-bright)}
+.q-note p{font-size:13.2px;line-height:1.34;color:rgba(250,248,244,.9)}
+.q-note p b{color:#fff}
+.q-d{position:relative;overflow:hidden;border-radius:16px;background:var(--ink);color:var(--paper);
+  padding:22px;display:flex;flex-direction:column;box-shadow:var(--card-lift)}
+.q-d .glow{position:absolute;right:-70px;top:-80px;width:230px;height:230px;border-radius:50%;
+  background:rgba(186,12,47,.22);filter:blur(66px)}
+.q-d .mono-cap{position:relative;color:var(--gold-bright)}
+.q-d h3{position:relative;margin-top:8px;font-size:23px;font-weight:700;line-height:1.12;letter-spacing:-.03em}
+.q-steps{position:relative;flex:1;margin-top:16px;display:flex;flex-direction:column;justify-content:space-evenly}
+.q-step{display:flex;gap:12px;align-items:flex-start}
+.q-step .n{width:28px;height:28px;flex:0 0 auto;border-radius:50%;border:1px solid rgba(214,185,105,.6);
+  display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;font-weight:700;
+  color:var(--gold-bright)}
+.q-step b{display:block;font-size:15.5px;font-weight:700;line-height:1.18}
+.q-step span{display:block;margin-top:3px;font-family:var(--font-mono);font-size:10.8px;line-height:1.3;
+  color:rgba(250,248,244,.64)}
+.q-step .arw{position:relative;height:16px;margin-left:13px;border-left:1px dashed rgba(214,185,105,.5)}
+.q-tail{position:relative;margin-top:14px;padding-top:14px;border-top:1px solid rgba(250,248,244,.15);
+  font-family:var(--font-mono);font-size:11px;line-height:1.35;color:rgba(250,248,244,.66)}
+
+/* ---------- 09 agents ---------- */
+.ag-wrap{position:absolute;left:44px;right:44px;top:118px;bottom:60px;
+  display:grid;grid-template-rows:auto minmax(0,1.5fr) auto minmax(0,.82fr) 188px;gap:11px}
+.ag-lbl{display:flex;align-items:center;gap:11px}
+.ag-lbl .k{width:24px;height:24px;flex:0 0 auto;border-radius:7px;background:var(--crimson);color:#fff;
+  display:grid;place-items:center;font-family:var(--font-mono);font-size:11px;font-weight:800}
+.ag-lbl .k.b{background:var(--ink)}
+.ag-lbl p{font-family:var(--font-mono);font-size:10.6px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.16em;color:var(--ink-soft)}
+.ag-lbl em{font-style:normal;font-family:var(--font-sans);font-size:13px;font-weight:600;
+  text-transform:none;letter-spacing:0;color:var(--stone)}
+.ag-row{display:grid;gap:11px}
+.ag-row.four{grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(2,1fr)}
+.ag-row.three{grid-template-columns:repeat(3,1fr)}
+.ag{border-radius:12px;background:#fff;border:1px solid var(--line);box-shadow:var(--card);
+  padding:13px 15px;display:flex;flex-direction:column;justify-content:center}
+.ag .t{display:flex;align-items:center;gap:10px}
+.ag .t svg{width:19px;height:19px;flex:0 0 auto;color:var(--crimson)}
+.ag .t b{font-size:15px;font-weight:700;line-height:1.14;letter-spacing:-.015em}
+.ag p{margin-top:7px;font-family:var(--font-mono);font-size:11px;line-height:1.32;color:var(--stone)}
+.ag.dn{background:linear-gradient(180deg,#fff,#fbf7f8);border-color:rgba(186,12,47,.22)}
+.ag-not{position:relative;overflow:hidden;border-radius:14px;background:var(--ink);color:var(--paper);
+  padding:16px 20px;display:grid;grid-template-columns:284px minmax(0,1fr);gap:22px;box-shadow:var(--card-lift)}
+.ag-not .glow{position:absolute;left:-60px;bottom:-80px;width:220px;height:220px;border-radius:50%;
+  background:rgba(199,165,102,.2);filter:blur(64px)}
+.ag-not .mono-cap{position:relative;color:var(--gold-bright)}
+.ag-not h3{position:relative;margin-top:7px;font-size:20px;font-weight:700;line-height:1.14;letter-spacing:-.025em}
+.ag-not>div>p{position:relative;margin-top:6px;font-family:var(--font-mono);font-size:10.6px;
+  line-height:1.32;color:rgba(250,248,244,.62)}
+.ag-chips{position:relative;display:flex;flex-wrap:wrap;align-content:center;gap:8px}
+.ag-chips span{padding:6px 11px;border-radius:99px;border:1px solid rgba(250,248,244,.22);
+  background:rgba(250,248,244,.07);font-family:var(--font-mono);font-size:11px;font-weight:600;
+  color:rgba(250,248,244,.88)}
+.ag-gate{grid-column:span 2;margin-top:2px;padding-top:11px;border-top:1px solid rgba(250,248,244,.15);
+  display:flex;align-items:center;gap:10px;position:relative}
+.ag-gate svg{width:17px;height:17px;flex:0 0 auto;color:var(--gold-bright)}
+.ag-gate p{font-size:12.6px;line-height:1.3;color:rgba(250,248,244,.86)}
+
+/* ---------- rail ---------- */
+#rail{position:fixed;right:12px;bottom:30px;z-index:60;display:flex;flex-direction:column;
+  align-items:center;gap:10px}
+#rail .dot{width:6px;border-radius:99px;background:rgba(22,19,14,.2);transition:all .3s var(--ease);
+  height:6px;cursor:pointer}
+#rail .dot:hover{background:rgba(22,19,14,.45)}
+#rail .dot.now{height:20px;background:var(--crimson)}
+#rail .fs{margin-top:4px;width:28px;height:28px;border-radius:6px;border:1px solid var(--line-2);
+  background:rgba(255,255,255,.6);color:var(--stone);display:grid;place-items:center;backdrop-filter:blur(8px)}
+#rail .fs:hover{border-color:rgba(22,19,14,.35);color:var(--ink)}
+#rail .fs svg{width:14px;height:14px}
+
+/* ---------- print ----------
+   One exact 1600x900 page: the slide currently live at the deep-linked beat.
+   demo/render_deck_pdf.py drives this once per slide to build the full PDF;
+   a presenter hitting Ctrl+P gets the slide on screen, same path. */
+@media print{
+  @page{size:1600px 900px;margin:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  #stage{position:absolute;left:0;top:0;transform:none !important}
+  #rail,.hint .blink,.blink{display:none !important}
+  .slide,.slide *,[data-at]{transition:none !important;animation:none !important}
+  /* killing animations also kills their end states — pin the title headline,
+     which otherwise stays translated out of its overflow-hidden line boxes */
+  .t-h1 em{transform:none !important}
+}
+</style>
+</head>
+<body>
+
+<div id="stage">
+
+<!-- ══════════════════ 01 · TITLE ══════════════════ -->
+<section class="slide" data-slide="0">
+  <div class="t-orb one"></div><div class="t-orb two"></div>
+  <div class="t-frame"></div>
+  <div class="hdr" style="top:64px;left:84px;right:84px">
+    <div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b data-brand="supplier">TCS</b></div>
+    <span class="xsym">×</span>
+    <div class="mark alt"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/><path d="M8 11v3a2 2 0 0 0 2 2h3"/></svg></i><b>AI-assisted SDLC</b></div>
+  </div>
+  <div class="t-body">
+    <div class="t-kicker"><i></i><p>AMS Tabletop Exercise · Phase 2 · Scenario S7</p></div>
+    <h1 class="t-h1">
+      <span class="l1"><em>One requirement.</em></span>
+      <span class="l2"><em>Zero ungoverned steps.</em></span>
+    </h1>
+    <p class="t-lede">S7 is the delivery scope: a business-driven project carried end to end — from
+      business requirement through design, build, test and production release — where AI does the
+      structuring and a <em>named human makes every call that matters</em>.</p>
+    <div class="t-chips">
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Five gates, none skippable</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect x="4" y="8" width="16" height="12" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg>No phase self-approves</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg>Every artifact carries its provenance</span>
+      <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/><path d="M4.5 16.5C3 17.8 2.5 21.5 2.5 21.5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1"/><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/></svg>Runs offline from a fresh clone</span>
+    </div>
+  </div>
+  <div class="stamp">Built by TCS</div>
+  <div class="ftr" style="left:84px;right:84px;bottom:58px">
+    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> <span data-brand="conf">TCS Confidential</span></p>
+    <p style="display:flex;align-items:center;gap:8px"><span class="blink"></span>Click, or press → to present full screen</p>
+  </div>
+</section>
+
+<!-- ══════════════════ 02 · SCOPE ══════════════════ -->
+<section class="slide" data-slide="1">
+  <div class="grain"></div><div class="wash a"></div>
+  <div class="hdr">
+    <div class="lockup">
+      <div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div>
+    </div>
+    <div><h2>What S7 covers, stage by stage</h2>
+      <p>slide 02 · five stages · five gates · one coverage model</p></div>
+    <div class="hint"><span class="blink"></span><span class="cnt">Click for the data behind the demo</span></div>
+  </div>
+
+  <div class="sc-wrap">
+
+    <!-- five stages -->
+    <div class="sc-row" data-at="0" data-anim="s">
+      <article class="st">
+        <span class="no">01</span>
+        <span class="halo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10 13H8M16 17H8"/></svg></span>
+        <h3>Intake</h3>
+        <ul>
+          <li><i></i>Document in, not retyped</li>
+          <li><i></i>Routed before spend</li>
+          <li><i></i>Rules captured</li>
+        </ul>
+        <svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/></svg>
+      </article>
+
+      <article class="st">
+        <span class="no">02</span>
+        <span class="halo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg></span>
+        <h3>Planning</h3>
+        <ul>
+          <li><i></i>Stories, then tasks</li>
+          <li><i></i>Criteria carry ids</li>
+          <li><i></i>Waves and teams</li>
+        </ul>
+        <svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4"/></svg>
+      </article>
+
+      <article class="st">
+        <span class="no">03</span>
+        <span class="halo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg></span>
+        <h3>Build &amp; Review</h3>
+        <ul>
+          <li><i></i>Context published</li>
+          <li><i></i>Humans implement</li>
+          <li><i></i>Reviewed independently</li>
+        </ul>
+        <svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4"/></svg>
+      </article>
+
+      <article class="st">
+        <span class="no">04</span>
+        <span class="halo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 18h8M3 22h18M14 22a7 7 0 1 0 0-14h-1M9 14h2M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/></svg></span>
+        <h3>Quality</h3>
+        <ul>
+          <li><i></i>Red baseline first</li>
+          <li><i></i>Evidence per criterion</li>
+          <li><i></i>Conditions, not a score</li>
+        </ul>
+        <svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M6 18h8M3 22h18M14 22a7 7 0 1 0 0-14h-1"/></svg>
+      </article>
+
+      <article class="st">
+        <span class="no">05</span>
+        <span class="halo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/><path d="M4.5 16.5C3 17.8 2.5 21.5 2.5 21.5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1"/><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/></svg></span>
+        <h3>Release</h3>
+        <ul>
+          <li><i></i>Rendered from records</li>
+          <li><i></i>Portable document</li>
+          <li><i></i>Merge stays human</li>
+        </ul>
+        <svg class="wm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.1"><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/></svg>
+      </article>
+    </div>
+
+    <!-- the gate under each stage -->
+    <div class="sc-row" data-at="1" data-anim="v">
+      <div class="gt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="id">G0</span><div><b>Business Owner</b><span>Intake gate</span></div></div>
+      <div class="gt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="id">G1</span><div><b>Business Owner</b><span>Plan sign-off</span></div></div>
+      <div class="gt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="id">G2</span><div><b>Independent reviewer</b><span>Isolated review</span></div></div>
+      <div class="gt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="id">G3</span><div><b>QA Lead</b><span>Quality gate</span></div></div>
+      <div class="gt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span class="id">G4</span><div><b>Release Manager</b><span>Release approval</span></div></div>
+    </div>
+
+    <!-- cross-cutting -->
+    <section class="cv" data-at="2" data-anim="v">
+      <div class="glow"></div>
+      <div>
+        <p class="mono-cap">Cross-cutting</p>
+        <h3>The coverage model</h3>
+        <p>The honest answer to "what does the AI actually cover?" — and the seam where the delivery
+           scope hands work to the support scope.</p>
+      </div>
+      <div class="cv-lanes">
+        <div class="lane"><span class="fill all"></span>
+          <div><b>Agentic</b><span>enters the automated lane</span></div></div>
+        <div class="lane"><span class="fill half"></span>
+          <div><b>AI-assisted</b><span>externally owned</span></div></div>
+        <div class="lane"><span class="fill"></span>
+          <div><b>Manual</b><span>hand-work, counted as such</span></div></div>
+      </div>
+    </section>
+  </div>
+  <div class="ftr"><p>S7 scope</p><p>slide 02</p></div>
+</section>
+
+<!-- ══════════════════ 03 · DATA ══════════════════ -->
+<section class="slide" data-slide="2">
+  <div class="grain" style="opacity:.45"></div><div class="wash b"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>Data used for the demo</h2>
+      <p>slide 03 · one document in · what the run pulled out of it · what we generated</p></div>
+    <div class="hint">
+      <div class="cue"><b id="d-cue-a">Data story 01 / 04</b><span id="d-cue-b">Click to reveal the next layer</span></div>
+      <div class="pips" data-pips="2"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <svg style="position:absolute;inset:0;z-index:2;pointer-events:none" viewBox="0 0 1600 900">
+    <defs><marker id="dar" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 Z" fill="#a06a00"/></marker></defs>
+    <path data-at="1" d="M 505 450 C 535 450, 548 450, 578 450" fill="none" stroke="#a06a00"
+          stroke-width="2.5" opacity=".72" marker-end="url(#dar)"/>
+  </svg>
+
+  <section class="d-left" data-at="0" data-anim="s">
+    <div class="ring"></div>
+    <div class="d-inner">
+      <p class="mono-cap" style="display:flex;align-items:center;gap:12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:26px;height:26px"><path d="M12 22V12"/><path d="m16 17 2 2 4-4"/><path d="M21 11V8a2 2 0 0 0-1-1.7l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.7l7 4a2 2 0 0 0 2 0l1.3-.8"/><path d="M3.3 7 12 12l8.7-5"/></svg>
+        Provided by the client</p>
+      <div class="d-hero">
+        <p class="lbl">Requirement document</p>
+        <p class="big">One</p>
+        <p class="sub">A multi-sprint, business-driven project brief — and nothing else. No application
+          inventory, no ticket extract, no user stories, no data model.</p>
+        <p class="d-file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg>
+          MapleSure-Disability-Claim-Submission-Requirement.pdf</p>
+      </div>
+      <div class="d-foot">
+        <p class="big">0</p>
+        <p>Production records, PII or client-identifiable data, at any point</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="d-mid" data-at="1" data-anim="s">
+    <p class="mono-cap" style="display:flex;align-items:center;gap:12px;color:var(--gold-ink)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:26px;height:26px"><path d="M11 2.8a1 1 0 0 1 2 0l1 5.6a2 2 0 0 0 1.6 1.6l5.6 1a1 1 0 0 1 0 2l-5.6 1a2 2 0 0 0-1.6 1.6l-1 5.6a1 1 0 0 1-2 0l-1-5.6a2 2 0 0 0-1.6-1.6l-5.6-1a1 1 0 0 1 0-2l5.6-1a2 2 0 0 0 1.6-1.6z"/></svg>
+      Read out of that document</p>
+    <h3>Nobody retyped any of this</h3>
+    <div class="d-rec">
+      <div><dt>Epic title</dt><dd>Online Disability Claim Submission for Plan Sponsors</dd></div>
+      <div><dt>Reference</dt><dd>REQ-2026-114<em>epic EPIC-S7-001 · target release 2026.R4</em></dd></div>
+      <div><dt>Owner</dt><dd>Group Benefits Operations<em>domain: Group Disability · priority: High</em></dd></div>
+      <div><dt>Source</dt><dd>Uploaded PDF, read once<em>requested 2026-07-28 · no transcription step</em></dd></div>
+    </div>
+    <div class="d-counts">
+      <div><b>7</b><span>numbered<br>requirements</span></div>
+      <div><b>7</b><span>business<br>rules</span></div>
+      <div><b>2</b><span>clarifications<br>raised</span></div>
+      <div><b>2</b><span>applications<br>affected</span></div>
+    </div>
+    <p class="d-prov">
+      <span class="badge ai">LIVE_AI</span>
+      Measured from run S7-00004. A fresh clone replays the same call offline.</p>
+  </section>
+
+  <section class="d-right" data-at="2" data-anim="s">
+    <div class="ring"></div>
+    <div class="in">
+      <p class="mono-cap" style="display:flex;align-items:center;gap:12px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:26px;height:26px"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+        Assumption</p>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="width:54px;height:54px;margin-top:52px;color:var(--gold-bright)"><path d="M12 5v16"/><path d="m16 12 2 2 4-4"/><path d="M22 6V5a2 2 0 0 0-2-2l-4 0A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4a5 5 0 0 1 4 2 5 5 0 0 1 4-2h4a2 2 0 0 0 2-2v-1.3"/></svg>
+      <p class="q">Estimates are effort-weighted placeholders today.</p>
+      <p class="n">The forward answer is historical delivery data — past stories and the time they actually
+        took. We say that out loud rather than let a number imply otherwise.</p>
+    </div>
+  </section>
+
+  <div class="d-strip" data-at="3">
+    <div class="rule"></div>
+    <div class="d-gen">
+      <span class="lead">Everything else,<br>generated here</span>
+      <span class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"/></svg>
+        <span><b>Synthetic target repositories</b><span>each carrying its own architecture.md</span></span></span>
+      <span class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg>
+        <span><b>Committed replay recordings</b><span>fresh clone, no API key, runs offline</span></span></span>
+      <span class="it">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <span><b>The MapleSure fiction</b><span>scrubbed before anything lands here</span></span></span>
+    </div>
+  </div>
+  <div class="ftr"><p>Demo data</p><p>slide 03</p></div>
+</section>
+
+<!-- ══════════════════ 04 · CONNECTED FLOW ══════════════════ -->
+<section class="slide" data-slide="3">
+  <div class="grain"></div><div class="wash a"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>One requirement, walked end to end</h2>
+      <p id="f-sub">slide 04 · the lane, the gates, and who holds each one</p></div>
+    <div class="hint">
+      <div class="cue"><b id="f-cue-a">Architecture overview</b><span id="f-cue-b">Click to start the walk</span></div>
+      <span class="cnt" id="f-cnt">00 / 07</span>
+      <div class="pips" data-pips="3"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <!-- source chips -->
+  <div class="f-chip" id="src-doc" style="left:44px;top:120px;width:470px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg>
+    <div><b>Requirement document</b><span>upload · paste · pdf · docx</span></div>
+  </div>
+  <div class="f-chip" id="src-repo" style="left:536px;top:120px;width:470px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"/></svg>
+    <div><b>Connected repositories</b><span>each with its own architecture.md</span></div>
+  </div>
+  <div class="f-chip" id="src-rules" style="left:1028px;top:120px;width:528px">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>
+    <div><b>Business rules</b><span>AI extractions (BR-n) + human rules (BR-Hn)</span></div>
+  </div>
+
+  <svg id="fsvg" viewBox="0 0 1600 900">
+    <defs>
+      <marker id="far" viewBox="0 0 8 8" refX="7.1" refY="4" markerWidth="8.5" markerHeight="8.5"
+              markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+        <path d="M0,.7 L7.2,4 L0,7.3 Z" fill="var(--crimson)"/></marker>
+      <marker id="fag" viewBox="0 0 8 8" refX="7.1" refY="4" markerWidth="8.5" markerHeight="8.5"
+              markerUnits="userSpaceOnUse" orient="auto-start-reverse">
+        <path d="M0,.7 L7.2,4 L0,7.3 Z" fill="var(--gold-ink)"/></marker>
+    </defs>
+    <!-- sources down into intake -->
+    <path class="flow" data-at="1" d="M 150 186 L 150 218" marker-end="url(#far)"/>
+    <path class="flow" data-at="1" d="M 700 186 L 700 199 L 200 199 L 200 218" marker-end="url(#far)"/>
+    <path class="flow" data-at="1" d="M 1240 186 L 1240 209 L 252 209 L 252 218" marker-end="url(#far)"/>
+    <!-- stage to stage -->
+    <path class="flow" data-at="2" d="M 336 372 L 356 372" marker-end="url(#far)"/>
+    <path class="flow" data-at="3" d="M 640 372 L 660 372" marker-end="url(#far)"/>
+    <path class="flow" data-at="4" d="M 944 372 L 964 372" marker-end="url(#far)"/>
+    <path class="flow" data-at="5" d="M 1248 372 L 1268 372" marker-end="url(#far)"/>
+    <!-- gate ticks -->
+    <path class="flow gold" data-at="2" d="M 188 526 L 188 540" marker-end="url(#fag)"/>
+    <path class="flow gold" data-at="3" d="M 492 526 L 492 540" marker-end="url(#fag)"/>
+    <path class="flow gold" data-at="4" d="M 796 526 L 796 540" marker-end="url(#fag)"/>
+    <path class="flow gold" data-at="5" d="M 1100 526 L 1100 540" marker-end="url(#fag)"/>
+    <path class="flow gold" data-at="6" d="M 1404 526 L 1404 540" marker-end="url(#fag)"/>
+    <!-- ledger -->
+    <path class="flow gold" data-at="7" d="M 796 594 L 796 618" marker-end="url(#fag)"/>
+  </svg>
+
+  <!-- stage columns -->
+  <div class="f-col dimmable" id="col0" style="left:44px">
+    <div class="f-head"><span class="tag">01</span><h3>Intake</h3></div>
+    <ul class="f-steps">
+      <li><i>◆</i>Extraction from the real document</li>
+      <li><i>◆</i>Routing verdict before spend</li>
+      <li><i>◆</i>Analysis + clarification round</li>
+      <li><i>◆</i>Business rules captured</li>
+    </ul>
+    <div class="f-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:15px;height:15px"><path d="M20 6 9 17l-5-5"/></svg>Structured epic</div>
+  </div>
+  <div class="f-col dimmable" id="col1" style="left:348px">
+    <div class="f-head"><span class="tag">02</span><h3>Planning</h3></div>
+    <ul class="f-steps">
+      <li><i>◆</i>Stories with AC ids</li>
+      <li><i>◆</i>Tasks, teams, repositories</li>
+      <li><i>◆</i>Dependency waves</li>
+      <li><i>◆</i>Rule coverage enforced</li>
+    </ul>
+    <div class="f-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:15px;height:15px"><path d="M20 6 9 17l-5-5"/></svg>Signed delivery plan</div>
+  </div>
+  <div class="f-col dimmable" id="col2" style="left:652px">
+    <div class="f-head"><span class="tag">03</span><h3>Build &amp; Review</h3></div>
+    <ul class="f-steps">
+      <li><i>◆</i>Architecture pack v1 accepted</li>
+      <li><i>◆</i>Delivery packs + test skeletons</li>
+      <li><i>◆</i>Published to s7/&lt;run&gt;-&lt;team&gt;</li>
+      <li><i>◆</i>Workspaces · Human Controlled</li>
+    </ul>
+    <div class="f-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:15px;height:15px"><path d="M20 6 9 17l-5-5"/></svg>Reviewed increments</div>
+  </div>
+  <div class="f-col dimmable" id="col3" style="left:956px">
+    <div class="f-head"><span class="tag">04</span><h3>Quality</h3></div>
+    <ul class="f-steps">
+      <li><i>◆</i>Red baseline from AC tests</li>
+      <li><i>◆</i>CI results joined per AC</li>
+      <li><i>◆</i>Named handoff conditions</li>
+      <li><i>◆</i>Staleness surfaced, not assumed</li>
+    </ul>
+    <div class="f-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:15px;height:15px"><path d="M20 6 9 17l-5-5"/></svg>Evidence per criterion</div>
+  </div>
+  <div class="f-col dimmable" id="col4" style="left:1260px">
+    <div class="f-head"><span class="tag">05</span><h3>Release</h3></div>
+    <ul class="f-steps">
+      <li><i>◆</i>Release document generated</li>
+      <li><i>◆</i>Every approval and verdict listed</li>
+      <li><i>◆</i>Markdown + self-contained HTML</li>
+      <li><i>◆</i>Merge stays a human action</li>
+    </ul>
+    <div class="f-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:15px;height:15px"><path d="M20 6 9 17l-5-5"/></svg>Auditable release record</div>
+  </div>
+
+  <!-- gates -->
+  <div class="f-gate" id="g0" style="left:44px"><b>G0</b><span>Intake gate<br>Business Owner</span></div>
+  <div class="f-gate" id="g1" style="left:348px"><b>G1</b><span>Plan sign-off<br>Business Owner</span></div>
+  <div class="f-gate" id="g2" style="left:652px"><b>G2</b><span>Independent review<br>Isolated reviewer</span></div>
+  <div class="f-gate" id="g3" style="left:956px"><b>G3</b><span>Quality gate<br>QA Lead</span></div>
+  <div class="f-gate" id="g4" style="left:1260px"><b>G4</b><span>Release approval<br>Release Manager</span></div>
+
+  <div class="f-bar" data-at="7">
+    <span class="tag dark" style="height:32px;min-width:44px">Ledger</span>
+    <div class="kpi"><p class="mono-cap">Provenance</p><b>Every artifact</b><span>HUMAN · RULE_BASED · LIVE_AI · REPLAYED_AI</span></div>
+    <div class="kpi"><p class="mono-cap">Gates held</p><b>5 of 5</b><span>none skippable, all role-separated</span></div>
+    <div class="kpi"><p class="mono-cap">Overrides</p><b>Recorded</b><span>reason mandatory, badged on the workspace</span></div>
+    <div class="kpi"><p class="mono-cap">Coverage</p><b>Articulated</b><span>agentic vs. AI-assisted vs. manual</span></div>
+  </div>
+
+  <div class="f-seam" data-at="7">
+    <p class="mono-cap">The seam</p>
+    <p>A task small enough goes down the <b>S3 enhancement lane</b>; larger chunks are categorised as
+      manual and counted as such — that is where the delivery scope hands off to the support scope.</p>
+  </div>
+  <div class="ftr"><p>End-to-end flow</p><p>slide 04</p></div>
+</section>
+
+<!-- ══════════════════ 05 · TECHNICAL ARCHITECTURE ══════════════════ -->
+<section class="slide" data-slide="4">
+  <div class="grain" style="opacity:.45"></div><div class="wash b"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>S7 — Technical architecture</h2>
+      <p>slide 05 · surfaces · guardrails · stage workers · systems of record</p></div>
+    <div class="hint"><span class="blink"></span><span class="cnt">Click for what makes it different</span></div>
+  </div>
+
+  <div class="a-wrap">
+    <aside class="a-rail">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="a-ui" data-at="0" data-anim="v">
+          <p class="mono-cap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>Control Centre</p>
+          <div class="a-mock">
+            <div class="bar"><i></i><i></i></div>
+            <div class="g"><i></i><i></i><i class="wide"></i></div>
+          </div>
+        </div>
+        <div class="a-roles" data-at="0" data-anim="s">
+          <p class="mono-cap">Named human roles</p>
+          <ul>
+            <li>Business Owner — signs G0, G1</li>
+            <li>Product Analyst — analysis, plan</li>
+            <li>Delivery Lead — orchestration</li>
+            <li>Engineering Lead — architecture</li>
+            <li>QA Lead — test plan, G3</li>
+            <li>Independent Reviewer — G2</li>
+            <li>Release Manager — G4</li>
+            <li>Support Lead — handover</li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-rows:repeat(3,1fr);gap:12px">
+        <div class="a-vert" data-at="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="16" r="1"/><rect x="3" y="10" width="18" height="12" rx="2"/><path d="M7 10V7a5 5 0 0 1 10 0v3"/></svg><span>Role permissions</span></div>
+        <div class="a-vert" data-at="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg><span>Phase machine</span></div>
+        <div class="a-vert" data-at="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><span>Provenance labels</span></div>
+      </div>
+    </aside>
+
+    <main class="a-main">
+      <div class="a-orch" data-at="0" data-anim="s">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="8" height="8" rx="2"/><path d="M7 11v4a2 2 0 0 0 2 2h4"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+        <p>Stage orchestration · one engine end to end · <b style="color:var(--gold-bright)">✦</b> model-backed, the rest deterministic</p>
+      </div>
+      <div class="a-grid" id="a-grid"></div>
+      <div class="a-gov" data-at="1" data-anim="v">
+        <div><p class="mono-cap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/></svg>Determinism</p>
+          <p>Replay by default; the cache key hashes the prompt, so editing a prompt always misses</p></div>
+        <div><p class="mono-cap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>Responsible AI</p>
+          <p>Staged output is labelled wherever it is shown; a heuristic is never presented as AI</p></div>
+        <div><p class="mono-cap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15.9 4a1.5 1.5 0 0 0-2.5-1.6l-9 9A1.5 1.5 0 0 0 5.5 14h4a.5.5 0 0 1 .5.7L8 20a1.5 1.5 0 0 0 2.5 1.6l9-9A1.5 1.5 0 0 0 18.5 10h-4a.5.5 0 0 1-.5-.7z"/></svg>Cost control</p>
+          <p>Stable cached prefix; deterministic renders instead of calls. Cache counters logged, cost left unset rather than invented</p></div>
+      </div>
+    </main>
+
+    <aside class="a-side">
+      <div class="a-llm" data-at="1" data-anim="r">
+        <div><p class="mono-cap" style="color:var(--gold-ink)">One LLM module</p>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-ink)" stroke-width="1.5"><path d="m10.9 14.8-.4.9M13.1 14.8a3 3 0 1 0-2.3-5.5l-.4-.9"/><path d="m13.1 9.2.4-.9M13.5 15.7l-.4-.9a3 3 0 1 1-2.3-5.5M14.8 10.9l.9-.4M14.8 13.1l.9.4"/><path d="M4.5 10H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-.5M4.5 14H4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2h-.5"/></svg></div>
+        <span class="arrow">→</span>
+        <div><p class="mono-cap" style="color:var(--crimson)">Provider of record</p>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--crimson)" stroke-width="1.3"><path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .5 6.6A4 4 0 1 0 12 18Z"/><path d="M9 13a4.5 4.5 0 0 0 3-4M12 13h4M12 18h6a2 2 0 0 1 2 2v1M12 8h8M16 8V5a2 2 0 0 1 2-2"/></svg></div>
+      </div>
+      <section class="a-data" data-at="1" data-anim="r">
+        <div class="hd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg><h3>Systems of record</h3></div>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4"/></svg><b>Git — target repositories</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/></svg><b>CI — workflow runs, ci-summary.json</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/></svg><b>Artifact plane — deterministic paths</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 12h-5M15 8h-5M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/></svg><b>Run store — ledger + approvals</b></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v16"/><path d="M20 19a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2l-4 0A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg><b>Grounding — architecture.md per repo</b></li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+  <div class="ftr"><p>Technical architecture</p><p>slide 05</p></div>
+</section>
+
+<!-- ══════════════════ 06 · WHY ══════════════════ -->
+<section class="slide" data-slide="5">
+  <div class="grain" style="opacity:.42"></div>
+  <div class="wash" style="background:radial-gradient(760px 420px at 9% -10%,rgba(186,12,47,.08),transparent 64%),radial-gradient(780px 440px at 95% 110%,rgba(199,165,102,.17),transparent 61%)"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>Why this approach for S7</h2>
+      <p>slide 06 · governance is the confidence story, not feature breadth</p></div>
+    <div class="hint"><span class="blink"></span><span class="cnt">Click for stage readiness</span></div>
+  </div>
+
+  <div class="w-wrap">
+    <section class="w-main" data-at="0" data-anim="x">
+      <div class="w-head">
+        <div>
+          <p class="mono-cap">Strategic differentiators</p>
+          <h2>Three commitments that survive a hard question</h2>
+          <p>S7 claims coverage of every SDLC deliverable, not depth in any one of them. What convinces a
+             room is how fabrication is stopped and how many stop gates exist — so those are the three
+             things this build spends its effort on.</p>
+        </div>
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M11 2.8a1 1 0 0 1 2 0l1 5.6a2 2 0 0 0 1.6 1.6l5.6 1a1 1 0 0 1 0 2l-5.6 1a2 2 0 0 0-1.6 1.6l-1 5.6a1 1 0 0 1-2 0l-1-5.6a2 2 0 0 0-1.6-1.6l-5.6-1a1 1 0 0 1 0-2l5.6-1a2 2 0 0 0 1.6-1.6z"/></svg></span>
+      </div>
+      <div class="w-rows">
+        <article class="w-row" data-at="1" data-anim="x">
+          <div class="ic"><b>01</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3.9 8.6a4 4 0 0 1 4.7-4.8 4 4 0 0 1 6.8 0 4 4 0 0 1 4.8 4.8 4 4 0 0 1 0 6.7 4 4 0 0 1-4.8 4.8 4 4 0 0 1-6.7 0 4 4 0 0 1-4.8-4.8 4 4 0 0 1 0-6.7Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <div><h3>A governed control plane, not another IDE</h3>
+            <ul>
+              <li><i></i>Developers keep their own IDE, CLI and Git — S7 never tries to be the editor.</li>
+              <li><i></i>What S7 owns is the context: generate it, version it, publish it, collect the evidence back.</li>
+              <li><i></i>Handoff is a file at a deterministic path validated against a schema — not a chat transcript, so nothing is lost at the surface switch.</li>
+            </ul></div>
+        </article>
+        <article class="w-row" data-at="2" data-anim="x">
+          <div class="ic"><b>02</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 22V7a1 1 0 0 0-1-1H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5a1 1 0 0 0-1-1H2"/><rect x="14" y="2" width="8" height="8" rx="1"/></svg></div>
+          <div><h3>No phase self-approves</h3>
+            <ul>
+              <li><i></i>Five gates with separated roles, enforced in the engine — an out-of-order action is refused, not tolerated.</li>
+              <li><i></i>The generator never accepts its own blueprint; QA never approves tests it did not review; the reviewer cannot edit what it reviews.</li>
+              <li><i></i>The one escape hatch — unblocking a story early — demands a reason and lands in the approvals ledger.</li>
+            </ul></div>
+        </article>
+        <article class="w-row" data-at="3" data-anim="x">
+          <div class="ic"><b>03</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5a3 3 0 1 0-6 .1 4 4 0 0 0-2.5 5.8 4 4 0 0 0 .5 6.6A4 4 0 1 0 12 18Z"/><path d="M12 13h4M12 8h8M16 8V5a2 2 0 0 1 2-2"/></svg></div>
+          <div><h3>Honest by construction</h3>
+            <ul>
+              <li><i></i>Every artifact carries how it was produced — human, rule-based, live AI or replayed AI — and the label ships with it into the document.</li>
+              <li><i></i>Numbers we have not measured are shown as not measured; cost is left unset rather than estimated.</li>
+              <li><i></i>Replay-first determinism means the demo that convinced the room is the demo that runs again tomorrow.</li>
+            </ul></div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="w-side" data-at="0" data-anim="r">
+      <div class="glow"></div>
+      <div class="hd">
+        <div><p class="mono-cap">The estate boundary</p><h2>What S7 never touches</h2></div>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+      </div>
+      <div class="w-gates">
+        <div class="spine"></div>
+        <div class="w-gate" data-at="1" data-anim="r"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg></b><span>Writes only governed context<em>AGENTS.md · .s7/** · governed test roots</em></span></div>
+        <div class="w-gate" data-at="1" data-anim="r"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><path d="M6 9v12"/></svg></b><span>On a fresh s7/… branch<em>never a default branch</em></span></div>
+        <div class="w-gate" data-at="2" data-anim="r"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m4.9 4.9 14.2 14.2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0"/></svg></b><span>Refuses foreign content<em>never overwrites what it did not write</em></span></div>
+        <div class="w-gate" data-at="2" data-anim="r"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></b><span>Fully reversible<em>delete the branch — nothing remains</em></span></div>
+        <div class="w-gate" data-at="3" data-anim="r"><b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg></b><span>Merging is a human act<em>never automated, in any mode</em></span></div>
+      </div>
+      <div class="w-out" data-at="3">
+        <p class="mono-cap">What the room takes away</p>
+        <div class="g">
+          <div><i></i>Requirement to release, one lane</div>
+          <div><i></i>Traceability as a field</div>
+          <div><i></i>Fabrication stopped at the gate</div>
+          <div><i></i>Coverage stated, not claimed</div>
+          <div class="full"><i></i>A gate you can earn the removal of, once a workflow has proven itself</div>
+        </div>
+      </div>
+    </aside>
+  </div>
+  <div class="ftr"><p>Why this approach</p><p>slide 06</p></div>
+</section>
+
+<!-- ══════════════════ 07 · READINESS ══════════════════ -->
+<section class="slide" data-slide="6">
+  <div class="grain" style="opacity:.42"></div>
+  <div class="wash" style="background:radial-gradient(680px 680px at -6% 108%,rgba(186,12,47,.06),transparent 62%)"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>Stage differentiators &amp; readiness</h2>
+      <p>slide 07 · what makes each stage different · what it needs to run</p></div>
+    <div class="hint">
+      <div class="cue"><b id="r-cue-a">Stage 1 of 5</b><span id="r-cue-b">Click for the next stage</span></div>
+      <div class="pips" data-pips="6"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <div class="r-wrap">
+    <aside class="r-nav"><div class="inner" id="r-nav"><div class="spine"></div></div></aside>
+    <section class="r-panel">
+      <div class="r-glow"></div>
+      <div class="r-hd">
+        <span class="orb" id="r-orb"></span>
+        <div>
+          <div class="tagrow"><span class="pill" id="r-pill">S7 · 01</span>
+            <span class="mono-cap">Stage value &amp; deployment readiness</span></div>
+          <h2 id="r-title">—</h2>
+        </div>
+      </div>
+      <div class="r-body">
+        <div class="r-diff">
+          <p class="mono-cap">Key differentiators</p>
+          <ul class="r-list" id="r-diffs"></ul>
+        </div>
+        <aside class="r-req">
+          <div class="hd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></svg><p>Prerequisites &amp; token posture</p></div>
+          <div class="sec"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4Z"/><path d="m2 22 3-3M7.5 13.5 10 11M10.5 16.5 13 14M18 3l-4 4h6l-4 4"/></svg><p>Connectivity</p></div>
+            <p class="v" id="r-conn">—</p></div>
+          <div class="sec"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5"/></svg><p>Data prerequisites</p></div>
+            <p class="v dim" id="r-data">—</p></div>
+          <div class="sec"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/></svg><p>Provenance emitted</p></div>
+            <p class="v dim" id="r-prov">—</p></div>
+          <div class="sec tok"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15.9 4a1.5 1.5 0 0 0-2.5-1.6l-9 9A1.5 1.5 0 0 0 5.5 14h4a.5.5 0 0 1 .5.7L8 20a1.5 1.5 0 0 0 2.5 1.6l9-9A1.5 1.5 0 0 0 18.5 10h-4a.5.5 0 0 1-.5-.7z"/></svg><p id="r-tok-k">Token estimate — why not yet</p></div>
+            <div class="why"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+              <span id="r-tok-why">—</span></div>
+            <ul class="ctl" id="r-tok-ctl"></ul></div>
+        </aside>
+      </div>
+      <div class="r-foot">
+        <span class="orb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span>
+        <div><p class="mono-cap">Outcome</p><p id="r-out">—</p></div>
+      </div>
+    </section>
+  </div>
+  <div class="ftr"><p>Stage readiness</p><p>slide 07</p></div>
+</section>
+
+<!-- ══════════════════ 08 · GOVERNANCE & QUALITY ══════════════════ -->
+<section class="slide" data-slide="7">
+  <div class="grain" style="opacity:.45"></div><div class="wash a"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>No phase self-approves</h2>
+      <p>slide 08 · ten places a human must act · twelve deterministic checks</p></div>
+    <div class="hint">
+      <div class="cue"><b id="q-cue-a">Governance 01 / 03</b><span id="q-cue-b">Click to reveal the next layer</span></div>
+      <div class="pips" data-pips="7"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <div class="q-wrap">
+    <section class="q-h" data-at="0" data-anim="x">
+      <p class="mono-cap">Human decisions</p>
+      <h3>Ten places a human must act</h3>
+      <div class="q-grp" id="q-gates"><p>Five numbered gates</p></div>
+      <div class="q-grp" id="q-more"><p>Five further named decisions</p></div>
+    </section>
+
+    <section class="q-c" data-at="1" data-anim="s">
+      <p class="mono-cap">Automated quality verification</p>
+      <h3>Twelve checks, computed — not asked of a model</h3>
+      <div class="q-c-grid" id="q-checks"></div>
+      <div class="q-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <p>A check that is <b>arithmetic over recorded evidence cannot hallucinate</b> — which is why it
+           sits in judgment over the agents, and not the other way round.</p>
+      </div>
+    </section>
+
+    <aside class="q-d" data-at="2" data-anim="r">
+      <div class="glow"></div>
+      <p class="mono-cap">The quality gate</p>
+      <h3>Three verdicts, in order</h3>
+      <div class="q-steps">
+        <div class="q-step"><span class="n">1</span>
+          <div><b>Independent reviewer</b><span>finished change vs. acceptance criteria — not the tests</span></div></div>
+        <div class="q-step arw"></div>
+        <div class="q-step"><span class="n">2</span>
+          <div><b>Deterministic verdict</b><span>nine blocking conditions over the run’s own records</span></div></div>
+        <div class="q-step arw"></div>
+        <div class="q-step"><span class="n">3</span>
+          <div><b>Human approval</b><span>the final call, with both verdicts in hand</span></div></div>
+      </div>
+      <p class="q-tail">The nine blocking conditions are QC-01 to QC-08 plus “no required artifact is
+        stale”. The remaining four checks are computed and reported, never silently dropped.</p>
+    </aside>
+  </div>
+  <div class="ftr"><p>Governance &amp; quality</p><p>slide 08</p></div>
+</section>
+
+<!-- ══════════════════ 09 · AGENTS ══════════════════ -->
+<section class="slide" data-slide="8">
+  <div class="grain" style="opacity:.42"></div><div class="wash b"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>Agents inside S7</h2>
+      <p>slide 09 · bounded roles · one audited gateway · and what is deliberately not an agent</p></div>
+    <div class="hint">
+      <div class="cue"><b id="ag-cue-a">Agents 01 / 03</b><span id="ag-cue-b">Click to reveal the next layer</span></div>
+      <div class="pips" data-pips="8"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <div class="ag-wrap">
+    <div class="ag-lbl" data-at="0"><span class="k">A</span>
+      <p>Upstream · Control Centre <em>— humans decide, agents draft</em></p></div>
+    <div class="ag-row four" id="ag-up" data-at="0" data-anim="s"></div>
+
+    <div class="ag-lbl" data-at="1"><span class="k b">B</span>
+      <p>Downstream · workspace &amp; review <em>— developers drive, a reviewer judges</em></p></div>
+    <div class="ag-row three" id="ag-down" data-at="1" data-anim="s"></div>
+
+    <section class="ag-not" data-at="2" data-anim="v">
+      <div class="glow"></div>
+      <div>
+        <p class="mono-cap">Deliberately not agents</p>
+        <h3>Deterministic services that cannot invent a result</h3>
+        <p>Computed from real run data — badged RULE_BASED, never sold as AI output.</p>
+      </div>
+      <div class="ag-chips">
+        <span>architecture-pack assembly</span><span>delivery packs</span>
+        <span>rule-derived test skeletons</span><span>git publication</span>
+        <span>dependency wave gating</span><span>CI evidence joins</span>
+        <span>staleness tracking</span><span>quality checks</span><span>release document</span>
+      </div>
+      <div class="ag-gate">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+        <p><b>One audited gateway</b> — every agent call runs through a single LLM module with per-call
+           telemetry, pointed at any OpenAI-compatible endpoint: an enterprise gateway or a self-hosted model.</p>
+      </div>
+    </section>
+  </div>
+  <div class="ftr"><p>Agent operating model</p><p>slide 09</p></div>
+</section>
+
+<!-- ══════════════════ 10 · MEASUREMENT ══════════════════ -->
+<section class="slide" data-slide="9">
+  <div class="grain" style="opacity:.45"></div><div class="wash b"></div>
+  <div class="hdr">
+    <div class="lockup"><div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div></div>
+    <div><h2>How S7 is measured</h2>
+      <p>slide 10 · what a run records · the seven delivery KPIs · the consolidated scorecard</p></div>
+    <div class="hint">
+      <div class="cue"><b id="m-cue-a">Measurement 01 / 03</b><span id="m-cue-b">Click to reveal the next layer</span></div>
+      <div class="pips" data-pips="9"></div><span class="blink"></span>
+    </div>
+  </div>
+
+  <div class="m-wrap">
+    <section class="m-rec" data-at="0" data-anim="x">
+      <div class="ring"></div>
+      <p class="mono-cap">Recorded by every run</p>
+      <h3>Evidence the run already holds</h3>
+      <ul>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div><b>Gates held</b><span>subject · role · approver · decision · timestamp</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/></svg>
+          <div><b>Provenance per artifact</b><span>author · inputs · version · sha256 · outcome</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M11 12H3M21 12h-4M7 8h14M3 8h1M21 16H10M6 16H3"/></svg>
+          <div><b>Criteria with evidence</b><span>per-test CI results, joined to the AC by name</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0"/></svg>
+          <div><b>Overrides</b><span>reason mandatory, in the approvals ledger, badged</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/></svg>
+          <div><b>Publications and amendments</b><span>what was written, where, on whose branch</span></div></li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M15.9 4a1.5 1.5 0 0 0-2.5-1.6l-9 9A1.5 1.5 0 0 0 5.5 14h4a.5.5 0 0 1 .5.7L8 20a1.5 1.5 0 0 0 2.5 1.6l9-9A1.5 1.5 0 0 0 18.5 10h-4a.5.5 0 0 1-.5-.7z"/></svg>
+          <div><b>Per-call telemetry</b><span>tokens and cache read/write counters, as the provider reports them</span></div></li>
+      </ul>
+    </section>
+
+    <section class="m-kpi" data-at="1" data-anim="s">
+      <p class="mono-cap">Delivery KPIs — S7 is judged on these, not on support KPIs</p>
+      <h3>The seven, and where each one honestly stands</h3>
+      <ul>
+        <li><span class="n">01</span>
+          <div><b>Velocity</b><span class="d">Stories and tasks completed per sprint</span></div>
+          <span class="badge rule">needs delivery history</span></li>
+        <li><span class="n">02</span>
+          <div><b>Cycle time</b><span class="d">Stage-to-stage timestamps are already on every ledger entry</span></div>
+          <span class="badge human">run-local only</span></li>
+        <li><span class="n">03</span>
+          <div><b>Estimation accuracy</b><span class="d">Planned against actual effort per story</span></div>
+          <span class="badge rule">estimates are placeholders</span></li>
+        <li><span class="n">04</span>
+          <div><b>Defect leakage</b><span class="d">Defects found after the quality gate has passed</span></div>
+          <span class="badge rule">needs a live release</span></li>
+        <li><span class="n">05</span>
+          <div><b>First-time-right</b><span class="d">Stories approved at independent review without a change request</span></div>
+          <span class="badge ok">recorded per run</span></li>
+        <li><span class="n">06</span>
+          <div><b>On-time / on-budget</b><span class="d">The signed plan as a baseline, against what actually happened</span></div>
+          <span class="badge rule">needs a real baseline</span></li>
+        <li><span class="n">07</span>
+          <div><b>Cost per release</b><span class="d">Token spend and effort attributed to one release</span></div>
+          <span class="badge human">counters logged, cost unset</span></li>
+      </ul>
+      <div class="m-note">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <p>Every row above is either recorded by a run today or marked as not yet measured. Nothing on
+           this slide is estimated to fill a gap — that is the same rule the artifacts follow.</p>
+      </div>
+    </section>
+
+    <section class="m-score" data-at="2" data-anim="r">
+      <div class="hd">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3v16a2 2 0 0 0 2 2h16M18 17V9M13 17V5M8 17v-3"/></svg>
+        <p class="mono-cap">Consolidated scorecard</p>
+      </div>
+      <article class="m-dim">
+        <b>Efficiency</b>
+        <div class="r"><i class="sup">S1–S6</i><p>Effort reduction · productivity per FTE</p></div>
+        <div class="r"><i class="del">S7</i><p>Cycle time · cost per release</p></div>
+      </article>
+      <article class="m-dim">
+        <b>Service quality</b>
+        <div class="r"><i class="sup">S1–S6</i><p>SLA / XLA adherence</p></div>
+        <div class="r"><i class="del">S7</i><p>First-time-right · gates held without override</p></div>
+      </article>
+      <article class="m-dim">
+        <b>Issue resolution</b>
+        <div class="r"><i class="sup">S1–S6</i><p>MTTR · reopen and escalation rates</p></div>
+        <div class="r"><i class="del">S7</i><p>Defect leakage after release</p></div>
+      </article>
+      <article class="m-dim">
+        <b>Delivery productivity</b>
+        <div class="r"><i class="sup">S1–S6</i><p>Backlog ageing</p></div>
+        <div class="r"><i class="del">S7</i><p>Velocity · estimation accuracy · on-time delivery</p></div>
+      </article>
+    </section>
+  </div>
+  <div class="ftr"><p>Measurement</p><p>slide 10</p></div>
+</section>
+
+<!-- ══════════════════ 11 · CLOSE ══════════════════ -->
+<section class="slide" data-slide="10">
+  <div class="t-orb one"></div><div class="t-orb two"></div>
+  <div class="t-frame"></div>
+  <div class="hdr" style="top:52px;left:84px;right:84px">
+    <div class="lockup">
+      <div class="mark"><i><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></i><b>S7</b></div>
+    </div>
+    <div><h2>What a live run needs here</h2>
+      <p>slide 11 · four dependencies · none of them change the pipeline</p></div>
+    <div class="hint"><span class="blink"></span><span class="cnt">Questions</span></div>
+  </div>
+
+  <div class="c-body">
+    <div class="t-kicker"><i></i><p>Closing</p></div>
+    <h2 class="c-h" style="margin-top:20px">
+      <span class="l1"><em>Every gate already holds.</em></span>
+      <span class="l2"><em>What it needs next is access.</em></span>
+    </h2>
+    <p class="c-lede">Simulation and replay run the whole lane offline from a fresh clone today — five
+      gates, provenance on every artifact, and a release document rendered from the run's own records.
+      The four items below are what turn that same run into a live one in your environment.
+      <b>None of them changes the shape of the pipeline.</b></p>
+  </div>
+
+  <div class="c-grid">
+    <article class="card c-card" data-at="1" data-anim="s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/></svg>
+      <h4>Model access</h4>
+      <p>An approved internal assistant, a self-hosted gateway, or a key. Every call goes through one
+         module, chosen by an environment variable.</p>
+      <p class="fo">Simulation and replay need none of it</p>
+    </article>
+    <article class="card c-card" data-at="1" data-anim="s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <h4>A port, or the CLI</h4>
+      <p>The Control Centre is static files bound to 127.0.0.1 — no CDN, no runtime install, no
+         container. It is the surface where a human decides.</p>
+      <p class="fo">If a port cannot be served, the CLI carries the same ledger</p>
+    </article>
+    <article class="card c-card" data-at="1" data-anim="s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="m16 11 2 2 4-4"/></svg>
+      <h4>A domain owner</h4>
+      <p>The submission scenario needs an SME to confirm forms, required attachments, status names and
+         pre-population rules.</p>
+      <p class="fo">Scenario detail, not architecture</p>
+    </article>
+    <article class="card c-card" data-at="1" data-anim="s">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14a9 3 0 0 0 18 0V5M3 12a9 3 0 0 0 18 0"/></svg>
+      <h4>Delivery history</h4>
+      <p>Past stories and the time they actually took — the named grounding source for estimation, and
+         the only honest one.</p>
+      <p class="fo">Until it lands, estimates stay labelled placeholders</p>
+    </article>
+  </div>
+
+  <div class="stamp" style="top:210px;right:110px;bottom:auto">Built by TCS</div>
+  <div class="ftr" style="left:84px;right:84px;bottom:52px">
+    <p>S7 · Full-Scale Application Development &amp; Delivery <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> <span data-brand="conf">TCS Confidential</span></p>
+    <p style="display:flex;align-items:center;gap:8px"><span class="blink"></span>Thank you</p>
+  </div>
+</section>
+
+</div><!-- /stage -->
+
+<div id="rail"></div>
+
+<script>
+/* ── BRAND ────────────────────────────────────────────────────────────────
+   Committed by explicit instruction (2026-08-14) as a one-file exception to
+   hard rule 2 — see the note at the top of this file. Clearing CLIENT_NAME
+   restores the neutral "TCS Confidential" footer everywhere.             */
+const CLIENT_NAME = "Canada Life";
+const SUPPLIER_NAME = "TCS";
+/* ─────────────────────────────────────────────────────────────────────── */
+
+/* ---------- slide 05 data ---------- */
+/* ✦ marks the workers that call the model in live mode; everything unmarked is
+   a deterministic render or computation — the same split slide 09 draws. */
+const AI = '<b class="star">✦</b> ';
+const CELLS = [
+  {id:"01", t:"Intake workers", ic:'<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/>',
+   li:[AI+"Requirement Extractor",AI+"Routing Verdict",AI+"Intake Analyst + Clarification Raiser",AI+"Business Rule Extractor",AI+"New-Application Scaffolder"]},
+  {id:"02", t:"Planning workers", ic:'<path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/>',
+   li:[AI+"Epic-to-Stories Planner",AI+"Acceptance Criteria Writer",AI+"Task Splitter — stream, team, repo",AI+"Dependency Wave Mapper",AI+"Coverage Defect Corrector"]},
+  {id:"03", t:"Architecture workers", ic:'<path d="M3 3v16a2 2 0 0 0 2 2h16M18 17V9M13 17V5M8 17v-3"/>',
+   li:["Architecture Pack Assembler",AI+"Architecture Refiner — lead proposes","Architecture Checks","Version + acceptance tracker"]},
+  {id:"04", t:"Delivery-context workers", ic:'<path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/>',
+   li:["Delivery Pack Renderer","AC Test Skeleton Generator",AI+"QA Amendment Refiner","Git Publisher — AGENTS.md + .s7/**","Workspace Provisioner"]},
+  {id:"05", t:"Evidence workers", ic:'<path d="M6 18h8M3 22h18M14 22a7 7 0 1 0 0-14h-1M9 14h2M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/>',
+   li:["Git Evidence Sync","CI Result Joiner — per AC",AI+"Independent Review Executor","Staleness Walker","Quality Handoff Conditions"]},
+  {id:"06", t:"Release workers", ic:'<path d="M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/>',
+   li:["Release Document Renderer","Approvals Ledger Compiler","Artifact Exporter — portable packages","Run Ledger / KPI Reporter"]}
+];
+
+/* ---------- slide 07 data ---------- */
+const STAGES = [
+  {n:"Intake", pill:"S7 · 01",
+   ic:'<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/>',
+   d:["<b>Reads the real document</b> — title, objective and numbered requirements come from what was actually written, never from a canned sample.",
+      "<b>Routes before it spends</b> — a cheap verdict decides whether the requirement fits a connected repository or needs a new application.",
+      "<b>The analysis raises its own questions</b> — ambiguity becomes a clarification round addressed to the business, not a developer's guess.",
+      "<b>Human rules sit beside AI rules</b> — BR-H ids carry human provenance and survive re-analysis; AI extractions stay immutable."],
+   conn:"Control Centre · LLM module (replay / record / live) · Git remote for repo connection",
+   data:"A requirement document, and zero or more connected repositories, each carrying architecture.md",
+   prov:"RULE_BASED in simulation · LIVE_AI / REPLAYED_AI in live · HUMAN for rules and answers",
+   tokK:"Token estimate — why not yet",
+   tokWhy:"Model access is still pending approval, so no live run has been metered. We log what the provider actually returns and leave cost unset rather than publish a figure we did not measure.",
+   tokCtl:["Basis once metered: requirement length + the repo context pack — not the repository",
+           "Grounding is a bounded context pack per repo, never a whole codebase in the prompt",
+           "The routing verdict runs before analysis, and short-circuits with no model call at all when nothing is connected",
+           "The clarification round is capped, not open-ended"],
+   out:"A structured, grounded epic the business has signed."},
+  {n:"Planning", pill:"S7 · 02",
+   ic:'<path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/>',
+   d:["<b>Traceability is a field, not a paragraph</b> — every acceptance criterion has an id, and tasks point back at the criteria they satisfy.",
+      "<b>Coverage is enforced, not hoped for</b> — unclaimed business rules, thin criteria, off-roster teams and dangling dependencies are collected and sent back in one corrective pass.",
+      "<b>Waves, teams and repositories</b> — the plan knows who does what, where, and in which order.",
+      "<b>Sign-off is load-bearing</b> — it locks the plan and authorises context generation; it does not authorise anyone to write code."],
+   conn:"Control Centre · LLM module · plan cache keyed on rule ids so a new rule forces a fresh call",
+   data:"The signed epic, the merged business-rule set, and the connected repository roster",
+   prov:"LIVE_AI / REPLAYED_AI for the plan · HUMAN for edits, revisions and sign-off",
+   tokK:"Token estimate — why not yet",
+   tokWhy:"Same reason: unmetered until live runs are recorded. Quoting another team's measured figures as ours would be both a confidentiality breach and exactly the mislabelling we refuse elsewhere.",
+   tokCtl:["Basis once metered: epic + merged rule set + repo context, plus at most one corrective call",
+           "One bounded retry names every repairable defect at once, instead of N blind retries",
+           "The plan cache is keyed on rule ids — a re-run with an unchanged rule set costs nothing",
+           "Stage output lands on the artifact plane, so nothing is re-sent to re-plan"],
+   out:"A signed delivery plan: stories, tasks, criteria and waves."},
+  {n:"Build &amp; Review", pill:"S7 · 03",
+   ic:'<path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/>',
+   d:["<b>Human Controlled · AI Assisted</b> — developers implement in their own tooling; S7 generates and publishes the governed context they work from.",
+      "<b>Versioned, accepted architecture</b> — immutable v1, v2, v3 directories; a lead proposes a change, the system refines it, acceptance always resets.",
+      "<b>Publication is narrow by design</b> — only AGENTS.md, .s7/** and governed test roots, on a fresh branch that can never be a default branch.",
+      "<b>Starting work is dependency-gated</b> — per story, never per team, with a recorded override as the only way past."],
+   conn:"Git remote (branch push) · CI provider · Control Centre · LLM module for refinement",
+   data:"The signed plan, the accepted architecture pack, and each target repo's bootstrap record",
+   prov:"RULE_BASED for skeletons and packs · LIVE_AI / REPLAYED_AI for refinement · HUMAN for acceptance, QA approval and assignment · SIMULATED for pseudo-commits",
+   tokK:"Token estimate — why not yet",
+   tokWhy:"Unmetered until live runs are recorded — and most of this stage never calls a model at all, so one headline figure would misrepresent it.",
+   tokCtl:["Basis once metered: architecture pack size plus the number of refinement turns",
+           "Packs, test skeletons and publication are deterministic renders — zero tokens",
+           "Thin task packs reference the plan and architecture by version instead of copying them",
+           "Refinement folds one lead-authored section, not the whole document"],
+   out:"Published context, provisioned workspaces, reviewed increments."},
+  {n:"Quality", pill:"S7 · 04",
+   ic:'<path d="M6 18h8M3 22h18M14 22a7 7 0 1 0 0-14h-1M9 14h2M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/>',
+   d:["<b>A real red baseline</b> — one deliberately-failing test per acceptance criterion, stack-aware, shipped with the pack so CI goes red on purpose first.",
+      "<b>Evidence joins back to the criterion</b> — per-test results are matched by name, so a green run means named criteria passed, not that a pipeline finished.",
+      "<b>Conditions, never a score</b> — the quality handoff names what is outstanding; a number would hide it.",
+      "<b>Staleness rides the provenance walk</b> — revise the architecture and the packs, workspaces and evidence downstream of it are marked stale automatically."],
+   conn:"CI provider (workflow runs + ci-summary.json) · Git remote · Control Centre",
+   data:"Published packs with AC-derived test names, and CI runs from the target repositories",
+   prov:"RULE_BASED for skeletons and joins · HUMAN for the QA gate decision",
+   tokK:"Token estimate — none to make",
+   tokWhy:"There are no model calls in this stage. Skeletons, CI joins and handoff conditions are deterministic, so there is nothing to meter — and nothing to spend.",
+   tokCtl:["Test skeletons are rule-based and stack-aware — badged RULE_BASED, never sold as AI output",
+           "CI results join to criteria by test name; the match is code, not a model",
+           "Staleness rides the existing provenance walk rather than re-deriving state"],
+   out:"Per-criterion evidence and a named quality decision."},
+  {n:"Release", pill:"S7 · 05",
+   ic:'<path d="M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/><path d="M4.5 16.5C3 17.8 2.5 21.5 2.5 21.5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1"/><path d="M9 12a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/>',
+   d:["<b>Rendered from the run's own records</b> — approvals, per-story verdicts, every acceptance criterion with its result. It cannot drift from what happened.",
+      "<b>Portable by default</b> — markdown plus a self-contained HTML page, downloadable, with no dependency on this application to read it.",
+      "<b>Badged RULE_BASED, always</b> — a deterministic rendering is never presented as AI output, in any mode.",
+      "<b>The last step stays human</b> — merging the delivery branch into a working branch is a person's decision, never automated."],
+   conn:"Control Centre · Git remote for the delivery branch · no model call required",
+   data:"The completed run: gates, approvals, reviews, evidence and artifacts",
+   prov:"RULE_BASED for the document · HUMAN for release approval",
+   tokK:"Token estimate — none to make",
+   tokWhy:"There are no model calls in this stage either. The release document is a rendering of records the run already holds.",
+   tokCtl:["Rendered from stored approvals, verdicts and criteria — zero tokens",
+           "Markdown and HTML come from one renderer, not two separate generations",
+           "Badged RULE_BASED in every mode, including the presenter demo environment"],
+   out:"An auditable release record the business can keep."}
+];
+
+/* ---------- slide 08 data ----------
+   Gate owners and check ids are transcribed from the engine, not from prose:
+   roles.py for who may act, engine.py for the QC rows, gates.py for which of
+   them block the quality gate. */
+const ICON = {
+  doc:'<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8l6 6v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/>',
+  route:'<circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v3a3 3 0 0 0 3 3h6"/>',
+  search:'<circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/>',
+  chat:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  scaffold:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/>',
+  list:'<path d="M13 5h8M13 12h8M13 19h8M3 17l2 2 4-4M3 7l2 2 4-4"/>',
+  layers:'<path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5M3 17l9 5 9-5"/>',
+  flask:'<path d="M9 2v6L4 19a2 2 0 0 0 1.8 3h12.4A2 2 0 0 0 20 19L15 8V2M9 2h6M7 15h10"/>',
+  code:'<path d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16"/>',
+  tick:'<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  shield:'<path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.7 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.5 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>'
+};
+const GATES = [
+  {id:"G0", n:"Intake sign-off",      w:"Business Owner"},
+  {id:"G1", n:"Plan sign-off",        w:"Business Owner"},
+  {id:"G2", n:"Independent review",   w:"Independent Reviewer"},
+  {id:"G3", n:"Quality gate",         w:"QA Lead"},
+  {id:"G4", n:"Release approval",     w:"Release Manager"}
+];
+const DECISIONS = [
+  {n:"Architecture acceptance", w:"Engineering Lead · resets on every revision"},
+  {n:"Test-plan approval",      w:"QA Lead · an unapproved pack cannot publish"},
+  {n:"Publication",             w:"Delivery / Engineering Lead · disposable branch"},
+  {n:"Workspace assignment",    w:"Delivery / Engineering Lead · per story"},
+  {n:"Dependency override",     w:"Lead only · reason recorded in the ledger"}
+];
+const QCHECKS = [
+  {id:"QC-01", n:"Requirement → story", g:1}, {id:"QC-02", n:"AC → code",           g:1},
+  {id:"QC-03", n:"AC → test",           g:1}, {id:"QC-04", n:"Test execution",      g:1},
+  {id:"QC-05", n:"Code coverage",       g:1}, {id:"QC-06", n:"Security scan",       g:1},
+  {id:"QC-07", n:"Review gaps",         g:1}, {id:"QC-08", n:"Operational readiness",g:1},
+  {id:"QC-09", n:"Dependency scan",     g:0}, {id:"QC-10", n:"Standards check",     g:0},
+  {id:"QC-11", n:"Regression & integration", g:0}, {id:"QC-12", n:"Performance hand-off", g:0}
+];
+
+/* ---------- slide 09 data ---------- */
+const AGENTS_UP = [
+  {ic:"doc",      t:"Requirement Extraction", p:"txt · md · pdf · docx → a structured requirement"},
+  {ic:"route",    t:"Requirement Routing",    p:"onboarded app or new-application path · human override"},
+  {ic:"search",   t:"Intake Analysis",        p:"grounded impact, business rules, sizing"},
+  {ic:"chat",     t:"Clarification",          p:"a capped Q&A, addressed to the business"},
+  {ic:"scaffold", t:"New-Application Setup",  p:"a reviewable scaffold before any repository exists"},
+  {ic:"list",     t:"Delivery Planning",      p:"stories, tasks, ACs, waves — one bounded self-correction"},
+  {ic:"layers",   t:"Architecture Refinement",p:"a lead's proposal → a new immutable version"},
+  {ic:"flask",    t:"Test-Plan Refinement",   p:"a QA amendment as an overlay, back to approval"}
+];
+const AGENTS_DOWN = [
+  {ic:"code",   t:"Developer Agent",           p:"Implements in the developer's own workspace, grounded in AGENTS.md and the approved architecture. Reviewer findings triage back to it — never a blind retry."},
+  {ic:"tick",   t:"Test Engineer Agent",       p:"Takes the deliberately-failing per-AC skeletons from red to green, so the evidence is a real transition per criterion."},
+  {ic:"shield", t:"Independent Reviewer Agent",p:"Isolated from both roles above. Judges the finished change against the acceptance criteria — not the tests — and issues the G2 verdict."}
+];
+
+/* ---------- flow narration ---------- */
+const FLOW = [
+  {a:"Architecture overview",      b:"Click to start the walk"},
+  {a:"Step 1 · Intake",            b:"The requirement arrives and is structured"},
+  {a:"Step 2 · G0 signed",         b:"The business owns the epic before anything is planned"},
+  {a:"Step 3 · Planning",          b:"Epic becomes stories, tasks and waves"},
+  {a:"Step 4 · G1 signed",         b:"Sign-off locks the plan and opens context generation"},
+  {a:"Step 5 · Build & Review",    b:"Context published; humans build; a reviewer decides"},
+  {a:"Step 6 · Quality",           b:"Evidence joins back to the criteria that asked for it"},
+  {a:"Step 7 · Release",           b:"The run renders its own release record"}
+];
+
+/* ---------- build slide 05 ---------- */
+(function(){
+  const g = document.getElementById("a-grid");
+  CELLS.forEach((c,i)=>{
+    const el = document.createElement("article");
+    el.className = "a-cell"; el.dataset.at = i < 3 ? "0" : "1"; el.dataset.anim = "s";
+    el.innerHTML =
+      '<div class="top"><i>'+c.id+'</i><h3>'+c.t+'</h3>'+
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55">'+c.ic+'</svg></div>'+
+      '<ul>'+c.li.map(x=>'<li><i></i><span>'+x+'</span></li>').join("")+'</ul>';
+    g.appendChild(el);
+  });
+})();
+
+/* ---------- build slide 08 ---------- */
+(function(){
+  const g = document.getElementById("q-gates");
+  GATES.forEach(x => g.insertAdjacentHTML("beforeend",
+    '<div class="q-row"><span class="g">'+x.id+'</span>'+
+    '<div><b>'+x.n+'</b><span>'+x.w+'</span></div></div>'));
+  const m = document.getElementById("q-more");
+  DECISIONS.forEach(x => m.insertAdjacentHTML("beforeend",
+    '<div class="q-row"><span class="g alt">◆</span>'+
+    '<div><b>'+x.n+'</b><span>'+x.w+'</span></div></div>'));
+  const c = document.getElementById("q-checks");
+  QCHECKS.forEach(x => c.insertAdjacentHTML("beforeend",
+    '<div class="qc'+(x.g?" gate":"")+'"><i>'+x.id+'</i><b>'+x.n+'</b></div>'));
+})();
+
+/* ---------- build slide 09 ---------- */
+(function(){
+  const card = a =>
+    '<article class="ag'+(a.dn?" dn":"")+'"><div class="t">'+
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+ICON[a.ic]+'</svg>'+
+    '<b>'+a.t+'</b></div><p>'+a.p+'</p></article>';
+  document.getElementById("ag-up").innerHTML   = AGENTS_UP.map(card).join("");
+  document.getElementById("ag-down").innerHTML = AGENTS_DOWN.map(a=>card({...a,dn:1})).join("");
+})();
+
+/* ---------- build slide 07 nav ---------- */
+(function(){
+  const nav = document.getElementById("r-nav");
+  STAGES.forEach((s,i)=>{
+    const b = document.createElement("button");
+    b.className = "r-step"; b.dataset.i = i;
+    b.innerHTML = '<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">'+s.ic+'</svg></span>'+
+                  '<span><span class="mono-cap">'+s.pill+'</span><span class="nm">'+s.n+'</span></span>';
+    b.addEventListener("click", e=>{ e.stopPropagation(); go(6, i); });
+    nav.appendChild(b);
+  });
+})();
+
+function paintStage(i){
+  const s = STAGES[i];
+  document.getElementById("r-pill").textContent  = s.pill;
+  document.getElementById("r-title").innerHTML   = s.n;
+  document.getElementById("r-orb").innerHTML     = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.55">'+s.ic+'</svg>';
+  document.getElementById("r-conn").textContent  = s.conn;
+  document.getElementById("r-data").textContent  = s.data;
+  document.getElementById("r-prov").textContent  = s.prov;
+  document.getElementById("r-tok-k").textContent = s.tokK;
+  document.getElementById("r-tok-why").textContent = s.tokWhy;
+  document.getElementById("r-tok-ctl").innerHTML = s.tokCtl.map(t => '<li><i></i><span>'+t+'</span></li>').join("");
+  document.getElementById("r-out").textContent   = s.out;
+  document.getElementById("r-diffs").innerHTML = s.d.map(t =>
+    '<li><span class="tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><p>'+t+'</p></li>').join("");
+  document.querySelectorAll(".r-step").forEach((b,j)=>{
+    b.classList.toggle("now", j===i);
+    b.classList.toggle("past", j<i);
+  });
+  document.getElementById("r-cue-a").textContent = "Stage "+(i+1)+" of "+STAGES.length;
+  document.getElementById("r-cue-b").textContent = i === STAGES.length-1 ? "Click for the quality checks" : "Click for the next stage";
+}
+
+/* ---------- deck engine ---------- */
+const SLIDES = [...document.querySelectorAll(".slide")];
+const SUBS   = [0, 2, 3, 7, 1, 3, 4, 2, 2, 2, 1];  // last sub-step index per slide
+let slide = 0, sub = 0;
+
+function fit(){
+  const s = Math.min(innerWidth/1600, innerHeight/900);
+  document.getElementById("stage").style.transform = "translate(-50%,-50%) scale("+s+")";
+}
+addEventListener("resize", fit); fit();
+/* resize alone can be raced by extension- or OS-driven window changes and by
+   fullscreen transitions, leaving the stage scaled for a viewport that no
+   longer exists (observed: stage fitted to 599px in a 543px window). Belt and
+   braces: refit on any viewport-element resize and on fullscreen change. */
+if(typeof ResizeObserver === "function") new ResizeObserver(fit).observe(document.documentElement);
+document.addEventListener("fullscreenchange", fit);
+
+function reveal(root, n){
+  root.querySelectorAll("[data-at]").forEach(el=>{
+    el.classList.toggle("on", +el.dataset.at <= n);
+  });
+}
+
+function paintFlow(n){
+  const root = SLIDES[3];
+  reveal(root, n);
+  document.getElementById("f-cnt").textContent =
+    String(n).padStart(2,"0") + " / " + String(SUBS[3]).padStart(2,"0");
+  document.getElementById("f-cue-a").textContent = FLOW[n].a;
+  document.getElementById("f-cue-b").textContent = FLOW[n].b;
+  // columns: hot on their own step, done afterwards, dimmed until reached.
+  // Step 0 is the overview — everything reads evenly, nothing is dimmed.
+  const hotAt = [1,3,5,6,7];
+  for(let c=0;c<5;c++){
+    const col  = root.querySelector("#col"+c);
+    const hot  = n === hotAt[c];
+    const done = n >  hotAt[c];
+    col.classList.toggle("hot",  hot);
+    col.classList.toggle("done", done);
+    col.classList.toggle("dimmable", n !== 0 && !hot && !done);
+  }
+  // gates: passed one step after their column
+  const gateAt = [2,4,6,6,7];
+  for(let g=0; g<5; g++){
+    const el = root.querySelector("#g"+g);
+    el.classList.toggle("hot",  n === gateAt[g]);
+    el.classList.toggle("done", n >  gateAt[g]);
+  }
+}
+
+/* one beat-counter painter for every slide that carries a cue block */
+function cue(aId, bId, label, n, max, lastText){
+  document.getElementById(aId).textContent =
+    label + " " + String(n+1).padStart(2,"0") + " / " + String(max+1).padStart(2,"0");
+  document.getElementById(bId).textContent =
+    n < max ? "Click to reveal the next layer" : lastText;
+}
+
+function paint(){
+  SLIDES.forEach((s,i)=> s.classList.toggle("live", i===slide));
+  document.querySelectorAll("#rail .dot").forEach((d,i)=> d.classList.toggle("now", i===slide));
+  document.querySelectorAll("[data-pips]").forEach(p=>{
+    const owner = +p.dataset.pips;
+    [...p.children].forEach((b,i)=>{
+      b.classList.toggle("now",  owner===slide && i===sub);
+      b.classList.toggle("done", owner===slide && i< sub);
+    });
+  });
+  if(slide === 3) paintFlow(sub);
+  else if(slide === 6) paintStage(sub);
+  else reveal(SLIDES[slide], sub);
+
+  if(slide === 2){
+    document.getElementById("d-cue-a").textContent = "Data story " + String(sub+1).padStart(2,"0") + " / 04";
+    document.getElementById("d-cue-b").textContent = sub < SUBS[2] ? "Click to reveal the next layer" : "Click to walk the lane";
+  }
+  if(slide === 7) cue("q-cue-a","q-cue-b","Governance",sub,SUBS[7],"Click for the agent model");
+  if(slide === 8) cue("ag-cue-a","ag-cue-b","Agents",sub,SUBS[8],"Click for how S7 is measured");
+  if(slide === 9) cue("m-cue-a","m-cue-b","Measurement",sub,SUBS[9],"Click to close");
+}
+
+function go(s, sb){
+  slide = Math.max(0, Math.min(SLIDES.length-1, s));
+  sub   = Math.max(0, Math.min(SUBS[slide], sb ?? 0));
+  paint();
+  // deep link: #4 opens slide 4, #4.3 opens it at beat 3. No history entries.
+  try{ history.replaceState(null, "", "#" + (slide+1) + (sub ? "."+sub : "")); }catch(e){}
+}
+function next(){ if(sub < SUBS[slide]) { sub++; paint(); } else if(slide < SLIDES.length-1) go(slide+1,0); }
+function prev(){ if(sub > 0) { sub--; paint(); } else if(slide > 0) go(slide-1, SUBS[slide-1]); }
+
+/* rail */
+(function(){
+  const rail = document.getElementById("rail");
+  SLIDES.forEach((_,i)=>{
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.addEventListener("click", e=>{ e.stopPropagation(); go(i,0); });
+    rail.appendChild(d);
+  });
+  const fs = document.createElement("button");
+  fs.className = "fs"; fs.title = "Fullscreen (F)";
+  fs.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M21 3l-7 7M3 21l7-7M9 21H3v-6"/></svg>';
+  fs.addEventListener("click", e=>{ e.stopPropagation(); toggleFs(); });
+  rail.appendChild(fs);
+})();
+
+/* pips */
+document.querySelectorAll("[data-pips]").forEach(p=>{
+  const owner = +p.dataset.pips;
+  for(let i=0;i<=SUBS[owner];i++){
+    const b = document.createElement("b");
+    b.addEventListener("click", e=>{ e.stopPropagation(); go(owner,i); });
+    p.appendChild(b);
+  }
+});
+
+function toggleFs(){
+  autoFs = false;                       // the presenter has taken manual control
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(()=>{});
+}
+
+/* Present mode. A browser refuses fullscreen on load — it only grants it inside
+   a user gesture — so the deck takes the first gesture it gets, which is the
+   click or arrow key that starts the walk. It fires once: re-entering after
+   someone deliberately pressed Escape would fight the presenter. */
+let autoFs = true;
+function presentOnFirstGesture(){
+  if(!autoFs) return;
+  autoFs = false;
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+}
+
+/* Any pointer gesture anywhere counts — slide, rail dot, pip, stage button —
+   except the fullscreen button itself, which would otherwise enter fullscreen
+   on pointerdown and immediately toggle back out on click. */
+addEventListener("pointerdown", e=>{
+  if(!e.target.closest || !e.target.closest("#rail .fs")) presentOnFirstGesture();
+}, true);
+
+SLIDES.forEach(s => s.addEventListener("click", next));
+addEventListener("keydown", e=>{
+  const k = e.key;
+  if(k !== "f" && k !== "F") presentOnFirstGesture();
+  if(["ArrowRight"," ","Enter","PageDown","ArrowDown"].includes(k)){ e.preventDefault(); next(); }
+  else if(["ArrowLeft","Backspace","PageUp","ArrowUp"].includes(k)){ e.preventDefault(); prev(); }
+  else if(k === "Home") go(0,0);
+  else if(k === "End")  go(SLIDES.length-1, SUBS[SLIDES.length-1]);
+  else if(k === "r" || k === "R") go(slide, 0);
+  else if(k === "f" || k === "F") toggleFs();
+  else if(/^[0-9]$/.test(k)) go(k === "0" ? 9 : +k - 1, 0);  // 1–9 → slides 1–9, 0 → slide 10, End → last
+});
+
+/* brand fill-in */
+if(SUPPLIER_NAME) document.querySelectorAll('[data-brand="supplier"]').forEach(n => n.textContent = SUPPLIER_NAME);
+if(CLIENT_NAME){
+  const CONF = (SUPPLIER_NAME ? SUPPLIER_NAME + " – " : "") + CLIENT_NAME + " Confidential";
+  const SEP = ' <span style="color:rgba(22,19,14,.3);margin:0 10px">|</span> ';
+  // Title and closing slides carry a dedicated conf span…
+  document.querySelectorAll('[data-brand="conf"]').forEach(n => n.textContent = CONF);
+  // …every other slide's footer gets the same line appended.
+  document.querySelectorAll(".ftr p:first-child").forEach(n => {
+    if(n.querySelector('[data-brand="conf"]')) return;
+    n.innerHTML = n.textContent + SEP + CONF;
+  });
+}
+
+/* open at #slide[.beat] when given, otherwise at the top */
+(function(){
+  const h = decodeURIComponent(location.hash).replace("#","").trim();
+  if(!h){ paint(); return; }
+  const [a,b] = h.split(".").map(Number);
+  if(Number.isFinite(a)) go(a-1, Number.isFinite(b) ? b : 0); else paint();
+})();
+</script>
+</body>
+</html>
