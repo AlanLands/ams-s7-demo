@@ -26,14 +26,13 @@ function ReleaseDocumentCard() {
           <div className="actions-row" style={{ marginTop: '10px' }}>
             <a
               className="primary"
-              role="button"
               href={`/api/runs/${runId}/release/document.html`}
               target="_blank"
               rel="noopener noreferrer"
             >
               Open document
             </a>
-            <a className="ghost" role="button" href={`/api/runs/${runId}/release/document.md`}>
+            <a className="ghost" href={`/api/runs/${runId}/release/document.md`}>
               Download markdown
             </a>
             <button
@@ -135,14 +134,14 @@ function ApprovalForm() {
       <label className="fld">Approver</label>
       <input
         type="text"
-        placeholder="Approver name (required)"
+        placeholder="Approver name (required)" aria-label="Approver name (required)"
         value={approverName}
         onChange={(event) => setApproverName(event.target.value)}
       />
       <label className="fld">Note</label>
       <input
         type="text"
-        placeholder="Note (optional)"
+        placeholder="Note (optional)" aria-label="Note (optional)"
         value={note}
         onChange={(event) => setNote(event.target.value)}
       />

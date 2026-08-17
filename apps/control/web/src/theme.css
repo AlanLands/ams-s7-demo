@@ -1890,3 +1890,8 @@ thead th { letter-spacing: 0.04em; }
   .modal, .modal-overlay { animation: none; }
   .card.metric { transition: none; }
 }
+
+/* --- accessibility: skip link + keyboard-operable table rows --------------- */
+.skip-link { position: absolute; left: -9999px; top: 8px; z-index: 200; background: var(--surface); color: var(--red); border: 2px solid var(--red); border-radius: var(--radius-sm); padding: 8px 14px; font-weight: 600; }
+.skip-link:focus { left: 8px; }
+.dp-table tbody tr:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }

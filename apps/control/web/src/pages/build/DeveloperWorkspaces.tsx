@@ -316,7 +316,7 @@ function WorkspaceDrawer({ ws, task, pack, story, onClose }: DrawerProps) {
               <input
                 type="text"
                 style={{ width: '100%', marginTop: 6 }}
-                placeholder="Override reason (required) — e.g. interface contract agreed with upstream team"
+                placeholder="Override reason (required) — e.g. interface contract agreed with upstream team" aria-label="Override reason (required) — e.g. interface contract agreed with upstream team"
                 value={overrideDraft}
                 onChange={(e) => setOverrideDraft(e.target.value)}
               />
@@ -701,7 +701,7 @@ export function DeveloperWorkspaces() {
       <div className="card dp-filters">
         <span className="dp-search">
           <Search className="dp-search-ico" />
-          <input type="text" placeholder="Search by team, story, repository, developer…"
+          <input type="text" placeholder="Search by team, story, repository, developer…" aria-label="Search by team, story, repository, developer…"
             value={query} onChange={(e) => setQuery(e.target.value)} />
         </span>
         <label className="dp-filter"><span>Team</span>

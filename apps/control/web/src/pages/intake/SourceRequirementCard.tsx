@@ -121,7 +121,7 @@ export function SourceRequirementCard({ extracting, onExtractStart, onExtractEnd
           <textarea
             id="intake-paste"
             rows={8}
-            placeholder="Paste your business epic, change request or requirement here…"
+            placeholder="Paste your business epic, change request or requirement here…" aria-label="Paste your business epic, change request or requirement here…"
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
           />

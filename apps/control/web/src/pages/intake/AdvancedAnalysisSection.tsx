@@ -160,7 +160,7 @@ export function AdvancedAnalysisSection() {
                 <p>{q}</p>
                 <input
                   type="text"
-                  placeholder="Answer (blank = stated assumption)"
+                  placeholder="Answer (blank = stated assumption)" aria-label="Answer (blank = stated assumption)"
                   value={clarAnswers[i] ?? ''}
                   onChange={(e) => setClarAnswers((prev) => { const next = [...prev]; next[i] = e.target.value; return next })}
                 />
@@ -246,7 +246,7 @@ export function AdvancedAnalysisSection() {
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                   <input
                     type="text"
-                    placeholder="Add a business rule the analysis missed…"
+                    placeholder="Add a business rule the analysis missed…" aria-label="Add a business rule the analysis missed…"
                     value={newRuleText}
                     onChange={(e) => setNewRuleText(e.target.value)}
                     style={{ flex: 1 }}
@@ -330,7 +330,7 @@ export function AdvancedAnalysisSection() {
 
             {isLive && (
               <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                <input type="text" placeholder="https://github.com/<owner>/<repo>" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
+                <input type="text" placeholder="https://github.com/<owner>/<repo>" aria-label="https://github.com/<owner>/<repo>" value={repoUrl} onChange={(e) => setRepoUrl(e.target.value)} />
                 <button type="button" className="outline" onClick={() => repoUrl.trim() && act('/intake/connect-repo', { url: repoUrl.trim() }, 'Repository connected')}>
                   Connect repository
                 </button>
@@ -436,7 +436,7 @@ export function AdvancedAnalysisSection() {
                 {newApp.pending.map((q, i) => (
                   <div key={q} style={{ marginBottom: 8 }}>
                     <p>{q}</p>
-                    <input type="text" placeholder="Answer" value={newAppAnswers[i] ?? ''}
+                    <input type="text" placeholder="Answer" aria-label="Answer" value={newAppAnswers[i] ?? ''}
                       onChange={(e) => setNewAppAnswers((prev) => { const next = [...prev]; next[i] = e.target.value; return next })} />
                   </div>
                 ))}

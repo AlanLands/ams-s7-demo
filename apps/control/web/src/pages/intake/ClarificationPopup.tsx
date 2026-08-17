@@ -43,7 +43,7 @@ export function ClarificationPopup() {
           <input
             type="text"
             style={{ width: '100%' }}
-            placeholder="Answer (blank = stated assumption)"
+            placeholder="Answer (blank = stated assumption)" aria-label="Answer (blank = stated assumption)"
             value={answers[i] ?? ''}
             onChange={(e) =>
               setAnswers((prev) => {

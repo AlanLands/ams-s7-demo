@@ -78,6 +78,7 @@ function Shell() {
   const Page = PAGES[section] ?? (() => <NotYetPorted section={section} />)
   return (
     <>
+      <a className="skip-link" href="#main">Skip to content</a>
       <Header />
       <Stepper />
       <div className="layout">

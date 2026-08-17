@@ -90,7 +90,7 @@ export function Gate1Rail() {
       <label className="fld">Approver name *</label>
       <input
         type="text"
-        placeholder="Approver name (required)"
+        placeholder="Approver name (required)" aria-label="Approver name (required)"
         value={approverName}
         onChange={(e) => setApproverName(e.target.value)}
       />
@@ -98,7 +98,7 @@ export function Gate1Rail() {
       <textarea
         rows={3}
         maxLength={500}
-        placeholder="Approval note (required)"
+        placeholder="Approval note (required)" aria-label="Approval note (required)"
         value={note}
         onChange={(e) => setNote(e.target.value)}
       />
@@ -124,7 +124,7 @@ export function Gate1Rail() {
         <summary className="hint">Request AI Revision</summary>
         <textarea
           rows={2}
-          placeholder="What should the AI change? e.g. 'US-004 is underestimated'"
+          placeholder="What should the AI change? e.g. 'US-004 is underestimated'" aria-label="What should the AI change? e.g. 'US-004 is underestimated'"
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
         />

@@ -221,7 +221,7 @@ export function TestEvidence() {
         <div className="card dp-filters">
           <span className="dp-search">
             <Search className="dp-search-ico" />
-            <input type="text" placeholder="Search by story, task, team, repository…"
+            <input type="text" placeholder="Search by story, task, team, repository…" aria-label="Search by story, task, team, repository…"
               value={query} onChange={(e) => setQuery(e.target.value)} />
           </span>
           <label className="dp-filter"><span>Team</span>

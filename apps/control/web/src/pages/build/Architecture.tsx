@@ -404,7 +404,7 @@ export function Architecture() {
                 <span className="chip"><span style={{ color: 'var(--green)' }}>✓</span> Accepted by {arch.accepted_by || '—'}</span>
               ) : (
                 <>
-                  <input type="text" placeholder="Approver name" value={approver}
+                  <input type="text" placeholder="Approver name" aria-label="Approver name" value={approver}
                     onChange={(e) => setApprover(e.target.value)} />
                   <button
                     className="approve"

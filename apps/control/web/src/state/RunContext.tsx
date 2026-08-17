@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
 import type { RunState, RoleInfo } from '../types'
 
@@ -159,8 +159,19 @@ export function RunProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // One stable object per state change: without the memo, every provider
+  // render hands consumers a fresh object and re-renders the whole tree.
+  const value = useMemo<RunContextValue>(() => ({
+    data, runId, role, setRole, runs, roles, section, goTo, can, refresh,
+    act, patchAct, uploadAct, toast, notify,
+    busy: pending > 0,
+    errorPopup,
+    dismissError: () => setErrorPopup(null),
+  }), [data, runId, role, setRole, runs, roles, section, goTo, can, refresh,
+    act, patchAct, uploadAct, toast, notify, pending, errorPopup])
+
   return (
-    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, can, refresh, act, patchAct, uploadAct, toast, notify, busy: pending > 0, errorPopup, dismissError: () => setErrorPopup(null) }}>
+    <RunContext.Provider value={value}>
       {children}
     </RunContext.Provider>
   )

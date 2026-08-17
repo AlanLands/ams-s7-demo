@@ -272,7 +272,7 @@ export function EditStoryDrawer({ story: s, original, stories, locked, onClose }
               <div className="ac-edit-row" key={ac.ac_id}>
                 <span className="chip priority-high">{ac.ac_id}</span>
                 <input
-                  type="text" value={ac.text} disabled={locked} placeholder="Acceptance criterion"
+                  type="text" value={ac.text} disabled={locked} placeholder="Acceptance criterion" aria-label="Acceptance criterion"
                   onChange={(e) => setAcs((prev) => prev.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                 />
                 {!locked && (

@@ -395,7 +395,7 @@ export function DeliveryPacks() {
             <Search className="dp-search-ico" />
             <input
               type="text"
-              placeholder="Search by team, repository or stories…"
+              placeholder="Search by team, repository or stories…" aria-label="Search by team, repository or stories…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -463,6 +463,14 @@ export function DeliveryPacks() {
                       key={p.delivery_pack_id}
                       className={isSelected ? 'dp-row-selected' : ''}
                       onClick={() => setSelected(p.delivery_pack_id)}
+                      tabIndex={0}
+                      aria-selected={isSelected}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelected(p.delivery_pack_id)
+                        }
+                      }}
                     >
                       <td>
                         <span className="dp-team">
@@ -731,7 +739,7 @@ export function DeliveryPacks() {
                         <textarea
                           rows={2}
                           style={{ width: '100%', marginTop: 8 }}
-                          placeholder="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets"
+                          placeholder="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets" aria-label="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets"
                           value={amendDrafts[sid] ?? ''}
                           onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
                         />
@@ -776,7 +784,7 @@ export function DeliveryPacks() {
                     <>
                       <input
                         type="text"
-                        placeholder="Approver name"
+                        placeholder="Approver name" aria-label="Approver name"
                         value={approver}
                         onChange={(e) => setApprover(e.target.value)}
                       />
@@ -973,7 +981,7 @@ export function DeliveryPacks() {
                       <textarea
                         rows={2}
                         style={{ width: '100%' }}
-                        placeholder="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor"
+                        placeholder="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor" aria-label="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor"
                         value={amendDrafts[sid] ?? ''}
                         onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
                       />
@@ -1009,7 +1017,7 @@ export function DeliveryPacks() {
             <div className="actions-row" style={{ marginTop: '12px' }}>
               <input
                 type="text"
-                placeholder="Approver name (QA Lead)"
+                placeholder="Approver name (QA Lead)" aria-label="Approver name (QA Lead)"
                 value={approver}
                 onChange={(e) => setApprover(e.target.value)}
                 style={{ flex: '1 1 200px' }}
