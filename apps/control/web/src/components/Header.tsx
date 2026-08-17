@@ -1,10 +1,21 @@
+import { useEffect, useState } from 'react'
 import { useRun } from '../state/RunContext'
 import { apiPost } from '../api'
 import type { RunState } from '../types'
 
+function useClock(): string {
+  const [now, setNow] = useState(() => new Date().toLocaleTimeString())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date().toLocaleTimeString()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return now
+}
+
 export function Header() {
   const { data, runs, role, setRole, roles, refresh } = useRun()
   const run = data?.run
+  const clock = useClock()
 
   const roleAvatar = role.split('_').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
@@ -68,7 +79,7 @@ export function Header() {
       <div className="top-controls">
         <span className="pill safe" title="No IDE, terminal, prompts, credentials or raw logs are exposed on this surface">✓ Customer-safe view</span>
         <div className="hdr-clock">
-          <span>{new Date().toLocaleTimeString()}</span>
+          <span>{clock}</span>
           <button type="button" className="icon-btn" title="Re-fetch run state" aria-label="Refresh" onClick={() => refresh()}>⟳</button>
         </div>
         <div className="hdr-user">

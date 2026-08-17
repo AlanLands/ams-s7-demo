@@ -11,6 +11,10 @@ interface RunContextValue {
   roles: RoleInfo[]
   section: string
   goTo: (section: string) => void
+  /** Whether the acting role holds a server permission (from /api/roles).
+   * Pre-disables buttons the server would 403; the 403 stays the rule —
+   * this is a hint, and it fails open until the roles list loads. */
+  can: (action: string) => boolean
   refresh: () => Promise<void>
   act: (path: string, body?: Record<string, unknown>, okMessage?: string) => Promise<boolean>
   patchAct: (path: string, patch: Record<string, unknown>, okMessage?: string) => Promise<boolean>
@@ -67,6 +71,11 @@ export function RunProvider({ children }: { children: ReactNode }) {
     setSection(next)
     localStorage.setItem('s7cc.section', next)
   }, [])
+
+  const can = useCallback((action: string) => {
+    const info = roles.find((r) => r.role === role)
+    return info ? info.actions.includes(action) : true
+  }, [roles, role])
 
   const ensureRun = useCallback(async (): Promise<string> => {
     const list = await apiGet<string[]>('/api/runs')
@@ -151,7 +160,7 @@ export function RunProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, refresh, act, patchAct, uploadAct, toast, notify, busy: pending > 0, errorPopup, dismissError: () => setErrorPopup(null) }}>
+    <RunContext.Provider value={{ data, runId, role, setRole, runs, roles, section, goTo, can, refresh, act, patchAct, uploadAct, toast, notify, busy: pending > 0, errorPopup, dismissError: () => setErrorPopup(null) }}>
       {children}
     </RunContext.Provider>
   )

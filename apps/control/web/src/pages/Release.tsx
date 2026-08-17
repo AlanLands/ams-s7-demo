@@ -8,7 +8,7 @@ import { useRun } from '../state/RunContext'
  * HTML plus portable markdown. Always badged rule-based: it is a
  * deterministic rendering, never AI output. */
 function ReleaseDocumentCard() {
-  const { data, act, runId } = useRun()
+  const { data, act, runId, can } = useRun()
   const meta = data?.release_document
 
   return (
@@ -37,6 +37,8 @@ function ReleaseDocumentCard() {
               Download markdown
             </a>
             <button
+          disabled={!can('generate_release_document')}
+          title={can('generate_release_document') ? undefined : 'Not available to the acting role — switch role in the header'}
               className="ghost"
               onClick={() => void act('/release/document', {}, 'Release document regenerated')}
             >
@@ -53,6 +55,8 @@ function ReleaseDocumentCard() {
           </p>
           <div className="actions-row" style={{ marginTop: '10px' }}>
             <button
+          disabled={!can('generate_release_document')}
+          title={can('generate_release_document') ? undefined : 'Not available to the acting role — switch role in the header'}
               className="primary"
               onClick={() => void act('/release/document', {}, 'Release document generated')}
             >
@@ -122,7 +126,7 @@ function ApprovalMatrix() {
 }
 
 function ApprovalForm() {
-  const { act } = useRun()
+  const { act, can } = useRun()
   const [approverName, setApproverName] = useState('')
   const [note, setNote] = useState('')
 
@@ -144,6 +148,8 @@ function ApprovalForm() {
       />
       <div className="actions-row">
         <button
+          disabled={!can('approve_release')}
+          title={can('approve_release') ? undefined : 'Not available to the acting role — switch role in the header'}
           className="primary approve"
           onClick={() => void act(
             '/release/approve',
@@ -154,6 +160,8 @@ function ApprovalForm() {
           Approve as current role
         </button>
         <button
+          disabled={!can('approve_release')}
+          title={can('approve_release') ? undefined : 'Not available to the acting role — switch role in the header'}
           className="ghost danger-ghost"
           onClick={() => void act(
             '/release/approve',
@@ -169,7 +177,7 @@ function ApprovalForm() {
 }
 
 export function Release() {
-  const { data, act } = useRun()
+  const { data, act, can } = useRun()
   if (!data) return null
 
   const rec = data.release
@@ -185,6 +193,8 @@ export function Release() {
           <p>Release opens after the quality gate (G3) passes.</p>
           <div className="actions-row">
             <button
+          disabled={!can('request_release_approval')}
+          title={can('request_release_approval') ? undefined : 'Not available to the acting role — switch role in the header'}
               className="primary"
               onClick={() => void act('/release/request-approval', {}, 'Release approval requested')}
             >
@@ -294,12 +304,16 @@ export function Release() {
 
       <div className="actions-row" style={{ marginTop: '14px' }}>
         <button
+          disabled={!can('deploy')}
+          title={can('deploy') ? undefined : 'Not available to the acting role — switch role in the header'}
           className="primary"
           onClick={() => void act('/release/deploy', {}, 'Deployment complete')}
         >
           Deploy to production (Release Manager)
         </button>
         <button
+          disabled={!can('complete_handover')}
+          title={can('complete_handover') ? undefined : 'Not available to the acting role — switch role in the header'}
           className="primary approve"
           onClick={() => void act('/release/handover', {}, 'Transition to maintenance complete — run complete')}
         >

@@ -6,7 +6,7 @@ import { PlanArtifactsCard } from './PlanArtifactsCard'
 import { planningOf, storyGaps } from './planningHelpers'
 
 export function PlanSignoff() {
-  const { data, runId, act } = useRun()
+  const { data, runId, act, can } = useRun()
   if (!data) return null
 
   const isLive = data.run?.mode === 'live'
@@ -112,10 +112,14 @@ export function PlanSignoff() {
               <span className="hint">Portable, per-team packages — no .claude/ tooling</span>
             </div>
             <div className="actions-row" style={{ gap: 8, flexWrap: 'wrap' }}>
-              <button type="button" className="outline" onClick={() => act('/planning/export-artifacts', {}, 'Artifacts exported')}>
+              <button
+          disabled={!can('export_artifacts')}
+          title={can('export_artifacts') ? undefined : 'Not available to the acting role — switch role in the header'} type="button" className="outline" onClick={() => act('/planning/export-artifacts', {}, 'Artifacts exported')}>
                 Export Artifacts
               </button>
-              <button type="button" className="outline" onClick={() => act('/planning/write-to-clone', {}, 'Committed locally to each target repo')}>
+              <button
+          disabled={!can('write_delivery_clone')}
+          title={can('write_delivery_clone') ? undefined : 'Not available to the acting role — switch role in the header'} type="button" className="outline" onClick={() => act('/planning/write-to-clone', {}, 'Committed locally to each target repo')}>
                 Write to Clone
               </button>
               <button
@@ -132,6 +136,8 @@ export function PlanSignoff() {
             <div className="actions-row" style={{ gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
               {repoNames.map((repo) => (
                 <button
+          disabled={!can('push_delivery_branch')}
+          title={can('push_delivery_branch') ? undefined : 'Not available to the acting role — switch role in the header'}
                   key={repo}
                   type="button"
                   className="primary sq"
