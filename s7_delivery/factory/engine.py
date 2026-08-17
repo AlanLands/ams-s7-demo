@@ -28,6 +28,7 @@ from s7_delivery.factory import (
     coverage,
     design as design_mod,
     gates,
+    kpi,
     refine,
     roles,
     seed,
@@ -397,6 +398,17 @@ class Engine:
                 "coverage": coverage.breakdown(stories) if stories else None,
             },
             "build": self._build_state(run),
+            # Delivery KPI scorecard — evidence or visible absence, derived
+            # on read from the run's own records (rule_based, never stored).
+            "kpi": kpi.scorecard(
+                stories=stories,
+                tasks=self.store.read_json_or([], "build", "tasks.json"),
+                reviews=self._reviews(),
+                provenance=provenance,
+                release=self.store.read_json_or(
+                    None, "release", "release-record.json"),
+                run_mode=run.mode.value,
+            ) if stories else None,
             "demo": self.store.read_json_or(None, "demo", "script.json"),
             "quality": self.store.read_json_or(None, "quality", "quality-report.json"),
             "release": self.store.read_json_or(None, "release", "release-record.json"),

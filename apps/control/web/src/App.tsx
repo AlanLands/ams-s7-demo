@@ -9,6 +9,7 @@ import { NotYetPorted } from './components/NotYetPorted'
 import { Overview } from './pages/Overview'
 import { IntakePage } from './pages/intake/IntakePage'
 import { DesignPage } from './pages/planning/DesignPage'
+import { Scorecard } from './pages/Scorecard'
 import { Traceability } from './pages/Traceability'
 import { Artifacts } from './pages/Artifacts'
 import { Provenance } from './pages/Provenance'
@@ -41,6 +42,7 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   provenance: Provenance,
   activity: Activity,
   reports: Reports,
+  scorecard: Scorecard,
   approvals: Approvals,
   risks: Risks,
   settings: Settings,

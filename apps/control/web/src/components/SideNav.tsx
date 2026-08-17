@@ -35,6 +35,7 @@ const NAV: [string, string, string?][] = [
   ['provenance', 'Provenance', '⛓'],
   ['risks', 'Risks & Alerts', '⚠'],
   ['reports', 'Reports', '▥'],
+  ['scorecard', 'KPI Scorecard', '◫'],
   ['settings', 'Settings', '⚙'],
 ]
 const GROUPS: Record<string, { subs: [string, string][]; sections: Set<string>; landing: string }> = {

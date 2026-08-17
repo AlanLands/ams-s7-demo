@@ -427,6 +427,22 @@ export interface CoverageBreakdown {
   provenance: string
 }
 
+export interface KpiEntry {
+  value: number | null
+  unit: string
+  basis: string
+  note: string
+  evidenced: boolean
+}
+
+/** Delivery KPI scorecard — rule-based derivation from the run's ledgers;
+ * unevidenced KPIs carry value null and the reason, never a number. */
+export interface KpiScorecard {
+  kpis: Record<string, KpiEntry>
+  consolidated: { dimension: string; delivery: string[]; support: string }[]
+  provenance: string
+}
+
 export interface PlanningState {
   plan?: SignedPlan
   stories?: PlanStory[]
@@ -735,6 +751,7 @@ export interface RunState {
   staleness?: StaleArtifact[]
   amendments?: Amendment[]
   design?: DesignRecord
+  kpi?: KpiScorecard | null
   [section: string]: unknown
 }
 

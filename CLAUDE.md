@@ -349,6 +349,20 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Delivery KPI scorecard, added 2026-08-17.** `factory/kpi.py` computes
+the § Metrics KPIs from the run's own ledgers where they can be evidenced
+— velocity (completed points/sprint), cycle time (provenance→review
+timestamps, with an explicit "simulation compresses time" caveat),
+first-time-right (review attempts) — and reports `value: None` with the
+reason where they cannot: estimation accuracy (needs historical actuals —
+the § Design review 3 forward answer), defect leakage (needs a
+post-release window; review-caught findings reported as context),
+on-time/on-budget (no baseline), cost per release (pricing table
+deliberately empty). Derived on read (`state()["kpi"]`, RULE_BASED),
+rendered on the Governance → KPI Scorecard page, including the client's
+**consolidated four-dimension table** with the support-scope half
+explicitly attributed to S1–S6 rather than borrowed.
+
 **Enhancement entry lane (S3-style), added 2026-08-17.** The second entry
 mode from the flow diagram exists: runs carry `entry_mode`
 ("project" default / "enhancement"), settable at creation (`POST
