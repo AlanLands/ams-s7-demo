@@ -124,31 +124,36 @@ class Engine:
 
     # --- lifecycle ----------------------------------------------------------
 
-    @classmethod
-    def create(cls, mode: DemoMode = DemoMode.SIMULATION, root=None) -> Engine:
-        run_id = next_run_id(root)
-        eng = cls(run_id, root=root)
+    def _seed_state(self, mode: DemoMode) -> None:
+        """Write the seeded starting state for this run — shared by create()
+        and reset() so a reset run is grounded identically to a fresh one."""
         run = DeliveryRun(
-            run_id=run_id,
+            run_id=self.run_id,
             scenario_id=seed.SCENARIO.scenario_id,
             mode=mode,
             status=Status.READY,
             stages=[StageState(stage=s) for s in STAGE_ORDER],
         )
         run.stage(Stage.INTAKE).status = Status.READY
-        eng.store.write_json(run, "run.json")
-        eng.store.write_json(seed.SCENARIO, "scenario.json")
-        eng.store.write_json(seed.REQUIREMENT, "intake", "requirement.json")
+        self.store.write_json(run, "run.json")
+        self.store.write_json(seed.SCENARIO, "scenario.json")
+        self.store.write_json(seed.REQUIREMENT, "intake", "requirement.json")
         if mode in (DemoMode.DEMO, DemoMode.SIMULATION):
             # Offline grounding: intake shows connected-repo details and a
             # routing verdict without any network or clone — simulated
             # records, badged SIMULATED (DEMO chip in demo runs).
-            eng.store.write_json(
+            self.store.write_json(
                 [r.model_dump(mode="json") for r in seed.DEMO_REPOS],
                 "intake", "repos.json",
             )
-            eng.store.write_json(seed.DEMO_ROUTING, "intake", "routing.json")
-        eng._gates_init()
+            self.store.write_json(seed.DEMO_ROUTING, "intake", "routing.json")
+        self._gates_init()
+
+    @classmethod
+    def create(cls, mode: DemoMode = DemoMode.SIMULATION, root=None) -> Engine:
+        run_id = next_run_id(root)
+        eng = cls(run_id, root=root)
+        eng._seed_state(mode)
         eng._record(
             artifact_id=seed.REQUIREMENT.request_id,
             artifact_type="requirement",
@@ -176,28 +181,20 @@ class Engine:
 
     def reset(self, role: Role) -> None:
         """Restore the run to its seeded state. Ledgers are truncated too:
-        a reset is a new rehearsal, not history to preserve (spec §20)."""
+        a reset is a new rehearsal, not history to preserve (spec §20).
+        The run keeps its mode — resetting a demo run yields a demo run."""
         roles.require("manage_run", role)
         import shutil
 
+        mode = self.run().mode
         root = self.store.root
         if root.exists():
             shutil.rmtree(root)
-        run = DeliveryRun(
-            run_id=self.run_id,
-            scenario_id=seed.SCENARIO.scenario_id,
-            mode=DemoMode.SIMULATION,
-            status=Status.READY,
-            stages=[StageState(stage=s) for s in STAGE_ORDER],
-        )
-        run.stage(Stage.INTAKE).status = Status.READY
-        self.store.write_json(run, "run.json")
-        self.store.write_json(seed.SCENARIO, "scenario.json")
-        self.store.write_json(seed.REQUIREMENT, "intake", "requirement.json")
-        self._gates_init()
+        self._seed_state(mode)
         self._activity(
             stage=Stage.INTAKE, actor="system", actor_type="service",
             workflow="run-lifecycle", outcome="run reset to seed",
+            details=f"mode={mode.value}",
         )
 
     # --- gates --------------------------------------------------------------
@@ -502,6 +499,7 @@ class Engine:
     def _activity_summary(activity: list[dict]) -> dict[str, Any]:
         by_outcome = {
             "ai_workflows": 0,
+            "simulated_workflows": 0,
             "human_approvals": 0,
             "artifacts_created": 0,
             "artifacts_amended": 0,
@@ -510,8 +508,12 @@ class Engine:
         }
         stage_time: dict[str, float] = {}
         for ev in activity:
-            if ev.get("actor_type") in ("simulation", "live_ai"):
+            # A simulated workflow is not an AI workflow — never conflate
+            # them (the staged-output labelling rule applied to the ledger).
+            if ev.get("actor_type") == "live_ai":
                 by_outcome["ai_workflows"] += 1
+            if ev.get("actor_type") == "simulation":
+                by_outcome["simulated_workflows"] += 1
             if "approval" in ev.get("workflow", ""):
                 by_outcome["human_approvals"] += 1
             if ev.get("outcome", "").startswith("created"):

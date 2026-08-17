@@ -49,6 +49,39 @@ def test_reset_restores_seed(engine, tmp_path):
     assert state["intake"]["requirement"]["request_id"] == "REQ-2026-114"
 
 
+def test_reset_preserves_run_mode(tmp_path):
+    """Resetting a demo run must not silently convert it to simulation."""
+    eng = Engine.create(DemoMode.DEMO, root=tmp_path)
+    eng.reset(Role.DELIVERY_LEAD)
+    assert eng.run().mode == DemoMode.DEMO
+
+
+def test_reset_reseeds_grounding_like_create(tmp_path):
+    """create() seeds repos + routing for demo/simulation runs; a reset run
+    must come back identically grounded, not stripped."""
+    eng = Engine.create(DemoMode.SIMULATION, root=tmp_path)
+    seeded = eng.state()["intake"]["repos"]
+    assert seeded, "precondition: create() seeds repos"
+    eng.reset(Role.DELIVERY_LEAD)
+    state = eng.state()
+    assert state["intake"]["repos"] == seeded
+    assert state["intake"]["routing"], "routing verdict must be reseeded too"
+
+
+def test_activity_summary_counts_simulated_apart_from_ai():
+    """A simulated workflow is not an AI workflow — the counters must not
+    conflate them (the staged-output labelling rule applied to the ledger)."""
+    activity = [
+        {"actor_type": "simulation", "workflow": "develop", "stage": "build_review"},
+        {"actor_type": "live_ai", "workflow": "intake-analysis", "stage": "intake"},
+        {"actor_type": "human", "workflow": "plan-approval", "stage": "planning"},
+        {"actor_type": "service", "workflow": "run-lifecycle", "stage": "intake"},
+    ]
+    counters = Engine._activity_summary(activity)["counters"]
+    assert counters["ai_workflows"] == 1
+    assert counters["simulated_workflows"] == 1
+
+
 def test_state_survives_new_engine_instance(engine, tmp_path):
     """Disk is truth: a fresh Engine over the same run dir sees everything."""
     again = Engine(engine.run_id, root=tmp_path)
