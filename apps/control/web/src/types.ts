@@ -386,11 +386,37 @@ export interface PlanningFile {
   bytes: number
 }
 
+export interface CoverageLane {
+  stories: number
+  effort_points: number
+  effort_pct: number
+}
+
+export interface CoverageRow {
+  story_id?: string
+  title?: string
+  team?: string
+  estimate: number
+  stream: string
+  coverage: string
+  reason: string
+}
+
+/** Rule-based stream routing + AI-coverage classification of the plan —
+ * derived server-side on read, provenance always `rule_based`. */
+export interface CoverageBreakdown {
+  by_coverage: Record<string, CoverageLane>
+  stories: CoverageRow[]
+  integration_note: string
+  provenance: string
+}
+
 export interface PlanningState {
   plan?: SignedPlan
   stories?: PlanStory[]
   confidence?: PlanConfidence
   rationale?: PlanRationale
+  coverage?: CoverageBreakdown | null
 }
 
 // --- build (Build Work Queue / Dev Progress / Test Evidence / Independent

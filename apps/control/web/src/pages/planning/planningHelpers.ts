@@ -47,6 +47,7 @@ export interface PlanningSection {
   original_stories?: PlanStory[]
   plan?: SignedPlan
   confidence?: PlanConfidence
+  coverage?: import('../../types').CoverageBreakdown | null
 }
 
 export function planningOf(data: RunState | null): PlanningSection {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NotBuilt } from '../../components/NotBuilt'
 import { useRun } from '../../state/RunContext'
 import { CheckItem } from './CheckItem'
+import { CoveragePanel } from './CoveragePanel'
 import { Donut } from './Donut'
 import { depGraph } from './depGraph'
 import { PlanArtifactsCard } from './PlanArtifactsCard'
@@ -16,7 +17,8 @@ import { StoriesPanel } from './StoriesPanel'
 // SourceRequirementCard.tsx's upload/paste tabs).
 
 const SUMMARY_TABS: [string, string][] = [
-  ['summary', 'Summary'], ['stories', 'Stories'], ['dependencies', 'Dependencies'],
+  ['summary', 'Summary'], ['stories', 'Stories'], ['coverage', 'AI Coverage'],
+  ['dependencies', 'Dependencies'],
   ['risks', 'Risks'], ['assumptions', 'Assumptions'], ['impacts', 'Impacts'],
   ['artifacts', 'Artifacts'],
 ]
@@ -51,6 +53,10 @@ export function PlanSummary() {
   let body: React.ReactNode
   if (tab === 'stories') {
     body = <StoriesPanel stories={stories} />
+  } else if (tab === 'coverage') {
+    body = planning.coverage
+      ? <CoveragePanel coverage={planning.coverage} />
+      : <NotBuilt name="AI Coverage" phase="the Planning stage — generate the draft plan first" />
   } else if (tab === 'dependencies') {
     body = (
       <div className="table-wrap">

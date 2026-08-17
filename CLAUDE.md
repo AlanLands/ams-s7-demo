@@ -349,6 +349,19 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Coverage model wired into the Control Centre, added 2026-08-17.** The
+plan's stories now carry a rule-based stream routing and AI-coverage
+classification (`factory/coverage.py`): team → stream
+(frontend/api/database/document_intake/test/platform), stream → coverage
+lane (agentic / AI-assisted-externally-owned / manual), effort-weighted
+over story estimates, with the convergence point named (US-005, the
+externally owned intake handoff). Derived on read in `state()` — never
+stored, never an AI claim, badged `RULE_BASED`; unknown teams classify as
+manual rather than being counted as coverage. Rendered as the "AI
+Coverage" tab on Plan Summary. The seeded plan honestly reads 70% agentic
+/ 18% external / 11% manual. Live-plan prompts are untouched, so
+committed recordings stay valid.
+
 **Replay mode made real, run hygiene, added 2026-08-17.** `DemoMode.REPLAY`
 was a dead menu option (no engine branch handled it); it is now a real
 environment: the live code paths for every LLM-backed stage — analysis,

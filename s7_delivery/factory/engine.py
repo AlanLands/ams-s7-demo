@@ -25,6 +25,7 @@ from common.llm import LLMError
 from s7_delivery.factory import (
     architecture_checks,
     build_phases,
+    coverage,
     gates,
     refine,
     roles,
@@ -352,13 +353,16 @@ class Engine:
                 "scaffold": scaffold,
             },
             "planning": {
-                "stories": self.store.read_json_or([], "planning", "stories.json"),
+                "stories": (stories := self.store.read_json_or([], "planning", "stories.json")),
                 "original_stories": self.store.read_json_or(
                     [], "planning", "stories.original.json"
                 ),
                 "plan": self.store.read_json_or(None, "planning", "plan.json"),
                 "confidence": self.store.read_json_or(None, "planning", "confidence.json"),
                 "rationale": self.store.read_json_or(None, "planning", "rationale.json"),
+                # Derived on read, never stored: rule-based stream routing and
+                # AI-coverage classification of the plan (never an AI claim).
+                "coverage": coverage.breakdown(stories) if stories else None,
             },
             "build": self._build_state(run),
             "demo": self.store.read_json_or(None, "demo", "script.json"),
