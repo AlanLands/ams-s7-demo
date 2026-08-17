@@ -57,7 +57,7 @@ def refine_architecture_proposal(
     proposal: str, architecture_md: str, mode: DemoMode
 ) -> tuple[str, Provenance]:
     """(refined markdown section, provenance of the refinement)."""
-    if mode is DemoMode.LIVE:
+    if mode in (DemoMode.LIVE, DemoMode.REPLAY):
         from s7_delivery.factory import live_intake
 
         task = f"""The current architecture document, verbatim:
@@ -103,7 +103,7 @@ def refine_test_amendment(
     """(cases, provenance). Each case: {"case_id", "description"} — the
     governed test *names* are derived downstream by test_skeletons, so the
     refinement can never move a name CI evidence joins on."""
-    if mode is DemoMode.LIVE:
+    if mode in (DemoMode.LIVE, DemoMode.REPLAY):
         from s7_delivery.factory import live_intake
 
         acs = "\n".join(

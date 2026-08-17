@@ -18,6 +18,7 @@ import os
 import re
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from typing import Any
 
 from common.llm import LLMError
@@ -175,6 +176,30 @@ class Engine:
 
     def run(self) -> DeliveryRun:
         return DeliveryRun.model_validate(self.store.read_json("run.json"))
+
+    def _llm_paths(self) -> bool:
+        """True when this run takes the live code paths for LLM-backed
+        stages: LIVE calls the model (or records/replays per LLM_MODE),
+        REPLAY takes the same paths pinned to recordings only."""
+        return self.run().mode in (DemoMode.LIVE, DemoMode.REPLAY)
+
+    @contextmanager
+    def _llm_env(self):
+        """A REPLAY run must never reach the network: pin LLM_MODE=replay
+        around every model call so recordings are the only source, whatever
+        the shell says. LIVE runs pass through untouched."""
+        if self.run().mode is not DemoMode.REPLAY:
+            yield
+            return
+        prev = os.environ.get("LLM_MODE")
+        os.environ["LLM_MODE"] = "replay"
+        try:
+            yield
+        finally:
+            if prev is None:
+                os.environ.pop("LLM_MODE", None)
+            else:
+                os.environ["LLM_MODE"] = prev
 
     def _save_run(self, run: DeliveryRun) -> None:
         self.store.write_json(run, "run.json")
@@ -562,7 +587,7 @@ class Engine:
     def intake_analyse(self, role: Role) -> None:
         roles.require("run_intake_analysis", role)
         self._stage_in_progress(Stage.INTAKE)
-        if self.run().mode is DemoMode.LIVE:
+        if self._llm_paths():
             self._intake_analyse_live()
             self._queue_analysis_clarifications()
             return
@@ -601,7 +626,7 @@ class Engine:
         clar["rounds_used"] = 1
         clar["provenance"] = (analysis or {}).get("provenance", "simulated")
         self.store.write_json(clar, "intake", "clarifications.json")
-        is_live = self.run().mode is DemoMode.LIVE
+        is_live = self._llm_paths()
         self._activity(
             stage=Stage.INTAKE, actor="intake-analysis",
             actor_type="live_ai" if is_live else "simulation",
@@ -627,7 +652,8 @@ class Engine:
         transcript = (self.store.read_json_or({}, "intake", "clarifications.json")
                       .get("transcript", []))
         t0 = time.monotonic()
-        analysis, usage = live_intake.run_analysis(requirement, packs, transcript)
+        with self._llm_env():
+            analysis, usage = live_intake.run_analysis(requirement, packs, transcript)
         self.store.write_json(analysis, "intake", "analysis.json")
         repo_ids = [f"REPO-{name}" for name in sorted(packs)]
         self._record(
@@ -651,10 +677,10 @@ class Engine:
         )
 
     def intake_clarify(self, role: Role) -> None:
-        """Live mode only: the model asks its clarifying questions."""
+        """Live/replay runs only: the model asks its clarifying questions."""
         roles.require("ask_clarification", role)
-        if self.run().mode is not DemoMode.LIVE:
-            raise EngineError("AI clarification runs in live mode only")
+        if not self._llm_paths():
+            raise EngineError("AI clarification runs in live or replay mode only")
         import time
 
         from s7_delivery.factory import live_intake
@@ -664,9 +690,10 @@ class Engine:
             raise EngineError("Answer the open questions before asking again")
         requirement = self.store.read_json("intake", "requirement.json")
         t0 = time.monotonic()
-        questions, usage = live_intake.run_clarification(
-            requirement, self._context_packs(), clar["transcript"]
-        )
+        with self._llm_env():
+            questions, usage = live_intake.run_clarification(
+                requirement, self._context_packs(), clar["transcript"]
+            )
         clar["transcript"].append({"role": "assistant", "text": "\n".join(questions)})
         clar["pending"] = questions
         clar["rounds_used"] = sum(
@@ -755,14 +782,15 @@ class Engine:
         if source is None:
             raise EngineError("Provide a source document or pasted text before extracting")
 
-        if self.run().mode is DemoMode.LIVE:
+        if self._llm_paths():
             import time
 
             from s7_delivery.factory import live_intake
 
             t0 = time.monotonic()
-            result, usage = live_intake.run_extraction(source["text"])
-            method, provenance, actor_type = "live_llm", live_intake.provenance_now(), "live_ai"
+            with self._llm_env():
+                result, usage = live_intake.run_extraction(source["text"])
+                method, provenance, actor_type = "live_llm", live_intake.provenance_now(), "live_ai"
             duration = round(time.monotonic() - t0, 2)
             details = f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens"
         else:
@@ -1113,11 +1141,11 @@ class Engine:
         return self.store.read_json_or(None, "intake", "routing.json")
 
     def intake_route(self, role: Role) -> None:
-        """Live mode only: classify routable vs new_application_needed
+        """Live/replay runs only: classify routable vs new_application_needed
         before analysis runs."""
         roles.require("route_requirement", role)
-        if self.run().mode is not DemoMode.LIVE:
-            raise EngineError("Requirement routing runs in live mode only")
+        if not self._llm_paths():
+            raise EngineError("Requirement routing runs in live or replay mode only")
         current = self._routing()
         if current and current.get("overridden_by"):
             raise EngineError(
@@ -1131,7 +1159,8 @@ class Engine:
         requirement = self.store.read_json("intake", "requirement.json")
         packs = self._context_packs()
         t0 = time.monotonic()
-        verdict, usage = live_intake.route_requirement(requirement, packs)
+        with self._llm_env():
+            verdict, usage = live_intake.route_requirement(requirement, packs)
         self.store.write_json(verdict, "intake", "routing.json")
         self._record(
             artifact_id="ROUTE-001", artifact_type="routing_verdict",
@@ -1179,8 +1208,8 @@ class Engine:
 
     def intake_new_app_setup(self, role: Role) -> None:
         roles.require("setup_new_application", role)
-        if self.run().mode is not DemoMode.LIVE:
-            raise EngineError("New-application setup runs in live mode only")
+        if not self._llm_paths():
+            raise EngineError("New-application setup runs in live or replay mode only")
         import time
 
         from s7_delivery.factory import live_intake
@@ -1192,7 +1221,8 @@ class Engine:
             raise EngineError("New-application setup is already complete")
         requirement = self.store.read_json("intake", "requirement.json")
         t0 = time.monotonic()
-        result, usage = live_intake.run_new_app_setup(requirement, setup["transcript"])
+        with self._llm_env():
+            result, usage = live_intake.run_new_app_setup(requirement, setup["transcript"])
         if result["done"]:
             setup["name"] = result["name"]
             setup["description"] = result["description"]
@@ -1284,6 +1314,11 @@ class Engine:
         reviewed scaffold, then normalizes it into an ordinary connected
         repo — §B needs no special case because of this."""
         roles.require("create_new_application_repo", role)
+        if self.run().mode is DemoMode.REPLAY:
+            raise EngineError(
+                "Replay runs never create real repositories — repo creation "
+                "is a live-run action"
+            )
         import shutil
 
         from s7_delivery.factory.repos import (
@@ -1403,7 +1438,7 @@ class Engine:
             raise EngineError("The plan is locked; use an amendment to change it")
         self._stage_in_progress(Stage.PLANNING)
 
-        if self.run().mode is DemoMode.LIVE:
+        if self._llm_paths():
             self._planning_generate_live()
             return
 
@@ -1666,9 +1701,10 @@ class Engine:
         analysis = {**analysis, "business_rules": self.merged_business_rules()}
         transcript = self._clarifications()["transcript"]
         t0 = time.monotonic()
-        stories, confidence, rationale, usage = live_intake.run_plan(
-            epic, analysis, packs, transcript, seed.TEAMS
-        )
+        with self._llm_env():
+            stories, confidence, rationale, usage = live_intake.run_plan(
+                epic, analysis, packs, transcript, seed.TEAMS
+            )
         # A scaffolding story traced to no business rule still derives from
         # the run's requirement by construction — the same default
         # _build_manual_story applies, or QC-01 flags it unmapped forever.
@@ -1875,9 +1911,9 @@ class Engine:
             approver,
             epic=self.store.read_json_or(None, "intake", "epic.json"),
             analysis=self.store.read_json_or(None, "intake", "analysis.json"),
-            # live runs only: a simulation run has no clones to check against
+            # live/replay runs only: a simulation run has no clones to check
             connected_repos=self._connected_repos()
-            if self.run().mode is DemoMode.LIVE else None,
+            if self._llm_paths() else None,
         )
         gate = self.gate(GateId.PLAN_SIGNOFF)
         gate.conditions = conditions
@@ -1958,12 +1994,13 @@ class Engine:
         )
 
     def _blueprint_provenance(self) -> Provenance:
-        """The architecture renderer is deterministic. In simulation/replay it
-        is simulated evidence; in live mode it is an honest non-AI derivation
-        of real inputs — RULE_BASED, never presented as an AI result."""
+        """The architecture renderer is deterministic. In simulation/demo it
+        is simulated evidence; in live and replay runs it is an honest non-AI
+        derivation of real cloned inputs — RULE_BASED, never presented as an
+        AI result."""
         return (
             Provenance.RULE_BASED
-            if self.run().mode is DemoMode.LIVE
+            if self._llm_paths()
             else Provenance.SIMULATED
         )
 
@@ -2071,9 +2108,10 @@ class Engine:
                 "architecture", f"v{meta['version']}", "architecture.md"
             ).read_text(encoding="utf-8")
         try:
-            refined, refine_prov = refine.refine_architecture_proposal(
-                feedback.strip(), current_md, self.run().mode
-            )
+            with self._llm_env():
+                refined, refine_prov = refine.refine_architecture_proposal(
+                    feedback.strip(), current_md, self.run().mode
+                )
         except LLMError as exc:
             raise EngineError(f"Could not refine the proposal: {exc}") from exc
         new_meta = self._write_architecture_pack(
@@ -2403,9 +2441,10 @@ class Engine:
                 " packs first"
             )
         try:
-            cases, refine_prov = refine.refine_test_amendment(
-                proposal.strip(), story, self.run().mode
-            )
+            with self._llm_env():
+                cases, refine_prov = refine.refine_test_amendment(
+                    proposal.strip(), story, self.run().mode
+                )
         except LLMError as exc:
             raise EngineError(f"Could not refine the amendment: {exc}") from exc
         amendment = {

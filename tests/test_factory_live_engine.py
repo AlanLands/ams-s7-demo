@@ -734,3 +734,39 @@ def _fake_analysis_for(repo_name: str) -> IntakeAnalysis:
         risk_register=[{"text": "r", "severity": "high"}],
         confidence=80, provenance=Provenance.LIVE_AI,
     )
+
+
+# --- replay mode: live code paths, recordings only ---------------------------
+
+
+def test_replay_run_is_grounded_like_live_not_seeded(tmp_path):
+    eng = Engine.create(DemoMode.REPLAY, root=tmp_path / "runs")
+    assert eng.state()["intake"]["repos"] == []
+
+
+def test_replay_run_takes_live_path_with_llm_pinned_to_replay(tmp_path, monkeypatch):
+    """A replay run follows the live code paths, but the model layer is
+    pinned to recordings — a hot LLM_MODE=live in the shell must not leak."""
+    import os
+
+    eng = Engine.create(DemoMode.REPLAY, root=tmp_path / "runs")
+    src = fixture_repo(tmp_path)
+    eng.intake_connect_repo(Role.DELIVERY_LEAD, str(src))
+    monkeypatch.setenv("LLM_MODE", "live")
+    seen = {}
+
+    def fake_analysis(req, packs, transcript):
+        seen["llm_mode"] = os.environ.get("LLM_MODE")
+        return (_fake_analysis(), {"input_tokens": 1, "output_tokens": 1})
+
+    monkeypatch.setattr(live_intake, "run_analysis", fake_analysis)
+    eng.intake_analyse(Role.PRODUCT_ANALYST)
+    assert seen["llm_mode"] == "replay"
+    assert os.environ["LLM_MODE"] == "live"  # pin is scoped, not global
+    assert eng.state()["intake"]["analysis"] is not None
+
+
+def test_replay_run_never_creates_real_repositories(tmp_path):
+    eng = Engine.create(DemoMode.REPLAY, root=tmp_path / "runs")
+    with pytest.raises(EngineError, match="[Rr]eplay"):
+        eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
