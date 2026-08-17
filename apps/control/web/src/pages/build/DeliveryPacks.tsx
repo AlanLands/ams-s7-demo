@@ -524,7 +524,14 @@ export function DeliveryPacks() {
                                 {can('approve_test_plan') ? (
                                   <button
                                     className="link-btn"
-                                    onClick={(e) => { e.stopPropagation(); setApproveFor(p.delivery_pack_id) }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      // selecting the pack makes the existing
+                                      // manifest effect fetch its test plans,
+                                      // which the approval popup shows
+                                      setSelected(p.delivery_pack_id)
+                                      setApproveFor(p.delivery_pack_id)
+                                    }}
                                   >
                                     Approve test plan…
                                   </button>
@@ -881,25 +888,76 @@ export function DeliveryPacks() {
         </Modal>
       ) : null}
 
-      {/* --- Inline QA approval (from the pipeline column) ---------------- */}
+      {/* --- QA approval popup (from the pipeline column) ------------------ */}
       {approveFor ? (() => {
         const p = packs.find((x) => x.delivery_pack_id === approveFor)
         if (!p) return null
+        const rows = p.story_ids.map((sid) => ({
+          sid,
+          story: storyById.get(sid),
+          m: manifests[`${sid}@v${p.version}`],
+        }))
+        const total = rows.reduce((a, r) => a + (r.m?.tests.length ?? 0), 0)
         return (
-          <Modal title={`Approve Test Plan — ${p.team}`} onClose={() => setApproveFor(null)}>
-            <p className="hint">
-              {`Signs off the AC-derived test plan for ${p.story_ids.length} `}
-              {p.story_ids.length === 1 ? 'story' : 'stories'}
-              {' — the QA Lead\'s step between generation and publish. Regenerating the pack resets this approval.'}
+          <Modal title={`QA Test-Plan Approval — ${p.team}`} wide onClose={() => setApproveFor(null)}>
+            <div className="pack-pipe qa-pop-pipe" aria-label="Where this approval sits">
+              <span className="pp-node done">
+                <span className="pp-dot">✓</span>
+                <span className="pp-text">Generated<span className="hint">{`pack v${p.version}.0`}</span></span>
+              </span>
+              <span className="pp-link" aria-hidden="true" />
+              <span className="pp-node now">
+                <span className="pp-dot">2</span>
+                <span className="pp-text"><b>QA approval</b><span className="hint">you are here</span></span>
+              </span>
+              <span className="pp-link" aria-hidden="true" />
+              <span className="pp-node next">
+                <span className="pp-dot">3</span>
+                <span className="pp-text">Publish<span className="hint">unlocks on approval</span></span>
+              </span>
+            </div>
+            <p className="hint" style={{ margin: '10px 0 6px' }}>
+              <b>{`What you are approving — ${total || '…'} rule-based test case${total === 1 ? '' : 's'} across ${p.story_ids.length} ${p.story_ids.length === 1 ? 'story' : 'stories'}:`}</b>
+              {' one deliberately-failing test per acceptance criterion, so publication produces a real red baseline in CI.'}
             </p>
-            <input
-              type="text"
-              placeholder="Approver name (QA Lead)"
-              value={approver}
-              onChange={(e) => setApprover(e.target.value)}
-              style={{ width: '100%', marginTop: '8px' }}
-            />
+            <div className="qa-cases">
+              {rows.map(({ sid, story, m }) => (
+                <div className="qa-case-story" key={sid}>
+                  <div className="qa-case-head">
+                    <span className="mono">{sid}</span>
+                    <span>{story?.title ?? ''}</span>
+                    {m ? <Prov provenance={m.provenance} /> : null}
+                    {m ? <span className="hint">{m.stack}</span> : null}
+                  </div>
+                  {m === undefined ? (
+                    <span className="hint">Loading test plan…</span>
+                  ) : m === null ? (
+                    <span className="hint">No test manifest found — regenerate delivery packs first.</span>
+                  ) : (
+                    <ul className="plain qa-case-list">
+                      {m.tests.map((t) => (
+                        <li key={t.test_name}>
+                          <span className="mono">{t.test_name}</span>
+                          <span className="hint">{` ← ${t.ac_id}`}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="card warn rev-consequences">
+              ⚠ On approval: this pack may publish · regenerating the pack resets the approval ·
+              a QA amendment re-enters this gate before publish
+            </div>
             <div className="actions-row" style={{ marginTop: '12px' }}>
+              <input
+                type="text"
+                placeholder="Approver name (QA Lead)"
+                value={approver}
+                onChange={(e) => setApprover(e.target.value)}
+                style={{ flex: '1 1 200px' }}
+              />
               <button
                 className="primary approve"
                 disabled={approving || !approver.trim()}
@@ -907,7 +965,7 @@ export function DeliveryPacks() {
                   if (await doApproveTestPlan(p)) setApproveFor(null)
                 }}
               >
-                {approving ? 'Approving…' : 'Approve test plan'}
+                {approving ? 'Approving…' : `Approve test plan — unlock publish`}
               </button>
               <button className="ghost" onClick={() => setApproveFor(null)}>Cancel</button>
             </div>
