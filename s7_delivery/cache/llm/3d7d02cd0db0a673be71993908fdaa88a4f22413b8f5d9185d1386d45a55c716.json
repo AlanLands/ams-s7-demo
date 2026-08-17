@@ -1,0 +1,13 @@
+{
+  "prompt": "New application:\nname: maplesure-member-signin\ndescription: Standalone sign-in application for MapleSure members using member ID and password.\nstack: Flask + SQLite\n\nWrite architecture.md (components: none yet; data: none yet; explicitly\nstate this is a new application with no code) and a short README.md. Return\nJSON exactly matching:\n{\n  \"architecture_md\": \"<full markdown content for architecture.md>\",\n  \"readme_md\": \"<full markdown content for README.md>\"\n}",
+  "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYour role is writing the founding architecture.md for a brand-new application: name, description and stack are known; the application has no code yet. State plainly, in the architecture.md's own 'what this application does NOT do' convention, that nothing is built yet.",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "response": "{\n  \"architecture_md\": \"# Architecture Documentation for maplesure-member-signin\\n\\n## Overview\\nThe `maplesure-member-signin` application is a standalone application designed to facilitate sign-in for MapleSure members using their member ID and password.\\n\\n## Stack\\n- **Framework**: Flask\\n- **Database**: SQLite\\n\\n## Components\\nCurrently, there are no components built for this application.\\n\\n## Data\\nAt this point, there is no data available or stored within this application.\\n\\n## What this application does NOT do\\n- This application does not currently have any code or implemented features. It is a new application, and development has not yet started.\",\n  \"readme_md\": \"# README for maplesure-member-signin\\n\\n## Introduction\\nThe `maplesure-member-signin` application is intended to provide secure and efficient sign-in functionality for MapleSure members using their designated member ID and password.\\n\\n## Technology Stack\\n- **Framework**: Flask\\n- **Database**: SQLite\\n\\n## Current State\\nThis is a new application with no code or functionality developed as of yet.\\n\\n## Usage\\nOnce implemented, this application will allow MapleSure members to sign in using their member ID and password.\"\n}",
+  "usage": {
+    "input_tokens": 207,
+    "output_tokens": 259,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null
+  }
+}
