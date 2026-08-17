@@ -175,9 +175,16 @@ port: it is **Java-stack specific** (Maven/JUnit/JaCoCo/javap/SQLcl) where we
 are Python — ours is `pytest` and `ruff` over plain subprocess; and it is
 **Claude-Code-native**, which hard rule 4 forbids depending on.
 
-**Caveat, stated plainly:** the CLI-led half of the table is a *target*, not a
-description. Build/test/docs/release does not exist yet, and its shape stays
-blocked on the `UserStory` contract until Sprint 1.
+**Caveat, updated 2026-08-17:** the CLI surface now exists —
+`python -m s7_delivery` (`s7_delivery/cli.py`) lists runs, prints
+stages/gates, renders the run ledger as assertable text (counters, stage
+time with its measured/scripted basis, KPIs — the pytest-testable surface
+this section promised), and drives simulation/demo tasks through
+develop → test → review, printing scripted approvals with their named
+actors and refusing approval-bearing steps on live runs. A blocked review
+reports its findings and exits nonzero — the bounded-loop discipline.
+What remains true: the downstream evidence it drives is the simulated
+lane, honestly labelled.
 
 **Live mode, added to the Control Centre.** The app now has a live entry point
 alongside simulation: intake analysis, the capped clarification chat, and

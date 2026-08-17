@@ -183,8 +183,14 @@ which is where "agentic vs manual per stream" becomes visible to the client.
 The reference architecture's tool layer does not port: it is Java-stack specific
 (ours is `pytest`/`ruff` over subprocess) and Claude-Code-native (hard rule 4).
 
-**Caveat:** the CLI-led half is a target. Build/test/docs/release does not exist
-and stays blocked on the `UserStory` contract until Sprint 1.
+**Caveat, updated 2026-08-17:** the CLI surface now exists —
+`python -m s7_delivery` (`s7_delivery/cli.py`) lists runs, prints
+stages/gates, renders the run ledger as assertable text (counters, stage
+time with its measured/scripted basis, KPIs), and drives simulation/demo
+tasks through develop → test → review with scripted approvals printed
+under their named actors; approval-bearing steps are refused on live
+runs, and a blocked review reports findings and exits nonzero. The
+downstream evidence it drives is the simulated lane, honestly labelled.
 
 **Live mode, added to the Control Centre.** Intake analysis, the capped
 clarification chat, and epic-to-stories planning now run as real `common/llm.py`
