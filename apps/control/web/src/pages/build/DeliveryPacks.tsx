@@ -144,6 +144,7 @@ export function DeliveryPacks() {
   const [confirmPublish, setConfirmPublish] = useState<string | null>(null)
   const [confirmAll, setConfirmAll] = useState(false)
   const [approveFor, setApproveFor] = useState<string | null>(null)
+  const [amendStory, setAmendStory] = useState<string | null>(null)
   const [successFor, setSuccessFor] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [previewTab, setPreviewTab] = useState<PreviewTab>('overview')
@@ -928,6 +929,13 @@ export function DeliveryPacks() {
                     <span>{story?.title ?? ''}</span>
                     {m ? <Prov provenance={m.provenance} /> : null}
                     {m ? <span className="hint">{m.stack}</span> : null}
+                    <button
+                      className="link-btn"
+                      style={{ marginLeft: 'auto' }}
+                      onClick={() => setAmendStory(amendStory === sid ? null : sid)}
+                    >
+                      {amendStory === sid ? 'Close amendment' : '✎ Amend…'}
+                    </button>
                   </div>
                   {m === undefined ? (
                     <span className="hint">Loading test plan…</span>
@@ -941,8 +949,55 @@ export function DeliveryPacks() {
                           <span className="hint">{` ← ${t.ac_id}`}</span>
                         </li>
                       ))}
+                      {(m.qa_tests ?? []).map((t) => (
+                        <li key={t.case_id}>
+                          <span className="mono">{t.test_name}</span>
+                          <span className="hint">{` ← ${t.case_id} · QA amendment`}</span>
+                        </li>
+                      ))}
                     </ul>
                   )}
+                  {m?.qa_amendment ? (
+                    <p className="hint" style={{ margin: '4px 0 0' }}>
+                      {`Amended by ${m.qa_amendment.proposed_by} — proposal: “${m.qa_amendment.proposal}”`}
+                    </p>
+                  ) : null}
+                  {amendStory === sid ? (
+                    <div className="qa-amend-inline">
+                      <p className="hint" style={{ margin: '6px 0 4px' }}>
+                        Describe the extra cases in plain language. Kept verbatim as your proposal,
+                        refined into governed <code>test_qa_*</code> skeletons — the AC-derived names
+                        never move — and the pack re-versions with this approval reset.
+                      </p>
+                      <textarea
+                        rows={2}
+                        style={{ width: '100%' }}
+                        placeholder="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor"
+                        value={amendDrafts[sid] ?? ''}
+                        onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
+                      />
+                      <div className="actions-row" style={{ marginTop: 6 }}>
+                        <button
+                          className="outline"
+                          disabled={!(amendDrafts[sid] ?? '').trim()}
+                          onClick={async () => {
+                            const ok = await act(
+                              `/delivery-packs/${p.delivery_pack_id}/amend-test-plan`,
+                              { story_id: sid, proposal: (amendDrafts[sid] ?? '').trim() },
+                              'Test plan amended — cases appended, approval reset',
+                            )
+                            if (ok) {
+                              setAmendDrafts((prev) => ({ ...prev, [sid]: '' }))
+                              setAmendStory(null)
+                            }
+                          }}
+                        >
+                          ✎ Submit amendment (QA Lead)
+                        </button>
+                        <button className="ghost" onClick={() => setAmendStory(null)}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>

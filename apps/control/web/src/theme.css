@@ -1814,3 +1814,4 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .qa-case-head { display: flex; align-items: baseline; gap: 8px; font-size: 13px; font-weight: 600; flex-wrap: wrap; }
 .qa-case-list { margin: 4px 0 0 2px; font-size: 12px; }
 .qa-case-list li { padding: 1px 0; }
+.qa-amend-inline { margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 4px; }
