@@ -3809,9 +3809,24 @@ class Engine:
         story = self._story(task["story_id"])
         prov = story.get("provenance", "simulated")
 
-        # Opt-in escape hatch: one story's build/test/review runs for real,
-        # over `common.llm`, instead of the fixed simulated evidence. See
-        # `s7_delivery/factory/live.py`. Everything else stays simulated.
+        # Live/replay runs route every *agentic* story through the real
+        # Developer/Tester/Reviewer lane (`s7_delivery/factory/live.py`) —
+        # replay pinned to recordings via _llm_env. Non-agentic stories are
+        # refused with the coverage answer: their evidence arrives from the
+        # developer's own workspace (git sync), never from this lane, and
+        # simulated evidence would muddy a live run's provenance.
+        # `S7_LIVE_STORY` remains a per-story opt-in for simulation runs.
+        if self._llm_paths():
+            lane = coverage.classify(story)
+            if lane["coverage"] != "agentic":
+                raise EngineError(
+                    f"{task['story_id']} routes to the {lane['coverage']} "
+                    f"lane ({lane['reason']}) — evidence arrives from the "
+                    "developer's workspace via git sync, not the agentic lane"
+                )
+            with self._llm_env():
+                self._task_develop_live(task, tasks, story, task_id)
+            return
         if os.environ.get("S7_LIVE_STORY") == task["story_id"]:
             self._task_develop_live(task, tasks, story, task_id)
             return

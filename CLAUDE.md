@@ -356,6 +356,20 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Real AI downstream in live runs, added 2026-08-17.** The demo is done;
+the app now works for real: in live and replay runs, `task_develop` (and
+the composite run-to-review) routes **every agentic story** through the
+genuine Developer/Tester/Reviewer lane (`downstream.py` via
+`factory/live.py`) — real code generation, real pytest, independent
+review (second model when `REVIEW_LLM_*` is set) — with replay pinned to
+recordings via `_llm_env`. The `S7_LIVE_STORY` env var remains only as a
+per-story opt-in for simulation runs. Non-agentic stories are refused
+with the coverage answer (their evidence arrives from the developer's
+workspace via git sync — the control-plane discipline, unchanged), and
+the bridge derives stream/coverage from `factory/coverage.py` instead of
+hard-coding frontend/agentic. Simulation and demo runs are untouched:
+still fully offline, still the rehearsal default (hard rule 5).
+
 **Delivery KPI scorecard, added 2026-08-17.** `factory/kpi.py` computes
 the § Metrics KPIs from the run's own ledgers where they can be evidenced
 — velocity (completed points/sprint), cycle time (provenance→review
