@@ -96,3 +96,19 @@ def test_review_gate_checks_reviewer_is_not_the_developer():
         reviews, tasks, developers={"US-001": "someone.else"})
     row = next(c for c in conditions if "not the developer" in c["condition"])
     assert row["met"] is True
+
+
+def test_stream_complete_still_resolves_from_env(monkeypatch):
+    """Regression: stream_complete has no override params and must resolve
+    provider/model from env without NameError (a scripted edit once broke
+    this)."""
+    path = llm._path_for_mode(
+        mode="replay", provider="anthropic", model="gen-model",
+        system=None, prompt="sp", cache_key=None,
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "prompt": "sp", "system": None, "provider": "anthropic",
+        "model": "gen-model", "response": "streamed",
+    }))
+    assert "".join(llm.stream_complete("sp")) == "streamed"

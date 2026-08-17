@@ -3,8 +3,6 @@ visibly unset with the reason. A KPI the run cannot evidence is None with
 a note, never an invented number (§ Metrics + the telemetry discipline).
 """
 
-import pytest
-
 from s7_delivery.factory import kpi
 from s7_delivery.factory.engine import Engine
 from s7_delivery.factory.models import DemoMode, Role

@@ -26,12 +26,14 @@ from s7_delivery.factory import (
     architecture_checks,
     build_phases,
     coverage,
-    design as design_mod,
     gates,
     kpi,
     refine,
     roles,
     seed,
+)
+from s7_delivery.factory import (
+    design as design_mod,
 )
 from s7_delivery.factory.models import (
     STAGE_ORDER,
