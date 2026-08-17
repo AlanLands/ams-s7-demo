@@ -4,11 +4,12 @@ import { Prov } from '../../components/Badge'
 import { useRun } from '../../state/RunContext'
 import type { BuildSummaryRow, BuildTask } from '../../types'
 import {
-  buildOf,
+  BuildPhaseStrip,
   CONTROL_PLANE_GUIDANCE,
   DEV_STATUS_BADGE,
   DEV_STATUS_LABELS,
   GuidanceCard,
+  buildOf,
   hhmm,
   selectStory,
   selectedStory,
@@ -110,6 +111,7 @@ export function BuildSummaryPage() {
   return (
     <section className="page-with-rail">
       <div>
+        <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head" style={{ marginBottom: 16 }}>
           <h2>Build Summary</h2>
           <span className="hint">

@@ -1815,3 +1815,18 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .qa-case-list { margin: 4px 0 0 2px; font-size: 12px; }
 .qa-case-list li { padding: 1px 0; }
 .qa-amend-inline { margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 4px; }
+
+/* --- shared build-lifecycle strip (all Build & Review pages) --------------- */
+.phase-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 10px 14px; margin-bottom: 10px; }
+.ps-wrap { display: inline-flex; align-items: center; gap: 2px; }
+.ps-step { display: inline-flex; align-items: center; gap: 7px; border: none; background: none; cursor: pointer; padding: 4px 6px; border-radius: var(--radius-sm); font: inherit; font-size: 12.5px; color: var(--muted); }
+.ps-step:hover { background: var(--surface-2); }
+.ps-dot { flex: none; width: 21px; height: 21px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; border: 1.5px solid var(--border-strong); background: var(--surface); color: var(--muted); }
+.ps-step.done { color: var(--ink); }
+.ps-step.done .ps-dot { background: var(--green); border-color: var(--green); color: #fff; }
+.ps-step.now { color: var(--ink); font-weight: 700; }
+.ps-step.now .ps-dot { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 0 0 3px var(--red-pale); }
+.ps-step.next { opacity: 0.55; }
+.ps-link { width: 18px; height: 2px; background: var(--border-strong); border-radius: 1px; }
+.ps-link.filled { background: var(--green); }
+@media (max-width: 1100px) { .ps-label { display: none; } .ps-step.now .ps-label { display: inline; } }

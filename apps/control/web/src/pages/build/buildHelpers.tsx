@@ -51,6 +51,50 @@ export function phaseAtLeast(
   return PHASE_ORDER.indexOf(phase) >= PHASE_ORDER.indexOf(floor)
 }
 
+/** Where each phase's work lives — the strip navigates, not just narrates. */
+const PHASE_SECTIONS: Record<BuildReviewPhase, string> = {
+  gate1_approved: 'plan_signoff',
+  architecture_ready: 'architecture',
+  architecture_accepted: 'architecture',
+  delivery_packs_ready: 'delivery_packs',
+  workspaces_ready: 'workspaces',
+  developer_execution: 'workspaces',
+  build_complete: 'build_summary',
+}
+
+/** One lifecycle strip shared by every Build & Review page: the server's
+ * phase machine rendered as done / current / upcoming, each step clickable
+ * to the page that owns it. The strip is the same everywhere so the user
+ * always knows where the run stands, whichever page they entered from. */
+export function BuildPhaseStrip({ phase, goTo }: {
+  phase: BuildReviewPhase | null | undefined
+  goTo: (section: string) => void
+}) {
+  if (!phase) return null
+  const idx = PHASE_ORDER.indexOf(phase)
+  return (
+    <div className="card phase-strip" role="navigation" aria-label="Build lifecycle">
+      {PHASE_ORDER.map((p, i) => {
+        const state = i < idx ? 'done' : i === idx ? 'now' : 'next'
+        return (
+          <span className="ps-wrap" key={p}>
+            {i > 0 ? <span className={`ps-link${i <= idx ? ' filled' : ''}`} aria-hidden="true" /> : null}
+            <button
+              type="button"
+              className={`ps-step ${state}`}
+              title={state === 'now' ? 'Current phase' : undefined}
+              onClick={() => goTo(PHASE_SECTIONS[p])}
+            >
+              <span className="ps-dot">{state === 'done' ? '✓' : i + 1}</span>
+              <span className="ps-label">{PHASE_LABELS[p]}</span>
+            </button>
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 export const DEV_STATUS_LABELS: Record<string, string> = {
   provisioned: 'Provisioned',
   ready: 'Ready',

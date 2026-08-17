@@ -25,10 +25,11 @@ import type {
   BuildTask, DeveloperWorkspace, PlanStory, ReviewRecord,
 } from '../../types'
 import {
-  buildOf,
+  BuildPhaseStrip,
   CONTROL_PLANE_GUIDANCE,
-  githubLinks,
   GuidanceCard,
+  buildOf,
+  githubLinks,
   hhmm,
   selectStory,
   selectedStory,
@@ -194,6 +195,7 @@ export function IndependentReview() {
     return (
       <section className="page-with-rail bo-compact">
         <div>
+          <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
             <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Independent Review</span>
           </div>

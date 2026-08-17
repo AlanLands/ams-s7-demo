@@ -20,9 +20,10 @@ import { StatCard } from '../../components/StatCard'
 import { useRun } from '../../state/RunContext'
 import type { BuildTask, DeveloperWorkspace, PlanStory, QualityHandoffRow } from '../../types'
 import {
-  buildOf,
+  BuildPhaseStrip,
   CONTROL_PLANE_GUIDANCE,
   GuidanceCard,
+  buildOf,
   hhmm,
   relTime,
   selectStory,
@@ -104,6 +105,7 @@ export function TestEvidence() {
     return (
       <section className="page-with-rail bo-compact">
         <div>
+          <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
             <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Build &amp; Test Evidence</span>
           </div>

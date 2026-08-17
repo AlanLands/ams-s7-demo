@@ -24,12 +24,13 @@ import { StatCard } from '../../components/StatCard'
 import { apiPatch, apiPost } from '../../api'
 import type { ActivityEvent, BuildTask, DeliveryPack, DeveloperWorkspace, PlanStory } from '../../types'
 import {
-  buildOf,
+  BuildPhaseStrip,
   CONTROL_PLANE_GUIDANCE,
   DEV_STATUS_BADGE,
   DEV_STATUS_LABELS,
-  githubLinks,
   GuidanceCard,
+  buildOf,
+  githubLinks,
   hhmm,
   relTime,
   selectStory,
@@ -631,6 +632,7 @@ export function DeveloperWorkspaces() {
     return (
       <section className="page-with-rail bo-compact">
         <div>
+          <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
             <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Developer Workspaces</span>
           </div>

@@ -9,16 +9,15 @@ import { Badge } from '../../components/Badge'
 import { StatCard } from '../../components/StatCard'
 import { TeamChip } from '../planning/TeamChip'
 import {
+  BuildPhaseStrip,
+  CONTROL_PLANE_GUIDANCE,
+  GuidanceCard,
+  OwnershipChips,
   activityTeam,
   blockerSeverity,
   buildOf,
-  CONTROL_PLANE_GUIDANCE,
   gitIntegrationState,
-  GuidanceCard,
   hhmm,
-  OwnershipChips,
-  PHASE_LABELS,
-  PHASE_ORDER,
   selectStory,
   teamDependencyCount,
   teamRisk,
@@ -102,7 +101,6 @@ export function BuildOverview() {
   const planStories = data.planning?.stories ?? []
   const arch = build.architecture
   const published = packs.filter((p) => p.publication_status === 'published').length
-  const phaseIdx = phase ? PHASE_ORDER.indexOf(phase) : -1
   const activity = (data.activity ?? []).filter((a) => a.stage === 'build_review').slice(-5).reverse()
   const teamNames = teams.map((t) => t.team)
   const git = gitIntegrationState(pubs, data.run.mode)
@@ -140,21 +138,9 @@ export function BuildOverview() {
           <OwnershipChips />
         </div>
 
+        {phase ? <BuildPhaseStrip phase={phase} goTo={goTo} /> : null}
         <div className="card" style={{ marginBottom: '8px' }}>
-          {phase ? (
-            <div className="phase-rail">
-              {PHASE_ORDER.flatMap((p, i) => {
-                const cls = i < phaseIdx ? ' done' : i === phaseIdx ? ' now' : ''
-                const node = (
-                  <span key={p} className={`phase${cls}`}>
-                    <span className="dot" />
-                    {PHASE_LABELS[p]}
-                  </span>
-                )
-                return i > 0 ? [<span key={`line-${p}`} className="phase-line" />, node] : [node]
-              })}
-            </div>
-          ) : (
+          {phase ? null : (
             <div className="actions-row">
               <span className="hint">Opens when the plan is signed at Gate 1</span>
               <button type="button" className="outline" onClick={() => goTo('plan_signoff')}>Go to Plan Sign-off</button>

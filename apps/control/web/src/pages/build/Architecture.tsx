@@ -17,7 +17,7 @@ import { Modal } from '../../components/Modal'
 import { Badge, Prov } from '../../components/Badge'
 import { TeamChip } from '../planning/TeamChip'
 import type { ArchLandscape, PlanStory, Provenance } from '../../types'
-import { buildOf, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm } from './buildHelpers'
+import { buildOf, BuildPhaseStrip, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm } from './buildHelpers'
 
 function basename(path: string): string {
   return path.split('/').pop() ?? path
@@ -157,19 +157,28 @@ function LandscapeDiagram({ landscape }: { landscape: ArchLandscape }) {
   )
 }
 
-const REV_SECTIONS = ['Integration points', 'Security', 'Data model', 'Teams & ownership', 'Other']
+/** Chips are the document's own `##` headings, so a selected chip can show
+ * the current text being revised — grounded editing, same discipline as the
+ * QA popup showing the actual test cases. */
+const REV_SECTIONS = [
+  'Integration Boundaries', 'Data Flow', 'Security Constraints',
+  'Repository Mapping', 'Component Ownership', 'Technology Standards',
+  'Deployment Constraints', 'Other',
+]
 
 /** The propose → refine → new version → re-accept loop, shown before the
  * user types a word. Steps 2–4 run automatically on submit; the wizard's
  * job is making that visible instead of a paragraph of hint text. */
-function RevisionWizard({ version, isLive, onSubmit, onClose }: {
+function RevisionWizard({ version, isLive, archMd, onSubmit, onClose }: {
   version: number
   isLive: boolean
+  archMd: string
   onSubmit: (feedback: string) => Promise<boolean>
   onClose: () => void
 }) {
   const [section, setSection] = useState('')
   const [text, setText] = useState('')
+  const currentText = section && section !== 'Other' ? mdSection(archMd, section) : ''
   const steps: [string, string][] = [
     ['Describe the change', 'you, in plain language — kept verbatim as your artifact'],
     [isLive ? 'AI refines it' : 'System refines it',
@@ -203,10 +212,22 @@ function RevisionWizard({ version, isLive, onSubmit, onClose }: {
           </button>
         ))}
       </div>
+      {currentText ? (
+        <div style={{ marginTop: '10px' }}>
+          <p className="hint" style={{ margin: '0 0 4px' }}>
+            <b>{`Current v${version} — ${section}`}</b>{' '}(what your proposal revises; the original stays frozen):
+          </p>
+          <pre className="artifact-preview" style={{ maxHeight: '150px' }}>{currentText}</pre>
+        </div>
+      ) : section && section !== 'Other' ? (
+        <p className="hint" style={{ margin: '10px 0 0' }}>
+          {`"${section}" is not present in v${version}'s architecture.md — your proposal would introduce it.`}
+        </p>
+      ) : null}
       <textarea
         rows={4}
         style={{ width: '100%', marginTop: '10px' }}
-        placeholder={section ? `What should change about ${section.toLowerCase()}?` : 'What should the next architecture version change?'}
+        placeholder={section && section !== 'Other' ? `What should change in ${section}?` : 'What should the next architecture version change?'}
         value={text}
         onChange={(e) => setText(e.target.value)}
       />
@@ -370,6 +391,7 @@ export function Architecture() {
   return (
     <section className="page-with-rail bo-compact arch-page">
       <div>
+        <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head arch-head" style={{ marginBottom: '8px' }}>
           <h2>Architecture</h2>
           <span className="hint">Engineering blueprint generated from the approved plan.</span>
@@ -622,6 +644,7 @@ export function Architecture() {
             {showRevise ? (
               <RevisionWizard
                 version={arch.version}
+                archMd={archMd}
                 isLive={data?.run?.mode === 'live' || data?.run?.mode === 'replay'}
                 onSubmit={(fb) => act('/architecture/revise', { feedback: fb },
                   `Revision generated — v${arch.version + 1} awaits acceptance`)}

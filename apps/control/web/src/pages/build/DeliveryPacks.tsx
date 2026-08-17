@@ -20,7 +20,7 @@ import { Modal } from '../../components/Modal'
 import { StatCard } from '../../components/StatCard'
 import { Prov } from '../../components/Badge'
 import type { DeliveryPack, GitPublication, PlanStory } from '../../types'
-import { buildOf, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm, phaseAtLeast } from './buildHelpers'
+import { buildOf, BuildPhaseStrip, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm, phaseAtLeast } from './buildHelpers'
 
 /** Stated derivation: repository category from its name suffix. */
 function repoCategory(repo: string): string {
@@ -337,6 +337,7 @@ export function DeliveryPacks() {
   return (
     <section className="page-with-rail bo-compact dp-page">
       <div>
+        <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head" style={{ marginBottom: '4px' }}>
           <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Delivery Packs</span>
         </div>
