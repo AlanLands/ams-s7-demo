@@ -1,5 +1,8 @@
 # S7 Parallel Presenter Script — Deck + Live Control Centre
 
+> **This is the canonical demo runbook.** Every other demo script in
+> `docs/` and `demo/` is historical and carries a banner pointing here.
+
 **Deck:** `docs/s7-intake-animated-deck.html` (20 slides, animated beats)
 **App:** the S7 Control Centre (`demo/run_control.sh`)
 **Setup:** one screen, two windows — the deck and the browser tab with the

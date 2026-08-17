@@ -349,6 +349,19 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Replay mode made real, run hygiene, added 2026-08-17.** `DemoMode.REPLAY`
+was a dead menu option (no engine branch handled it); it is now a real
+environment: the live code paths for every LLM-backed stage — analysis,
+clarification, routing, extraction, planning, refine — with `LLM_MODE`
+pinned to `replay` around each call, so a hot `LLM_MODE=live` in the shell
+can never leak a network call into a replay run. Git side effects stay off
+in replay: repo creation is refused, publication stays a pseudo-commit.
+Same day: `reset()` now preserves the run mode and reseeds grounding
+identically to `create()` (a demo run no longer comes back as simulation),
+and the activity counters split `ai_workflows` (live_ai only) from
+`simulated_workflows` — a simulated event never counts as an AI workflow
+anywhere the ledger is rendered.
+
 **Demo mode and the release/design document, added 2026-08-10.** A fourth
 environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /
 Replay / Live) — presenter-facing and fully offline. Demo behaves as

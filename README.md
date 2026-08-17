@@ -4,14 +4,22 @@
 multi-sprint project taken end to end — business requirement → design → build →
 test → production release — using an AI-assisted SDLC.
 
-> **Status: Sprint 0 complete (reworked 2026-08-03).** The upstream pipeline
-> runs end to end — epic intake → assessment → design → human review gate →
-> story breakdown — and 60 tests pass offline with no API key.
+> **Status (2026-08-17): the governed journey runs end to end** — intake →
+> planning (G1 sign-off) → architecture → delivery packs → developer
+> workspaces → build & test evidence → independent review → quality →
+> release — and ~600 tests pass offline with no API key.
 >
-> **Every artifact it renders is `STAGED`**: hand-written, not model output, and
-> labelled as such wherever it appears. Real AI output is Sprint 3 and is blocked
-> on model access. The downstream half (build → test → docs → release) is not
-> built. See `docs/SPRINT-PLAN.md`.
+> **Four run environments.** *Simulation* (the default, hard rule 5) and
+> *Demo* (presenter-facing, scripted Sync storyline) are fully offline —
+> engine evidence is deterministic and badged `SIMULATED`/`RULE_BASED`
+> (rendered as a neutral `DEMO` chip in demo runs; stored provenance is
+> never altered). *Live* runs intake analysis, clarification, routing,
+> extraction and planning as real LLM calls grounded in connected
+> repositories. *Replay* takes the live code paths pinned to committed
+> recordings — no key, no network. The downstream lane
+> (build/test/review/release) is simulated in every mode; nothing
+> simulated ever presents as live AI. See `docs/SPRINT-PLAN.md` for the
+> sprint history.
 
 ## Where this sits
 
@@ -189,24 +197,25 @@ manual, human action — this system never automates it.
   than serving stale content — that is by design.
 
 The intended end state is a mode selector with two entry points converging on one
-downstream lane. The right-hand lane and everything below the join are **not built
-yet**:
+downstream lane. The left-hand lane and the shared downstream run today (the
+downstream as governed simulation); the right-hand **enhancement entry is not
+built yet**:
 
 ```
 Project mode (S7)                    Enhancement mode (S3-style)
-  Epic → DFD/design → human review      User stories in
+  Epic → design → human review          User stories in   ← not built
        → user stories ──────┬───────────────────┘
                             ↓
-              build → test → docs → release      ← not built
+              build → test → docs → release
 ```
 
 ### Documents
 
+- `docs/S7-PARALLEL-PRESENTER-SCRIPT.md` — **the canonical demo runbook**
+  (15-minute deck + Control Centre dips); older demo scripts carry
+  deprecation banners pointing here
 - `docs/SPRINT-PLAN.md` — the six sprints, each with its demo beat
 - `docs/S7-Standalone-Plan.pdf` — plan for an offline single-file bundle
-- `docs/delivery-pack.html` — the visual delivery pack; renders to PDF via
-  `demo/render_pdf.py` once console screenshots are captured into `docs/assets/`
-  (both are gitignored and not published)
 
 See `CLAUDE.md` § The flow for why the design step sits before story breakdown,
 and § Coverage model for how work that AI cannot do is surfaced rather than hidden.

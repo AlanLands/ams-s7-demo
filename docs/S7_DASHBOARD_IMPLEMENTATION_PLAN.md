@@ -35,7 +35,7 @@ PASSED.
 | Downstream lane | `s7_delivery/downstream.py` — developer/tester/reviewer roles, bounded revision loop, events.jsonl contract; recorded run in `artifacts/EPIC-S7-001/downstream/` | **Reuse recordings** as Replay-mode evidence; simulation mode generates equivalent deterministic events. |
 | LLM abstraction | `common/llm.py` — 5 providers, replay/record/live, cache keyed on full prompt | **Reuse.** Factory simulation mode never calls it; Replay mode reads committed recordings through it. |
 | Telemetry | `common/telemetry.py` | Reuse for any live calls; factory activity log is a separate JSONL (different concern: delivery events, not model calls). |
-| Existing surfaces | `apps/console` (5-gate console), `apps/intake` (clarify→plan) | **Preserve untouched.** Control Centre is a third surface; no behaviour change to either. |
+| Existing surfaces | ~~`apps/console`~~ (removed 2026-08-07), `apps/intake` (clarify→plan, legacy) | Historical note — the Control Centre superseded the console; `apps/intake` remains as a legacy surface. |
 | Tests | 9 test modules, green offline | Preserve; add `tests/test_factory_*.py`. |
 | Docs | demo script, sprint plan, architecture HTML pages | Extend; new docs listed in §8. |
 

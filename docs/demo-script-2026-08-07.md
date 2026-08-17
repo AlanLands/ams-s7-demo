@@ -1,5 +1,10 @@
 # Demo script — dry run 2026-08-07, 08:00 Eastern
 
+> ⚠️ **DEPRECATED — do not present from this script.** It targets
+> `demo/run_console.sh` / port 8700, a surface **removed on 2026-08-07**;
+> the commands below no longer exist. The canonical runbook is
+> `docs/S7-PARALLEL-PRESENTER-SCRIPT.md`. Kept for history only.
+
 One continuous beat, ~8 minutes. Presented from this machine, fully offline:
 every artifact is a **real model run, recorded and replayed** (`REPLAYED_AI`),
 which is hard rule 5 working as designed — say so proudly if asked.

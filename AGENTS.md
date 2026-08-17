@@ -327,6 +327,19 @@ job; the human gate judges the plan's content, not its formatting. A
 second miss raises with the full defect list; only an unrecoverable shape
 (no usable story list) fails immediately with no retry.
 
+**Replay mode made real, run hygiene, added 2026-08-17.** `DemoMode.REPLAY`
+was a dead menu option (no engine branch handled it); it is now a real
+environment: the live code paths for every LLM-backed stage — analysis,
+clarification, routing, extraction, planning, refine — with `LLM_MODE`
+pinned to `replay` around each call, so a hot `LLM_MODE=live` in the shell
+can never leak a network call into a replay run. Git side effects stay off
+in replay: repo creation is refused, publication stays a pseudo-commit.
+Same day: `reset()` now preserves the run mode and reseeds grounding
+identically to `create()` (a demo run no longer comes back as simulation),
+and the activity counters split `ai_workflows` (live_ai only) from
+`simulated_workflows` — a simulated event never counts as an AI workflow
+anywhere the ledger is rendered.
+
 **Demo mode and the release/design document, added 2026-08-10.** A fourth
 environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /
 Replay / Live) — presenter-facing, fully offline, simulation semantics
@@ -510,6 +523,45 @@ Support KPIs (SLA/XLA, MTTR, reopen/escalation rates, backlog ageing, effort
 reduction, productivity per FTE) belong to S1–S6. A consolidated scorecard
 spanning both scopes is a client ask, mapped to four outcome dimensions:
 efficiency, service quality, issue resolution, delivery productivity.
+
+## Client inputs
+
+The client is providing: an application inventory subset (8–10 representative
+applications), three months of anonymized ticket data (incident, change
+request, problem), and sample business requirements / user stories for 1–2
+representative enhancements or projects. Q&A is by email. The client has
+stated no production data, PII, or client-identifiable information will be
+shared at any point in Phase 2.
+
+**Anything arriving from the client is scrubbed before it lands in this
+repo.** Their ticket ids, epic text, and app names carry their naming and
+domain language. Rewrite to the MapleSure fiction first — hard rules 1 and 2
+apply to inbound material exactly as they do to authored material. If a file
+looks like a real client export, stop and flag it; do not process it.
+
+## Open / TBD
+
+Condensed from `CLAUDE.md` § Open / TBD — read that for full context before
+treating any of these as settled:
+
+- **Domain SME validation** — exact forms, attachments, status names and
+  pre-population rules for the disability scenario are unvalidated.
+- **Staffing** — one week is tight; division of work unsettled.
+- **Downstream reuse vs rebuild** — `common/` is adapted from S3 (decided);
+  the upstream is written fresh (decided); reusing S3's ~2,800-LOC
+  downstream remains open.
+- **Internal framework reuse as code** — ask the owning team before
+  building equivalents of anything they already ship.
+- **LLM access** — provider approval and availability in the sandbox
+  remain open.
+- **IDE integration boundary** — the app currently stops at the gate and
+  the IDE takes over; whether it *integrates* further must be stated, not
+  assumed.
+- **One application or two?** — § Demo Scenarios and Design review item 5
+  disagree; neither retired.
+- **Independent model review** — agreed as a concept to show; if it ships
+  as a button, it ships badged.
+- Demo date and presentation format — TBD.
 
 ## Architecture Direction
 

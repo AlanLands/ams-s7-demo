@@ -35,7 +35,7 @@ export function Reports() {
         </div>
         <div className="card metric">
           <div className="v">{String(s.counters?.ai_workflows ?? 0)}</div>
-          <div className="l">Automated workflows</div>
+          <div className="l">AI workflows (live)</div>
         </div>
         <div className="card metric">
           <div className="v">{String(s.counters?.human_approvals ?? 0)}</div>

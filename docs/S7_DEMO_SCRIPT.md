@@ -1,5 +1,9 @@
 # S7 Control Centre — 15-minute demo script
 
+> ⚠️ **Superseded (2026-08-08 vintage).** Predates demo mode, the scripted
+> Sync storyline, human business rules and the release document. The
+> canonical runbook is `docs/S7-PARALLEL-PRESENTER-SCRIPT.md`.
+
 Setup (before the room): `demo/run_control.sh` → http://127.0.0.1:8720.
 Everything runs offline, deterministic, no API key. If anything is mid-state
 from rehearsal: **Settings → Reset this run**, or load a scenario fresh.

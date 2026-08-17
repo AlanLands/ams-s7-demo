@@ -1,5 +1,10 @@
 # S7 Control Centre — Live End-to-End Demo Guide
 
+> **Superseded for presenting.** The canonical runbook is
+> `docs/S7-PARALLEL-PRESENTER-SCRIPT.md`; this guide predates human
+> business rules and the release document and stays as live-mode
+> background reading.
+
 **Audience:** the client (referred to only as "the client" — never by name).
 **Insurer fiction:** MapleSure Insurance. **Length:** ~15 minutes.
 **Story:** one small requirement travels the full lifecycle — intake, design,

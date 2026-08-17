@@ -1,5 +1,9 @@
 # Build & Review — Customer Demonstration Script
 
+> **Scope note.** This walks the Build & Review phase only, as of
+> 2026-08-09. The canonical full-demo runbook is
+> `docs/S7-PARALLEL-PRESENTER-SCRIPT.md`.
+
 The story in one breath: *S7 plans and prepares. AI generates governed
 engineering context. Approved packs are published to Git. Human developers
 work normally in their own workspaces. S7 collects evidence, an isolated
