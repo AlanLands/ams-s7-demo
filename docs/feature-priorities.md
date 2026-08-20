@@ -6,6 +6,11 @@ source-specific acronyms replaced with neutral terms. The plan is to develop
 these point by point; each section carries a status line mapping it to what
 this repo already has.
 
+**Status lines refreshed 2026-08-20** — the 2026-08-06 statuses had gone
+stale: items 6 and 10 have since been built for real, and most "not built"
+entries are now at least partially landed. Sources: CLAUDE.md's dated
+feature notes (2026-08-09 → 2026-08-17).
+
 | # | Feature | Description | Score |
 |---|---------|-------------|-------|
 | 1 | Gated Pipeline (5 gates) | Hard phase gates from intake through release; no advancement without required artifacts and gate conditions. | 10 |
@@ -26,10 +31,12 @@ this repo already has.
 Hard phase gates from intake through release; no advancement without required
 artifacts and gate conditions.
 
-- **Status:** partially built. One human review gate exists (design → stories)
-  and genuinely blocks. The release gate is planned as Sprint 2's "second
-  gate". This item generalises both into a five-gate model spanning the whole
-  pipeline.
+- **Status (2026-08-20):** largely built. Intake gate (Business Owner only),
+  G1 plan sign-off that *authorises* downstream generation, per-pack QA
+  test-plan approval, independent review, and release approval — all enforced
+  by a server-validated phase machine (`factory/build_phases.py`, 409 on
+  out-of-order actions). Dependency gates block story starts until upstream
+  evidence lands, with a governed human override.
 - **Development notes:** _TBD_
 
 ## 2 · Four-Layer Architecture — score 10
@@ -63,10 +70,11 @@ as a governed engineering system.
 Requires clear purpose, testable acceptance criteria, dependencies, target
 component, impacts, feature flag, rollback plan, and task type.
 
-- **Status:** contract work — belongs in `s7_delivery/models.py` alongside the
-  Sprint 1 `UserStory`/`Task` freeze. Several fields (feature flag, rollback
-  plan, impacts) are not in the current shape. Anything the downstream carries
-  must land before Sprint 2 builds the lane.
+- **Status (2026-08-20):** partially built. Stories carry ACs (with ids),
+  dependencies, teams, estimates, and a rule-based stream/coverage
+  classification; the planner's corrective retry enforces AC counts, roster
+  and dependency validity. Feature flag, rollback plan and impact fields are
+  still not in the shape.
 - **Development notes:** _TBD_
 
 ## 4 · Provenance Ledger — score 9
@@ -74,9 +82,11 @@ component, impacts, feature flag, rollback plan, and task type.
 Append-only SHA-256 tracking of artifact versions, authors, timestamps, and
 input dependencies for auditability.
 
-- **Status:** partially designed. `models.py` carries `Provenance`, and the
-  Sprint 2 artifact plane already plans upstream-artifact pointers. New parts:
-  append-only ledger semantics and content hashing.
+- **Status (2026-08-20):** largely built. Every artifact carries provenance
+  (LIVE_AI / REPLAYED_AI / RULE_BASED / SIMULATED / HUMAN), rendered wherever
+  it appears; the approvals ledger records every decision with actor and
+  reason; staleness rides a provenance walk over upstream pointers.
+  Still open: append-only SHA-256 content hashing as ledger semantics.
 - **Development notes:** _TBD_
 
 ## 5 · Factory Activity Log — score 9
@@ -84,10 +94,11 @@ input dependencies for auditability.
 Logs AI-assisted sessions, workflows, skills, artifacts, duration, and
 outcomes to reveal velocity and bottlenecks.
 
-- **Status:** partially built. `common/telemetry.py` logs per call; Sprint 1's
-  run ledger is the client-facing face. This adds session/workflow-level
-  aggregation and the velocity/bottleneck view — aligns with the existing note
-  that decision-level records are missing.
+- **Status (2026-08-20):** partially built. Per-call telemetry with cache
+  counters; activity counters split `ai_workflows` from `simulated_workflows`;
+  the KPI scorecard computes velocity, cycle time and first-time-right from
+  the run's own ledgers (reporting "not evidenced" where it can't). Still
+  open: session/workflow-level bottleneck view.
 - **Development notes:** _TBD_
 
 ## 6 · Independent Review Protocol (Gate 3) — score 8
@@ -95,10 +106,11 @@ outcomes to reveal velocity and bottlenecks.
 Three-layer review process using an isolated reviewer to verify acceptance
 criteria against design and code; critical or major gaps block release.
 
-- **Status:** concept-only per design review 2026-08-04 item 4 ("independent
-  model review"). If shown without executing live, it ships badged `STAGED` —
-  no third option. The "no phase self-approves" invariant from the second
-  review is the structural version of this.
+- **Status (2026-08-20):** **built** (2026-08-17). Live and replay runs route
+  every agentic story through the Developer/Tester/Reviewer lane with a
+  *second* model as reviewer when `REVIEW_LLM_*` is set; a blocked review
+  reports its findings and exits nonzero. The "no phase self-approves"
+  invariant holds across the pipeline.
 - **Development notes:** _TBD_
 
 ## 7 · Traceability Matrix — score 8
@@ -106,9 +118,11 @@ criteria against design and code; critical or major gaps block release.
 Links epic, design doc, story, PR, test, and deployment so defects can be
 traced backward quickly.
 
-- **Status:** partially designed. `Task.satisfies` already carries
-  acceptance-criterion ids; the second review's `traces_to` pattern extends
-  this to a full chain. The matrix is the rendered view over that chain.
+- **Status (2026-08-20):** largely built. AC ids flow into governed test-
+  skeleton names; CI emits per-test results that evidence sync joins back per
+  AC; the release/design document renders every criterion with its result and
+  approvals. Still open: a single rendered "matrix" view spanning epic → PR →
+  deployment in one table.
 - **Development notes:** _TBD_
 
 ## 8 · Self-Correction / Change Management — score 8
@@ -132,9 +146,11 @@ assessment, implementation, stability verification, and versioned amendments.
 Enforces requirement-to-story mapping, testable acceptance criteria, and full
 AC-to-code/test coverage before review.
 
-- **Status:** not built. These are the machine-checkable gates upstream of the
-  human/independent review — `UserStory.unsatisfied()` is the seed of the
-  AC-coverage check.
+- **Status (2026-08-20):** partially built. The planner's corrective retry is
+  the requirement-to-story completeness check (unclaimed business rules, AC
+  counts, dependency validity); per-story quality handoff is named conditions;
+  red-baseline skeletons + per-AC evidence joining cover AC-to-test coverage.
+  Still open: a formal AC-to-code coverage check before review.
 - **Development notes:** _TBD_
 
 ## 10 · Staleness Detection — score 7

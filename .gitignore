@@ -80,3 +80,7 @@ reference-internal/
 .superpowers/
 .worktrees/
 EpicFromClient/
+
+# Expo nomination material — photos of internal (TCS-Confidential) email
+# chains with real names and addresses. Reference only; never commit.
+Expo/
