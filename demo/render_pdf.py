@@ -10,8 +10,8 @@ the deliverables.
 No new dependency is added to requirements.txt. The Markdown subset handled here
 is exactly what the repo's docs use; it is not a general converter.
 
-    python3 demo/render_pdf.py docs/SPRINT-PLAN.md   docs/S7-Sprint-Plan.pdf
-    python3 demo/render_pdf.py docs/delivery-pack.html docs/S7-Delivery-Pack.pdf
+    python3 demo/render_pdf.py docs/sprint-plan.md docs/SPRINT-PLAN.pdf
+    python3 demo/render_pdf.py docs/slide-decks/client-tabletop-deck.html docs/slide-decks/client-tabletop-deck.pdf
 
 A `.html` source is passed through with its own styling rather than converted —
 that is the escape hatch for a document that needs more than the Markdown subset
@@ -35,6 +35,11 @@ CHROME_CANDIDATES = (
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    # Windows
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+    r"C:\Program Files\Microsoft\Edge\Application\msedge.exe",
 )
 
 # Palette lifted from apps/control/web/src/theme.css so the document reads as
@@ -269,7 +274,7 @@ def find_chrome() -> str:
             return found
     raise SystemExit(
         "No Chrome/Chromium found. Install one, or convert "
-        "docs/SPRINT-PLAN.md to PDF by hand."
+        "docs/sprint-plan.md to PDF by hand."
     )
 
 

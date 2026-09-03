@@ -1,6 +1,5 @@
 import { useRun } from '../../state/RunContext'
 import { EpicSummaryStrip } from './EpicSummaryStrip'
-import { Gate1Rail } from './Gate1Rail'
 import { KpiTiles } from './KpiTiles'
 import { planningOf } from './planningHelpers'
 import { StoriesPanel } from './StoriesPanel'
@@ -21,7 +20,7 @@ export function EpicToStories() {
   const epic = data.intake?.epic
 
   return (
-    <section className="page-with-rail">
+    <section>
       <div>
         <div className="page-head" style={{ marginBottom: 16 }}>
           <h2>Epic to Stories (AI Decomposition)</h2>
@@ -70,9 +69,6 @@ export function EpicToStories() {
           </div>
         )}
       </div>
-      <aside className="rail">
-        <Gate1Rail />
-      </aside>
     </section>
   )
 }

@@ -23,7 +23,6 @@ Events line schema (the contract the console animates):
 from __future__ import annotations
 
 import json
-import os
 import re
 import subprocess
 import sys
@@ -32,16 +31,23 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from common.llm import complete
+from s7_delivery.factory import layers
 from s7_delivery.generate import parse_json_block
 from s7_delivery.models import Task, UserStory
+from s7_delivery.product import llm_settings
 
-_SYSTEM = (
-    "You are an agent in MapleSure Insurance's automated delivery lane. "
-    "MapleSure is a fictional insurer in a tabletop exercise. Output strict "
-    "JSON matching the schema given in the task — no prose, no markdown "
-    "fences. Generated code uses plain HTML/CSS/JS and Python stdlib only: "
-    "no CDNs, no frameworks, no network calls, nothing fetched at runtime."
-)
+# The Rules layer of the lane (`factory/layers.py`): one system prompt shared
+# by all three agents. The Skills layer is the opening sentence of each
+# agent's task prompt — this lane pre-dates the PromptLayers convention and
+# its prompt bytes are pinned by committed recordings, so the skill rides in
+# the prompt exactly where it always was (the `{{skill}}` placeholder of each
+# task template). Every file is resolved at call time from the active prompt
+# set — nothing is pinned at import.
+_RULES_ID = "downstream-lane"
+
+
+def _system() -> str:
+    return layers.rules(_RULES_ID)
 
 
 # pytest timing varies run to run; anything embedded in a prompt must be
@@ -100,123 +106,63 @@ def _criteria_block(story: UserStory, task: Task) -> str:
     return "\n".join(f"- {a.id}: {a.text}" for a in story.acceptance if a.id in wanted)
 
 
+def _read_if_exists(path: Path) -> str:
+    return path.read_text(encoding="utf-8") if path.exists() else ""
+
+
+def _findings_block(review: dict) -> str:
+    return "\n".join(
+        f"- {c.get('id')}: {'met' if c.get('met') else 'NOT MET'} — {c.get('note', '')}"
+        for c in review.get("criteria", [])
+    )
+
+
 def _developer_prompt(story: UserStory, task: Task) -> str:
-    return f"""You are the Developer agent. Your task:
-
-Task {task.id} ({task.stream.value}): {task.summary}
-Story {story.id}: {story.title}
-Narrative: {story.narrative}
-Acceptance criteria this task must satisfy:
-{_criteria_block(story, task)}
-
-Build a single-page MapleSure SponsorConnect screen: the plan sponsor
-disability claim submission journey. One self-contained index.html
-(inline CSS and JS, professional insurer-portal look, works when opened as a
-local file). Required behaviour, happy path only:
-
-- Fields: policy number (id="policy-number") and member id (id="member-id"),
-  with a "Look up member" button that fills a member-details panel from a
-  small mock data object defined in the page's own JS (no fetch, no backend).
-- A claim details section: last day worked (date), first day absent (date),
-  nature of absence (select), and a free-text details field.
-- A document upload input (id="documents") with the `multiple` attribute and
-  a visible list of chosen file names.
-- The whole thing wrapped in a form (id="claim-form"). Submitting hides the
-  form and shows a confirmation panel (id="confirmation") containing a
-  reference number like MS-2026-08-XXXX generated in JS and the status text
-  "Received".
-- A small footer note: "MapleSure Insurance — fictional demo application".
-
-JSON schema: {{"files": [{{"path": "index.html", "content": str}}]}}"""
+    return layers.render_task(
+        "developer-task",
+        skill=layers.skill("developer"),
+        task_id=task.id, stream=task.stream.value, task_summary=task.summary,
+        story_id=story.id, story_title=story.title, narrative=story.narrative,
+        acceptance_criteria=_criteria_block(story, task),
+    )
 
 
 def _tester_prompt(story: UserStory, task: Task, files: list[str], app_dir: Path) -> str:
     generated = "\n\n".join(
         f"--- {name} ---\n{(app_dir / name).read_text(encoding='utf-8')}" for name in files
     )
-    return f"""You are the Tester agent. The Developer produced these files for
-task {task.id} ({task.summary}):
-
-{generated}
-
-Acceptance criteria:
-{_criteria_block(story, task)}
-
-Write pytest tests (a single test_app.py) that verify the happy path
-STRUCTURALLY against the actual file above — read index.html from
-Path(__file__).parent and assert what the criteria need: the form and its
-required field ids exist, the upload input allows multiple files, the
-confirmation panel and status markup exist, the member lookup mock data is
-present. 4 to 6 focused tests, stdlib + pytest only, no browser, no server,
-no network. Every assertion must hold for the file exactly as shown above,
-and must be independent of the current date, time, or environment — never
-hard-code a year, month, or timestamp; where the page generates a value at
-runtime, assert the generating code exists, not the value it would produce
-today.
-
-JSON schema: {{"files": [{{"path": "test_app.py", "content": str}}]}}"""
+    return layers.render_task(
+        "tester-task",
+        skill=layers.skill("tester"),
+        task_id=task.id, task_summary=task.summary, generated_files=generated,
+        acceptance_criteria=_criteria_block(story, task),
+    )
 
 
 def _reviewer_prompt(story: UserStory, task: Task, app_dir: Path, test_output: str) -> str:
     listing = "\n".join(sorted(p.name for p in app_dir.iterdir()))
-    html = (app_dir / "index.html").read_text(encoding="utf-8") if (app_dir / "index.html").exists() else ""
-    return f"""You are the Reviewer agent — a second, independent check before
-anything reaches a human. You did not write this code. Verify the Developer's
-output for task {task.id} against the acceptance criteria, using the evidence
-below. Be strict: an unmet criterion is a fail even if the code looks nice.
-
-Acceptance criteria:
-{_criteria_block(story, task)}
-
-Files produced:
-{listing}
-
-index.html content:
-{html}
-
-pytest output:
-{test_output}
-
-JSON schema: {{"verdict": "pass" | "fail",
-"criteria": [{{"id": str, "met": bool, "note": str}}],
-"notes": [str]}}"""
+    html = _read_if_exists(app_dir / "index.html")
+    return layers.render_task(
+        "reviewer-task",
+        skill=layers.skill("reviewer"),
+        task_id=task.id, acceptance_criteria=_criteria_block(story, task),
+        file_listing=listing, html=html, test_output=test_output,
+    )
 
 
 def _revision_prompt(
     story: UserStory, task: Task, app_dir: Path, review: dict, test_output: str
 ) -> str:
     html = (app_dir / "index.html").read_text(encoding="utf-8")
-    tests = (app_dir / "test_app.py").read_text(encoding="utf-8") if (app_dir / "test_app.py").exists() else ""
-    findings = "\n".join(
-        f"- {c.get('id')}: {'met' if c.get('met') else 'NOT MET'} — {c.get('note', '')}"
-        for c in review.get("criteria", [])
+    tests = _read_if_exists(app_dir / "test_app.py")
+    return layers.render_task(
+        "developer-revision-task",
+        skill=layers.skill("developer"),
+        task_id=task.id, findings=_findings_block(review),
+        reviewer_notes=review.get("notes"),
+        acceptance_criteria=_criteria_block(story, task),
+        html=html, tests=tests, test_output=test_output,
     )
-    return f"""You are the Developer agent. An independent Reviewer rejected
-your build for task {task.id}. Fix every NOT MET finding. Do not argue with
-the findings; address them.
-
-Reviewer findings:
-{findings}
-
-Reviewer notes: {review.get('notes')}
-
-Acceptance criteria:
-{_criteria_block(story, task)}
-
-Your current index.html:
-{html}
-
-The Tester's tests, which must still pass unchanged:
-{tests}
-
-Last pytest output: {test_output}
-
-Return the complete revised index.html (full file, not a diff). Keep every
-element id and structural marker the tests rely on. Same constraints as
-before: single self-contained file, inline CSS/JS, mock data in-page, no
-fetch, no network, happy path only.
-
-JSON schema: {{"files": [{{"path": "index.html", "content": str}}]}}"""
 
 
 def _test_revision_prompt(
@@ -224,33 +170,12 @@ def _test_revision_prompt(
 ) -> str:
     html = (app_dir / "index.html").read_text(encoding="utf-8")
     tests = (app_dir / "test_app.py").read_text(encoding="utf-8")
-    findings = "\n".join(
-        f"- {c.get('id')}: {'met' if c.get('met') else 'NOT MET'} — {c.get('note', '')}"
-        for c in review.get("criteria", [])
+    return layers.render_task(
+        "tester-revision-task",
+        skill=layers.skill("tester"),
+        findings=_findings_block(review), html=html, tests=tests,
+        test_output=test_output,
     )
-    return f"""You are the Tester agent. Your tests are red against the current
-build and the independent Reviewer's diagnosis is that at least one test is
-itself defective. Fix the tests — and only what is defective in them. A fixed
-test must still genuinely verify its acceptance criterion against the file as
-it exists; do not weaken or delete a valid assertion to force green.
-
-Reviewer findings:
-{findings}
-
-Current index.html:
-{html}
-
-Current test_app.py:
-{tests}
-
-pytest output:
-{test_output}
-
-Assertions must be independent of the current date, time, or environment —
-assert that generating code exists rather than the value it would produce
-today. Return the complete revised test_app.py.
-
-JSON schema: {{"files": [{{"path": "test_app.py", "content": str}}]}}"""
 
 
 def _run_pytest(app_dir: Path) -> tuple[bool, str]:
@@ -261,35 +186,30 @@ def _run_pytest(app_dir: Path) -> tuple[bool, str]:
     return proc.returncode == 0, proc.stdout
 
 
-def _reviewer_llm_kwargs() -> dict:
-    """Independent review by a *different* model when configured
-    (REVIEW_LLM_PROVIDER / REVIEW_LLM_MODEL). Empty when unset — the same
-    model reviews under an isolated prompt, and the events say which."""
-    kwargs: dict = {}
-    if os.environ.get("REVIEW_LLM_PROVIDER"):
-        kwargs["provider"] = os.environ["REVIEW_LLM_PROVIDER"]
-    if os.environ.get("REVIEW_LLM_MODEL"):
-        kwargs["model"] = os.environ["REVIEW_LLM_MODEL"]
-    return kwargs
-
-
 def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
     app_dir = root / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
     ev = _Events(root / "events.jsonl")
+    # Provider/model per lane role from the per-stage settings; unset falls
+    # through to the environment. The reviewer key also honours REVIEW_LLM_*
+    # so an independent *different* model can review when configured — the
+    # events say which.
+    developer_kwargs = llm_settings.for_stage("development-lane.developer")
+    tester_kwargs = llm_settings.for_stage("development-lane.tester")
+    reviewer_kwargs = llm_settings.for_stage("development-lane.reviewer")
 
     ev.emit("developer", f"picked up {task.id}: {task.summary}", status="start")
     dev = parse_json_block(
-        complete(_developer_prompt(story, task), system=_SYSTEM, json_mode=True,
-                 cache_key="s7:downstream:developer")
+        complete(_developer_prompt(story, task), system=_system(), json_mode=True,
+                 cache_key="s7:downstream:developer", **developer_kwargs)
     )
     files = _write_files(dev, app_dir)
     ev.emit("developer", "wrote application code", artifact=", ".join(files))
 
     ev.emit("tester", "writing tests against acceptance criteria", status="start")
     tst = parse_json_block(
-        complete(_tester_prompt(story, task, files, app_dir), system=_SYSTEM, json_mode=True,
-                 cache_key="s7:downstream:tester")
+        complete(_tester_prompt(story, task, files, app_dir), system=_system(), json_mode=True,
+                 cache_key="s7:downstream:tester", **tester_kwargs)
     )
     test_files = _write_files(tst, app_dir)
     ev.emit("tester", "wrote tests", artifact=", ".join(test_files))
@@ -303,7 +223,6 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
         status="done" if green else "fail",
     )
 
-    reviewer_kwargs = _reviewer_llm_kwargs()
     ev.emit(
         "reviewer",
         "independent review against acceptance criteria"
@@ -313,7 +232,7 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
         status="start",
     )
     review = parse_json_block(
-        complete(_reviewer_prompt(story, task, app_dir, _sanitize(test_out)), system=_SYSTEM,
+        complete(_reviewer_prompt(story, task, app_dir, _sanitize(test_out)), system=_system(),
                  json_mode=True, cache_key="s7:downstream:reviewer", **reviewer_kwargs)
     )
     verdict_ok = review.get("verdict") == "pass"
@@ -338,8 +257,8 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
         ev.emit("developer", f"revision {rounds}: addressing reviewer findings", status="start")
         fix = parse_json_block(
             complete(_revision_prompt(story, task, app_dir, review, _sanitize(test_out)),
-                     system=_SYSTEM, json_mode=True,
-                     cache_key=f"s7:downstream:developer:fix{rounds}")
+                     system=_system(), json_mode=True,
+                     cache_key=f"s7:downstream:developer:fix{rounds}", **developer_kwargs)
         )
         files = _write_files(fix, app_dir)
         ev.emit("developer", "applied fixes from review", artifact=", ".join(files))
@@ -357,8 +276,8 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
                     status="start")
             fixt = parse_json_block(
                 complete(_test_revision_prompt(story, task, app_dir, review, _sanitize(test_out)),
-                         system=_SYSTEM, json_mode=True,
-                         cache_key=f"s7:downstream:tester:fix{rounds}")
+                         system=_system(), json_mode=True,
+                         cache_key=f"s7:downstream:tester:fix{rounds}", **tester_kwargs)
             )
             _write_files(fixt, app_dir)
             green, test_out = _run_pytest(app_dir)
@@ -368,8 +287,8 @@ def run_lane(story: UserStory, task: Task, root: Path) -> LaneResult:
         ev.emit("reviewer", "re-review of revised build", status="start")
         review = parse_json_block(
             complete(_reviewer_prompt(story, task, app_dir, _sanitize(test_out)),
-                     system=_SYSTEM, json_mode=True,
-                     cache_key=f"s7:downstream:reviewer:recheck{rounds}")
+                     system=_system(), json_mode=True,
+                     cache_key=f"s7:downstream:reviewer:recheck{rounds}", **reviewer_kwargs)
         )
         verdict_ok = review.get("verdict") == "pass"
         ev.emit("reviewer", f"verdict: {review.get('verdict')}", artifact="review.json",

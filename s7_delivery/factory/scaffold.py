@@ -12,51 +12,35 @@ tests.
 """
 from __future__ import annotations
 
-import shutil
 import subprocess
 from pathlib import Path
 
 from common.llm import LLMError, complete, parse_json_response
 from common.prompt import PromptLayers
-from s7_delivery.factory.repos import RepoConnectError
+from s7_delivery.factory import layers
+from s7_delivery.factory.repos import RepoConnectError, remove_tree
+from s7_delivery.product import llm_settings
 
-RULES = (
-    "You are an AI delivery assistant for MapleSure Insurance, a fictional "
-    "insurer in a tabletop exercise. All data is synthetic. Answer with "
-    "structured JSON only, and never invent facts the input does not support."
-)
-
-SCAFFOLD_ROLE = (
-    "Your role is writing the founding architecture.md for a brand-new "
-    "application: name, description and stack are known; the application "
-    "has no code yet. State plainly, in the architecture.md's own 'what "
-    "this application does NOT do' convention, that nothing is built yet."
-)
-
-_SCAFFOLD_SHAPE = """{
-  "architecture_md": "<full markdown content for architecture.md>",
-  "readme_md": "<full markdown content for README.md>"
-}"""
+# Rules, skill and task text are resolved at call time from the active
+# prompt set (`factory/layers.py`) — nothing is pinned at import.
+RULES_ID = "delivery-assistant"
+SKILL_ID = "new-application-scaffold"
 
 
 def generate_scaffold(
     name: str, description: str, stack: str
 ) -> tuple[dict[str, str], dict]:
-    task = f"""New application:
-name: {name}
-description: {description}
-stack: {stack}
-
-Write architecture.md (components: none yet; data: none yet; explicitly
-state this is a new application with no code) and a short README.md. Return
-JSON exactly matching:
-{_SCAFFOLD_SHAPE}"""
+    task = layers.render_task(
+        "new-application-scaffold-task",
+        name=name, description=description, stack=stack,
+    )
     usage: dict = {}
     response = complete(
-        PromptLayers(rules=RULES, role=SCAFFOLD_ROLE, task=task),
+        PromptLayers(rules=layers.rules(RULES_ID), role=layers.skill(SKILL_ID), task=task),
         json_mode=True,
         cache_key=f"s7_factory_scaffold:{name}",
         usage_out=usage,
+        **llm_settings.for_stage("new-application-scaffold"),
     )
     data = parse_json_response(response, required_keys={"architecture_md", "readme_md"})
     arch = str(data["architecture_md"]).strip()
@@ -93,7 +77,7 @@ def write_scaffold_locally(name: str, files: dict[str, str], dest_root: Path) ->
         _git(repo, "add", "-A")
         _git(repo, *ident, "commit", "-qm", "Initial application scaffold")
     except RepoConnectError:
-        shutil.rmtree(repo, ignore_errors=True)
+        remove_tree(repo, ignore_errors=True)
         raise
     return repo
 

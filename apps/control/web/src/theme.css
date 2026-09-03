@@ -613,7 +613,8 @@ button.primary.sq { border-radius: var(--radius-sm); }
   background: var(--surface-2); font-size: 12.5px;
 }
 
-.tiles { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+/* auto-fit: seven tiles share one row instead of leaving an orphan below */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin: 16px 0; }
 .tile {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-md); padding: 14px 16px; text-align: center;
@@ -686,6 +687,35 @@ button.primary.sq { border-radius: var(--radius-sm); }
 
 .rail .primary.block, .rail .outline.block { width: 100%; justify-content: center; display: inline-flex; }
 
+/* Former side-rail cards folded into the main column as one row of equal
+ * cards (Overview, Architecture, Build Summary): the page reads top to
+ * bottom with the table at full width, and the supporting cards sit under it
+ * instead of beside it. */
+.rail-fold { margin-top: 14px; align-items: stretch; }
+.rail-fold .rail-card { height: 100%; }
+.rail-fold .primary.block, .rail-fold .outline.block, .rail-fold .approve.block {
+  width: 100%; justify-content: center; display: inline-flex;
+}
+@media (max-width: 1100px) { .rail-fold.cols-3, .rail-fold.cols-2 { grid-template-columns: 1fr; } }
+
+/* Gate 1 fold on Plan Sign-off: checklist and signature form side by side. */
+.gate-fold { align-items: start; }
+.gate-fold .rail-card { height: auto; }
+
+/* Stat tiles that fit one row whatever their count (7 tiles used to leave an
+ * orphan on a second row). */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+.stat-grid .card.metric { padding: 14px 16px; }
+
+/* Identifiers and timestamps never wrap mid-token in ledger tables. */
+.nowrap { white-space: nowrap; }
+
+/* Row-detail drawer (Build & Review tabs): the inspector that used to sit in
+ * the right-hand rail now opens on row click, so the table keeps full width. */
+.drawer.detail-drawer { width: min(720px, 100%); }
+.detail-drawer .dp-inspector { display: flex; flex-direction: column; gap: 10px; }
+.detail-drawer .primary.block, .detail-drawer .outline.block { width: 100%; justify-content: center; display: inline-flex; }
+
 .kebab { border: 0; background: none; font-size: 16px; color: var(--muted); padding: 2px 8px; border-radius: var(--radius-sm); }
 .kebab:hover { background: var(--surface-2); color: var(--ink); }
 tr.edit-row td { background: var(--red-pale); }
@@ -711,7 +741,9 @@ tr.edit-row td { background: var(--red-pale); }
 }
 
 .modal-overlay {
-  position: fixed; inset: 0; z-index: 50;
+  /* above the row-detail drawer (55): the pack drawer opens preview,
+     test-plan and publish dialogs, which must land on top of it */
+  position: fixed; inset: 0; z-index: 57;
   background: rgba(35, 39, 43, 0.45);
   display: grid; place-items: center; padding: 20px;
 }
@@ -725,11 +757,6 @@ tr.edit-row td { background: var(--red-pale); }
 .row-click { cursor: pointer; }
 .row-click:hover { background: var(--surface-2); }
 
-.foot-row { display: flex; align-items: center; gap: 14px; width: 100%; }
-.foot-row + .foot-row { margin-top: 3px; }
-.foot-row .foot-center { flex: 1; text-align: center; }
-.foot-row .foot-right { display: inline-flex; align-items: center; gap: 10px; }
-.foot-row.small { font-size: 11px; }
 
 /* dependency map */
 .dep-graph {
@@ -835,6 +862,13 @@ button.pts-chip:hover { background: var(--red-pale); border-color: var(--red); c
   display: flex; justify-content: space-between; gap: 12px;
   padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13.5px;
 }
+/* `.readiness-row` is also the Build overview's 4-column card grid (below);
+ * inside `.readiness-rows` it is always the label/value list, so scope it. */
+.readiness-rows .readiness-row {
+  display: flex; grid-template-columns: none; justify-content: space-between; margin-top: 0;
+}
+.readiness-rows .readiness-row > span { white-space: nowrap; }
+.readiness-rows { min-width: 300px; }
 .readiness-row:last-child { border-bottom: 0; }
 .readiness-verdict {
   flex: 1; min-width: 220px; display: grid; place-items: center; align-content: center;
@@ -930,8 +964,6 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 }
 .trace-arrow { color: var(--muted); font-weight: 600; }
 
-.foot-brand { font-weight: 600; white-space: nowrap; }
-.foot-ai { font-weight: 600; color: var(--red-dark); white-space: nowrap; }
 
 /* AI panels */
 .conf-row {
@@ -960,8 +992,6 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 
 .finding-detail { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; font-size: 12.5px; }
 .finding-detail b { color: var(--ink); }
-.foot-badges { flex: 1; display: flex; justify-content: center; gap: 22px; flex-wrap: wrap; }
-.foot-badge { color: var(--red-dark); font-weight: 600; font-size: 12.5px; white-space: nowrap; }
 
 /* sidenav sub-items */
 .sidenav button.sub { padding-left: 30px; font-weight: 600; font-size: 13px; }
@@ -1026,25 +1056,6 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
   border-radius: var(--radius-sm);
 }
 .dep-gate-override { margin-top: 8px; }
-
-.foot {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-  padding: 8px clamp(16px, 3vw, 32px);
-  border-top: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font-size: 12px;
-  /* pinned to the viewport bottom while the page scrolls */
-  position: sticky;
-  bottom: 0;
-  z-index: 40;
-  box-shadow: 0 -1px 4px rgba(54, 54, 47, 0.06);
-  max-width: none;
-}
-.foot > span:not(.pill) { flex: 1; min-width: 260px; }
 
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
@@ -1202,7 +1213,8 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 
 .epic-strip {
   display: grid;
-  grid-template-columns: auto minmax(0, 2fr) auto auto auto auto;
+  /* the title is the one cell that must not collapse into a word-per-line column */
+  grid-template-columns: auto minmax(260px, 2fr) auto auto auto auto;
   padding: 0;
   overflow: hidden;
 }
@@ -1448,7 +1460,9 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .bo-compact .page-head h2 { font-size: 19px; margin-bottom: 0; }
 .bo-compact .page-head .hint { font-size: 11.5px; }
 .bo-compact .own-chips .chip { font-size: 10px; padding: 1px 8px; }
-.bo-compact .card { padding: 10px 14px; }
+/* Density relaxed one step (2026-09-02): with the side rails gone the tables
+ * own the full width, so the type no longer needs to be squeezed to fit. */
+.bo-compact .card { padding: 12px 16px; }
 .bo-compact .phase-rail .phase { font-size: 11px; }
 .bo-compact .phase-rail .phase .dot { width: 8px; height: 8px; }
 
@@ -1456,14 +1470,14 @@ tr.sel td:first-child { box-shadow: inset 3px 0 0 var(--red); }
 .bo-compact .stat-card { display: grid; grid-template-columns: 28px 1fr; column-gap: 9px; row-gap: 0; padding: 8px 11px; align-items: center; }
 .bo-compact .stat-card .ic { grid-row: 1 / span 3; width: 28px; height: 28px; margin: 0; }
 .bo-compact .stat-card .ic svg { width: 15px; height: 15px; }
-.bo-compact .stat-card .v { font-size: 17px; line-height: 1.15; }
-.bo-compact .stat-card .l { font-size: 10.5px; margin: 0; }
-.bo-compact .stat-card .s { font-size: 10px; margin: 0; }
+.bo-compact .stat-card .v { font-size: 19px; line-height: 1.15; }
+.bo-compact .stat-card .l { font-size: 11px; margin: 0; }
+.bo-compact .stat-card .s { font-size: 10.5px; margin: 0; }
 
 .bo-compact .card-head h3, .bo-compact .rail-card h3 { font-size: 13px; }
 .bo-compact .card-head { margin-bottom: 4px; }
-.bo-compact th { padding: 6px 10px; font-size: 10px; }
-.bo-compact td { padding: 6px 10px; font-size: 12px; vertical-align: middle; }
+.bo-compact th { padding: 8px 12px; font-size: 10.5px; }
+.bo-compact td { padding: 8px 12px; font-size: 12.5px; vertical-align: middle; }
 .bo-compact .team-chip { font-size: 12px; }
 .bo-compact .team-chip .avatar { width: 17px; height: 17px; font-size: 8px; }
 .bo-compact .repo-cell { white-space: nowrap; }
@@ -1722,8 +1736,12 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .dw-table .badge { white-space: nowrap; }
 .dw-table .badge { font-size: 9.5px; padding: 2px 6px; letter-spacing: 0; }
 .dw-table .cell-status { font-size: 10.5px; }
-.dw-table .dp-actions { gap: 3px; }
-.dw-table .icon-btn { padding: 2px 5px; }
+/* Four icon-only buttons must fit a fixed-layout column that clips overflow:
+ * drop the icon's text-gap, keep the buttons compact, and let the row wrap
+ * onto a second line rather than losing the last button off the cell edge. */
+.dw-table .dp-actions { gap: 3px; flex-wrap: wrap; white-space: normal; row-gap: 3px; }
+.dw-table .icon-btn { padding: 3px 5px; flex: none; }
+.dw-table .icon-btn .btn-ico { margin-right: 0; }
 .dw-table .dp-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Reference-exact workspaces table: roomy rows, stacked team cell, pager. */
 .dw-table td { padding: 12px 8px; vertical-align: middle; }
@@ -1815,6 +1833,17 @@ main:has(.bo-compact) { padding: 14px 28px 20px; }
 .qa-case-list { margin: 4px 0 0 2px; font-size: 12px; }
 .qa-case-list li { padding: 1px 0; }
 .qa-amend-inline { margin-top: 6px; border-top: 1px dashed var(--border); padding-top: 4px; }
+/* the popup is the single test-plan view (2026-08-18): taller case list, real
+   criterion table, amended rows marked */
+.qa-cases-tall { max-height: 52vh; }
+.qa-tp-table { margin-top: 4px; font-size: 12px; }
+.qa-tp-table th { color: var(--muted); font-weight: 650; border-bottom: 1px solid var(--border); }
+.qa-tp-table td code { font-size: 11.5px; }
+.qa-tp-amended td { background: var(--surface-2); }
+.qa-row-edit { margin-left: 6px; font-size: 12px; opacity: 0.55; }
+.qa-tp-table tr:hover .qa-row-edit, .qa-row-edit:focus-visible { opacity: 1; }
+.dp-tp-summary { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dp-inspector .block { width: 100%; justify-content: center; display: inline-flex; align-items: center; }
 
 /* --- shared build-lifecycle strip (all Build & Review pages) --------------- */
 .phase-strip { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; padding: 10px 14px; margin-bottom: 10px; }
@@ -1895,3 +1924,52 @@ thead th { letter-spacing: 0.04em; }
 .skip-link { position: absolute; left: -9999px; top: 8px; z-index: 200; background: var(--surface); color: var(--red); border: 2px solid var(--red); border-radius: var(--radius-sm); padding: 8px 14px; font-weight: 600; }
 .skip-link:focus { left: 8px; }
 .dp-table tbody tr:focus-visible { outline: 2px solid var(--red); outline-offset: -2px; }
+
+/* --- role switcher (header) ----------------------------------------------*/
+.role-switcher { position: relative; }
+.role-trigger {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border-strong); background: var(--surface);
+  border-radius: var(--radius-pill); padding: 3px 12px 3px 4px;
+  color: var(--text); transition: border-color .15s;
+}
+.role-trigger:hover, .role-trigger[aria-expanded="true"] { border-color: var(--red); }
+.role-trigger-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15; }
+.role-name { font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.role-menu {
+  position: absolute; right: 0; top: calc(100% + 6px);
+  width: min(400px, 92vw); max-height: min(70vh, 560px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow);
+  z-index: 60; padding: 6px; display: flex; flex-direction: column; gap: 2px;
+  animation: modal-in 160ms cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+.role-opt {
+  display: flex; gap: 10px; align-items: flex-start; text-align: left; width: 100%;
+  border: 0; background: none; padding: 8px 10px; border-radius: var(--radius-sm);
+  color: var(--text);
+}
+.role-opt:hover, .role-opt:focus-visible { background: var(--surface-2); }
+.role-opt.selected { background: var(--red-pale); }
+.role-opt-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.role-opt-body b { font-size: 13.5px; }
+.role-opt-body small { font-size: 12px; color: var(--muted); line-height: 1.35; }
+.role-signs { font-size: 11px; font-weight: 600; color: var(--red-dark); margin-top: 2px; }
+.role-avatar.sm { width: 28px; height: 28px; font-size: 11px; flex-shrink: 0; }
+.role-check { color: var(--red); flex-shrink: 0; margin-top: 3px; }
+.role-menu-foot {
+  padding: 8px 10px 4px; margin-top: 4px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted); line-height: 1.4;
+}
+/* "People" / "Roles" headings when admin-defined users exist */
+.role-menu-group {
+  padding: 8px 10px 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--border-strong);
+}
+.role-menu-group + .role-menu-group, .role-opt + .role-menu-group { margin-top: 4px; border-top: 1px solid var(--border); }
+
+/* permission refusal popup */
+.perm-popup { width: min(560px, 94vw); }
+.perm-popup .error-popup-message b { color: var(--ink); }
+.perm-popup-note { margin: 0 0 4px; font-size: 12.5px; color: var(--muted); }
+.error-popup-actions { flex-wrap: wrap; gap: 8px; }

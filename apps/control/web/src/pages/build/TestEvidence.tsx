@@ -18,11 +18,10 @@ import {
 import { Prov } from '../../components/Badge'
 import { StatCard } from '../../components/StatCard'
 import { useRun } from '../../state/RunContext'
+import { DetailDrawer } from '../../components/DetailDrawer'
 import type { BuildTask, DeveloperWorkspace, PlanStory, QualityHandoffRow } from '../../types'
 import {
   BuildPhaseStrip,
-  CONTROL_PLANE_GUIDANCE,
-  GuidanceCard,
   buildOf,
   hhmm,
   relTime,
@@ -55,6 +54,9 @@ export function TestEvidence() {
   const [fTeam, setFTeam] = useState('all')
   const [fCi, setFCi] = useState('all')
   const [syncing, setSyncing] = useState(false)
+  // The row whose evidence drawer is open; selection (selId) stays
+  // separate so the failure-analysis card below the table keeps working.
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const build = buildOf(data)
   const tasks = build.tasks ?? []
@@ -103,7 +105,7 @@ export function TestEvidence() {
 
   if (!task) {
     return (
-      <section className="page-with-rail bo-compact">
+      <section className="bo-compact">
         <div>
           <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
@@ -119,7 +121,6 @@ export function TestEvidence() {
             </div>
           </div>
         </div>
-        <aside className="rail"><GuidanceCard lines={CONTROL_PLANE_GUIDANCE} /></aside>
       </section>
     )
   }
@@ -185,7 +186,7 @@ export function TestEvidence() {
   }
 
   return (
-    <section className="page-with-rail bo-compact dp-page">
+    <section className="bo-compact dp-page">
       <div>
         <div className="page-head" style={{ marginBottom: '4px' }}>
           <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Build &amp; Test Evidence</span>
@@ -269,7 +270,7 @@ export function TestEvidence() {
                   return (
                     <tr key={t.task_id}
                       className={task.task_id === t.task_id ? 'dp-row-selected' : ''}
-                      onClick={() => select(t.story_id)}>
+                      onClick={() => { select(t.story_id); setOpenId(t.story_id) }}>
                       <td>
                         <span>{t.last_activity ? hhmm(t.last_activity) : '—'}</span>
                         <span className="hint dp-sub">{t.last_activity ? relTime(t.last_activity) : ''}</span>
@@ -328,7 +329,7 @@ export function TestEvidence() {
               </tbody>
             </table>
           </div>
-          <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${tasks.length} evidence records · select a row to inspect`}</div>
+          <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${tasks.length} evidence records · click a row to open its evidence`}</div>
         </div>
 
         {failing.length ? (
@@ -373,18 +374,21 @@ export function TestEvidence() {
           <Info className="btn-ico" style={{ marginTop: '1px' }} />
           <span>
             {workspaces.some((w) => w.ci_evidence)
-              ? 'Evidence is collected from configured CI/CD systems — here, real GitHub Actions results (badged HUMAN) shown alongside the simulated baseline test plan (badged SIMULATED). Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
+              ? 'Evidence is collected from configured CI/CD systems — here, real GitHub Actions results (badged HUMAN) shown alongside the simulated baseline test plan (badged SIMULATED). Click a build to open its test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
               : data.run.mode === 'demo'
-                ? 'Evidence is collected from configured CI/CD systems — in this demo environment, from the deterministic demo engine. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
-                : 'Evidence is collected from configured CI/CD systems — in this demo, from the deterministic simulation engine, badged SIMULATED. Select a build to inspect test results, quality metrics, acceptance-criteria coverage and generated artifacts.'}
+                ? 'Evidence is collected from configured CI/CD systems — in this demo environment, from the deterministic demo engine. Click a build to open its test results, quality metrics, acceptance-criteria coverage and generated artifacts.'
+                : 'Evidence is collected from configured CI/CD systems — in this demo, from the deterministic simulation engine, badged SIMULATED. Click a build to open its test results, quality metrics, acceptance-criteria coverage and generated artifacts.'}
           </span>
         </div>
       </div>
 
-      <aside className="rail">
-        <div className="card rail-card dp-inspector">
-          <h3>{`${task.story_id} — ${task.task_id}`}</h3>
-          {story?.title ? <p className="hint" style={{ marginBottom: '6px' }}>{story.title}</p> : null}
+      {openId && openId === task.story_id ? (
+        <DetailDrawer
+          title={<><span className="mono">{task.story_id}</span>{` — ${task.task_id} · Build & Test Evidence`}</>}
+          subtitle={story?.title}
+          ariaLabel={`${task.story_id} build evidence`}
+          onClose={() => setOpenId(null)}
+        >
           <div className="drawer-badges" style={{ marginBottom: '8px' }}>
             <span className={`badge ${statusCls}`}>{statusLabel}</span>
             {/* real CI evidence makes this a human-evidenced record — the
@@ -536,9 +540,8 @@ export function TestEvidence() {
               </button>
             )}
           </div>
-        </div>
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+        </DetailDrawer>
+      ) : null}
     </section>
   )
 }

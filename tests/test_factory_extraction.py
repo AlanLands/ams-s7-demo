@@ -7,7 +7,7 @@ import pytest
 
 from s7_delivery.factory import extraction
 
-EPIC_S7_001 = (Path(__file__).resolve().parent.parent / "crs" / "EPIC-S7-001.md").read_text()
+EPIC_S7_001 = (Path(__file__).resolve().parent.parent / "requirements" / "epics" / "EPIC-S7-001.md").read_text()
 
 PLAIN_TEXT = """Claims Deductible Handling
 

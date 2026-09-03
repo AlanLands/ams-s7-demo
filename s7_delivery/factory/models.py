@@ -593,6 +593,9 @@ class DeliveryRun(BaseModel):
     # "project" (epic → design → gate → stories) or "enhancement"
     # (S3-style: user stories enter directly and converge at sign-off).
     entry_mode: str = "project"
+    # The prompt set every model call of this run resolves its rules, skill
+    # and task text against ("default" = the committed s7_delivery/layers/).
+    prompt_set: str = "default"
     status: Status = Status.NOT_STARTED
     created_at: str = Field(default_factory=now_iso)
     stages: list[StageState]

@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import stat
 import shutil
 import subprocess
 import tempfile
@@ -58,6 +59,23 @@ def _git(cwd: Path | None, *args: str) -> str:
     return out.stdout.strip()
 
 
+def remove_tree(path: Path, *, ignore_errors: bool = False) -> None:
+    """``shutil.rmtree`` that also works on Windows, where git marks its
+    ``.git/objects/**`` files read-only and a plain rmtree fails with
+    ``PermissionError`` (hard rule 4 — no OS-specific surprises)."""
+    def _clear_readonly(func, p, _exc):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+
+    if not Path(path).exists():
+        return
+    try:
+        shutil.rmtree(path, onexc=_clear_readonly)
+    except OSError:
+        if not ignore_errors:
+            raise
+
+
 def _repo_files(repo_dir: Path) -> list[Path]:
     return sorted(
         p for p in repo_dir.rglob("*")
@@ -70,7 +88,7 @@ def clone_repo(url: str, dest_root: Path) -> RepoRecord:
         raise RepoConnectError(
             f"Unsupported repository URL {url!r} — use https:// or an absolute local path"
         )
-    name = url.rstrip("/").removesuffix(".git").rsplit("/", 1)[-1]
+    name = url.rstrip("/\\").removesuffix(".git").replace("\\", "/").rsplit("/", 1)[-1]
     dest = dest_root / name
     if dest.exists():
         raise RepoConnectError(f"{name} is already connected")
@@ -78,7 +96,7 @@ def clone_repo(url: str, dest_root: Path) -> RepoRecord:
     try:
         _git(None, "-c", "protocol.ext.allow=never", "clone", "--depth", "1", "--", url, str(dest))
     except RepoConnectError:
-        shutil.rmtree(dest, ignore_errors=True)
+        remove_tree(dest, ignore_errors=True)
         raise
     return RepoRecord(
         # the credential (if any) was used for the clone and stops there

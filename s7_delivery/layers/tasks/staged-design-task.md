@@ -1,0 +1,33 @@
+---
+id: staged-design-task
+layer: task
+title: Staged pipeline — design task
+stage: design
+summary: The staged pipeline's design prompt: the DFD and relationship diagrams in Mermaid for the assessed epic.
+variables: epic_body, task_lines
+---
+Here is a business epic:
+
+---
+{{epic_body}}
+---
+
+The delivery assessment routed it into these tasks:
+{{task_lines}}
+
+Produce two design diagrams in Mermaid source for the target-state online
+disability claim submission journey in SponsorConnect:
+
+1. A data flow diagram: sponsor → portal → services → policy/member system of
+   record lookup (read-only, externally owned) → document store → handoff to
+   the existing intake/indexing path. Mermaid `flowchart LR`.
+2. A relationship diagram of the core entities (plan sponsor, member, policy,
+   submission, document, status). Mermaid `erDiagram`.
+
+Keep each diagram under 25 lines, well-labelled, renderable by mermaid v10.
+JSON schema:
+{"dfd": {"title": str, "mermaid": str, "notes": str},
+"er": {"title": str, "mermaid": str, "notes": str}}
+
+The mermaid value for dfd must start with "flowchart"; er must start with
+"erDiagram". notes is 2-3 sentences a reviewer reads before approving.

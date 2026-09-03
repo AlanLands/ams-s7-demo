@@ -13,6 +13,7 @@ import { Scorecard } from './pages/Scorecard'
 import { Traceability } from './pages/Traceability'
 import { Artifacts } from './pages/Artifacts'
 import { Provenance } from './pages/Provenance'
+import { DeliverySystem } from './pages/DeliverySystem'
 import { Activity } from './pages/Activity'
 import { Reports } from './pages/Reports'
 import { Approvals } from './pages/Approvals'
@@ -40,6 +41,7 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
   traceability: Traceability,
   artifacts: Artifacts,
   provenance: Provenance,
+  delivery_system: DeliverySystem,
   activity: Activity,
   reports: Reports,
   scorecard: Scorecard,
@@ -73,8 +75,7 @@ const PAGES: Record<string, () => React.ReactElement | null> = {
 }
 
 function Shell() {
-  const { section, data } = useRun()
-  const demoRun = data?.run?.mode === 'demo'
+  const { section } = useRun()
   const Page = PAGES[section] ?? (() => <NotYetPorted section={section} />)
   return (
     <>
@@ -90,30 +91,6 @@ function Shell() {
       <Toast />
       <BusyOverlay />
       <ErrorPopup />
-      <footer className="foot">
-        <div className="foot-row">
-          <span className="foot-brand">S7 Delivery Control Centre&ensp;·&ensp;v2.1.0&ensp;·&ensp;🛡 Secure</span>
-          <span className="foot-badges">
-            <span className="foot-badge">👥 Governed</span>
-            <span className="foot-badge">⛓ Traceable</span>
-            <span className="foot-badge">✍ Human-approved</span>
-            <span className="foot-badge">▤ Audit-ready</span>
-            <span className="foot-badge">✓ Release-safe</span>
-          </span>
-          <span className="foot-right">Demo Environment</span>
-        </div>
-        <div className="foot-row small">
-          <span className="foot-ai">AI generated · Rules validated · Human governed · Evidence recorded</span>
-          <span className="foot-center">
-            MapleSure Insurance is fictional; all data on this surface is demonstration data. Artifacts are
-            labelled with their provenance — {demoRun
-              ? <span className="prov prov-demo">DEMO</span>
-              : <span className="prov prov-simulated">SIMULATED</span>} evidence is
-            produced by the deterministic demo engine, <span className="prov prov-human">HUMAN</span> marks a
-            person's own input. All times in local time.
-          </span>
-        </div>
-      </footer>
     </>
   )
 }

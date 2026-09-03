@@ -159,10 +159,28 @@ export interface RunRecord {
   /** "project" (epic → design → gate → stories) or "enhancement"
    * (S3-style: user stories enter directly). */
   entry_mode?: 'project' | 'enhancement'
+  /** Prompt set the run pins (admin app); "default" when absent. */
+  prompt_set?: string
   created_at: string
   stages: StageState[]
   status: string
   plan_locked?: boolean
+}
+
+/** GET /api/users — active admin-defined people the presenter can act as. */
+export interface UserInfo {
+  id: string
+  name: string
+  email?: string | null
+  role: string
+  active?: boolean
+}
+
+/** GET /api/prompt-sets — the sets a new run can pin. */
+export interface PromptSetInfo {
+  name: string
+  description?: string
+  is_default?: boolean
 }
 
 export interface TraceRow {
@@ -209,6 +227,8 @@ export interface ActivityEvent {
   actor_type: string
   artifact?: string
   workflow?: string
+  /** `id@vN` of each skill file a live call used; empty when no model ran. */
+  skill?: string
   outcome?: string
   details?: string
 }
@@ -750,6 +770,9 @@ export interface RunState {
   release_document?: ReleaseDocumentMeta | null
   staleness?: StaleArtifact[]
   amendments?: Amendment[]
+  /** `self_healing` is still in the payload but is operator territory:
+   * the Admin app renders it (Runs → Self-healing drawer); nothing here
+   * reads it, so it falls through the index signature below. */
   design?: DesignRecord
   kpi?: KpiScorecard | null
   [section: string]: unknown
@@ -773,4 +796,62 @@ export interface DemoScriptState {
 export interface RoleInfo {
   role: string
   actions: string[]
+  /** Presenter-facing label, e.g. "Business Owner". */
+  label: string
+  /** One line on what the role owns. */
+  summary: string
+  /** Decisions this role records — the separation rules from its side. */
+  signs: string[]
+}
+
+/** GET /api/delivery-system — the four-layer delivery system (rule_based). */
+export interface LayerFileRow {
+  id: string
+  title: string
+  stage: string
+  summary: string
+  path: string
+  sha256: string
+  short: string
+  body: string
+  version: number
+  recorded: boolean
+  recorded_at: string | null
+  workflows: string[]
+}
+
+export interface LayerWorkflow {
+  id: string
+  label: string
+  stage: string
+  gate: string
+  rules: string
+  skills: string[]
+  entry: string
+  simulation: string
+  live: string
+}
+
+export interface LayerHistoryEntry {
+  recorded_at: string
+  id: string
+  layer: string
+  path: string
+  version: number
+  sha256: string
+  previous_sha256: string | null
+  author: string
+  note: string
+}
+
+export interface DeliverySystem {
+  provenance: string
+  prompt_mapping: Record<string, string>
+  rules: LayerFileRow[]
+  skills: LayerFileRow[]
+  workflows: LayerWorkflow[]
+  workflow_engine: { where: string; role: string }[]
+  orchestrator: { surface: string; label: string; where: string; role: string }[]
+  history: LayerHistoryEntry[]
+  unrecorded: string[]
 }

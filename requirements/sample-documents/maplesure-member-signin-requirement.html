@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MapleSure Member Sign-In</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  :root{
+    --red:#a20a29; --red2:#850822; --ink:#292923; --text:#36362f;
+    --muted:#66655b; --border:#d8d8d3; --surface2:#fafaf8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Inter,Arial,sans-serif;color:var(--text);
+       font-size:11.5pt;line-height:1.55}
+  .brandline{height:4px;background:var(--red);margin-bottom:14px}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .mark{width:34px;height:34px;border-radius:7px;background:var(--red);
+        color:#fff;display:grid;place-items:center;font-weight:800;
+        font-family:Georgia,serif;font-size:14pt}
+  header small{display:block;color:var(--red);font-size:8pt;
+        text-transform:uppercase;letter-spacing:.13em;font-weight:800}
+  header b{font-size:11pt;color:var(--ink)}
+  .doctype{color:var(--muted);font-size:9pt;text-transform:uppercase;
+        letter-spacing:.08em;margin:10px 0 2px}
+  h1{color:var(--ink);font-size:19pt;line-height:1.25;margin-bottom:12px}
+  table.meta{width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:10pt}
+  table.meta td{border:1px solid var(--border);padding:5px 9px}
+  table.meta td:first-child{background:var(--surface2);font-weight:700;
+        width:34%;color:var(--ink)}
+  h2{color:var(--red2);font-size:13pt;margin:18px 0 6px;
+     border-bottom:1.5px solid var(--red);padding-bottom:3px}
+  p{margin:6px 0}
+  ul,ol{margin:6px 0 6px 22px}
+  li{margin:3px 0}
+  blockquote{border-left:3px solid var(--red);padding:4px 12px;margin:10px 0;
+     color:var(--ink);font-weight:600;background:var(--surface2)}
+  .signoff{margin-top:22px;font-size:10pt}
+  .signoff td{border:1px solid var(--border);padding:8px 9px}
+  footer{margin-top:26px;padding-top:8px;border-top:1px solid var(--border);
+     color:var(--muted);font-size:8.5pt}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <span class="mark">MS</span>
+  <span><small>MapleSure Insurance</small><b>Group Benefits Digital Experience</b></span>
+</header>
+
+<p class="doctype">Business Requirement Document · New Application</p>
+<h1>MapleSure Member Sign-In</h1>
+
+<table class="meta">
+  <tr><td>Request ID</td><td>REQ-2026-121</td></tr>
+  <tr><td>Raised by</td><td>Group Benefits Digital Experience, MapleSure Insurance</td></tr>
+  <tr><td>Business owner</td><td>P. Moreau</td></tr>
+  <tr><td>Domain</td><td>Member Digital Access</td></tr>
+  <tr><td>Type</td><td>New application — no existing system provides this capability</td></tr>
+  <tr><td>Priority</td><td>High</td></tr>
+  <tr><td>Requested date</td><td>2026-08-17</td></tr>
+</table>
+
+<h2>1. Business objective</h2>
+<blockquote>Give MapleSure members a standalone online sign-in — the front
+door for all future member-facing journeys — so that a member can
+authenticate themselves with their member ID and a password, and downstream
+portals can trust that authentication.</blockquote>
+<p>MapleSure members currently have no dedicated online entry point: every
+digital journey begins with a phone call to the service desk for identity
+verification.</p>
+
+<h2>2. Background and current state</h2>
+<ul>
+  <li>There is no member-facing authentication capability today; portals under
+      construction (claims, retirement) each assume "an authenticated member"
+      and none provides authentication itself.</li>
+  <li>The service desk performs manual identity verification by phone, which
+      adds handling time to every member interaction and cannot scale to the
+      online claim submission volumes forecast for next year.</li>
+  <li>This is deliberately a new, separate application: authentication must be
+      a shared front door, not a feature copied into each portal.</li>
+</ul>
+
+<h2>3. Requirements</h2>
+<ol>
+  <li><b>Sign-in page.</b> A member can sign in with their member ID and
+      password on a single, clearly branded MapleSure sign-in page.</li>
+  <li><b>Credential validation and landing view.</b> Credentials are validated
+      against the member credential store; a successful sign-in shows a
+      signed-in landing view confirming the member's display name and last
+      sign-in time.</li>
+  <li><b>Generic failure message.</b> A failed sign-in shows one generic error
+      message — it must not reveal whether the member ID or the password was
+      wrong.</li>
+  <li><b>Temporary lockout.</b> After five consecutive failed attempts for the
+      same member ID, the account is temporarily locked for fifteen minutes and
+      the page says so without revealing whether the credentials were otherwise
+      correct.</li>
+  <li><b>Forgotten password link.</b> A "Forgotten your password?" link is
+      present and routes to a placeholder contact-the-service-desk page
+      (self-serve reset is out of scope for this release).</li>
+  <li><b>Audit log.</b> Every sign-in attempt (success, failure, lockout) is
+      recorded in an audit log with member ID, timestamp and outcome — never
+      the password.</li>
+  <li><b>Accessibility.</b> The sign-in form is keyboard-accessible, labels
+      every field, and meets WCAG AA contrast on the MapleSure palette.</li>
+  <li><b>Credential storage.</b> Passwords are never stored or logged in plain
+      text; the credential store holds salted hashes only.</li>
+</ol>
+
+<h2>4. Out of scope</h2>
+<ul>
+  <li>Self-serve password reset, multi-factor authentication, and federation
+      with employer identity providers (future phases).</li>
+  <li>Member registration/enrolment — credential records are provisioned by
+      the existing membership back office.</li>
+</ul>
+
+<h2>5. Success measures</h2>
+<ul>
+  <li>A member with valid credentials reaches the signed-in landing view in
+      one attempt.</li>
+  <li>Invalid attempts never disclose which credential was wrong.</li>
+  <li>Lockout engages on the fifth consecutive failure and releases after
+      fifteen minutes.</li>
+  <li>Zero passwords in any log or audit record.</li>
+</ul>
+
+<h2>6. Notes for delivery</h2>
+<p>Keep the application small and self-contained: one sign-in page, one
+signed-in landing view, one placeholder help page, a credential store with
+salted hashes, and the audit log. Synthetic member data only.</p>
+
+<h2>7. Sign-off</h2>
+<table class="meta signoff">
+  <tr><td>Prepared by</td><td>Group Benefits Digital Experience</td></tr>
+  <tr><td>Reviewed by</td><td>Member Digital Platform Team</td></tr>
+  <tr><td>Approved for intake</td><td>P. Moreau, Business Owner</td></tr>
+</table>
+
+<footer>MapleSure Insurance is a fictional insurer. This document is synthetic
+demonstration data prepared for a tabletop exercise; it contains no client
+data, no PII, and no client-identifiable information.</footer>
+</body>
+</html>

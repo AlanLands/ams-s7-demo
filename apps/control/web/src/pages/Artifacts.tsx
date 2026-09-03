@@ -27,7 +27,7 @@ export function Artifacts() {
                 <td>{row.artifact_type}</td>
                 <td>{`v${row.version}`}</td>
                 <td>{row.author}</td>
-                <td className="mono">{row.timestamp}</td>
+                <td className="mono nowrap">{row.timestamp}</td>
                 <td>{row.stale ? <Badge status="stale" /> : <Badge status="completed" />}</td>
               </tr>
             ))}

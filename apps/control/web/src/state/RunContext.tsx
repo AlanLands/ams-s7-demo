@@ -1,12 +1,37 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { apiGet, apiPatch, apiPost, apiUpload } from '../api'
-import type { RunState, RoleInfo } from '../types'
+import { ApiError, apiGet, apiPatch, apiPost, apiUpload, getActingUserId, setActingUserId } from '../api'
+import type { RunState, RoleInfo, UserInfo } from '../types'
+
+/** A refused action the user can retry as one of the roles that hold it.
+ * `retry` switches the acting role first, so the action is recorded under
+ * that role exactly as if it had been picked in the header beforehand. */
+export interface PermissionBlock {
+  action: string
+  role: string
+  permitted: string[]
+  retry: (asRole: string) => Promise<boolean>
+}
+
+export interface ErrorInfo {
+  message: string
+  permission?: PermissionBlock
+}
 
 interface RunContextValue {
   data: RunState | null
   runId: string | null
   role: string
+  /** Pick a plain role. Clears any "act as user" choice, so no X-S7-User
+   * header is sent and the server sees exactly the pre-users behaviour. */
   setRole: (role: string) => void
+  /** Active admin-defined users (GET /api/users). Empty when the admin app
+   * has none — the header then behaves exactly as before. */
+  users: UserInfo[]
+  /** The user being acted as, or null when a plain role was chosen. */
+  actingUser: UserInfo | null
+  /** Act as an admin-defined person: sets the acting role to the user's
+   * role and stores the id so every request carries X-S7-User. */
+  actAsUser: (user: UserInfo) => void
   runs: string[]
   roles: RoleInfo[]
   section: string
@@ -15,6 +40,15 @@ interface RunContextValue {
    * Pre-disables buttons the server would 403; the 403 stays the rule —
    * this is a hint, and it fails open until the roles list loads. */
   can: (action: string) => boolean
+  /** Presenter-facing label for a role id ("business_owner" → "Business
+   * Owner"), falling back to a humanised id before the roles list loads. */
+  roleLabel: (role: string) => string
+  /** Labels of the roles holding `action`, in declaration order. */
+  permittedLabels: (action: string) => string[]
+  /** Tooltip for a pre-disabled control: names the role(s) that hold the
+   * permission and the role currently acting. `undefined` when allowed, so
+   * it can be passed straight to `title`. */
+  needs: (action: string) => string | undefined
   refresh: () => Promise<void>
   act: (path: string, body?: Record<string, unknown>, okMessage?: string) => Promise<boolean>
   patchAct: (path: string, patch: Record<string, unknown>, okMessage?: string) => Promise<boolean>
@@ -29,7 +63,7 @@ interface RunContextValue {
    * loading overlay, which also blocks double-clicks. */
   busy: boolean
   /** Error awaiting acknowledgement in the popup, or null. */
-  errorPopup: string | null
+  errorPopup: ErrorInfo | null
   dismissError: () => void
 }
 
@@ -42,10 +76,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<RunState | null>(null)
   const [runs, setRuns] = useState<string[]>([])
   const [roles, setRoles] = useState<RoleInfo[]>([])
+  const [users, setUsers] = useState<UserInfo[]>([])
+  const [userId, setUserId] = useState<string | null>(getActingUserId)
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [pending, setPending] = useState(0)
-  const [errorPopup, setErrorPopup] = useState<string | null>(null)
+  const [errorPopup, setErrorPopup] = useState<ErrorInfo | null>(null)
 
   const showToast = useCallback((message: string, isError = false) => {
     if (toastTimer.current) clearTimeout(toastTimer.current)
@@ -54,18 +90,31 @@ export function RunProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const showError = useCallback((message: string) => {
-    setErrorPopup(message)
+    setErrorPopup({ message })
   }, [])
 
   const notify = useCallback((message: string, isError = false) => {
-    if (isError) setErrorPopup(message)
+    if (isError) setErrorPopup({ message })
     else showToast(message)
   }, [showToast])
 
   const setRole = useCallback((next: string) => {
     setRoleState(next)
     localStorage.setItem('s7cc.role', next)
+    // A plain role means no user: drop the header so nothing is attributed
+    // to a person who was not chosen.
+    setUserId(null)
+    setActingUserId(null)
   }, [])
+
+  const actAsUser = useCallback((user: UserInfo) => {
+    setRoleState(user.role)
+    localStorage.setItem('s7cc.role', user.role)
+    setUserId(user.id)
+    setActingUserId(user.id)
+  }, [])
+
+  const actingUser = useMemo(() => (userId ? users.find((u) => u.id === userId) ?? null : null), [users, userId])
 
   const goTo = useCallback((next: string) => {
     setSection(next)
@@ -76,6 +125,22 @@ export function RunProvider({ children }: { children: ReactNode }) {
     const info = roles.find((r) => r.role === role)
     return info ? info.actions.includes(action) : true
   }, [roles, role])
+
+  const roleLabel = useCallback((id: string) => {
+    const info = roles.find((r) => r.role === id)
+    return info?.label ?? id.replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  }, [roles])
+
+  const permittedLabels = useCallback((action: string) => (
+    roles.filter((r) => r.actions.includes(action)).map((r) => r.label)
+  ), [roles])
+
+  const needs = useCallback((action: string) => {
+    if (can(action)) return undefined
+    const holders = permittedLabels(action)
+    const who = holders.length ? holders.join(' or ') : 'a different role'
+    return `Requires ${who} — you are acting as ${roleLabel(role)}. Switch role in the header.`
+  }, [can, permittedLabels, roleLabel, role])
 
   const ensureRun = useCallback(async (): Promise<string> => {
     const list = await apiGet<string[]>('/api/runs')
@@ -107,54 +172,84 @@ export function RunProvider({ children }: { children: ReactNode }) {
     }
   }, [ensureRun, showError])
 
-  const act = useCallback(async (path: string, body: Record<string, unknown> = {}, okMessage = 'Done') => {
-    setPending((n) => n + 1)
-    try {
-      const next = await apiPost<RunState>(`/api/runs/${runId}${path}`, { role, ...body })
-      setData(next)
-      showToast(okMessage)
-      return true
-    } catch (err) {
-      showError((err as Error).message)
-      return false
-    } finally {
-      setPending((n) => n - 1)
-    }
-  }, [runId, role, showToast, showError])
+  type Kind = 'post' | 'patch' | 'upload'
+  type Perform = (kind: Kind, path: string, payload: Record<string, unknown> | FormData,
+    okMessage: string, asRole: string) => Promise<boolean>
 
-  const patchAct = useCallback(async (path: string, patch: Record<string, unknown>, okMessage = 'Saved') => {
+  // One code path for every server action. A 403 that names the roles
+  // holding the permission becomes a retryable block: the popup offers
+  // "switch to <role> and retry", and the retry re-enters here under the
+  // switched role — nothing is bypassed, the action is simply recorded
+  // under the role a person chose, as it would be from the header picker.
+  const perform: Perform = useCallback(async (kind, path, payload, okMessage, asRole) => {
     setPending((n) => n + 1)
     try {
-      const next = await apiPatch<RunState>(`/api/runs/${runId}${path}`, { role, patch })
+      let next: RunState
+      if (kind === 'upload') {
+        const form = payload as FormData
+        form.set('role', asRole)
+        next = await apiUpload<RunState>(`/api/runs/${runId}${path}`, form)
+      } else if (kind === 'patch') {
+        next = await apiPatch<RunState>(`/api/runs/${runId}${path}`, { role: asRole, patch: payload })
+      } else {
+        next = await apiPost<RunState>(`/api/runs/${runId}${path}`, { role: asRole, ...(payload as Record<string, unknown>) })
+      }
       setData(next)
       showToast(okMessage)
       return true
     } catch (err) {
-      showError((err as Error).message)
+      const e = err as ApiError
+      if (e instanceof ApiError && e.permission && e.permission.permitted.length) {
+        setErrorPopup({
+          message: e.message,
+          permission: {
+            action: e.permission.action,
+            role: asRole,
+            permitted: e.permission.permitted,
+            retry: (r) => {
+              // Retrying as a role is a role choice: a stored user would
+              // otherwise override it server-side, so it is cleared first.
+              setRole(r)
+              setActingUserId(null)
+              return perform(kind, path, payload, okMessage, r)
+            },
+          },
+        })
+      } else {
+        showError(e.message)
+      }
       return false
     } finally {
       setPending((n) => n - 1)
     }
-  }, [runId, role, showToast, showError])
+  }, [runId, showToast, showError, setRole])
 
-  const uploadAct = useCallback(async (path: string, form: FormData, okMessage = 'Done') => {
-    form.append('role', role)
-    setPending((n) => n + 1)
-    try {
-      const next = await apiUpload<RunState>(`/api/runs/${runId}${path}`, form)
-      setData(next)
-      showToast(okMessage)
-      return true
-    } catch (err) {
-      showError((err as Error).message)
-      return false
-    } finally {
-      setPending((n) => n - 1)
-    }
-  }, [runId, role, showToast, showError])
+  const act = useCallback((path: string, body: Record<string, unknown> = {}, okMessage = 'Done') =>
+    perform('post', path, body, okMessage, role), [perform, role])
+
+  const patchAct = useCallback((path: string, patch: Record<string, unknown>, okMessage = 'Saved') =>
+    perform('patch', path, patch, okMessage, role), [perform, role])
+
+  const uploadAct = useCallback((path: string, form: FormData, okMessage = 'Done') =>
+    perform('upload', path, form, okMessage, role), [perform, role])
 
   useEffect(() => {
     apiGet<RoleInfo[]>('/api/roles').then(setRoles).catch(() => setRoles([]))
+    // Users are optional: an older server without the route, or an admin
+    // app with none defined, both leave the picker exactly as it was.
+    apiGet<UserInfo[]>('/api/users')
+      .then((list) => {
+        const active = Array.isArray(list) ? list.filter((u) => u.active !== false) : []
+        setUsers(active)
+        // A remembered user that no longer exists (deleted or deactivated in
+        // the admin app) must not keep sending its id.
+        const stored = getActingUserId()
+        if (stored && !active.some((u) => u.id === stored)) {
+          setUserId(null)
+          setActingUserId(null)
+        }
+      })
+      .catch(() => setUsers([]))
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -162,12 +257,12 @@ export function RunProvider({ children }: { children: ReactNode }) {
   // One stable object per state change: without the memo, every provider
   // render hands consumers a fresh object and re-renders the whole tree.
   const value = useMemo<RunContextValue>(() => ({
-    data, runId, role, setRole, runs, roles, section, goTo, can, refresh,
+    data, runId, role, setRole, users, actingUser, actAsUser, runs, roles, section, goTo, can, roleLabel, permittedLabels, needs, refresh,
     act, patchAct, uploadAct, toast, notify,
     busy: pending > 0,
     errorPopup,
     dismissError: () => setErrorPopup(null),
-  }), [data, runId, role, setRole, runs, roles, section, goTo, can, refresh,
+  }), [data, runId, role, setRole, users, actingUser, actAsUser, runs, roles, section, goTo, can, roleLabel, permittedLabels, needs, refresh,
     act, patchAct, uploadAct, toast, notify, pending, errorPopup])
 
   return (

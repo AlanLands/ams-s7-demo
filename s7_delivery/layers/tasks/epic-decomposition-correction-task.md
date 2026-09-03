@@ -1,0 +1,21 @@
+---
+id: epic-decomposition-correction-task
+layer: task
+title: Epic decomposition — bounded correction
+stage: planning
+summary: The one corrective retry: the original task, every named defect, the rejected draft, and the demand for a complete corrected plan.
+variables: task, defects, draft_stories, point_scale
+---
+{{task}}
+
+Your previous draft failed validation with these defects:
+{{defects}}
+
+That draft's stories were:
+{{draft_stories}}
+
+Return the complete corrected JSON in the same shape, fixing every defect:
+every story needs a unique story_id, 2 to 4 acceptance criteria, an
+accountable_team from the roster, a connected target_repository, an
+estimate from {{point_scale}}, dependencies only on story ids in this plan,
+and every business rule id claimed by at least one story's "traces_to".

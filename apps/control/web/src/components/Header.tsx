@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useRun } from '../state/RunContext'
+import { RoleSwitcher } from './RoleSwitcher'
 import { apiPost } from '../api'
 import type { RunState } from '../types'
 
@@ -13,11 +14,9 @@ function useClock(): string {
 }
 
 export function Header() {
-  const { data, runs, role, setRole, roles, refresh } = useRun()
+  const { data, runs, refresh } = useRun()
   const run = data?.run
   const clock = useClock()
-
-  const roleAvatar = role.split('_').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <header className="top">
@@ -82,16 +81,7 @@ export function Header() {
           <span>{clock}</span>
           <button type="button" className="icon-btn" title="Re-fetch run state" aria-label="Refresh" onClick={() => refresh()}>⟳</button>
         </div>
-        <div className="hdr-user">
-          <span className="role-avatar" aria-hidden="true">{roleAvatar}</span>
-          <label className="role-select">
-            <select aria-label="Acting role" value={role} onChange={(e) => setRole(e.target.value)}>
-              {roles.map((r) => (
-                <option key={r.role} value={r.role}>{r.role.replaceAll('_', ' ')}</option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <RoleSwitcher />
       </div>
     </header>
   )

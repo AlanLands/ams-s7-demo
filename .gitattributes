@@ -1,0 +1,3 @@
+# Prompt layer files are hashed byte-for-byte and pinned by committed LLM
+# recordings: they must check out with LF on every platform.
+s7_delivery/layers/** text eol=lf

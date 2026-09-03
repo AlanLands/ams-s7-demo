@@ -21,22 +21,12 @@ from __future__ import annotations
 import re
 
 from common.llm import LLMError
+from s7_delivery.factory import layers
 from s7_delivery.factory.models import DemoMode, Provenance
 
-_ARCH_ROLE = (
-    "You are a principal engineer maintaining a governed engineering "
-    "blueprint. You refine a lead's revision proposal into a crisp, "
-    "reviewable revision section: keep the lead's intent exactly, tighten "
-    "the language, and surface the impacts and risks the proposal implies. "
-    "Never invent scope the proposal does not contain."
-)
-
-_QA_ROLE = (
-    "You are a QA architect refining a QA lead's test-plan amendment into "
-    "concrete acceptance-style test cases. Each case must trace directly to "
-    "the amendment text; never invent coverage the amendment does not ask "
-    "for."
-)
+# Skill ids; the text is resolved at call time from the active prompt set.
+_ARCH_SKILL = "architecture-refine"
+_QA_SKILL = "test-plan-refine"
 
 
 def _sentences(text: str) -> list[str]:
@@ -60,20 +50,13 @@ def refine_architecture_proposal(
     if mode in (DemoMode.LIVE, DemoMode.REPLAY):
         from s7_delivery.factory import live_intake
 
-        task = f"""The current architecture document, verbatim:
-
-{architecture_md}
-
-An engineering lead proposes this revision, verbatim:
-
-{proposal}
-
-Rewrite the proposal as a revision section for the document. Use ###
-subsections (change summary, affected components, risks). Keep the lead's
-intent; do not add scope. Return JSON exactly matching:
-{{"refined_markdown": "<the section, markdown>"}}"""
+        task = layers.render_task(
+            "architecture-refine-task",
+            architecture_md=architecture_md, proposal=proposal,
+        )
         data, _usage = live_intake._call(
-            role=_ARCH_ROLE, ref="", task=task, beat="arch_refine",
+            role=_ARCH_SKILL, stage="architecture-refine",
+            ref="", task=task, beat="arch_refine",
             key_material=proposal + architecture_md[:2000],
         )
         refined = str(data.get("refined_markdown", "")).strip()
@@ -110,20 +93,14 @@ def refine_test_amendment(
             f"- {ac['ac_id']}: {ac['text']}"
             for ac in story.get("acceptance_criteria", [])
         )
-        task = f"""Story {story['story_id']} — {story.get('title', '')}.
-Existing acceptance criteria (already covered by generated tests):
-
-{acs}
-
-The QA lead proposes this test-plan amendment, verbatim:
-
-{proposal}
-
-Refine it into additional concrete test cases. Do not repeat existing AC
-coverage. Return JSON exactly matching:
-{{"cases": [{{"description": "<one testable behaviour, one sentence>"}}]}}"""
+        task = layers.render_task(
+            "test-plan-refine-task",
+            story_id=story["story_id"], title=story.get("title", ""),
+            acceptance_criteria=acs, proposal=proposal,
+        )
         data, _usage = live_intake._call(
-            role=_QA_ROLE, ref="", task=task, beat="testplan_refine",
+            role=_QA_SKILL, stage="test-plan-refine",
+            ref="", task=task, beat="testplan_refine",
             key_material=story["story_id"] + proposal,
         )
         raw = data.get("cases")

@@ -4,79 +4,39 @@
 > `CLAUDE.md`. **The two are kept in sync deliberately** — if you change scope,
 > rules, or layout in one, mirror it in the other in the same commit.
 
-## Status: sprint 0 landed — foundation only
+## Status — 2026-09-03: the governed journey runs end to end
 
-Created 2026-07-31. Building in sprints; **the pipeline does not run end to end
-yet.** Before describing any module as working, verify it exists.
+Created 2026-07-31 and built in sprints (`docs/sprint-plan.md`). The Control
+Centre (`apps/control/`, launched by `demo/run_control.sh`) runs intake →
+planning → design → G1 sign-off → architecture → delivery packs → developer
+workspaces → build & test evidence → independent review → quality → release,
+in four environments: **simulation** (the default, hard rule 5) and **demo**
+are fully offline; **live** makes real model calls through `common/llm.py`;
+**replay** pins the live code paths to committed recordings. Everything not
+produced by a real model call is badged `SIMULATED` or `RULE_BASED` (§ Staged
+output). The test suite is green offline with no API key.
 
-Built as of 2026-08-03 (Sprint 0, reworked): `common/llm.py` (5 providers,
-replay/record/live, loud replay misses, `Usage` carrying cache counters),
-`common/prompt.py` (`PromptLayers` — the fixed cache-stable prefix order),
-`common/telemetry.py` (per-call logging + cache read/write counters),
-`s7_delivery/models.py` (the stage-to-stage contract), `s7_delivery/pipeline.py`
-(stage orchestration + gate enforcement), `s7_delivery/staged.py`,
-`crs/EPIC-S7-001.md`, and `tests/` (60 tests, green offline with no API key).
-`apps/console/` (the delivery console — run `demo/run_console.sh`) was also
-built here but was removed 2026-08-07, superseded by the Control Centre
-(`apps/control/`, `demo/run_control.sh`) as the app surface.
+**Repository layout, reorganised 2026-09-03.** The Sprint-0 CLI pipeline
+(`s7_delivery/pipeline.py`, `staged.py`), the standalone intake app
+(`apps/intake/`, `s7_delivery/intake.py`, `demo/run_intake.sh`) and their
+recording scripts were removed: the Control Centre engine
+(`s7_delivery/factory/`) superseded all of them and nothing else imported
+them. `docs/` is grouped — engineering docs at the top level in plain
+kebab-case names (`architecture.md`, `gate-rules.md`, …), then
+`slide-decks/`, `presenter-guides/`, `run-evidence/`, `demo-videos/` and
+`design-history/` (the dated plans and specs, formerly `docs/superpowers/`)
+— and indexed in `docs/README.md`. Requirement inputs live in
+`requirements/` (`epics/` for the seeded epic and change request,
+`sample-documents/` for the synthetic PDFs a presenter uploads; formerly
+`crs/` and `demo/requirement-doc/`). `demo/` holds scripts only.
 
-**Sprint 0 rework, 2026-08-03.** Prompt assembly and cache telemetry moved into
-the foundation from Sprint 2, because both live in `common/` and the repo had
-zero LLM callers and zero recordings — the only moment the change is free.
-
-- Build prompts with `PromptLayers`, never a bare concatenated string:
-  `rules → role → memory → ref → task`, split into `system = rules + role` and
-  `prompt = memory + ref + task`. Providers cache a *prefix*, so a volatile
-  segment placed early makes everything after it a miss.
-- **Do not reorder those layers once Sprint 3 commits recordings** — the cache
-  key hashes the assembled text, so a reorder invalidates all of them.
-  `tests/test_prompt_layers.py` pins the order.
-- Provider callers return `(text, Usage)`, not `(text, int, int)`.
-- **Unreported numbers stay `None`; they never become `0`.** Zero is a
-  measurement, `None` is an admission. Applies to cost and cache counters alike.
-
-The console runs end to end — epic → assessment → design → gate → stories — but
-**every artifact it renders is `Provenance.STAGED`**, hand-written, not model
-output. It is labelled as such in the UI on every artifact. Do not describe the
-demo as AI-generated until Sprint 3 lands.
-
-**Design review, 2026-08-04.** The surface split was independently confirmed;
-the S7 scenario framing and the `UserStory` shape were contested. See § Design
-review — 2026-08-04 below before treating either as settled.
-
-Not built: real AI output for the downstream lane and its committed recordings
-(blocked on LLM access), the whole build/test/docs/release downstream, the
-S3-style enhancement lane, the delivery KPI scorecard, and the SponsorConnect
-target app. Upstream is no longer in this list: the Control Centre's **live
-mode** runs intake analysis, the capped clarification chat, and epic-to-stories
-planning as real `common/llm.py` calls, grounded in the two `maplesure-*`
-GitHub repos (`s7_delivery/factory/live_intake.py`). Simulation stays the demo
-default (hard rule 5); live mode is rehearsed with `LLM_MODE=record` and
-replayed on demo day.
-
-**Sprint plan: `docs/SPRINT-PLAN.md`.** The rule is **no sprint ends without a
-runnable demo beat** — if it cannot be shown, it was scoped wrong. **Reordered
-2026-08-04**: the downstream lane moved from fifth to second, because "through
-build, test and production release" is the S7 claim and the console stopped at
-story breakdown. Sprint numbers always equal execution order; full mapping in
-`docs/SPRINT-PLAN.md` § Naming.
-
-| Sprint | Goal | Demo beat |
-|---|---|---|
-| 0 · done | Foundation, staged artifacts | Five beats run; the gate blocks |
-| 1 | Contract (`UserStory`/`Task`, artifact plane, verification) + surfaces + ledger | Two surfaces; ledger says "0 of 12 AI-generated" |
-| 2 | Downstream build → test → docs → release | One task traverses the lane; second gate blocks |
-| 3 | Stage reuse and resume — **droppable** | Re-run shows REUSED; interrupted run resumes |
-| 4 | Real AI calls + committed recordings | Fresh clone, no API key, runs offline |
-| 5 | Enhancement lane + KPI scorecard | Both entry modes side by side |
-
-Three **hard** orderings: prefix ordering before any recording (discharged in
-Sprint 0); the contract before the downstream (`UserStory`/`Task` are its
-interface); and **anything the downstream will carry must be in the contract
-before Sprint 2 builds it** — retrofitting a field through a finished lane means
-touching every stage. **Sprint 2 does not depend on Sprint 4** — the reorder
-spends that decoupling deliberately, so a demo exists end to end even if LLM
-access never lands.
+The dated feature log below (each "**…, added <date>.**" paragraph) is the
+change history and is deliberately kept. Read § Design review — 2026-08-04
+before treating the S7 scenario or the story shape as settled. Three
+orderings stay hard: prompt-prefix ordering before any committed recording
+(discharged in Sprint 0); the contract (`UserStory`/`Task` in
+`s7_delivery/models.py`) before the downstream lane; and anything the
+downstream carries must be in the contract before the lane carries it.
 
 ## Project Context
 
@@ -167,7 +127,7 @@ is CLI-led (agents executing, nobody watching).
 | release | **CLI executes, app approves** |
 | economics / KPIs | **Both** — one `run_ledger()` rendered twice |
 
-`s7_delivery/pipeline.py` imports nothing from the web layer. Both surfaces are
+`s7_delivery/factory/` imports nothing from the web layer. Both surfaces are
 thin views over the same orchestration — **anything shown in one and not the
 other is a bug in the ledger, not a feature.**
 
@@ -249,9 +209,9 @@ per-story quality handoff is named conditions, never a score
 (`gates.quality_handoff_rows`); staleness rides the provenance walk. The
 Build & Review nav is Overview / Architecture / Delivery Packs / Developer
 Workspaces / Build & Test Evidence / Independent Review / Build Summary.
-Docs: `docs/BUILD_REVIEW_IMPLEMENTATION_PLAN.md`, `ARTIFACT_MODEL.md`,
-`DEVELOPER_WORKSPACE_MODEL.md`, `GIT_PUBLICATION_MODEL.md`,
-`BUILD_REVIEW_STATE_MACHINE.md`, `BUILD_REVIEW_DEMO_SCRIPT.md`.
+Docs: `docs/build-review-implementation-plan.md`, `build-review-artifact-model.md`,
+`developer-workspace-model.md`, `git-publication-model.md`,
+`build-review-state-machine.md`, `build-review-demo-script.md`.
 
 **AC test-plan checkpoint before publication, added 2026-08-09.** Delivery
 packs carry rule-based test skeletons — one deliberately-failing test per
@@ -413,6 +373,140 @@ identically to `create()` (a demo run no longer comes back as simulation),
 and the activity counters split `ai_workflows` (live_ai only) from
 `simulated_workflows` — a simulated event never counts as an AI workflow
 anywhere the ledger is rendered.
+
+**Correction learning — the admin-only loop, added 2026-09-03.** The
+product learns from the humans who correct it, without the dashboard's
+users ever seeing the machinery. Whenever a person edits model output in
+the Control Centre — a story field, the extracted requirement, an
+architecture proposal against the current document, a business rule the
+analysis missed — the engine appends the AI original and the human version
+to the run's `corrections.jsonl` (`Engine._correction`), tagged with the
+prompt set, skill version and task that produced the original and the
+original's provenance. The Control Centre never reads that ledger; the
+state payload does not carry it. In the admin panel
+(`product/corrections.py`, `product/improve.py`), an operator picks a skill
+or task and asks for a proposal: **one real model call** — the
+`prompt-improve` skill and `prompt-improve-task` template of the same set,
+themselves editable, under the `prompt-improve` stage key of LLM settings —
+returns a revised body, a rationale and the generalised lessons, stored as a
+**draft** under `config/proposals/<set>/`. Nothing is applied until the
+operator reads the diff and accepts it, which records the new version
+through the ordinary ledger (`layers.write_body`, note naming the proposal)
+or rejects it; a proposal made against a body that has since changed is
+refused as stale. Three disciplines hold: no self-approval; a proposal is a
+genuine call badged `LIVE_AI`/`REPLAYED_AI` or a loud replay miss — there
+is no simulated proposal; and corrections of seeded or rule-based originals
+are recorded but `learnable: false`, because teaching a prompt to reproduce
+a seed is not learning. An accepted version misses the old recordings, which
+the proposal's state reports as *awaiting re-record* until a recording
+carries the new text. Contract: `docs/admin-api.md` § Correction learning.
+
+**Product layer — dynamic prompts and the admin panel, added 2026-09-03.**
+The demo became a configurable product. Every prompt is now resolved *per
+API call* from a run's **prompt set**: the rules, skill and task text a
+model call assembles is read at call time (`layers.ACTIVE_ROOT`, set by the
+engine's `_llm_env` from `DeliveryRun.prompt_set`), never pinned at import.
+Task text moved out of code into a fourth file-backed layer,
+`s7_delivery/layers/tasks/<id>.md`, each declaring the `{{variables}}` the
+workflow supplies and rendered verbatim by `layers.render_task()` — an
+operator can restructure a prompt but cannot reference data the workflow
+does not pass, and the committed recordings still replay byte-identically
+because the extraction was verbatim. The committed `s7_delivery/layers/` is
+the `default` set; other sets are complete copies under the gitignored
+`config/prompt-sets/<name>/` (`s7_delivery/product/prompt_sets.py`), each
+with its own `history.jsonl` and `versions/` snapshots, so a tenant or
+project can run its own wording while the default stays recording-pinned.
+Editing is versioned in place — `layers.write_body/create_file/rollback/
+diff` append the ledger line in the same step and snapshot every version's
+body. Provider and model are configurable **per stage**
+(`product/llm_settings.py`, keys = workflow ids plus the lane's three
+roles; both enter the recording cache key, so a re-pointed stage honestly
+misses old recordings). Roles and permissions accept overrides
+(`product/roles_config.py`, consulted by `roles.require` on every call),
+named **users** act through the Control Centre's `X-S7-User` header
+(`product/users.py`), and every admin change lands in an append-only
+`config/audit.jsonl`. The operator surface is a **separate admin app**
+(`apps/admin/server.py` on 8730, `apps/admin/web/`, `demo/run_admin.sh`):
+prompt sets and a prompt editor with versions, diff and rollback and a
+workflow preview; LLM settings, recordings inventory and ephemeral-cache
+clearing (committed recordings are never deleted there); the roles ×
+actions matrix; users; runs (reset / archive / delete); the audit log.
+Contract: `docs/admin-api.md`; UI notes: `docs/admin-ui.md`. Hard rule 5
+is untouched — simulation and demo runs make no model call and no prompt
+set changes what they show — and § Staged output still governs: editing a
+default-set file is allowed but the panel shows how many recordings pin
+its current bytes, and the suite's recordings guard reports the drift.
+
+**Role selection made legible, added 2026-09-02.** The header's bare
+`<select>` of snake_case ids became a described picker
+(`apps/control/web/src/components/RoleSwitcher.tsx`): every role shows a
+presenter-facing label, one line on what it owns and the decisions it signs,
+served from a `ROLE_PROFILES` table in `factory/roles.py` alongside the
+permission table it describes (`/api/roles` now carries `label`, `summary`,
+`signs`). A permission refusal is no longer a dead end: `PermissionError_`
+carries `action`/`role`/`permitted`, the 403 body exposes them next to the
+unchanged `detail` sentence, and the app's error popup offers **"Switch to
+<role> and retry"** for each holder — the retry switches the acting role
+first and re-issues the same call, so the action is recorded under the
+role a person chose exactly as if picked in the header beforehand. Nothing
+is bypassed: the server still enforces every separation rule on the
+retried call. Pre-disabled controls now name the required role in their
+tooltip (`needs(action)` in `RunContext`) instead of "switch role in the
+header", and `GET /api/permissions/{action}` answers who holds an action.
+
+**Four-layer delivery system made real, added 2026-09-02.** Feature
+priority #2 (`docs/feature-priorities.md`) stopped being a framing:
+Rules and Skills are now files under `s7_delivery/layers/` (`rules/<id>.md`,
+`skills/<id>.md` — frontmatter plus a *verbatim* body), loaded by
+`factory/layers.py` into exactly the `rules` and `role` slots of
+`common/prompt.py`; the Workflows layer is the engine, gates and phase
+machine; the Orchestrator layer is the app and the CLI. Every prompt
+constant in `live_intake.py`, `scaffold.py`, `refine.py`, `downstream.py`
+and `generate.py` reads its text from a file, byte-identical to before, so
+the committed recordings still replay — `tests/test_layers.py` checks every
+recording against the current files and fails on an edit made without a
+re-record. Files are versioned in an append-only `layers/history.jsonl`
+(`python -m s7_delivery layers record --note …`); a file that differs from
+its last ledger line is *unrecorded* and the suite refuses it — versioned
+amendments of the system's own instructions, the seam priority #8 builds
+on. Every live call's activity event carries `skill: <id>@vN`;
+`GET /api/delivery-system` and `python -m s7_delivery layers` describe all
+four layers, rendered on Governance → Delivery System together with which
+skill versions ran in the current run. Simulation and demo runs make no
+model call and so record no skill — the page says so rather than implying
+one. Rules text differs per lane (upstream, downstream, staged) because the
+recordings pin each lane's bytes; unifying them is a re-record, which is
+exactly the cost the ledger makes visible.
+
+**Self-healing with versioned playbooks, added 2026-09-02.** Feature
+priorities #8 (change management) and #10 (staleness) are now one flow.
+A human change made after plan lock — `architecture_revise`,
+`test_plan_amend`, or the upstream SME ruling (`trigger_upstream_change`) —
+opens a **change record** (`governance/self_healing.json`, `SH-nnn`) with
+no separate button, links or creates its amendment in `amendments.jsonl`,
+and runs a **playbook**: the third file-backed layer,
+`s7_delivery/layers/playbooks/<change-type>.md` (frontmatter + JSON steps),
+versioned in the same `history.jsonl` as rules and skills and pinned on the
+record by id, version and hash. Steps are `mechanical` (assess impact = the
+staleness walk; regenerate delivery packs; re-validate stale artifacts via
+`run_self_correction`, which now takes an `against` label) or `gate`
+(accept architecture, approve test plan, publish, run self-correction, re-run
+quality, re-approve release — each naming the role). `factory/self_heal.py`
+runs mechanical steps immediately and stops at the next gate; every hooked
+human action (`architecture_accept`, `test_plan_approve`,
+`delivery_pack_publish`, `quality_run`, `release_approve`,
+`run_self_correction`, `delivery_packs_generate`) calls `advance()`, which
+**observes** gates from the run's own records — never signs them — and runs
+what they unblock. Rendered — since 2026-09-03 in the **Admin app** (Runs →
+Self-healing drawer; the Control Centre page was removed because
+self-healing is operator territory, not a presenter's) — as (summary, one card
+per change with impact, playbook@version, step timeline, activity;
+`POST .../self-healing/{change}/advance` re-evaluates); `state()["self_healing"]`
+is derived on read, badged `RULE_BASED`, with mechanical outcomes carrying
+the engine's own provenance (SIMULATED in simulation runs). The existing
+Risks & Alerts demo buttons are unchanged: the ruling still blocks release,
+and a Delivery Lead still authorises the correction — now as a named gate on
+the change card.
 
 **Demo mode and the release/design document, added 2026-08-10.** A fourth
 environment, `DemoMode.DEMO`, joins the header selector (Demo / Simulation /

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the S7 leadership overview deck (docs/s7-leadership-overview.pptx).
+"""Render the S7 leadership overview deck (docs/slide-decks/leadership-overview.pptx).
 
 Authoring tooling, not runtime — same discipline as demo/render_pdf.py: this
 script and its python-pptx dependency are not required to run the demo, only
@@ -27,7 +27,7 @@ from pptx.enum.shapes import MSO_SHAPE
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Emu, Pt
 
-OUT = Path(__file__).resolve().parent.parent / "docs" / "s7-leadership-overview.pptx"
+OUT = Path(__file__).resolve().parent.parent / "docs" / "slide-decks" / "leadership-overview.pptx"
 
 # --- palette, ported from apps/control/web/src/theme.css ------------------
 INK = RGBColor(0x36, 0x36, 0x2F)

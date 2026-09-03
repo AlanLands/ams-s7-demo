@@ -30,6 +30,28 @@ def test_scenarios_and_roles_listed(client):
     assert {r["role"] for r in roles} >= {"business_owner", "independent_reviewer"}
 
 
+def test_roles_carry_presenter_profiles(client):
+    """The header picker shows a label, a one-line summary and the decisions
+    each role signs — every role must carry all three, or the picker falls
+    back to a bare snake_case id."""
+    roles = {r["role"]: r for r in client.get("/api/roles").json()}
+    assert roles["business_owner"]["label"] == "Business Owner"
+    assert "G1 plan sign-off" in roles["business_owner"]["signs"]
+    assert roles["release_manager"]["signs"] == ["G4 deploy decision", "release approval"]
+    for r in roles.values():
+        assert r["label"] and r["summary"]
+        assert isinstance(r["signs"], list)
+        assert isinstance(r["actions"], list)
+
+
+def test_permission_lookup(client):
+    assert client.get("/api/permissions/sign_off_plan").json() == {
+        "action": "sign_off_plan", "permitted": ["business_owner"]}
+    assert client.get("/api/permissions/approve_release").json()["permitted"] == [
+        "business_owner", "engineering_lead", "qa_lead", "release_manager", "support_lead"]
+    assert client.get("/api/permissions/no_such_action").status_code == 404
+
+
 def test_create_live_run_allowed(client):
     resp = client.post("/api/runs", json={"mode": "live"})
     assert resp.status_code == 200
@@ -56,7 +78,13 @@ def test_forbidden_role_is_403(client, run_id):
         json={"role": "engineering_lead", "approver": "A. Osei"},
     )
     assert res.status_code == 403
-    assert "business_owner" in res.json()["detail"]
+    body = res.json()
+    assert "business_owner" in body["detail"]
+    # Structured half of the refusal — what the UI's "switch to <role> and
+    # retry" offer is built from. `detail` stays the plain sentence.
+    assert body["action"] == "sign_off_plan"
+    assert body["role"] == "engineering_lead"
+    assert body["permitted"] == ["business_owner"]
 
 
 def test_invalid_transition_is_409(client, run_id):
@@ -682,3 +710,116 @@ def test_run_repo_remove_after_plan_signoff_is_409(client, live_run_id, tmp_path
     )
     assert res.status_code == 409
     assert "signed" in res.json()["detail"]
+
+
+# --- users, prompt sets and effective roles (product layer, 2026-09-03) ------
+
+
+@pytest.fixture()
+def cfg(tmp_path, monkeypatch):
+    monkeypatch.setenv("S7_CONFIG_DIR", str(tmp_path / "config"))
+    return tmp_path / "config"
+
+
+@pytest.fixture()
+def sim_run_id(client, tmp_path):
+    """A simulation run created through the engine directly — these tests
+    are about the request layer, not run creation."""
+    from s7_delivery.factory.engine import Engine
+    from s7_delivery.factory.models import DemoMode
+
+    return Engine.create(DemoMode.SIMULATION, root=tmp_path).run_id
+
+
+def test_users_route_lists_active_only(client, cfg):
+    from s7_delivery.product import users
+
+    assert client.get("/api/users").json() == []
+    ana = users.create("Ana Lee", "product_analyst")
+    bob = users.create("Bob Ray", "qa_lead")
+    users.update(bob["id"], active=False)
+    listed = client.get("/api/users").json()
+    assert [u["id"] for u in listed] == [ana["id"]]
+    assert set(listed[0]) == {"id", "name", "email", "role", "active", "created_at"}
+
+
+def test_x_s7_user_header_sets_the_acting_role(client, sim_run_id, cfg):
+    from s7_delivery.product import users
+
+    ana = users.create("Ana Lee", "product_analyst")
+    bob = users.create("Bob Ray", "support_lead")
+    # Without the header the body role is the acting role: a Support Lead
+    # may not run intake analysis.
+    res = client.post(f"/api/runs/{sim_run_id}/intake/analyse", json={"role": "support_lead"})
+    assert res.status_code == 403
+    # With the header, the user's role wins over the body role.
+    res = client.post(f"/api/runs/{sim_run_id}/intake/analyse", json={"role": "support_lead"},
+                      headers={"X-S7-User": ana["id"]})
+    assert res.status_code == 200, res.text
+    # ...in both directions: a Support Lead user cannot borrow an analyst body.
+    res = client.post(f"/api/runs/{sim_run_id}/intake/create-epic",
+                      json={"role": "product_analyst"}, headers={"X-S7-User": bob["id"]})
+    assert res.status_code == 403
+    assert res.json()["role"] == "support_lead"
+
+
+def test_x_s7_user_header_unknown_or_inactive_is_400(client, sim_run_id, cfg):
+    from s7_delivery.product import users
+
+    res = client.get("/api/runs", headers={"X-S7-User": "u-000000"})
+    assert res.status_code == 400 and "unknown user" in res.json()["detail"]
+    bob = users.create("Bob Ray", "qa_lead")
+    users.update(bob["id"], active=False)
+    res = client.get("/api/runs", headers={"X-S7-User": bob["id"]})
+    assert res.status_code == 400 and "inactive" in res.json()["detail"]
+    # An empty header is the same as no header.
+    assert client.get("/api/runs", headers={"X-S7-User": ""}).status_code == 200
+
+
+def test_x_s7_user_header_names_the_actor_for_the_request(client, cfg, monkeypatch):
+    """The middleware enters `users.acting_as(user)` for the request, so
+    anything the engine records through `users.current_actor` names the
+    person, not the role."""
+    from s7_delivery.factory import seed as seed_module
+    from s7_delivery.product import users
+
+    seen: list[str] = []
+    original = seed_module.SCENARIO
+
+    class _Probe:
+        def model_dump(self, mode="json"):
+            seen.append(users.current_actor("nobody"))
+            return original.model_dump(mode=mode)
+
+    monkeypatch.setattr(seed_module, "SCENARIO", _Probe())
+    ana = users.create("Ana Lee", "product_analyst")
+    client.get("/api/scenarios", headers={"X-S7-User": ana["id"]})
+    client.get("/api/scenarios")
+    assert seen == ["Ana Lee", "nobody"]
+
+
+def test_roles_and_permissions_routes_read_the_effective_tables(client, cfg):
+    from s7_delivery.product import roles_config
+
+    before = client.get("/api/permissions/deploy").json()
+    assert before["permitted"] == ["release_manager"]
+    roles_config.save({"permissions": {"deploy": ["engineering_lead"]},
+                       "profiles": {"engineering_lead": {"label": "Eng Lead"}}}, actor="t")
+    after = client.get("/api/permissions/deploy").json()
+    assert after["permitted"] == ["engineering_lead"]
+    eng = next(r for r in client.get("/api/roles").json() if r["role"] == "engineering_lead")
+    assert eng["label"] == "Eng Lead" and "deploy" in eng["actions"]
+    rm = next(r for r in client.get("/api/roles").json() if r["role"] == "release_manager")
+    assert "deploy" not in rm["actions"]
+
+
+def test_prompt_sets_route_lists_names_and_descriptions(client, cfg):
+    from s7_delivery.product import prompt_sets
+
+    listed = client.get("/api/prompt-sets").json()
+    assert [s["name"] for s in listed] == ["default"]
+    assert listed[0]["is_default"] is True and listed[0]["description"]
+    prompt_sets.create_set("tighter", description="Tighter wording", author="t")
+    listed = client.get("/api/prompt-sets").json()
+    assert [(s["name"], s["description"]) for s in listed] == [
+        ("default", listed[0]["description"]), ("tighter", "Tighter wording")]

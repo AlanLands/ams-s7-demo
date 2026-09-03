@@ -21,13 +21,12 @@ import {
 import { Prov } from '../../components/Badge'
 import { StatCard } from '../../components/StatCard'
 import { useRun } from '../../state/RunContext'
+import { DetailDrawer } from '../../components/DetailDrawer'
 import type {
   BuildTask, DeveloperWorkspace, PlanStory, ReviewRecord,
 } from '../../types'
 import {
   BuildPhaseStrip,
-  CONTROL_PLANE_GUIDANCE,
-  GuidanceCard,
   buildOf,
   githubLinks,
   hhmm,
@@ -141,6 +140,7 @@ export function IndependentReview() {
   const [fTeam, setFTeam] = useState('all')
   const [fStatus, setFStatus] = useState('all')
   const [openCheck, setOpenCheck] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const build = buildOf(data)
   const tasks = build.tasks ?? []
@@ -193,7 +193,7 @@ export function IndependentReview() {
 
   if (!task) {
     return (
-      <section className="page-with-rail bo-compact">
+      <section className="bo-compact">
         <div>
           <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
@@ -209,7 +209,6 @@ export function IndependentReview() {
             </div>
           </div>
         </div>
-        <aside className="rail"><GuidanceCard lines={CONTROL_PLANE_GUIDANCE} /></aside>
       </section>
     )
   }
@@ -250,7 +249,7 @@ export function IndependentReview() {
   ]
 
   return (
-    <section className="page-with-rail bo-compact dp-page">
+    <section className="bo-compact dp-page">
       <div>
         <div className="page-head" style={{ marginBottom: '4px' }}>
           <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Independent Review</span>
@@ -322,7 +321,7 @@ export function IndependentReview() {
                   return (
                     <tr key={t.task_id}
                       className={task.task_id === t.task_id ? 'dp-row-selected' : ''}
-                      onClick={() => select(t.story_id)}>
+                      onClick={() => { select(t.story_id); setOpenId(t.story_id) }}>
                       <td>
                         <b className="mono">{t.story_id}</b>
                         <span className="hint dp-sub dw-title clamp-2">{storyById.get(t.story_id)?.title ?? ''}</span>
@@ -363,7 +362,7 @@ export function IndependentReview() {
               </tbody>
             </table>
           </div>
-          <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${items.length} review items · select a row to inspect`}</div>
+          <div className="dp-table-foot hint">{`Showing ${filtered.length} of ${items.length} review items · click a row to open the review`}</div>
         </div>
 
         <div className="card info-banner" style={{ marginTop: '10px' }}>
@@ -376,10 +375,13 @@ export function IndependentReview() {
         </div>
       </div>
 
-      <aside className="rail">
-        <div className="card rail-card dp-inspector">
-          <h3>{`${task.story_id} — ${task.task_id}`}</h3>
-          {story?.title ? <p className="hint" style={{ marginBottom: '6px' }}>{story.title}</p> : null}
+      {openId && openId === task.story_id ? (
+        <DetailDrawer
+          title={<><span className="mono">{task.story_id}</span>{` — ${task.task_id} · Independent Review`}</>}
+          subtitle={story?.title}
+          ariaLabel={`${task.story_id} independent review`}
+          onClose={() => setOpenId(null)}
+        >
           <div className="drawer-badges" style={{ marginBottom: '8px' }}>
             <span className={`badge ${statusCls}`}>{statusLabel}</span>
             {review ? <Prov provenance={task.provenance} /> : null}
@@ -559,9 +561,8 @@ export function IndependentReview() {
               </p>
             ) : null}
           </div>
-        </div>
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+        </DetailDrawer>
+      ) : null}
     </section>
   )
 }

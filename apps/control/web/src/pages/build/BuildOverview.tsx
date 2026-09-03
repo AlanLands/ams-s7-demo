@@ -10,8 +10,6 @@ import { StatCard } from '../../components/StatCard'
 import { TeamChip } from '../planning/TeamChip'
 import {
   BuildPhaseStrip,
-  CONTROL_PLANE_GUIDANCE,
-  GuidanceCard,
   OwnershipChips,
   activityTeam,
   blockerSeverity,
@@ -128,7 +126,7 @@ export function BuildOverview() {
   const repoOf = (team: string) => packs.find((p) => p.team === team)?.repository ?? '—'
 
   return (
-    <section className="page-with-rail bo-compact">
+    <section className="bo-compact">
       <div>
         <div className="page-head" style={{ marginBottom: '8px' }}>
           <h2>Build &amp; Review — Overview</h2>
@@ -237,7 +235,8 @@ export function BuildOverview() {
         </div>
       </div>
 
-      <aside className="rail">
+      {/* Side rail folded into the main column: the same three cards, one row. */}
+      <div className="grid cols-3 rail-fold">
         <div className="card rail-card">
           <h3>Recent Activity</h3>
           {activity.length === 0 ? (
@@ -299,8 +298,7 @@ export function BuildOverview() {
           <button type="button" className="primary sq" onClick={nextAction.go}>{nextAction.label}</button>
         </div>
 
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+      </div>
     </section>
   )
 }

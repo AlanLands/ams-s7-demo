@@ -26,12 +26,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from common.llm import LLMError
-from s7_delivery.factory import extraction, repos, roles, seed
+from s7_delivery.factory import extraction, layers, repos, roles, seed, self_heal
 from s7_delivery.factory.build_phases import PhaseError
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
-from s7_delivery.factory.roles import PermissionError_, actions_for
+from s7_delivery.factory.roles import PermissionError_, actions_for, permitted_roles
 from s7_delivery.factory.store import StoreError, list_runs
+from s7_delivery.product import prompt_sets, users
 
 STATIC_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
@@ -56,7 +57,14 @@ async def _phase_error(_req: Any, exc: PhaseError) -> JSONResponse:
 
 @app.exception_handler(PermissionError_)
 async def _permission_error(_req: Any, exc: PermissionError_) -> JSONResponse:
-    return JSONResponse(status_code=403, content={"detail": str(exc)})
+    # `detail` stays the plain sentence; the structured fields let the UI
+    # offer "switch to <role> and retry" instead of only quoting the refusal.
+    content: dict[str, Any] = {"detail": str(exc)}
+    if exc.action is not None:
+        content["action"] = exc.action
+        content["role"] = exc.role.value if exc.role is not None else None
+        content["permitted"] = [r.value for r in exc.permitted]
+    return JSONResponse(status_code=403, content=content)
 
 
 @app.exception_handler(StoreError)
@@ -75,7 +83,42 @@ def _engine(run_id: str) -> Engine:
     return Engine(run_id)
 
 
+class _ActingUserMiddleware:
+    """Resolve `X-S7-User: <id>` into the request's acting user (pure ASGI, so
+    the context variable is visible to the sync route handlers). Unknown or
+    inactive ids are 400 — a request never silently acts as nobody. Absent
+    header: role bodies keep working exactly as before users existed."""
+
+    def __init__(self, inner: Any) -> None:
+        self.inner = inner
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope.get("type") != "http":
+            await self.inner(scope, receive, send)
+            return
+        header = next(
+            (v.decode("latin-1") for k, v in scope.get("headers", []) if k == b"x-s7-user"),
+            None,
+        )
+        try:
+            user = users.resolve_header(header.strip() if header else None)
+        except users.UserError as exc:
+            response = JSONResponse(status_code=400, content={"detail": str(exc)})
+            await response(scope, receive, send)
+            return
+        with users.acting_as(user):
+            await self.inner(scope, receive, send)
+
+
+app.add_middleware(_ActingUserMiddleware)
+
+
 def _role(value: str) -> Role:
+    # A resolved `X-S7-User` wins: the user's role is the acting role, so a
+    # body role can never act above the person the request names.
+    user = users.current_user()
+    if user is not None:
+        value = str(user["role"])
     try:
         return Role(value)
     except ValueError as exc:
@@ -92,10 +135,43 @@ def get_scenarios() -> list[dict]:
 
 @app.get("/api/roles")
 def get_roles() -> list[dict]:
+    # Effective tables: the committed defaults with the admin panel's
+    # overrides (config/roles.json) applied, read on every request.
     return [
-        {"role": r.value, "actions": actions_for(r)}
+        {"role": r.value, "actions": actions_for(r), **roles.profile(r)}
         for r in Role
     ]
+
+
+@app.get("/api/permissions/{action}")
+def get_permission(action: str) -> dict:
+    permitted = permitted_roles(action)
+    if not permitted:
+        raise HTTPException(status_code=404, detail=f"Unknown action {action!r}")
+    return {"action": action, "permitted": [r.value for r in permitted]}
+
+
+@app.get("/api/users")
+def get_users() -> list[dict]:
+    """Active users only — the people the header picker can act as."""
+    return users.list_users(active_only=True)
+
+
+@app.get("/api/prompt-sets")
+def get_prompt_sets() -> list[dict]:
+    """Names and descriptions of every prompt set a new run may name."""
+    return [
+        {"name": s["name"], "description": s["description"], "is_default": s["is_default"]}
+        for s in prompt_sets.list_sets()
+    ]
+
+
+@app.get("/api/delivery-system")
+def get_delivery_system() -> dict:
+    """The four-layer delivery system — rules and skills as versioned files,
+    the workflow engine, the two orchestrator surfaces. Run-independent and
+    rule-based: derived from the files, never an AI claim."""
+    return layers.describe()
 
 
 @app.get("/api/runs")
@@ -108,6 +184,9 @@ class CreateRun(BaseModel):
     # "project" (epic → design → gate → stories) or "enhancement"
     # (S3-style: user stories enter directly).
     entry_mode: str = "project"
+    # The prompt set the run's model calls resolve against; "default" is the
+    # committed s7_delivery/layers/ set. An unknown set is a 400.
+    prompt_set: str = "default"
 
 
 @app.post("/api/runs")
@@ -117,7 +196,7 @@ def post_runs(body: CreateRun) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown mode {body.mode!r}") from exc
     try:
-        eng = Engine.create(mode, entry_mode=body.entry_mode)
+        eng = Engine.create(mode, entry_mode=body.entry_mode, prompt_set=body.prompt_set)
     except EngineError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return eng.state()
@@ -968,6 +1047,18 @@ def post_upstream_change(run_id: str, body: RoleBody) -> dict:
 def post_self_correct(run_id: str, body: RoleBody) -> dict:
     eng = _engine(run_id)
     eng.run_self_correction(_role(body.role))
+    return eng.state()
+
+
+@app.post("/api/runs/{run_id}/self-healing/{change_id}/advance")
+def post_self_heal_advance(run_id: str, change_id: str, body: RoleBody) -> dict:
+    """Re-evaluate one change: observe gates from the run's records and run
+    the mechanical steps they unblock. Never signs a gate itself."""
+    eng = _engine(run_id)
+    _role(body.role)
+    if not any(ch["change_id"] == change_id for ch in self_heal._read(eng)):
+        raise HTTPException(status_code=404, detail=f"Unknown change {change_id}")
+    self_heal.advance(eng)
     return eng.state()
 
 

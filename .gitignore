@@ -32,10 +32,11 @@ artifacts/runs-archive-*/
 # run deletion, but it's still local presenter state (real clone URLs from
 # whoever ran the demo), not demo material to commit.
 artifacts/known_repos.json
+# product configuration plane (prompt sets, llm/role/user settings, audit)
+# — runtime data managed by the admin app, never committed
+config/
 
 # generated data — keep the directory, not its contents
-data/*
-!data/.gitkeep
 
 # frontend build deps — the web console landed at apps/control/web/.
 # Portability rule 4 (amended 2026-08-08): apps/control/web/dist/ is
@@ -47,6 +48,7 @@ node_modules/
 .vite/
 dist/
 !apps/control/web/dist/
+!apps/admin/web/dist/
 
 # OS / editor noise
 .DS_Store
@@ -71,14 +73,6 @@ callDetails/
 # numbers do not ship here. Keep all such material under this one neutral path:
 # a folder named after the team would leak the team name into this file.
 reference-internal/
-
-# console screenshots, and the one PDF that embeds them. Deliberately not
-# published: this repo is public, and screenshots of the running demo are not
-# something to hand out. `docs/delivery-pack.html` is committed, so the pack
-# regenerates locally once the screenshots are re-captured:
-#     demo/run_console.sh   then   demo/render_pdf.py
-docs/assets/
-docs/S7-Delivery-Pack.pdf
 
 # Subagent-driven-development scratch — ledgers, task briefs, review
 # packages. Per-plan working state, not a deliverable; git history is the

@@ -69,7 +69,7 @@ export function DependencyMap() {
   const crossCount = graphAll.edges.filter((e) => e.cross).length
 
   return (
-    <section className="page-with-rail">
+    <section>
       <div>
         <div className="page-head" style={{ marginBottom: '16px' }}>
           <h2>{`Dependency Map ${allSimulated ? '(AI Generated)' : '(AI + Human)'}`}</h2>
@@ -158,7 +158,7 @@ export function DependencyMap() {
           ) : null}
         </div>
       </div>
-      <aside className="rail">
+      <div className="grid cols-3 rail-fold">
         <div className="card rail-card">
           <h3>Map Summary</h3>
           <ul className="checklist">
@@ -213,7 +213,7 @@ export function DependencyMap() {
             ))}
           </ol>
         </div>
-      </aside>
+      </div>
     </section>
   )
 }

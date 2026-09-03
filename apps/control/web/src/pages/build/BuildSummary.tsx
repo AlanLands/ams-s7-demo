@@ -5,10 +5,8 @@ import { useRun } from '../../state/RunContext'
 import type { BuildSummaryRow, BuildTask } from '../../types'
 import {
   BuildPhaseStrip,
-  CONTROL_PLANE_GUIDANCE,
   DEV_STATUS_BADGE,
   DEV_STATUS_LABELS,
-  GuidanceCard,
   buildOf,
   hhmm,
   selectStory,
@@ -109,7 +107,7 @@ export function BuildSummaryPage() {
   const teams = [...new Set(rows.map((r) => r.team))]
 
   return (
-    <section className="page-with-rail">
+    <section>
       <div>
         <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head" style={{ marginBottom: 16 }}>
@@ -252,7 +250,7 @@ export function BuildSummaryPage() {
         </div>
       </div>
 
-      <aside className="rail">
+      <div className="grid cols-3 rail-fold">
         <div className="card rail-card">
           <h3>⚠ Top Blockers</h3>
           {blockers.length ? (
@@ -334,8 +332,7 @@ export function BuildSummaryPage() {
           )}
         </div>
 
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+      </div>
     </section>
   )
 }

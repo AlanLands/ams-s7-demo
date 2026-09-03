@@ -6,7 +6,7 @@ import { PlanArtifactsCard } from './PlanArtifactsCard'
 import { planningOf, storyGaps } from './planningHelpers'
 
 export function PlanSignoff() {
-  const { data, runId, act, can } = useRun()
+  const { data, runId, act, can, needs } = useRun()
   if (!data) return null
 
   const isLive = data.run?.mode === 'live'
@@ -44,7 +44,7 @@ export function PlanSignoff() {
   const showHandoff = Boolean(data.run?.plan_locked) && isLive
 
   return (
-    <section className="page-with-rail">
+    <section>
       <div>
         <div className="page-head" style={{ marginBottom: 16 }}>
           <h2>Plan Sign-off (Gate 1)</h2>
@@ -114,12 +114,12 @@ export function PlanSignoff() {
             <div className="actions-row" style={{ gap: 8, flexWrap: 'wrap' }}>
               <button
           disabled={!can('export_artifacts')}
-          title={can('export_artifacts') ? undefined : 'Not available to the acting role — switch role in the header'} type="button" className="outline" onClick={() => act('/planning/export-artifacts', {}, 'Artifacts exported')}>
+          title={needs('export_artifacts')} type="button" className="outline" onClick={() => act('/planning/export-artifacts', {}, 'Artifacts exported')}>
                 Export Artifacts
               </button>
               <button
           disabled={!can('write_delivery_clone')}
-          title={can('write_delivery_clone') ? undefined : 'Not available to the acting role — switch role in the header'} type="button" className="outline" onClick={() => act('/planning/write-to-clone', {}, 'Committed locally to each target repo')}>
+          title={needs('write_delivery_clone')} type="button" className="outline" onClick={() => act('/planning/write-to-clone', {}, 'Committed locally to each target repo')}>
                 Write to Clone
               </button>
               <button
@@ -137,7 +137,7 @@ export function PlanSignoff() {
               {repoNames.map((repo) => (
                 <button
           disabled={!can('push_delivery_branch')}
-          title={can('push_delivery_branch') ? undefined : 'Not available to the acting role — switch role in the header'}
+          title={needs('push_delivery_branch')}
                   key={repo}
                   type="button"
                   className="primary sq"
@@ -154,9 +154,10 @@ export function PlanSignoff() {
           <PlanArtifactsCard showDownloadAll />
         </div>
       </div>
-      <aside className="rail">
+      {/* Gate 1 checklist + signature, side by side under the assessment. */}
+      <div className="grid cols-2 rail-fold gate-fold">
         <Gate1Rail />
-      </aside>
+      </div>
     </section>
   )
 }

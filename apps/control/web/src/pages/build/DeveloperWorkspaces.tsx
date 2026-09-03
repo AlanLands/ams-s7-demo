@@ -25,10 +25,8 @@ import { apiPatch, apiPost } from '../../api'
 import type { ActivityEvent, BuildTask, DeliveryPack, DeveloperWorkspace, PlanStory } from '../../types'
 import {
   BuildPhaseStrip,
-  CONTROL_PLANE_GUIDANCE,
   DEV_STATUS_BADGE,
   DEV_STATUS_LABELS,
-  GuidanceCard,
   buildOf,
   githubLinks,
   hhmm,
@@ -630,7 +628,7 @@ export function DeveloperWorkspaces() {
 
   if (workspaces.length === 0) {
     return (
-      <section className="page-with-rail bo-compact">
+      <section className="bo-compact">
         <div>
           <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
           <div className="page-head" style={{ marginBottom: '8px' }}>
@@ -646,7 +644,6 @@ export function DeveloperWorkspaces() {
             </div>
           </div>
         </div>
-        <aside className="rail"><GuidanceCard lines={CONTROL_PLANE_GUIDANCE} /></aside>
       </section>
     )
   }
@@ -747,10 +744,11 @@ export function DeveloperWorkspaces() {
         <div className="table-wrap">
           <table className="dp-table dw-table">
             <colgroup>
-              <col style={{ width: '8%' }} /><col style={{ width: '13%' }} /><col style={{ width: '16%' }} />
+              <col style={{ width: '8%' }} /><col style={{ width: '12%' }} /><col style={{ width: '15%' }} />
               <col style={{ width: '10%' }} /><col style={{ width: '10%' }} /><col style={{ width: '8%' }} />
               <col style={{ width: '7%' }} /><col style={{ width: '9%' }} /><col style={{ width: '8%' }} />
-              <col style={{ width: '11%' }} />
+              {/* Actions: four icon buttons need ~120px; 13% keeps them on one row at demo width. */}
+              <col style={{ width: '13%' }} />
             </colgroup>
             <thead>
               <tr>

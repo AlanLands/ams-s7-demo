@@ -13,6 +13,7 @@ Usage:
     python -m s7_delivery state RUN_ID [--root DIR]
     python -m s7_delivery ledger RUN_ID [--root DIR]
     python -m s7_delivery downstream RUN_ID [--story ID] [--root DIR]
+    python -m s7_delivery layers [show ID | sets | record --note TEXT [--author NAME]]
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+from s7_delivery.factory import layers
 from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 from s7_delivery.factory.store import list_runs
@@ -157,6 +159,72 @@ def _cmd_downstream(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_layers(args: argparse.Namespace) -> int:
+    """The four-layer delivery system as text: rules and skills with their
+    recorded versions, the workflows that assemble them, and the version
+    ledger. `record` appends a ledger line for every changed file — the
+    versioned-amendment step; an unrecorded file is flagged, never hidden."""
+    if args.layers_command == "show":
+        lf = layers.get(args.id)
+        v = layers.version_of(args.id)
+        print(f"{lf.layer:<6} {lf.id}  v{v['version']}"
+              f"{'' if v['recorded'] else ' (unrecorded)'}  sha256={lf.short}")
+        print(f"stage: {lf.stage}")
+        print(f"path:  s7_delivery/layers/{lf.path}")
+        if lf.layer == "task":
+            print(f"variables: {', '.join(lf.variables) or '-'}")
+        print()
+        print(lf.body)
+        return 0
+    if args.layers_command == "sets":
+        from s7_delivery.product import prompt_sets
+
+        print("prompt sets:")
+        for s in prompt_sets.list_sets():
+            counts = s["counts"]
+            flag = f"  UNRECORDED: {', '.join(s['unrecorded'])}" if s["unrecorded"] else ""
+            print(f"  {s['name']:<20} {counts['rules']} rules, {counts['skill']} skills, "
+                  f"{counts['task']} tasks, {counts['playbook']} playbooks  "
+                  f"{'(default)' if s['is_default'] else s['root']}{flag}")
+            if s.get("description"):
+                print(f"    {s['description']}")
+        return 0
+    if args.layers_command == "record":
+        try:
+            added = layers.record_versions(args.note, author=args.author or "")
+        except layers.LayerError as exc:
+            raise SystemExit(str(exc)) from exc
+        if not added:
+            print("nothing to record: every layer file matches its last recorded version")
+            return 0
+        for rec in added:
+            print(f"recorded {rec['layer']:<6} {rec['id']:<26} v{rec['version']}  "
+                  f"{rec['sha256'][:8]}")
+        print(f"{len(added)} version(s) appended to s7_delivery/layers/{layers.HISTORY_FILE}")
+        return 0
+    desc = layers.describe()
+    print("delivery system: four layers (rule_based)")
+    for layer in ("rules", "skills", "tasks", "playbooks"):
+        print(f"{layer}:")
+        for row in desc[layer]:
+            flag = "" if row["recorded"] else "  UNRECORDED"
+            print(f"  {row['id']:<26} v{row['version']}  {row['short']}  "
+                  f"{row['stage']:<14} {', '.join(row['workflows']) or '-'}{flag}")
+    print("workflows:")
+    for wf in desc["workflows"]:
+        print(f"  {wf['id']:<26} {wf['stage']:<22} gate={wf['gate']:<24} "
+              f"rules={wf['rules']}  skills={', '.join(wf['skills']) or '-'}")
+    print("orchestrator:")
+    for o in desc["orchestrator"]:
+        print(f"  {o['surface']:<4} {o['label']:<22} {o['where']}")
+    print(f"history: {len(desc['history'])} recorded version(s)")
+    if desc["unrecorded"]:
+        print(f"unrecorded changes: {', '.join(desc['unrecorded'])} — run "
+              "`python -m s7_delivery layers record --note ...`")
+        return 1
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m s7_delivery",
@@ -182,6 +250,20 @@ def main(argv: list[str] | None = None) -> int:
     p_down.add_argument("run_id")
     p_down.add_argument("--story", help="drive one story only")
     p_down.set_defaults(func=_cmd_downstream)
+
+    p_layers = sub.add_parser(
+        "layers", help="the four-layer delivery system: rules, skills, versions",
+    )
+    p_layers.set_defaults(func=_cmd_layers, layers_command=None)
+    layers_sub = p_layers.add_subparsers(dest="layers_command")
+    p_show = layers_sub.add_parser("show", help="print one rules, skill, task or playbook file")
+    p_show.add_argument("id")
+    layers_sub.add_parser("sets", help="list the prompt sets (default + config/prompt-sets)")
+    p_record = layers_sub.add_parser(
+        "record", help="append a version-ledger line for every changed layer file",
+    )
+    p_record.add_argument("--note", required=True, help="what changed and why")
+    p_record.add_argument("--author", default="")
 
     for p in (p_runs, p_state, p_ledger, p_down):
         p.add_argument("--root", help="artifacts root (default artifacts/runs)")

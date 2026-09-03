@@ -33,6 +33,7 @@ const NAV: [string, string, string?][] = [
   ['nav-gov', 'Governance'],
   ['activity', 'Activity Log', '◷'],
   ['provenance', 'Provenance', '⛓'],
+  ['delivery_system', 'Delivery System', '≣'],
   ['risks', 'Risks & Alerts', '⚠'],
   ['reports', 'Reports', '▥'],
   ['scorecard', 'KPI Scorecard', '◫'],

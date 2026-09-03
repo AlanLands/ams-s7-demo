@@ -11,7 +11,7 @@ export function Activity() {
   return (
     <section>
       <SectionTitle title="Factory activity log" hint="Every workflow, gate event and human decision" />
-      <div className="grid cols-3">
+      <div className="stat-grid">
         {Object.entries(s.counters ?? {}).map(([k, v]) => (
           <div className="card metric" key={k}>
             <div className="v">{String(v)}</div>

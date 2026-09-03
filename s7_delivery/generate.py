@@ -18,6 +18,7 @@ import re
 from datetime import UTC, datetime
 
 from common.llm import complete
+from s7_delivery.factory import layers
 from s7_delivery.models import (
     AcceptanceCriterion,
     AssessedTask,
@@ -30,17 +31,18 @@ from s7_delivery.models import (
     Task,
     UserStory,
 )
+from s7_delivery.product import llm_settings
 
-_SYSTEM = (
-    "You are a delivery analyst in MapleSure Insurance's AI-assisted SDLC "
-    "pipeline. MapleSure is a fictional insurer in a tabletop exercise. "
-    "Output strict JSON matching the schema given in the task — no prose, no "
-    "markdown fences. Ground every statement in the epic text you are given; "
-    "where the epic lists open questions, downstream artifacts carry them as "
-    "assumptions rather than invented answers."
-)
+# The Rules layer of the staged pipeline — a file, pinned by recordings,
+# resolved at call time from the active prompt set like the task templates.
+_RULES_ID = "staged-pipeline"
+_STAGE = "staged-pipeline"
 
 _FENCE = re.compile(r"^```(?:json)?\s*(.*?)\s*```$", re.DOTALL)
+
+
+def _system() -> str:
+    return layers.rules(_RULES_ID)
 
 
 def _provenance() -> Provenance:
@@ -62,34 +64,12 @@ def parse_json_block(text: str):
 
 def assessment(epic: Epic) -> Assessment:
     streams = ", ".join(s.value for s in Stream)
-    prompt = f"""Here is a business epic:
-
----
-{epic.body}
----
-
-Produce the initial delivery assessment: break the epic into 6 to 9 tasks
-routed across delivery streams. Allowed stream values: {streams}.
-
-Classify each task's coverage honestly:
-- "agentic"              — runs end to end in the automated delivery lane
-- "ai_assisted_external" — AI drafts it, but another team owns the change
-- "manual"               — human work, no AI contribution claimed
-
-The epic itself flags a system-of-record change that is externally owned and
-manual on this timeline — reflect that: at least one task must be manual or
-ai_assisted_external with blocked_by_external true, and tasks that wait on it
-name it in depends_on. Estimates are in days and should differ by task size.
-
-JSON schema:
-{{"tasks": [{{"id": "T1", "summary": str, "stream": str, "coverage": str,
-"estimate_days": float, "rationale": str, "depends_on": [str],
-"blocked_by_external": bool}}],
-"integration_note": str}}
-
-integration_note names where parallel streams merge before integrated test."""
+    prompt = layers.render_task(
+        "staged-assessment-task", epic_body=epic.body, streams=streams
+    )
     data = parse_json_block(
-        complete(prompt, system=_SYSTEM, json_mode=True, cache_key="s7:assess")
+        complete(prompt, system=_system(), json_mode=True, cache_key="s7:assess",
+                 **llm_settings.for_stage(_STAGE))
     )
     tasks = tuple(
         AssessedTask(
@@ -120,33 +100,12 @@ def design(epic: Epic, assessment: Assessment) -> tuple[DesignArtifact, ...]:
     task_lines = "\n".join(
         f"- {t.id} [{t.stream.value}/{t.coverage.value}] {t.summary}" for t in assessment.tasks
     )
-    prompt = f"""Here is a business epic:
-
----
-{epic.body}
----
-
-The delivery assessment routed it into these tasks:
-{task_lines}
-
-Produce two design diagrams in Mermaid source for the target-state online
-disability claim submission journey in SponsorConnect:
-
-1. A data flow diagram: sponsor → portal → services → policy/member system of
-   record lookup (read-only, externally owned) → document store → handoff to
-   the existing intake/indexing path. Mermaid `flowchart LR`.
-2. A relationship diagram of the core entities (plan sponsor, member, policy,
-   submission, document, status). Mermaid `erDiagram`.
-
-Keep each diagram under 25 lines, well-labelled, renderable by mermaid v10.
-JSON schema:
-{{"dfd": {{"title": str, "mermaid": str, "notes": str}},
-"er": {{"title": str, "mermaid": str, "notes": str}}}}
-
-The mermaid value for dfd must start with "flowchart"; er must start with
-"erDiagram". notes is 2-3 sentences a reviewer reads before approving."""
+    prompt = layers.render_task(
+        "staged-design-task", epic_body=epic.body, task_lines=task_lines
+    )
     data = parse_json_block(
-        complete(prompt, system=_SYSTEM, json_mode=True, cache_key="s7:design")
+        complete(prompt, system=_system(), json_mode=True, cache_key="s7:design",
+                 **llm_settings.for_stage(_STAGE))
     )
     dfd = data["dfd"]
     er = data["er"]
@@ -183,41 +142,13 @@ def stories(epic: Epic, assessment: Assessment) -> tuple[UserStory, ...]:
     task_lines = "\n".join(
         f"- {t.id} [{t.stream.value}/{t.coverage.value}] {t.summary}" for t in assessment.tasks
     )
-    prompt = f"""Here is a business epic:
-
----
-{epic.body}
----
-
-The approved assessment routed it into these tasks:
-{task_lines}
-
-The design is signed off. Break the epic into exactly 3 user stories, each
-decomposed into 1-3 executable tasks. Allowed stream values: {streams};
-allowed coverage values: agentic, ai_assisted_external, manual.
-
-Requirements:
-- Every acceptance criterion id must be claimed by some task's "satisfies"
-  list — full traceability, no orphan criteria.
-- Exactly one task overall must be stream "frontend" with coverage "agentic"
-  whose summary is building the plan-sponsor disability claim submission page
-  (identify member from policy number + member id, pre-populate member
-  details, claim details, multiple document upload, confirmation with a
-  reference number and a visible status). That task is executed by the
-  automated lane.
-- Tasks on the externally-owned system of record are "ai_assisted_external"
-  or "manual" with owning_team set — never agentic.
-- Anything resting on the epic's open questions goes in "assumptions".
-
-JSON schema:
-{{"stories": [{{"id": "US-1", "title": str, "narrative": str,
-"acceptance": [{{"id": "US-1-AC1", "text": str}}],
-"streams": [str], "estimate_points": int, "assumptions": [str],
-"tasks": [{{"id": "US-1-T1", "summary": str, "stream": str, "coverage": str,
-"estimate_days": float, "satisfies": [str], "depends_on": [str],
-"owning_team": str | null}}]}}]}}"""
+    prompt = layers.render_task(
+        "staged-stories-task", epic_body=epic.body, task_lines=task_lines,
+        streams=streams,
+    )
     data = parse_json_block(
-        complete(prompt, system=_SYSTEM, json_mode=True, cache_key="s7:stories")
+        complete(prompt, system=_system(), json_mode=True, cache_key="s7:stories",
+                 **llm_settings.for_stage(_STAGE))
     )
     prov = _provenance()
     built: list[UserStory] = []

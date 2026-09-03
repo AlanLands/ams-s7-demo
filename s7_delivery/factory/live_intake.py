@@ -15,47 +15,25 @@ import re
 
 from common.llm import LLMError, complete, parse_json_response
 from common.prompt import PromptLayers
+from s7_delivery.factory import layers
 from s7_delivery.factory.models import IntakeAnalysis, Provenance, RoutingVerdict
+from s7_delivery.product import llm_settings
 
 MAX_CLARIFICATION_ROUNDS = 2
 
-RULES = (
-    "You are an AI delivery assistant for MapleSure Insurance, a fictional "
-    "insurer in a tabletop exercise. All data is synthetic. Answer with "
-    "structured JSON only, and never invent facts the input does not support."
-)
-
-ANALYSIS_ROLE = (
-    "Your role is intake analysis: read a business change request against the "
-    "connected application repositories and extract what a delivery lead "
-    "needs — impact, affected applications, stakeholders, dependencies, "
-    "risks, open questions, assumptions and business rules. Ground every "
-    "claim in the requirement or the repository context; where the "
-    "repositories show a capability is absent, say so as a dependency or "
-    "risk, not a guess."
-)
-
-CLARIFY_ROLE = (
-    "Your role is a product analyst preparing a change request for delivery: "
-    "ask only the clarifying questions whose answers would materially change "
-    "the analysis or the plan. Most requests need one short round, not an "
-    "interrogation."
-)
-
-NEW_APP_ROLE = (
-    "Your role is capturing the essentials of a brand-new application "
-    "before it exists: a short, valid repository name, a one-line "
-    "description, and the intended technology stack. Ask only what is "
-    "still missing; once all three are known, stop asking and report them."
-)
+# Rules, role and task text are the Rules, Skills and Tasks layers of the
+# delivery system (`factory/layers.py`): files, versioned, loaded verbatim
+# — and resolved *at call time* against the active prompt set
+# (`layers.use()` / the run's `prompt_set`), never pinned at import. The
+# default set's bytes are pinned by committed recordings — edit the files,
+# then re-record.
+RULES_ID = "delivery-assistant"
 
 _REPO_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{2,38}$")
 
-_NEW_APP_SHAPE_QUESTIONS = """{"needs_more_info": true, "questions": ["<question>"]}"""
-_NEW_APP_SHAPE_SETTLED = (
-    """{"needs_more_info": false, "name": "<repo-name-like-this>", """
-    """"description": "<one line>", "stack": "<e.g. Flask + SQLite>"}"""
-)
+
+def _rules() -> str:
+    return layers.rules(RULES_ID)
 
 
 def provenance_now() -> Provenance:
@@ -81,31 +59,22 @@ def _cache_digest(*parts: str) -> str:
     return hashlib.sha256("\x1e".join(parts).encode("utf-8")).hexdigest()[:16]
 
 
-def _call(*, role: str, ref: str, task: str, beat: str, key_material: str) -> tuple[dict, dict]:
+def _call(
+    *, role: str, ref: str, task: str, beat: str, key_material: str, stage: str,
+) -> tuple[dict, dict]:
+    """One JSON-mode model call. `role` is a skill *id*, resolved here so
+    the text comes from whichever prompt set is active for this call;
+    `stage` is the per-stage LLM-settings key whose provider/model (if
+    configured) override the environment."""
     usage: dict = {}
     response = complete(
-        PromptLayers(rules=RULES, role=role, ref=ref, task=task),
+        PromptLayers(rules=_rules(), role=layers.skill(role), ref=ref, task=task),
         json_mode=True,
         cache_key=f"s7_factory_{beat}:{_cache_digest(key_material)}",
         usage_out=usage,
+        **llm_settings.for_stage(stage),
     )
     return parse_json_response(response), usage
-
-
-_ANALYSIS_SHAPE = """{
-  "problem_understood": true,
-  "business_impact": "<one paragraph>",
-  "affected_applications":
-    ["<connected repository name, or an external system suffixed ' (externally owned)'>"],
-  "stakeholders": ["<who>"],
-  "dependencies": ["<what this depends on, grounded in the repositories>"],
-  "risks": ["<risk>"],
-  "clarification_questions": ["<open question for the SME>"],
-  "assumptions": ["<assumption carried>"],
-  "business_rules": [{"rule_id": "BR-<n>", "text": "<rule in the requirement's words>"}],
-  "risk_register": [{"text": "<risk>", "severity": "high|medium|low"}],
-  "confidence": <0-100 self-assessment>
-}"""
 
 
 def run_analysis(
@@ -116,14 +85,12 @@ def run_analysis(
             "Live analysis needs at least one connected repository — connect "
             "the target repos first (grounding is the point)."
         )
-    task = f"""Clarification conversation so far:
-{_transcript_text(transcript)}
-
-Analyse the change request against the connected repositories. Return JSON
-exactly matching:
-{_ANALYSIS_SHAPE}"""
+    task = layers.render_task(
+        "intake-analysis-task", transcript=_transcript_text(transcript)
+    )
     data, usage = _call(
-        role=ANALYSIS_ROLE,
+        role="intake-analysis",
+        stage="intake-analysis",
         ref=_ref(requirement, packs),
         task=task,
         beat="analysis",
@@ -169,22 +136,6 @@ def _validate_analysis(data: dict, repo_names: set[str]) -> IntakeAnalysis:
         raise LLMError(f"analysis failed validation: {exc}") from exc
 
 
-ROUTE_ROLE = (
-    "Your role is requirement routing: decide whether a business change "
-    "request's capabilities plausibly land inside the connected application "
-    "repositories, or whether it needs an application that does not exist "
-    "yet. Ground the verdict in what the repositories' architecture.md files "
-    "say they do and do not do."
-)
-
-_ROUTE_SHAPE = """{
-  "verdict": "routable" | "new_application_needed",
-  "reasoning": "<one paragraph>",
-  "candidate_repos": ["<connected repository name, only if routable>"],
-  "confidence": <0-100 self-assessment>
-}"""
-
-
 def route_requirement(
     requirement: dict, packs: dict[str, str]
 ) -> tuple[RoutingVerdict, dict]:
@@ -201,12 +152,10 @@ def route_requirement(
             confidence=100,
             provenance=Provenance.HUMAN,
         ), {}
-    task = f"""Decide whether this change request fits inside the connected
-repositories, or needs an application that does not exist yet. Return JSON
-exactly matching:
-{_ROUTE_SHAPE}"""
+    task = layers.render_task("requirement-routing-task")
     data, usage = _call(
-        role=ROUTE_ROLE,
+        role="requirement-routing",
+        stage="requirement-routing",
         ref=_ref(requirement, packs),
         task=task,
         beat="route",
@@ -254,14 +203,12 @@ def run_clarification(
             f"Clarification cap reached ({MAX_CLARIFICATION_ROUNDS} rounds) — "
             "answer what is open or run the analysis with assumptions."
         )
-    task = f"""Clarification conversation so far:
-{_transcript_text(transcript)}
-
-Ask the 1 to 4 clarifying questions (one topic each) whose answers would most
-change the delivery plan. Return JSON exactly matching:
-{{"questions": ["<question>"]}}"""
+    task = layers.render_task(
+        "clarification-task", transcript=_transcript_text(transcript)
+    )
     data, usage = _call(
-        role=CLARIFY_ROLE,
+        role="clarification",
+        stage="clarification",
         ref=_ref(requirement, packs),
         task=task,
         beat="clarify",
@@ -274,36 +221,13 @@ change the delivery plan. Return JSON exactly matching:
     return questions, usage
 
 
-EXTRACTION_ROLE = (
-    "Your role is requirement extraction: read raw, unstructured source "
-    "text — an uploaded document or pasted text — and pull out a short "
-    "epic title, a one-paragraph business objective, a short requirement "
-    "summary, and the discrete, testable requirements it states. Extract "
-    "only what the text actually says; never invent a requirement the "
-    "source does not support."
-)
-
-_EXTRACTION_SHAPE = """{
-  "epic_title": "<short title>",
-  "business_objective": "<one paragraph>",
-  "requirement_summary": "<short paragraph>",
-  "extracted_requirements": [
-    {"rule_id": "REQ-<n>", "text": "<requirement, in the source's own words>"}
-  ]
-}"""
-
-
 def run_extraction(text: str) -> tuple[dict, dict]:
     if not text or not text.strip():
         raise LLMError("Live extraction needs non-empty source text.")
-    task = f"""The source text, verbatim:
-
-{text}
-
-Extract the requirement from this text. Return JSON exactly matching:
-{_EXTRACTION_SHAPE}"""
+    task = layers.render_task("requirement-extraction-task", text=text)
     data, usage = _call(
-        role=EXTRACTION_ROLE,
+        role="requirement-extraction",
+        stage="requirement-extraction",
         ref="",
         task=task,
         beat="extract",
@@ -354,19 +278,15 @@ def run_new_app_setup(
         "assumption for anything still unclear.\n"
         if force else ""
     )
-    task = f"""Conversation so far:
-{_transcript_text(transcript)}
-{force_note}
-The requirement this new application would satisfy:
-{json.dumps(requirement, indent=2)}
-
-If name, description and stack are not all known yet, ask 1 to 3 short
-questions. Otherwise, report the final values. Return JSON exactly matching
-exactly one of:
-{_NEW_APP_SHAPE_QUESTIONS}
-{_NEW_APP_SHAPE_SETTLED}"""
+    task = layers.render_task(
+        "new-application-setup-task",
+        transcript=_transcript_text(transcript),
+        force_note=force_note,
+        requirement=json.dumps(requirement, indent=2),
+    )
     data, usage = _call(
-        role=NEW_APP_ROLE,
+        role="new-application-setup",
+        stage="new-application-setup",
         ref=json.dumps(requirement, indent=2),
         task=task,
         beat="new-app-setup",
@@ -393,43 +313,7 @@ exactly one of:
     return {"done": True, "name": name, "description": description, "stack": stack}, usage
 
 
-PLAN_ROLE = (
-    "Your role is delivery planning: break the epic into small, independently "
-    "deliverable user stories with owners, grounded in the connected "
-    "repositories — a story lands in the repository whose code it changes. "
-    "Where the repositories show a capability does not exist, the story that "
-    "introduces it comes first in the dependency order."
-)
-
 _POINT_SCALE = (1, 2, 3, 5, 8, 13)
-
-_PLAN_SHAPE = """{
-  "stories": [
-    {
-      "story_id": "US-<n>, numbered from 1 in delivery order",
-      "title": "<short imperative title>",
-      "purpose": "<why this story exists, one or two sentences>",
-      "accountable_team": "<one team from the roster>",
-      "target_application": "<the connected repository this changes>",
-      "target_repository": "<same connected repository name>",
-      "target_component": "<the part of that repository this lands in>",
-      "acceptance_criteria": [
-        {"ac_id": "US-<n>-AC<m>",
-         "text": "Given <context>, when <action>, then <observable result>"}
-      ],
-      "dependencies": ["<story ids this cannot start before>"],
-      "impacts": ["<existing file or behaviour this touches>"],
-      "feature_flag": {"name": "<flag to ship dark behind>"},
-      "rollback_plan": {"method": "<one line: how this is backed out>"},
-      "task_type": "feature | config | migration | integration | test",
-      "estimate": <integer: 1/2/3/5/8/13>,
-      "sprint": <1, 2 or 3>,
-      "traces_to": ["<business rule ids from the analysis this story delivers>"]
-    }
-  ],
-  "confidence": <0-100 self-assessment of the draft>,
-  "rationale": "<one paragraph: the decomposition logic>"
-}"""
 
 
 def _collect_plan_defects(
@@ -523,31 +407,21 @@ def run_plan(
         raise LLMError("Live planning needs a connected repository.")
     rule_ids = [r["rule_id"] for r in analysis.get("business_rules", [])]
     roster = "\n".join(f"- {t}" for t in teams)
-    task = f"""The approved epic:
-{json.dumps(epic, indent=2)}
-
-The intake analysis' business rules (every rule id must be claimed by at
-least one story's "traces_to"):
-{json.dumps(analysis.get("business_rules", []), indent=2)}
-
-Clarification conversation so far:
-{_transcript_text(transcript)}
-
-The team roster. Assign each story's accountable_team from this list ONLY:
-{roster}
-
-Break the epic into 4 to 8 stories across sprints 1 to 3. Every story needs
-2 to 4 acceptance criteria, each independently testable. Every story's
-target_repository must be one of the connected repositories. Return JSON
-exactly matching:
-{_PLAN_SHAPE}"""
+    task = layers.render_task(
+        "epic-decomposition-task",
+        epic=json.dumps(epic, indent=2),
+        business_rules=json.dumps(analysis.get("business_rules", []), indent=2),
+        transcript=_transcript_text(transcript),
+        roster=roster,
+    )
     base_key = (
         json.dumps(epic, sort_keys=True)
         + json.dumps(rule_ids)
         + json.dumps(transcript, sort_keys=True)
     )
     data, usage = _call(
-        role=PLAN_ROLE,
+        role="epic-decomposition",
+        stage="epic-decomposition",
         ref=_ref(epic, packs),
         task=task,
         beat="plan",
@@ -564,21 +438,16 @@ exactly matching:
         # formatting. Distinct key material so the recorded first response
         # can never be replayed as the answer to this correction.
         defect_list = "\n".join(f"- {d}" for d in defects)
-        retry_task = f"""{task}
-
-Your previous draft failed validation with these defects:
-{defect_list}
-
-That draft's stories were:
-{json.dumps(data.get("stories", []), indent=2)}
-
-Return the complete corrected JSON in the same shape, fixing every defect:
-every story needs a unique story_id, 2 to 4 acceptance criteria, an
-accountable_team from the roster, a connected target_repository, an
-estimate from {_POINT_SCALE}, dependencies only on story ids in this plan,
-and every business rule id claimed by at least one story's "traces_to"."""
+        retry_task = layers.render_task(
+            "epic-decomposition-correction-task",
+            task=task,
+            defects=defect_list,
+            draft_stories=json.dumps(data.get("stories", []), indent=2),
+            point_scale=_POINT_SCALE,
+        )
         data, retry_usage = _call(
-            role=PLAN_ROLE,
+            role="epic-decomposition",
+            stage="epic-decomposition",
             ref=_ref(epic, packs),
             task=retry_task,
             beat="plan",

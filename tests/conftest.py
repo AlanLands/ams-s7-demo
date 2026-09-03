@@ -14,6 +14,17 @@ if str(repo_root) not in sys.path:
 
 
 @pytest.fixture(autouse=True)
+def _isolated_config_plane(tmp_path_factory, monkeypatch):
+    """The product configuration plane (`config/`: prompt sets, LLM settings,
+    role overrides, users, audit) is operator state. Point every test at a
+    throwaway directory so a saved override on this machine can never change
+    what the suite asserts, and no test can write into the real plane. Tests
+    that want their own directory monkeypatch `S7_CONFIG_DIR` again, which
+    simply wins."""
+    monkeypatch.setenv("S7_CONFIG_DIR", str(tmp_path_factory.mktemp("config_plane")))
+
+
+@pytest.fixture(autouse=True)
 def _isolated_known_repos_registry(tmp_path_factory, monkeypatch):
     """`Engine.intake_connect_repo` writes into the global known-repos
     registry (`artifacts/known_repos.json`) on every connect, unconditionally

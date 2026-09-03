@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MapleSure Member Directory Search and Export</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm; }
+  :root{
+    --red:#a20a29; --red2:#850822; --ink:#292923; --text:#36362f;
+    --muted:#66655b; --border:#d8d8d3; --surface2:#fafaf8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:"Segoe UI",Inter,Arial,sans-serif;color:var(--text);
+       font-size:11.5pt;line-height:1.55}
+  .brandline{height:4px;background:var(--red);margin-bottom:14px}
+  header{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .mark{width:34px;height:34px;border-radius:7px;background:var(--red);
+        color:#fff;display:grid;place-items:center;font-weight:800;
+        font-family:Georgia,serif;font-size:14pt}
+  header small{display:block;color:var(--red);font-size:8pt;
+        text-transform:uppercase;letter-spacing:.13em;font-weight:800}
+  header b{font-size:11pt;color:var(--ink)}
+  .doctype{color:var(--muted);font-size:9pt;text-transform:uppercase;
+        letter-spacing:.08em;margin:10px 0 2px}
+  h1{color:var(--ink);font-size:19pt;line-height:1.25;margin-bottom:12px}
+  table.meta{width:100%;border-collapse:collapse;margin:8px 0 18px;font-size:10pt}
+  table.meta td{border:1px solid var(--border);padding:5px 9px}
+  table.meta td:first-child{background:var(--surface2);font-weight:700;
+        width:34%;color:var(--ink)}
+  h2{color:var(--red2);font-size:13pt;margin:18px 0 6px;
+     border-bottom:1.5px solid var(--red);padding-bottom:3px}
+  p{margin:6px 0}
+  ul,ol{margin:6px 0 6px 22px}
+  li{margin:3px 0}
+  blockquote{border-left:3px solid var(--red);padding:4px 12px;margin:10px 0;
+     color:var(--ink);font-weight:600;background:var(--surface2)}
+  .signoff{margin-top:22px;font-size:10pt}
+  .signoff td{border:1px solid var(--border);padding:8px 9px}
+  footer{margin-top:26px;padding-top:8px;border-top:1px solid var(--border);
+     color:var(--muted);font-size:8.5pt}
+</style>
+</head>
+<body>
+<div class="brandline"></div>
+<header>
+  <span class="mark">MS</span>
+  <span><small>MapleSure Insurance</small><b>Group Benefits Digital Experience</b></span>
+</header>
+
+<p class="doctype">Business Requirement Document · Enhancement</p>
+<h1>MapleSure Member Directory Search and Export</h1>
+
+<table class="meta">
+  <tr><td>Request ID</td><td>REQ-2026-134</td></tr>
+  <tr><td>Raised by</td><td>Group Benefits Digital Experience, MapleSure Insurance</td></tr>
+  <tr><td>Business owner</td><td>P. Moreau</td></tr>
+  <tr><td>Domain</td><td>Plan Sponsor Digital Access</td></tr>
+  <tr><td>Target application</td><td>SponsorConnect Portal (existing) — member directory page</td></tr>
+  <tr><td>Type</td><td>Enhancement — small, single-sprint</td></tr>
+  <tr><td>Priority</td><td>Medium</td></tr>
+  <tr><td>Requested date</td><td>2026-08-18</td></tr>
+</table>
+
+<h2>1. Business objective</h2>
+<blockquote>Let a plan sponsor find a covered member in the SponsorConnect
+member directory by searching, instead of scrolling a full list, and download
+the filtered directory as a spreadsheet for their own reconciliation.</blockquote>
+<p>Sponsor administrators reconcile their payroll records against MapleSure's
+member directory every month. Today the directory is a single unfiltered list,
+so a sponsor with a large workforce scrolls page after page or phones the
+service desk to confirm one member's coverage.</p>
+
+<h2>2. Background and current state</h2>
+<ul>
+  <li>The SponsorConnect Portal already shows a member directory
+      (<code>/members</code>) and a member detail page, reading all data from
+      the claims API. Nothing changes in what data is shown — only how a
+      sponsor gets to it.</li>
+  <li>The directory has no search, no filter and no export. Sponsors copy
+      names by hand into their own spreadsheets.</li>
+  <li>The service desk receives "is this employee covered?" calls that a
+      simple search would answer.</li>
+</ul>
+
+<h2>3. Requirements</h2>
+<ol>
+  <li><b>Search box.</b> The member directory page has a search box; typing a
+      member's surname, given name or member ID and pressing Enter (or the
+      Search button) narrows the list to matching members.</li>
+  <li><b>Partial and case-insensitive matching.</b> Search matches on any part
+      of the name or member ID and ignores letter case, so "mor" finds
+      "Moreau" and "MOREAU".</li>
+  <li><b>Coverage status filter.</b> A filter lets the sponsor show all members,
+      only active members, or only members whose coverage has ended.</li>
+  <li><b>Result count and empty state.</b> The page states how many members
+      match ("12 of 340 members"), and a search with no matches says so plainly
+      with a "Clear search" link.</li>
+  <li><b>Export to CSV.</b> A "Download CSV" button exports the members
+      currently shown — respecting the active search and filter — with columns
+      member ID, surname, given name, plan, coverage status, coverage start
+      date. Nothing beyond what the directory already displays is exported.</li>
+  <li><b>Sponsor scope only.</b> Search and export return only members of the
+      signed-in sponsor's own plans — never members of another sponsor.</li>
+  <li><b>Export is logged.</b> Each CSV download is recorded (sponsor,
+      timestamp, row count) so exports can be reviewed later.</li>
+  <li><b>Accessibility.</b> The search box, filter and download button are
+      keyboard-accessible and labelled; the result count is announced to
+      screen readers when it changes.</li>
+</ol>
+
+<h2>4. Out of scope</h2>
+<ul>
+  <li>Editing member records or adding members from the portal — the
+      directory stays read-only.</li>
+  <li>Any change to the claims API's data model; the portal continues to read
+      the fields it already receives.</li>
+  <li>Scheduled or emailed exports; this release is on-demand download only.</li>
+</ul>
+
+<h2>5. Success measures</h2>
+<ul>
+  <li>A sponsor can find a named member in the directory in one search.</li>
+  <li>The CSV a sponsor downloads contains exactly the members shown on
+      screen at the time, and never a member of another sponsor.</li>
+  <li>Reduction in "is this employee covered?" calls to the service desk in
+      the first month after release.</li>
+</ul>
+
+<h2>6. Notes for delivery</h2>
+<p>This is a small change to one existing page and one new download route in
+the SponsorConnect Portal. Keep it that way: no new application, no new data
+store, synthetic member data only.</p>
+
+<h2>7. Sign-off</h2>
+<table class="meta signoff">
+  <tr><td>Prepared by</td><td>Group Benefits Digital Experience</td></tr>
+  <tr><td>Reviewed by</td><td>Sponsor Digital Platform Team</td></tr>
+  <tr><td>Approved for intake</td><td>P. Moreau, Business Owner</td></tr>
+</table>
+
+<footer>MapleSure Insurance is a fictional insurer. This document is synthetic
+demonstration data prepared for a tabletop exercise; it contains no client
+data, no PII, and no client-identifiable information.</footer>
+</body>
+</html>

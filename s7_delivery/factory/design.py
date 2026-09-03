@@ -5,8 +5,8 @@ Two sources, both honest and neither an AI call:
 - `curated_diagrams()` — the MapleSure disability-submission DFD and entity
   relationships, scripted content for simulation/demo runs (SIMULATED, the
   same discipline as every other seeded artifact). Ported from the original
-  staged pipeline (`s7_delivery/staged.py`) so the Control Centre finally
-  shows the design phase the brief names.
+  staged pipeline (`s7_delivery/staged.py`, retired 2026-09-03) so the
+  Control Centre finally shows the design phase the brief names.
 - `derived_diagrams(stories, repos)` — a deterministic derivation from the
   run's own plan for live/replay runs (RULE_BASED): the data-flow diagram
   routes actors through each accountable team into the connected

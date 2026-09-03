@@ -17,12 +17,13 @@ import pytest
 import common.llm as llm
 from s7_delivery import downstream
 from s7_delivery.factory import gates
+from s7_delivery.product import llm_settings
 
 _ENV_KEYS = (
     "LLM_MODE", "LLM_PROVIDER", "LLM_CACHE_DIR", "LLM_REPLAY_DIR",
     "LLM_NO_CACHE", "LLM_TELEMETRY_PATH", "ANTHROPIC_API_KEY",
     "ANTHROPIC_MODEL", "OPENAI_API_KEY", "OPENAI_MODEL",
-    "REVIEW_LLM_PROVIDER", "REVIEW_LLM_MODEL",
+    "REVIEW_LLM_PROVIDER", "REVIEW_LLM_MODEL", "S7_CONFIG_DIR",
 )
 
 
@@ -70,17 +71,48 @@ def test_provider_override_is_validated():
         llm.complete("p", provider="not-a-provider")
 
 
-def test_reviewer_kwargs_come_from_review_env(monkeypatch):
+def test_reviewer_kwargs_come_from_review_env(monkeypatch, tmp_path):
+    monkeypatch.setenv("S7_CONFIG_DIR", str(tmp_path / "config"))
     monkeypatch.setenv("REVIEW_LLM_PROVIDER", "openai")
     monkeypatch.setenv("REVIEW_LLM_MODEL", "review-model")
-    assert downstream._reviewer_llm_kwargs() == {
+    assert llm_settings.for_stage("development-lane.reviewer") == {
         "provider": "openai", "model": "review-model",
     }
 
 
-def test_reviewer_kwargs_default_to_same_model():
+def test_reviewer_kwargs_default_to_same_model(monkeypatch, tmp_path):
     """No REVIEW_* config → same model reviews, and the caller can say so."""
-    assert downstream._reviewer_llm_kwargs() == {}
+    monkeypatch.setenv("S7_CONFIG_DIR", str(tmp_path / "config"))
+    assert llm_settings.for_stage("development-lane.reviewer") == {}
+
+
+def test_lane_reviewer_runs_on_the_configured_second_model(monkeypatch, tmp_path):
+    """The lane's reviewer call carries the per-stage settings' model and
+    the events say so; developer and tester stay on their own settings."""
+    monkeypatch.setenv("S7_CONFIG_DIR", str(tmp_path / "config"))
+    llm_settings.save({"stages": {"development-lane.reviewer": {"model": "review-model"}}})
+    calls: list[tuple[str, dict]] = []
+
+    def fake(prompt, **kwargs):
+        key = kwargs.get("cache_key", "")
+        calls.append((key, {k: kwargs[k] for k in ("provider", "model") if k in kwargs}))
+        if "developer" in key or "tester" in key:
+            name = "index.html" if "developer" in key else "test_app.py"
+            body = ("<form id='claim-form'></form>" if "developer" in key
+                    else "def test_ok():\n    assert True\n")
+            return json.dumps({"files": [{"path": name, "content": body}]})
+        return json.dumps({"verdict": "pass", "criteria": [], "notes": []})
+
+    monkeypatch.setattr(downstream, "complete", fake)
+    from tests.test_downstream import STORY, TASK
+
+    downstream.run_lane(STORY, TASK, root=tmp_path / "lane")
+    by_key = dict(calls)
+    assert by_key["s7:downstream:reviewer"] == {"model": "review-model"}
+    assert by_key["s7:downstream:developer"] == {}
+    assert by_key["s7:downstream:tester"] == {}
+    events = (tmp_path / "lane" / "events.jsonl").read_text(encoding="utf-8")
+    assert "second model: review-model" in events
 
 
 def test_review_gate_checks_reviewer_is_not_the_developer():

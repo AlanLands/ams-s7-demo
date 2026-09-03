@@ -38,7 +38,7 @@ SCENARIO = Scenario(
         "receipt confirmation, status visibility, and handoff to intake as a "
         "single associated packet. Demonstration data throughout."
     ),
-    epic_source="crs/EPIC-S7-001.md",
+    epic_source="requirements/epics/EPIC-S7-001.md",
 )
 
 TEAMS = [
@@ -68,7 +68,7 @@ REQUIREMENT = Requirement(
         "without calling the service desk."
     ),
     source_type="Business requirement document",
-    source_documents=["crs/EPIC-S7-001.md"],
+    source_documents=["requirements/epics/EPIC-S7-001.md"],
     provenance=Provenance.HUMAN,
 )
 

@@ -1,0 +1,41 @@
+---
+id: staged-stories-task
+layer: task
+title: Staged pipeline — stories task
+stage: stories
+summary: The staged pipeline's story-breakdown prompt: exactly three stories decomposed into traceable tasks.
+variables: epic_body, task_lines, streams
+---
+Here is a business epic:
+
+---
+{{epic_body}}
+---
+
+The approved assessment routed it into these tasks:
+{{task_lines}}
+
+The design is signed off. Break the epic into exactly 3 user stories, each
+decomposed into 1-3 executable tasks. Allowed stream values: {{streams}};
+allowed coverage values: agentic, ai_assisted_external, manual.
+
+Requirements:
+- Every acceptance criterion id must be claimed by some task's "satisfies"
+  list — full traceability, no orphan criteria.
+- Exactly one task overall must be stream "frontend" with coverage "agentic"
+  whose summary is building the plan-sponsor disability claim submission page
+  (identify member from policy number + member id, pre-populate member
+  details, claim details, multiple document upload, confirmation with a
+  reference number and a visible status). That task is executed by the
+  automated lane.
+- Tasks on the externally-owned system of record are "ai_assisted_external"
+  or "manual" with owning_team set — never agentic.
+- Anything resting on the epic's open questions goes in "assumptions".
+
+JSON schema:
+{"stories": [{"id": "US-1", "title": str, "narrative": str,
+"acceptance": [{"id": "US-1-AC1", "text": str}],
+"streams": [str], "estimate_points": int, "assumptions": [str],
+"tasks": [{"id": "US-1-T1", "summary": str, "stream": str, "coverage": str,
+"estimate_days": float, "satisfies": [str], "depends_on": [str],
+"owning_team": str | null}]}]}

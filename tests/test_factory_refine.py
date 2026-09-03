@@ -94,7 +94,7 @@ def test_architecture_revision_embeds_refined_proposal(eng):
     assert meta["revision_proposal"] == "Introduce an event bus"
     assert meta["refinement_provenance"] == "rule_based"
     assert "Introduce an event bus" in meta["revision_refined"]
-    md = eng.store.path("architecture", "v2", "architecture.md").read_text()
+    md = eng.store.path("architecture", "v2", "architecture.md").read_text(encoding="utf-8")
     assert "## Revision v2 — Proposed Change" in md
     assert "Introduce an event bus" in md
 

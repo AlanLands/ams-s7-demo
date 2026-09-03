@@ -8,6 +8,13 @@ The separation rules the spec names (spec §4) are the point, not the list:
 - only the Release Manager approves release.
 
 `require` raises rather than returns so a missing check is loud.
+
+`PERMISSIONS` and `ROLE_PROFILES` below are the committed *defaults*. Every
+reader in this module consults the effective tables — defaults with the
+operator's overrides from `s7_delivery/product/roles_config.py`
+(`config/roles.json`) applied — on every call, so an admin change applies
+to the next request with no restart. The overrides can never leave an
+action with no holder; that module refuses it.
 """
 
 from __future__ import annotations
@@ -16,7 +23,110 @@ from s7_delivery.factory.models import Role
 
 
 class PermissionError_(Exception):
-    """Named with a trailing underscore to avoid shadowing the builtin."""
+    """Named with a trailing underscore to avoid shadowing the builtin.
+
+    Carries the structured facts alongside the message so a surface can
+    offer the fix ("switch to Business Owner and retry") instead of only
+    quoting the refusal. All three are ``None`` for an unknown action.
+    """
+
+    def __init__(self, message: str, *, action: str | None = None,
+                 role: Role | None = None,
+                 permitted: tuple[Role, ...] = ()) -> None:
+        super().__init__(message)
+        self.action = action
+        self.role = role
+        self.permitted = permitted
+
+
+# Presenter-facing profile per role: the label the UI shows and one line on
+# what the role owns. `signs` names the decisions only this role (or this
+# role among a required set) records — the separation rules above, stated
+# from the role's side so the picker can show them.
+ROLE_PROFILES: dict[Role, dict[str, object]] = {
+    Role.BUSINESS_OWNER: {
+        "label": "Business Owner",
+        "summary": "Owns the requirement: sources it, answers clarifications, "
+                   "signs the intake gate and the plan, approves release.",
+        "signs": ["G0 intake gate", "G1 plan sign-off", "release approval"],
+    },
+    Role.DELIVERY_LEAD: {
+        "label": "Delivery Lead",
+        "summary": "Runs the delivery: drives analysis, planning and the "
+                   "downstream lane; owns dependency overrides.",
+        "signs": ["dependency-gate override"],
+    },
+    Role.PRODUCT_ANALYST: {
+        "label": "Product Analyst",
+        "summary": "Shapes the epic: runs analysis, asks clarifications, "
+                   "captures business rules, generates and edits the plan.",
+        "signs": [],
+    },
+    Role.ENGINEERING_LEAD: {
+        "label": "Engineering Lead",
+        "summary": "Owns the technical blueprint: accepts architecture, "
+                   "publishes delivery packs, assigns developers.",
+        "signs": ["architecture acceptance", "release approval"],
+    },
+    Role.QA_LEAD: {
+        "label": "QA Lead",
+        "summary": "Owns test quality: approves and amends AC test plans, "
+                   "decides the quality gate.",
+        "signs": ["test-plan approval", "G3 quality gate", "release approval"],
+    },
+    Role.INDEPENDENT_REVIEWER: {
+        "label": "Independent Reviewer",
+        "summary": "Reviews development output it did not produce: executes "
+                   "review, approves or returns to development.",
+        "signs": ["G2 independent review"],
+    },
+    Role.RELEASE_MANAGER: {
+        "label": "Release Manager",
+        "summary": "Owns the release: requests approvals, holds the only "
+                   "deploy permission, generates the release document.",
+        "signs": ["G4 deploy decision", "release approval"],
+    },
+    Role.SUPPORT_LEAD: {
+        "label": "Support Lead",
+        "summary": "Receives the release: approves from the support side "
+                   "and completes the handover.",
+        "signs": ["release approval", "support handover"],
+    },
+}
+
+
+def _effective_profiles() -> dict[Role, dict[str, object]]:
+    """`ROLE_PROFILES` with the product layer's overrides applied. Imported
+    lazily: `product.roles_config` imports this module's defaults."""
+    from s7_delivery.product import roles_config
+
+    return roles_config.effective_profiles()
+
+
+def _effective_permissions() -> dict[str, set[Role]]:
+    """`PERMISSIONS` with the product layer's overrides applied — read on
+    every call so a saved override applies to the next request."""
+    from s7_delivery.product import roles_config
+
+    return roles_config.effective_permissions()
+
+
+def profile(role: Role | str) -> dict[str, object]:
+    """The effective presenter-facing profile of one role."""
+    return dict(_effective_profiles()[Role(role)])
+
+
+def profiles() -> dict[Role, dict[str, object]]:
+    """Every role's effective profile, in the Role enum's declared order."""
+    table = _effective_profiles()
+    return {r: dict(table[r]) for r in Role}
+
+
+def role_label(role: Role | str) -> str:
+    try:
+        return str(_effective_profiles()[Role(role)]["label"])
+    except (KeyError, ValueError):
+        return str(role).replace("_", " ").title()
 
 
 # Action names are the engine's method names — one vocabulary end to end.
@@ -107,19 +217,28 @@ PERMISSIONS: dict[str, set[Role]] = {
 
 
 def allowed(action: str, role: Role) -> bool:
-    roles = PERMISSIONS.get(action)
+    roles = _effective_permissions().get(action)
     return roles is not None and role in roles
 
 
+def permitted_roles(action: str) -> tuple[Role, ...]:
+    """Roles holding `action`, in the Role enum's declared order."""
+    holders = _effective_permissions().get(action, set())
+    return tuple(r for r in Role if r in holders)
+
+
 def require(action: str, role: Role) -> None:
-    if action not in PERMISSIONS:
-        raise PermissionError_(f"Unknown action: {action}")
-    if role not in PERMISSIONS[action]:
-        permitted = ", ".join(sorted(r.value for r in PERMISSIONS[action]))
+    table = _effective_permissions()
+    if action not in table:
+        raise PermissionError_(f"Unknown action: {action}", action=action, role=role)
+    if role not in table[action]:
+        permitted = tuple(r for r in Role if r in table[action])
         raise PermissionError_(
-            f"Role '{role.value}' may not perform '{action}' (permitted: {permitted})"
+            f"Role '{role.value}' may not perform '{action}' "
+            f"(permitted: {', '.join(r.value for r in permitted)})",
+            action=action, role=role, permitted=permitted,
         )
 
 
 def actions_for(role: Role) -> list[str]:
-    return sorted(a for a, roles in PERMISSIONS.items() if role in roles)
+    return sorted(a for a, roles in _effective_permissions().items() if role in roles)

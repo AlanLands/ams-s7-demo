@@ -28,9 +28,11 @@ from s7_delivery.factory import (
     coverage,
     gates,
     kpi,
+    layers,
     refine,
     roles,
     seed,
+    self_heal,
 )
 from s7_delivery.factory import (
     design as design_mod,
@@ -63,6 +65,7 @@ from s7_delivery.factory.models import (
     now_iso,
 )
 from s7_delivery.factory.store import RunStore, StoreError, next_run_id, sha256_of
+from s7_delivery.product import llm_settings, prompt_sets, users
 
 
 class EngineError(Exception):
@@ -130,7 +133,9 @@ class Engine:
 
     # --- lifecycle ----------------------------------------------------------
 
-    def _seed_state(self, mode: DemoMode, entry_mode: str = "project") -> None:
+    def _seed_state(
+        self, mode: DemoMode, entry_mode: str = "project", prompt_set: str = "default",
+    ) -> None:
         """Write the seeded starting state for this run — shared by create()
         and reset() so a reset run is grounded identically to a fresh one."""
         run = DeliveryRun(
@@ -138,6 +143,7 @@ class Engine:
             scenario_id=seed.SCENARIO.scenario_id,
             mode=mode,
             entry_mode=entry_mode,
+            prompt_set=prompt_set,
             status=Status.READY,
             stages=[StageState(stage=s) for s in STAGE_ORDER],
         )
@@ -176,13 +182,18 @@ class Engine:
     @classmethod
     def create(
         cls, mode: DemoMode = DemoMode.SIMULATION, root=None,
-        entry_mode: str = "project",
+        entry_mode: str = "project", prompt_set: str = "default",
     ) -> Engine:
         if entry_mode not in ("project", "enhancement"):
             raise EngineError(f"Unknown entry mode {entry_mode!r}")
+        if not prompt_sets.exists(prompt_set):
+            raise EngineError(
+                f"Unknown prompt set {prompt_set!r} — "
+                f"known: {', '.join(s['name'] for s in prompt_sets.list_sets())}"
+            )
         run_id = next_run_id(root)
         eng = cls(run_id, root=root)
-        eng._seed_state(mode, entry_mode)
+        eng._seed_state(mode, entry_mode, prompt_set)
         eng._record(
             artifact_id=seed.REQUIREMENT.request_id,
             artifact_type="requirement",
@@ -211,23 +222,57 @@ class Engine:
         REPLAY takes the same paths pinned to recordings only."""
         return self.run().mode in (DemoMode.LIVE, DemoMode.REPLAY)
 
+    def _prompt_root(self):
+        """The directory of this run's prompt set; `None` for the default
+        set (the committed `s7_delivery/layers/`)."""
+        name = self.run().prompt_set
+        try:
+            return None if name == prompt_sets.DEFAULT else prompt_sets.root_of(name)
+        except prompt_sets.PromptSetError as exc:
+            raise EngineError(
+                f"This run's prompt set {name!r} no longer exists: {exc}"
+            ) from exc
+
+    @contextmanager
+    def _prompt_set(self):
+        """Resolve every layer file — rules, skills, tasks, playbooks — against
+        this run's prompt set for the block, so what runs and what the
+        ledger names (`skill@vN`) come from the same set."""
+        with layers.use(self._prompt_root()):
+            yield
+
+    def _skill_ref(self, file_id: str) -> str:
+        """`id@vN` from the run's own prompt set — never the default's
+        version number for a call that ran another set's text."""
+        return layers.skill_ref(file_id, self._prompt_root())
+
     @contextmanager
     def _llm_env(self):
-        """A REPLAY run must never reach the network: pin LLM_MODE=replay
-        around every model call so recordings are the only source, whatever
-        the shell says. LIVE runs pass through untouched."""
-        if self.run().mode is not DemoMode.REPLAY:
-            yield
-            return
-        prev = os.environ.get("LLM_MODE")
-        os.environ["LLM_MODE"] = "replay"
-        try:
-            yield
-        finally:
-            if prev is None:
-                os.environ.pop("LLM_MODE", None)
-            else:
-                os.environ["LLM_MODE"] = prev
+        """The single wrapper around every model call of a run: (a) a REPLAY
+        run must never reach the network, so LLM_MODE is pinned to replay
+        whatever the shell says; (b) a LIVE run honours the configured mode
+        override (`llm_settings.mode_override()`) when one is set; (c) every
+        call resolves its prompt text against the run's prompt set. The
+        environment pin is scoped to the block, never global."""
+        mode = self.run().mode
+        pinned: str | None = None
+        if mode is DemoMode.REPLAY:
+            pinned = "replay"
+        elif mode is DemoMode.LIVE:
+            pinned = llm_settings.mode_override()
+        with self._prompt_set():
+            if pinned is None:
+                yield
+                return
+            prev = os.environ.get("LLM_MODE")
+            os.environ["LLM_MODE"] = pinned
+            try:
+                yield
+            finally:
+                if prev is None:
+                    os.environ.pop("LLM_MODE", None)
+                else:
+                    os.environ["LLM_MODE"] = prev
 
     def _save_run(self, run: DeliveryRun) -> None:
         self.store.write_json(run, "run.json")
@@ -237,18 +282,18 @@ class Engine:
         a reset is a new rehearsal, not history to preserve (spec §20).
         The run keeps its mode — resetting a demo run yields a demo run."""
         roles.require("manage_run", role)
-        import shutil
+        from s7_delivery.factory.repos import remove_tree
 
         run = self.run()
-        mode, entry_mode = run.mode, run.entry_mode
+        mode, entry_mode, prompt_set = run.mode, run.entry_mode, run.prompt_set
         root = self.store.root
         if root.exists():
-            shutil.rmtree(root)
-        self._seed_state(mode, entry_mode)
+            remove_tree(root)
+        self._seed_state(mode, entry_mode, prompt_set)
         self._activity(
             stage=Stage.INTAKE, actor="system", actor_type="service",
             workflow="run-lifecycle", outcome="run reset to seed",
-            details=f"mode={mode.value} entry={entry_mode}",
+            details=f"mode={mode.value} entry={entry_mode} prompt_set={prompt_set}",
         )
 
     # --- gates --------------------------------------------------------------
@@ -317,6 +362,39 @@ class Engine:
         )
         return rec
 
+    def _correction(
+        self, *, stage: str, skill_id: str, task_id: str, artifact_id: str,
+        artifact_type: str, field: str, before: Any, after: Any,
+        original_provenance: Any, author: str, source: str,
+    ) -> None:
+        """Append a human correction of model output to the run's
+        `corrections.jsonl` — the training signal for correction learning
+        (`product/corrections.py`, `product/improve.py`). The Control Centre
+        never reads it: dashboard users edit as they always did, and only the
+        admin panel sees what was learned from. `original_provenance` is
+        kept so a correction of seeded or rule-based content is never
+        mistaken for a correction of a model."""
+        existing = self.store.read_ledger("corrections.jsonl")
+        prov = getattr(original_provenance, "value", original_provenance)
+        self.store.append({
+            "correction_id": f"COR-{self.run_id}-{len(existing) + 1:04d}",
+            "run_id": self.run_id,
+            "prompt_set": self.run().prompt_set,
+            "timestamp": now_iso(),
+            "stage": stage,
+            "skill_id": skill_id,
+            "skill": self._skill_ref(skill_id) if skill_id else "",
+            "task_id": task_id,
+            "artifact_id": artifact_id,
+            "artifact_type": artifact_type,
+            "field": field,
+            "before": before,
+            "after": after,
+            "original_provenance": str(prov or "").lower(),
+            "author": users.current_actor(author),
+            "source": source,
+        }, "corrections.jsonl")
+
     def _activity(
         self,
         *,
@@ -336,6 +414,11 @@ class Engine:
         # storyline literal unless the caller says otherwise.
         if duration_s and not duration_basis:
             duration_basis = "measured" if actor_type == "live_ai" else "scripted"
+        if actor_type == "human":
+            # A named user (set per request by the Control Centre from
+            # X-S7-User) is recorded as the actor; without one the role
+            # label stands exactly as before users existed.
+            actor = users.current_actor(actor)
         self.store.append(
             ActivityEvent(
                 run_id=self.run_id,
@@ -372,6 +455,7 @@ class Engine:
             scaffold = files or None
         return {
             "run": run.model_dump(mode="json"),
+            "prompt_set": run.prompt_set,
             "scenario": self.store.read_json("scenario.json"),
             "gates": [g.model_dump(mode="json") for g in self.gates()],
             "intake": {
@@ -419,6 +503,8 @@ class Engine:
             ),
             "staleness": stale,
             "amendments": self.store.read_ledger("amendments.jsonl"),
+            # Self-healing: change records + playbook progress, derived on read.
+            "self_healing": self_heal.view(self),
             "approvals": self.store.read_ledger("approvals.jsonl"),
             "design": self.store.read_json_or(None, "planning", "design.json"),
             "traceability": self.traceability(),
@@ -690,6 +776,7 @@ class Engine:
             stage=Stage.INTAKE, actor="intake-analysis",
             actor_type="live_ai" if is_live else "simulation",
             workflow="clarification", outcome="asked",
+            skill=self._skill_ref("clarification") if is_live else "",
             details=f"{len(questions)} questions for the business,"
                     " raised by the analysis",
         )
@@ -724,6 +811,7 @@ class Engine:
         self._activity(
             stage=Stage.INTAKE, actor="intake-analysis", actor_type="live_ai",
             workflow="intake-analysis", artifact="ANL-001",
+            skill=self._skill_ref("intake-analysis"),
             duration_s=round(time.monotonic() - t0, 2), outcome="created",
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
@@ -762,6 +850,7 @@ class Engine:
         self._activity(
             stage=Stage.INTAKE, actor="intake-analysis", actor_type="live_ai",
             workflow="clarification", duration_s=round(time.monotonic() - t0, 2),
+            skill=self._skill_ref("clarification"),
             outcome="asked", details=f"{len(questions)} questions; "
             f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
@@ -883,6 +972,8 @@ class Engine:
         self._activity(
             stage=Stage.INTAKE, actor="intake-extraction", actor_type=actor_type,
             workflow="intake-extraction", artifact="EXT-001",
+            skill=self._skill_ref("requirement-extraction")
+            if actor_type == "live_ai" else "",
             duration_s=duration, outcome="created", details=details,
         )
 
@@ -943,6 +1034,8 @@ class Engine:
         )
         if blank:
             raise EngineError(f"Fields cannot be blank: {', '.join(blank)}")
+        before = {k: data.get(k) for k in patch}
+        original_provenance = data.get("provenance", "")
         data.update(patch)
         data["edited_by"] = role.value
         data["edited_at"] = now_iso()
@@ -960,6 +1053,14 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="extraction-edit", artifact="EXT-001",
             outcome="amended", details=", ".join(sorted(patch)),
+        )
+        self._correction(
+            stage="requirement-extraction", skill_id="requirement-extraction",
+            task_id="requirement-extraction-task", artifact_id="EXT-001",
+            artifact_type="requirement_extraction", field=", ".join(sorted(patch)),
+            before=before, after={k: patch[k] for k in patch},
+            original_provenance=original_provenance, author=role.value,
+            source="intake_edit_extraction",
         )
 
     def intake_finalize(self, role: Role) -> None:
@@ -1070,9 +1171,9 @@ class Engine:
             raise EngineError(f"Unknown repository {name!r}")
         self.store.write_json(remaining, "intake", "repos.json")
 
-        import shutil
+        from s7_delivery.factory.repos import remove_tree
 
-        shutil.rmtree(self.store.path("repos", name), ignore_errors=True)
+        remove_tree(self.store.path("repos", name), ignore_errors=True)
         context_pack = self.store.path("intake", "context", f"{name}.md")
         if context_pack.exists():
             context_pack.unlink()
@@ -1134,6 +1235,17 @@ class Engine:
             stage=Stage.INTAKE, actor=role.value, actor_type="human",
             workflow="business-rules", artifact=rule["rule_id"],
             outcome="created", details=text[:120],
+        )
+        # A rule a person had to add is a rule the analysis missed: the
+        # correction pairs the analysis's own list with the addition.
+        analysis = self.store.read_json_or(None, "intake", "analysis.json") or {}
+        self._correction(
+            stage="intake-analysis", skill_id="intake-analysis",
+            task_id="intake-analysis-task", artifact_id=rule["rule_id"],
+            artifact_type="business_rule", field="business_rules",
+            before=list(analysis.get("business_rules", [])), after=text,
+            original_provenance=analysis.get("provenance", ""), author=role.value,
+            source="intake_add_business_rule",
         )
         return rule["rule_id"]
 
@@ -1231,6 +1343,7 @@ class Engine:
             stage=Stage.INTAKE, actor="requirement-routing",
             actor_type="live_ai" if packs else "system",
             workflow="requirement-routing",
+            skill=self._skill_ref("requirement-routing") if packs else "",
             duration_s=round(time.monotonic() - t0, 2),
             duration_basis="measured", outcome="created",
             details=f"verdict={verdict.verdict}; "
@@ -1300,6 +1413,7 @@ class Engine:
         self._activity(
             stage=Stage.INTAKE, actor="new-app-setup", actor_type="live_ai",
             workflow="new-app-setup", duration_s=round(time.monotonic() - t0, 2),
+            skill=self._skill_ref("new-application-setup"),
             outcome=outcome,
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
@@ -1352,9 +1466,10 @@ class Engine:
         if not setup["name"]:
             raise EngineError("Complete the new-application setup conversation first")
         t0 = time.monotonic()
-        files, usage = scaffold_mod.generate_scaffold(
-            setup["name"], setup["description"], setup["stack"]
-        )
+        with self._llm_env():
+            files, usage = scaffold_mod.generate_scaffold(
+                setup["name"], setup["description"], setup["stack"]
+            )
         for filename, content in files.items():
             self.store.write_text(content, "intake", "scaffold", setup["name"], filename)
         self._record(
@@ -1365,6 +1480,7 @@ class Engine:
         self._activity(
             stage=Stage.INTAKE, actor="new-app-scaffold", actor_type="live_ai",
             workflow="new-app-scaffold", duration_s=round(time.monotonic() - t0, 2),
+            skill=self._skill_ref("new-application-scaffold"),
             outcome="created",
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
@@ -1379,13 +1495,12 @@ class Engine:
                 "Replay runs never create real repositories — repo creation "
                 "is a live-run action"
             )
-        import shutil
-
         from s7_delivery.factory.repos import (
             RepoConnectError,
             build_context_pack,
             clone_repo,
             remember_repo,
+            remove_tree,
         )
         from s7_delivery.factory.scaffold import push_new_repo, write_scaffold_locally
 
@@ -1404,12 +1519,12 @@ class Engine:
         try:
             url = push_new_repo(repo_path, name)
         except RepoConnectError as exc:
-            shutil.rmtree(repo_path, ignore_errors=True)
+            remove_tree(repo_path, ignore_errors=True)
             raise EngineError(f"New application repo creation failed: {exc}") from exc
         try:
             rec = clone_repo(url, self.store.path("repos"))
         except RepoConnectError as exc:
-            shutil.rmtree(repo_path, ignore_errors=True)
+            remove_tree(repo_path, ignore_errors=True)
             raise EngineError(f"Cloning the newly created repo failed: {exc}") from exc
 
         from s7_delivery.factory import ci_bootstrap
@@ -1465,7 +1580,7 @@ class Engine:
             )
             raise EngineError(f"Intake gate blocked — unmet: {unmet}")
         gate.status = Status.PASSED
-        gate.decided_by = role.value
+        gate.decided_by = users.current_actor(role.value)
         gate.decided_at = now_iso()
         self._save_gate(gate)
         run = self.run()
@@ -1585,6 +1700,8 @@ class Engine:
         if illegal:
             raise EngineError(f"Fields not editable: {', '.join(sorted(illegal))}")
         previous = target["version"]
+        before = {k: target.get(k) for k in patch}
+        original_provenance = target.get("provenance", "")
         target.update(patch)
         target["version"] = previous + 1
         self.store.write_json(stories, "planning", "stories.json")
@@ -1598,6 +1715,14 @@ class Engine:
             stage=Stage.PLANNING, actor=role.value, actor_type="human",
             workflow="story-edit", artifact=story_id,
             outcome="amended", details=", ".join(sorted(patch)),
+        )
+        self._correction(
+            stage="epic-decomposition", skill_id="epic-decomposition",
+            task_id="epic-decomposition-task", artifact_id=story_id,
+            artifact_type="story", field=", ".join(sorted(patch)),
+            before=before, after={k: patch[k] for k in patch},
+            original_provenance=original_provenance, author=role.value,
+            source="edit_story",
         )
 
     def _story_target_architecture(self, story: dict) -> str:
@@ -1826,6 +1951,7 @@ class Engine:
         self._activity(
             stage=Stage.PLANNING, actor="planning", actor_type="live_ai",
             workflow="epic-decomposition",
+            skill=self._skill_ref("epic-decomposition"),
             duration_s=round(time.monotonic() - t0, 2), outcome="created",
             details=f"{len(payloads)} stories; "
             f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
@@ -2264,6 +2390,22 @@ class Engine:
             duration_s=4.0, outcome="amended",
             details=f"v{version}: {feedback.strip()}",
         )
+        self._correction(
+            stage="architecture-refine", skill_id="architecture-refine",
+            task_id="architecture-refine-task", artifact_id="ARCH-001",
+            artifact_type="architecture", field="architecture.md",
+            before=current_md, after=feedback.strip(),
+            original_provenance=prov, author=role.value,
+            source="architecture_revise",
+        )
+        # A post-lock human change: open its self-healing change record and
+        # run the playbook to the first human gate (acceptance).
+        with self._prompt_set():
+            self_heal.open_change(
+                self, change_type="architecture-revised", initiator=role,
+                reason=feedback.strip(), trigger_artifact="ARCH-001",
+                trigger_version=version,
+            )
 
     def architecture_accept(self, role: Role, approver: str = "") -> None:
         """Human checkpoint: the generator (the service) never accepts its own
@@ -2295,6 +2437,8 @@ class Engine:
             details=f"Architecture v{meta['version']} accepted; "
                     "delivery-pack generation enabled",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     # --- delivery packs (Build & Review: governed context per team) ---------
 
@@ -2361,13 +2505,15 @@ class Engine:
             if (arch_dir / name).is_file()
         ]
         for story_id in pack.get("story_ids", []):
-            files += [p for p in self.store.path("build", "stories", story_id).rglob("*") if p.is_file()]
+            sdir = self.store.path("build", "stories", story_id)
+            files += [p for p in sdir.rglob("*") if p.is_file()]
             # the AC test skeletons ship with the pack — they must be counted
             # by the same walk that the ZIP collects, or the two disagree
             tdir = self.store.path("build", "tests", story_id)
             files += [p for p in tdir.rglob("*") if p.is_file()]
         for task_id in pack.get("task_ids", []):
-            files += [p for p in self.store.path("build", "tasks", task_id).rglob("*") if p.is_file()]
+            kdir = self.store.path("build", "tasks", task_id)
+            files += [p for p in kdir.rglob("*") if p.is_file()]
         return len(files), sum(p.stat().st_size for p in files)
 
     def _save_packs(self, packs: list[dict]) -> None:
@@ -2472,6 +2618,8 @@ class Engine:
             duration_s=5.0, outcome="created",
             details=f"{len(packs)} team packs over {len(stories)} stories",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     def test_plan_approve(self, role: Role, pack_id: str, approver: str = "") -> None:
         """Human checkpoint on the AC-derived test skeletons: QA approves a
@@ -2523,6 +2671,8 @@ class Engine:
             details=f"Test plan for {pack['team']} pack v{pack['version']}"
                     " approved; publication enabled",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     def test_plan_amend(
         self, role: Role, pack_id: str, story_id: str, proposal: str
@@ -2621,6 +2771,13 @@ class Engine:
                     f" ({refine_prov.value}); {old['team']} pack"
                     f" v{pack['version']} awaits QA approval",
         )
+        with self._prompt_set():
+            self_heal.open_change(
+                self, change_type="test-plan-amended", initiator=role,
+                reason=proposal.strip(), trigger_artifact=f"TESTPLAN-{story_id}",
+                trigger_version=pack["version"], pack_id=pack_id, story_id=story_id,
+                pack_version=pack["version"],
+            )
 
     def _assignments(self) -> dict[str, str]:
         """story_id → developer, from provisioned workspaces. Assignment is
@@ -3423,6 +3580,8 @@ class Engine:
                 self.store, phase, BuildReviewPhase.WORKSPACES_READY,
                 actor=role.value,
             )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     def _provision_workspaces(self, pack: dict, branch: str, commit: str) -> None:
         """One workspace per story in the pack. The developer field survives
@@ -3587,7 +3746,7 @@ class Engine:
                 approval_id=f"APR-{len(approvals) + 1:03d}",
                 subject=f"dependency-gate:{story_id}",
                 role=role,
-                approver=role.value,
+                approver=users.current_actor(role.value),
                 decision="override",
                 note=f"Started before dependency evidence"
                      f" ({', '.join(unmet)}): {reason.strip()}",
@@ -3939,6 +4098,8 @@ class Engine:
         self._activity(
             stage=Stage.BUILD_REVIEW, actor="delivery-worker",
             actor_type="live_ai", workflow="development", artifact=task_id,
+            skill=", ".join(self._skill_ref(s)
+                            for s in ("developer", "tester", "reviewer")),
             duration_s=0.0, outcome="created",
             details=task["change_summary"][:160],
         )
@@ -4220,7 +4381,7 @@ class Engine:
                         "coverage; excluded from the coverage threshold as an "
                         "operational task."
                     ),
-                    "approved_by": role.value,
+                    "approved_by": users.current_actor(role.value),
                     "approved_at": now_iso(),
                 },
             ],
@@ -4253,6 +4414,8 @@ class Engine:
             duration_s=15.0, outcome="created",
             details=f"{passed}/{applicable} checks passed",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     def _compute_checks(
         self, stories: list[dict], tasks: list[dict], latest: dict[str, dict]
@@ -4368,7 +4531,7 @@ class Engine:
             )
             raise EngineError(f"Final gate blocked — unmet: {unmet}")
         gate.status = Status.PASSED
-        gate.decided_by = role.value
+        gate.decided_by = users.current_actor(role.value)
         gate.decided_at = now_iso()
         self._save_gate(gate)
         run = self.run()
@@ -4511,6 +4674,8 @@ class Engine:
             workflow="release-approval", outcome="approved",
             details=f"as {role.value}",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     def release_deploy(self, role: Role) -> None:
         roles.require("deploy", role)
@@ -4535,7 +4700,7 @@ class Engine:
             )
             raise EngineError(f"Release gate blocked — unmet: {unmet}")
         gate.status = Status.PASSED
-        gate.decided_by = role.value
+        gate.decided_by = users.current_actor(role.value)
         gate.decided_at = now_iso()
         self._save_gate(gate)
 
@@ -4657,7 +4822,8 @@ class Engine:
         amendments = self.store.read_ledger("amendments.jsonl")
         self.store.append(
             {
-                "amendment_id": f"AMD-{len(amendments) + 1:03d}",
+                "amendment_id": (amendment_id := f"AMD-{len(amendments) + 1:03d}"),
+                "change_type": "upstream-requirement-changed",
                 "reason": (
                     "SME ruling: draft retention is 14 days with a day-10 "
                     "notification — the provisional 30-day assumption in "
@@ -4690,8 +4856,14 @@ class Engine:
             outcome="amended",
             details=f"SME ruling on draft retention; {len(stale)} artifacts stale",
         )
+        with self._prompt_set():
+            self_heal.open_change(
+                self, change_type="upstream-requirement-changed", initiator=role,
+                reason="SME ruling: draft retention is 14 days with a day-10 notification",
+                trigger_artifact="DES-001", trigger_version=2, amendment_id=amendment_id,
+            )
 
-    def run_self_correction(self, role: Role) -> None:
+    def run_self_correction(self, role: Role, against: str | None = None) -> None:
         """Controlled amendment execution: every stale artifact gets a **new
         version** re-validated against the changed upstream — never a silent
         update. Corrections land in original creation order so the ledger
@@ -4715,7 +4887,7 @@ class Engine:
             rec = latest[item["artifact_id"]]
             payload = {
                 "artifact_id": rec["artifact_id"],
-                "revalidated_against": "DES-001 v2 (14-day draft retention)",
+                "revalidated_against": against or "DES-001 v2 (14-day draft retention)",
                 "previous_sha256": rec["sha256"],
             }
             if rec["artifact_type"] == "story":
@@ -4757,13 +4929,20 @@ class Engine:
                 actor_type="simulation", workflow="self-correction",
                 artifact=rec["artifact_id"], duration_s=8.0,
                 outcome="amended",
-                details=f"re-validated against DES-001 v2 as v{rec['version'] + 1}",
+                details=f"re-validated against {against or 'DES-001 v2'} as v{rec['version'] + 1}",
             )
 
         remaining = self.store.read_json_or([], "staleness.json")
         amendments = self.store.read_ledger("amendments.jsonl")
-        if amendments:
-            done = dict(amendments[-1])
+        # Close the amendment this correction serves: the latest record
+        # that is still open (a self-healing change may have appended
+        # its own amendment after the upstream one).
+        open_amend = next(
+            (a for a in reversed(amendments)
+             if a.get("implementation_status") != "completed"), None,
+        )
+        if open_amend:
+            done = dict(open_amend)
             done.update(
                 implementation_status="completed",
                 verification_status="completed" if not remaining else "failed",
@@ -4778,6 +4957,8 @@ class Engine:
             details="all stale artifacts re-validated" if not remaining
             else f"{len(remaining)} artifacts still stale",
         )
+        with self._prompt_set():
+            self_heal.advance(self)
 
     # --- traceability (spec §12) --------------------------------------------
 

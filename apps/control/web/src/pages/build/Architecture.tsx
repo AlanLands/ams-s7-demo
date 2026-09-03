@@ -17,7 +17,7 @@ import { Modal } from '../../components/Modal'
 import { Badge, Prov } from '../../components/Badge'
 import { TeamChip } from '../planning/TeamChip'
 import type { ArchLandscape, PlanStory, Provenance } from '../../types'
-import { buildOf, BuildPhaseStrip, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm } from './buildHelpers'
+import { buildOf, BuildPhaseStrip, hhmm } from './buildHelpers'
 
 function basename(path: string): string {
   return path.split('/').pop() ?? path
@@ -389,7 +389,7 @@ export function Architecture() {
   }
 
   return (
-    <section className="page-with-rail bo-compact arch-page">
+    <section className="bo-compact arch-page">
       <div>
         <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head arch-head" style={{ marginBottom: '8px' }}>
@@ -655,9 +655,8 @@ export function Architecture() {
         )}
       </div>
 
-      <aside className="rail">
-        {arch ? (
-          <>
+      {arch ? (
+        <div className={`grid ${arch.revision_proposal ? 'cols-3' : 'cols-2'} rail-fold`}>
             <div className="card rail-card">
               <h3>Architecture Pack <Prov provenance={arch.provenance} /></h3>
               <p className="hint">Generated artifacts that form the engineering blueprint.</p>
@@ -727,10 +726,8 @@ export function Architecture() {
                 </p>
               ) : null}
             </div>
-          </>
-        ) : null}
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
+        </div>
+      ) : null}
     </section>
   )
 }

@@ -20,7 +20,8 @@ import { Modal } from '../../components/Modal'
 import { StatCard } from '../../components/StatCard'
 import { Prov } from '../../components/Badge'
 import type { DeliveryPack, GitPublication, PlanStory } from '../../types'
-import { buildOf, BuildPhaseStrip, CONTROL_PLANE_GUIDANCE, GuidanceCard, hhmm, phaseAtLeast } from './buildHelpers'
+import { buildOf, BuildPhaseStrip, hhmm, phaseAtLeast } from './buildHelpers'
+import { DetailDrawer } from '../../components/DetailDrawer'
 
 /** Stated derivation: repository category from its name suffix. */
 function repoCategory(repo: string): string {
@@ -160,7 +161,9 @@ export function DeliveryPacks() {
   const pubFor = (packId: string): GitPublication | undefined =>
     [...publications].reverse().find((p) => p.delivery_pack_id === packId)
 
-  const selectedPack = packs.find((p) => p.delivery_pack_id === selected) ?? packs[0] ?? null
+  // Only an explicit row click opens the pack drawer — no auto-selection,
+  // or the drawer would open by itself every time the tab loads.
+  const selectedPack = selected ? (packs.find((p) => p.delivery_pack_id === selected) ?? null) : null
   const previewPack = packs.find((p) => p.delivery_pack_id === preview) ?? null
   const previewSlug = previewPack?.team_slug
   const tabFile = TAB_FILES[previewTab]
@@ -197,8 +200,8 @@ export function DeliveryPacks() {
   /** The rendered skeleton file itself, fetched on demand when a story's
    * preview is opened — reviewing a test plan means reading the tests, not
    * only their names. Same artifact-file route, same version-aware key. */
-  const loadSkeleton = (sid: string, file: string) => {
-    const key = `${sid}@v${packVersion}/${file}`
+  const loadSkeleton = (sid: string, file: string, version: number | undefined = packVersion) => {
+    const key = `${sid}@v${version}/${file}`
     if (!runId || skeletons[key] !== undefined) return
     setSkeletons((prev) => ({ ...prev, [key]: 'Loading…' }))
     fetch(`/api/runs/${runId}/artifact-file/build/tests/${sid}/${file}`)
@@ -291,7 +294,7 @@ export function DeliveryPacks() {
   // --- empty states ----------------------------------------------------------
   if (packs.length === 0) {
     return (
-      <section className="page-with-rail bo-compact">
+      <section className="bo-compact">
         <div>
           <div className="page-head" style={{ marginBottom: '8px' }}>
             <span className="crumb">Build &amp; Review <span className="crumb-sep">›</span> Delivery Packs</span>
@@ -327,15 +330,12 @@ export function DeliveryPacks() {
             )}
           </div>
         </div>
-        <aside className="rail">
-          <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-        </aside>
       </section>
     )
   }
 
   return (
-    <section className="page-with-rail bo-compact dp-page">
+    <section className="bo-compact dp-page">
       <div>
         <BuildPhaseStrip phase={buildOf(data).phase} goTo={goTo} />
         <div className="page-head" style={{ marginBottom: '4px' }}>
@@ -375,7 +375,7 @@ export function DeliveryPacks() {
               {`⚠ ${packs.filter((p) => p.test_plan_status !== 'approved').length} pack${packs.filter((p) => p.test_plan_status !== 'approved').length === 1 ? '' : 's'} await QA test-plan approval`}
             </b>
             <span className="hint">
-              {' '}— the pipeline column below shows where each pack stands; approval is the QA Lead's
+              {' '}— open a pack's test plan from the pipeline column below; approval is the QA Lead's
               step between generation and publish.
             </span>
           </div>
@@ -524,7 +524,16 @@ export function DeliveryPacks() {
                           {p.test_plan_status === 'approved' ? (
                             <span className="pp-node done">
                               <span className="pp-dot">✓</span>
-                              <span className="pp-text">QA approved<span className="hint">{p.test_plan_approved_by || 'QA Lead'}</span></span>
+                              <span className="pp-text">
+                                QA approved
+                                <span className="hint">{p.test_plan_approved_by || 'QA Lead'}</span>
+                                <button
+                                  className="link-btn"
+                                  onClick={(e) => { e.stopPropagation(); setSelected(p.delivery_pack_id); setApproveFor(p.delivery_pack_id) }}
+                                >
+                                  View test plan…
+                                </button>
+                              </span>
                             </span>
                           ) : (
                             <span className="pp-node now">
@@ -546,7 +555,12 @@ export function DeliveryPacks() {
                                     Approve test plan…
                                   </button>
                                 ) : (
-                                  <span className="hint">QA Lead only</span>
+                                  <button
+                                    className="link-btn"
+                                    onClick={(e) => { e.stopPropagation(); setSelected(p.delivery_pack_id); setApproveFor(p.delivery_pack_id) }}
+                                  >
+                                    View test plan… <span className="hint">(QA Lead approves)</span>
+                                  </button>
                                 )}
                               </span>
                             </span>
@@ -621,8 +635,7 @@ export function DeliveryPacks() {
         </div>
       </div>
 
-      <aside className="rail">
-        {selectedPack ? (() => {
+      {selectedPack ? (() => {
           const { stale, pub, published } = packState(selectedPack)
           const pd = pubDisplay(selectedPack, pub, stale, data.run.mode)
           const busy = publishing.has(selectedPack.delivery_pack_id)
@@ -639,8 +652,11 @@ export function DeliveryPacks() {
             [FileJson, 'Workspace Manifest', '1'],
           ]
           return (
-            <div className="card rail-card dp-inspector">
-              <h3>Selected Pack</h3>
+            <DetailDrawer
+              title={`${selectedPack.team} — Delivery Pack`}
+              ariaLabel={`${selectedPack.team} delivery pack`}
+              onClose={() => setSelected(null)}
+            >
               <div className="dp-ins-title">
                 <b>{`${selectedPack.team} Delivery Pack`}</b>
                 <span className="chip mono">{`v${selectedPack.version}.0`}</span>
@@ -684,121 +700,35 @@ export function DeliveryPacks() {
               </div>
               <div className="dp-ins-block">
                 <span className="as-label">Test Plan — Acceptance Criteria</span>
-                <span className="hint">
-                  Rule-based test skeletons generated from each acceptance criterion. QA Lead
-                  approves before the pack can publish. <Prov provenance="rule_based" /> not AI output.
+                <span className="dp-tp-summary">
+                  {selectedPack.test_plan_status === 'approved'
+                    ? <span className="badge st-ready"><CircleCheck className="dp-badge-ico" />QA APPROVED</span>
+                    : <span className="badge st-in_progress">AWAITING QA</span>}
+                  <span className="hint">
+                    {selectedPack.test_plan_status === 'approved'
+                      ? `by ${selectedPack.test_plan_approved_by || 'QA Lead'}${selectedPack.test_plan_approved_at ? ` on ${dmy(selectedPack.test_plan_approved_at)}` : ''}`
+                      : 'QA Lead approves before this pack can publish'}
+                  </span>
                 </span>
-                {selectedPack.story_ids.map((sid) => {
-                  const story = storyById.get(sid)
-                  const m = manifests[manifestKey(sid)]
-                  const file = m?.tests?.[0]?.file
-                  const skeleton = file ? skeletons[`${sid}@v${packVersion}/${file}`] : undefined
-                  return (
-                    <details key={sid} className="dp-tp-story">
-                      <summary>
-                        {sid}
-                        {story?.title ? ` — ${story.title}` : ''}
-                        {m ? ` · ${m.tests.length} tests · ${m.runnable ? m.stack : 'reference only'}`
-                          : m === null ? ' · no test manifest for this pack version' : ' · loading…'}
-                      </summary>
-                      <div className="table-wrap">
-                        <table className="dp-tp-table">
-                          <thead><tr><th>AC</th><th>Criterion</th><th>Test</th></tr></thead>
-                          <tbody>
-                            {(m?.tests ?? []).map((t) => (
-                              <tr key={t.ac_id}>
-                                <td className="mono">{t.ac_id}</td>
-                                <td>{story?.acceptance_criteria?.find((a) => a.ac_id === t.ac_id)?.text ?? ''}</td>
-                                <td><code>{t.test_name}</code></td>
-                              </tr>
-                            ))}
-                            {(m?.qa_tests ?? []).map((t) => (
-                              <tr key={t.case_id}>
-                                <td className="mono">{t.case_id}</td>
-                                <td>{t.description}</td>
-                                <td><code>{t.test_name}</code></td>
-                              </tr>
-                            ))}
-                            {m && m.tests.length === 0 ? (
-                              <tr><td colSpan={3}><span className="hint">No acceptance criteria to cover.</span></td></tr>
-                            ) : null}
-                          </tbody>
-                        </table>
-                      </div>
-                      {m?.qa_amendment ? (
-                        <p className="hint" style={{ margin: '6px 0 0' }}>
-                          QA amendment by {m.qa_amendment.proposed_by} — refined{' '}
-                          {m.qa_amendment.provenance === 'rule_based'
-                            ? (data.run.mode === 'demo'
-                              ? 'by deterministic rules (demo environment)'
-                              : 'by deterministic rules (no AI call in simulation)')
-                            : 'by the model'}. Proposal: “{m.qa_amendment.proposal}”
-                        </p>
-                      ) : null}
-                      <div className="dp-tp-amend">
-                        <textarea
-                          rows={2}
-                          style={{ width: '100%', marginTop: 8 }}
-                          placeholder="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets" aria-label="Propose additional test cases (QA Lead) — refined and appended as test_qa_* skeletons; QA approval resets"
-                          value={amendDrafts[sid] ?? ''}
-                          onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
-                        />
-                        <button
-                          className="outline"
-                          style={{ marginTop: 6 }}
-                          disabled={!(amendDrafts[sid] ?? '').trim()}
-                          onClick={async () => {
-                            const ok = await act(
-                              `/delivery-packs/${selectedPack.delivery_pack_id}/amend-test-plan`,
-                              { story_id: sid, proposal: (amendDrafts[sid] ?? '').trim() },
-                              'Test plan amended — QA approval reset',
-                            )
-                            if (ok) setAmendDrafts((prev) => ({ ...prev, [sid]: '' }))
-                          }}
-                        >
-                          ✎ Amend Test Plan (QA Lead)
-                        </button>
-                      </div>
-                      {file ? (
-                        <details
-                          className="dp-tp-skeleton"
-                          onToggle={(e) => {
-                            if ((e.currentTarget as HTMLDetailsElement).open) loadSkeleton(sid, file)
-                          }}
-                        >
-                          <summary><code>{file}</code> — generated test file (read-only)</summary>
-                          <pre className="mono dp-tp-code">{skeleton ?? 'Loading…'}</pre>
-                        </details>
-                      ) : null}
-                    </details>
-                  )
-                })}
-                <div className="dp-tp-approve">
-                  {selectedPack.test_plan_status === 'approved' ? (
-                    <span className="hint">
-                      <CircleCheck className="val-ico ok" /> Approved by{' '}
-                      {selectedPack.test_plan_approved_by || 'QA Lead'}
-                      {selectedPack.test_plan_approved_at ? ` on ${dmy(selectedPack.test_plan_approved_at)}` : ''}
-                    </span>
-                  ) : (
-                    <>
-                      <input
-                        type="text"
-                        placeholder="Approver name" aria-label="Approver name"
-                        value={approver}
-                        onChange={(e) => setApprover(e.target.value)}
-                      />
-                      <button
-                        className="primary block"
-                        disabled={approving}
-                        onClick={() => void doApproveTestPlan(selectedPack)}
-                      >
-                        {approving ? <LoaderCircle className="btn-ico spin" /> : <SquareCheckBig className="btn-ico" />}
-                        Approve Test Plan (QA Lead)
-                      </button>
-                    </>
-                  )}
-                </div>
+                <span className="hint">
+                  {(() => {
+                    const ms = selectedPack.story_ids.map((sid) => manifests[manifestKey(sid)])
+                    if (ms.some((m) => m === undefined)) return 'Loading test plan… '
+                    const n = ms.reduce((acc, m) => acc + (m?.tests.length ?? 0) + (m?.qa_tests?.length ?? 0), 0)
+                    return `${n} rule-based test case${n === 1 ? '' : 's'} across ${selectedPack.story_ids.length} ${selectedPack.story_ids.length === 1 ? 'story' : 'stories'} — one per acceptance criterion. `
+                  })()}
+                  <Prov provenance="rule_based" /> not AI output.
+                </span>
+                <button
+                  className={`${selectedPack.test_plan_status !== 'approved' && can('approve_test_plan') ? 'primary' : 'outline'} block`}
+                  style={{ marginTop: 4 }}
+                  onClick={() => setApproveFor(selectedPack.delivery_pack_id)}
+                >
+                  <FlaskConical className="btn-ico" />
+                  {selectedPack.test_plan_status !== 'approved' && can('approve_test_plan')
+                    ? ' Review & Approve Test Plan…'
+                    : ' Open Test Plan…'}
+                </button>
               </div>
               <div className="dp-ins-actions">
                 <button className="outline block" onClick={() => { setPreview(selectedPack.delivery_pack_id); setPreviewTab('overview') }}>
@@ -823,11 +753,9 @@ export function DeliveryPacks() {
                   <p className="hint">Test plan awaiting QA Lead approval before this pack can publish.</p>
                 ) : null}
               </div>
-            </div>
+            </DetailDrawer>
           )
         })() : null}
-        <GuidanceCard lines={CONTROL_PLANE_GUIDANCE} />
-      </aside>
 
       {/* --- Publish confirm ---------------------------------------------- */}
       {confirmPublish ? (() => {
@@ -898,141 +826,236 @@ export function DeliveryPacks() {
         </Modal>
       ) : null}
 
-      {/* --- QA approval popup (from the pipeline column) ------------------ */}
+      {/* --- QA test-plan popup — the single test-plan view. The rail, the
+             pipeline column and the banner all open it: review the actual cases
+             with their criteria, read the generated file, amend inline, then
+             sign. Approved packs open it read-only. ---------------------------- */}
       {approveFor ? (() => {
         const p = packs.find((x) => x.delivery_pack_id === approveFor)
         if (!p) return null
+        const approved = p.test_plan_status === 'approved'
+        const mayApprove = can('approve_test_plan')
+        const mayAmend = can('amend_test_plan')
         const rows = p.story_ids.map((sid) => ({
           sid,
           story: storyById.get(sid),
           m: manifests[`${sid}@v${p.version}`],
         }))
-        const total = rows.reduce((a, r) => a + (r.m?.tests.length ?? 0), 0)
+        const total = rows.reduce((acc, r) => acc + (r.m?.tests.length ?? 0) + (r.m?.qa_tests?.length ?? 0), 0)
+        const runnable = rows.filter((r) => r.m?.runnable).length
         return (
-          <Modal title={`QA Test-Plan Approval — ${p.team}`} wide onClose={() => setApproveFor(null)}>
+          <Modal title={`QA Test Plan — ${p.team} Delivery Pack v${p.version}.0`} wide onClose={() => setApproveFor(null)}>
             <div className="pack-pipe qa-pop-pipe" aria-label="Where this approval sits">
               <span className="pp-node done">
                 <span className="pp-dot">✓</span>
                 <span className="pp-text">Generated<span className="hint">{`pack v${p.version}.0`}</span></span>
               </span>
               <span className="pp-link" aria-hidden="true" />
-              <span className="pp-node now">
-                <span className="pp-dot">2</span>
-                <span className="pp-text"><b>QA approval</b><span className="hint">you are here</span></span>
+              <span className={`pp-node ${approved ? 'done' : 'now'}`}>
+                <span className="pp-dot">{approved ? '✓' : '2'}</span>
+                <span className="pp-text">
+                  <b>QA approval</b>
+                  <span className="hint">
+                    {approved
+                      ? `${p.test_plan_approved_by || 'QA Lead'}${p.test_plan_approved_at ? ` · ${dmy(p.test_plan_approved_at)}` : ''}`
+                      : 'you are here'}
+                  </span>
+                </span>
               </span>
               <span className="pp-link" aria-hidden="true" />
-              <span className="pp-node next">
-                <span className="pp-dot">3</span>
-                <span className="pp-text">Publish<span className="hint">unlocks on approval</span></span>
+              <span className={`pp-node ${p.publication_status === 'published' ? 'done' : approved ? 'now' : 'next'}`}>
+                <span className="pp-dot">{p.publication_status === 'published' ? '✓' : '3'}</span>
+                <span className="pp-text">
+                  Publish
+                  <span className="hint">{p.publication_status === 'published' ? 'published' : approved ? 'unlocked' : 'unlocks on approval'}</span>
+                </span>
               </span>
             </div>
             <p className="hint" style={{ margin: '10px 0 6px' }}>
-              <b>{`What you are approving — ${total || '…'} rule-based test case${total === 1 ? '' : 's'} across ${p.story_ids.length} ${p.story_ids.length === 1 ? 'story' : 'stories'}:`}</b>
-              {' one deliberately-failing test per acceptance criterion, so publication produces a real red baseline in CI.'}
+              <b>{`${approved ? 'What was approved' : 'What you are approving'} — ${total || '…'} rule-based test case${total === 1 ? '' : 's'} across ${p.story_ids.length} ${p.story_ids.length === 1 ? 'story' : 'stories'}`}</b>
+              {` (${runnable} runnable): one deliberately-failing test per acceptance criterion, so publication produces a real red baseline in CI. `}
+              <Prov provenance="rule_based" /> not AI output.
             </p>
-            <div className="qa-cases">
-              {rows.map(({ sid, story, m }) => (
-                <div className="qa-case-story" key={sid}>
-                  <div className="qa-case-head">
-                    <span className="mono">{sid}</span>
-                    <span>{story?.title ?? ''}</span>
-                    {m ? <Prov provenance={m.provenance} /> : null}
-                    {m ? <span className="hint">{m.stack}</span> : null}
-                    <button
-                      className="link-btn"
-                      style={{ marginLeft: 'auto' }}
-                      onClick={() => setAmendStory(amendStory === sid ? null : sid)}
-                    >
-                      {amendStory === sid ? 'Close amendment' : '✎ Amend…'}
-                    </button>
-                  </div>
-                  {m === undefined ? (
-                    <span className="hint">Loading test plan…</span>
-                  ) : m === null ? (
-                    <span className="hint">No test manifest found — regenerate delivery packs first.</span>
-                  ) : (
-                    <ul className="plain qa-case-list">
-                      {m.tests.map((t) => (
-                        <li key={t.test_name}>
-                          <span className="mono">{t.test_name}</span>
-                          <span className="hint">{` ← ${t.ac_id}`}</span>
-                        </li>
-                      ))}
-                      {(m.qa_tests ?? []).map((t) => (
-                        <li key={t.case_id}>
-                          <span className="mono">{t.test_name}</span>
-                          <span className="hint">{` ← ${t.case_id} · QA amendment`}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {m?.qa_amendment ? (
-                    <p className="hint" style={{ margin: '4px 0 0' }}>
-                      {`Amended by ${m.qa_amendment.proposed_by} — proposal: “${m.qa_amendment.proposal}”`}
-                    </p>
-                  ) : null}
-                  {amendStory === sid ? (
-                    <div className="qa-amend-inline">
-                      <p className="hint" style={{ margin: '6px 0 4px' }}>
-                        Describe the extra cases in plain language. Kept verbatim as your proposal,
-                        refined into governed <code>test_qa_*</code> skeletons — the AC-derived names
-                        never move — and the pack re-versions with this approval reset.
-                      </p>
-                      <textarea
-                        rows={2}
-                        style={{ width: '100%' }}
-                        placeholder="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor" aria-label="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor"
-                        value={amendDrafts[sid] ?? ''}
-                        onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
-                      />
-                      <div className="actions-row" style={{ marginTop: 6 }}>
+            <div className="qa-cases qa-cases-tall">
+              {rows.map(({ sid, story, m }) => {
+                const file = m?.tests?.[0]?.file
+                const skeleton = file ? skeletons[`${sid}@v${p.version}/${file}`] : undefined
+                return (
+                  <div className="qa-case-story" key={sid}>
+                    <div className="qa-case-head">
+                      <span className="mono">{sid}</span>
+                      <span>{story?.title ?? ''}</span>
+                      {m ? <Prov provenance={m.provenance} /> : null}
+                      {m ? <span className="hint">{`${m.tests.length + (m.qa_tests?.length ?? 0)} tests · ${m.runnable ? m.stack : 'reference only'}`}</span> : null}
+                      {mayAmend ? (
                         <button
-                          className="outline"
-                          disabled={!(amendDrafts[sid] ?? '').trim()}
-                          onClick={async () => {
-                            const ok = await act(
-                              `/delivery-packs/${p.delivery_pack_id}/amend-test-plan`,
-                              { story_id: sid, proposal: (amendDrafts[sid] ?? '').trim() },
-                              'Test plan amended — cases appended, approval reset',
-                            )
-                            if (ok) {
-                              setAmendDrafts((prev) => ({ ...prev, [sid]: '' }))
-                              setAmendStory(null)
-                            }
-                          }}
+                          className="link-btn"
+                          style={{ marginLeft: 'auto' }}
+                          onClick={() => setAmendStory(amendStory === sid ? null : sid)}
                         >
-                          ✎ Submit amendment (QA Lead)
+                          {amendStory === sid ? 'Close editor' : '✎ Edit test plan…'}
                         </button>
-                        <button className="ghost" onClick={() => setAmendStory(null)}>Cancel</button>
-                      </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                    {m === undefined ? (
+                      <span className="hint">Loading test plan…</span>
+                    ) : m === null ? (
+                      <span className="hint">No test manifest found for this pack version — regenerate delivery packs first.</span>
+                    ) : (
+                      <div className="table-wrap">
+                        <table className="dp-tp-table qa-tp-table">
+                          <thead><tr><th>AC</th><th>Criterion</th><th>Test{mayAmend ? <span className="hint"> · ✎ edit</span> : null}</th></tr></thead>
+                          <tbody>
+                            {m.tests.map((t) => (
+                              <tr key={t.test_name}>
+                                <td className="mono">{t.ac_id}</td>
+                                <td>{story?.acceptance_criteria?.find((a) => a.ac_id === t.ac_id)?.text ?? ''}</td>
+                                <td>
+                                  <code>{t.test_name}</code>
+                                  {mayAmend ? (
+                                    <button
+                                      type="button"
+                                      className="link-btn qa-row-edit"
+                                      title={`Edit the test plan around ${t.ac_id}`}
+                                      aria-label={`Edit the test plan around ${t.ac_id}`}
+                                      onClick={() => {
+                                        setAmendDrafts((prev) => ({
+                                          ...prev,
+                                          [sid]: (prev[sid] ?? '').trim()
+                                            ? prev[sid]
+                                            : `${t.ac_id} (${t.test_name}): also cover `,
+                                        }))
+                                        setAmendStory(sid)
+                                      }}
+                                    >
+                                      ✎
+                                    </button>
+                                  ) : null}
+                                </td>
+                              </tr>
+                            ))}
+                            {(m.qa_tests ?? []).map((t) => (
+                              <tr key={t.case_id} className="qa-tp-amended">
+                                <td className="mono">{t.case_id}</td>
+                                <td>{t.description} <span className="hint">· QA amendment</span></td>
+                                <td><code>{t.test_name}</code></td>
+                              </tr>
+                            ))}
+                            {m.tests.length === 0 && (m.qa_tests ?? []).length === 0 ? (
+                              <tr><td colSpan={3}><span className="hint">No acceptance criteria to cover.</span></td></tr>
+                            ) : null}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                    {m?.qa_amendment ? (
+                      <p className="hint" style={{ margin: '4px 0 0' }}>
+                        QA amendment by {m.qa_amendment.proposed_by} — refined{' '}
+                        {m.qa_amendment.provenance === 'rule_based'
+                          ? (data.run.mode === 'demo'
+                            ? 'by deterministic rules (demo environment)'
+                            : 'by deterministic rules (no AI call in simulation)')
+                          : 'by the model'}. Proposal: “{m.qa_amendment.proposal}”
+                      </p>
+                    ) : null}
+                    {amendStory === sid ? (
+                      <div className="qa-amend-inline">
+                        <p className="hint" style={{ margin: '6px 0 4px' }}>
+                          <b>Edit test plan (QA Lead).</b> Describe the cases you want added or changed, in
+                          plain language. Your text is kept verbatim as the proposal (HUMAN) and refined into
+                          governed <code>test_qa_*</code> skeletons appended to this story — the AC-derived
+                          cases above are what CI evidence joins on, so they never move — and the pack
+                          re-versions with QA approval reset.
+                        </p>
+                        <textarea
+                          rows={3}
+                          style={{ width: '100%' }}
+                          placeholder="e.g. also cover a member id with a leading zero, and a policy from a terminated sponsor" aria-label="Edit test plan — describe cases to add or change (QA Lead)"
+                          value={amendDrafts[sid] ?? ''}
+                          onChange={(e) => setAmendDrafts((prev) => ({ ...prev, [sid]: e.target.value }))}
+                        />
+                        <div className="actions-row" style={{ marginTop: 6 }}>
+                          <button
+                            className="outline"
+                            disabled={!(amendDrafts[sid] ?? '').trim()}
+                            onClick={async () => {
+                              const ok = await act(
+                                `/delivery-packs/${p.delivery_pack_id}/amend-test-plan`,
+                                { story_id: sid, proposal: (amendDrafts[sid] ?? '').trim() },
+                                'Test plan amended — cases appended, approval reset',
+                              )
+                              if (ok) {
+                                setAmendDrafts((prev) => ({ ...prev, [sid]: '' }))
+                                setAmendStory(null)
+                              }
+                            }}
+                          >
+                            ✎ Save edit — refine & append (QA Lead)
+                          </button>
+                          <button className="ghost" onClick={() => setAmendStory(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : null}
+                    {file ? (
+                      <details
+                        className="dp-tp-skeleton"
+                        onToggle={(e) => {
+                          if ((e.currentTarget as HTMLDetailsElement).open) loadSkeleton(sid, file, p.version)
+                        }}
+                      >
+                        <summary><code>{file}</code> — generated test file (read-only)</summary>
+                        <pre className="mono dp-tp-code">{skeleton ?? 'Loading…'}</pre>
+                      </details>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+            {approved ? (
+              <div className="actions-row" style={{ marginTop: '12px' }}>
+                <span className="hint" style={{ flex: '1 1 200px' }}>
+                  <CircleCheck className="val-ico ok" /> Approved by{' '}
+                  {p.test_plan_approved_by || 'QA Lead'}
+                  {p.test_plan_approved_at ? ` on ${dmy(p.test_plan_approved_at)}` : ''}
+                  {' '}— regenerating the pack or a QA amendment resets this approval.
+                </span>
+                <button className="ghost" onClick={() => setApproveFor(null)}>Close</button>
+              </div>
+            ) : (
+              <>
+                <div className="card warn rev-consequences">
+                  ⚠ On approval: this pack may publish · regenerating the pack resets the approval ·
+                  a QA amendment re-enters this gate before publish
                 </div>
-              ))}
-            </div>
-            <div className="card warn rev-consequences">
-              ⚠ On approval: this pack may publish · regenerating the pack resets the approval ·
-              a QA amendment re-enters this gate before publish
-            </div>
-            <div className="actions-row" style={{ marginTop: '12px' }}>
-              <input
-                type="text"
-                placeholder="Approver name (QA Lead)" aria-label="Approver name (QA Lead)"
-                value={approver}
-                onChange={(e) => setApprover(e.target.value)}
-                style={{ flex: '1 1 200px' }}
-              />
-              <button
-                className="primary approve"
-                disabled={approving || !approver.trim()}
-                onClick={async () => {
-                  if (await doApproveTestPlan(p)) setApproveFor(null)
-                }}
-              >
-                {approving ? 'Approving…' : `Approve test plan — unlock publish`}
-              </button>
-              <button className="ghost" onClick={() => setApproveFor(null)}>Cancel</button>
-            </div>
+                <div className="actions-row" style={{ marginTop: '12px' }}>
+                  {mayApprove ? (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Approver name (QA Lead)" aria-label="Approver name (QA Lead)"
+                        value={approver}
+                        onChange={(e) => setApprover(e.target.value)}
+                        style={{ flex: '1 1 200px' }}
+                      />
+                      <button
+                        className="primary approve"
+                        disabled={approving || !approver.trim()}
+                        onClick={async () => {
+                          if (await doApproveTestPlan(p)) setApproveFor(null)
+                        }}
+                      >
+                        {approving ? 'Approving…' : 'Approve test plan — unlock publish'}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="hint" style={{ flex: '1 1 200px' }}>
+                      Approval is the QA Lead's step — switch to the QA Lead role to sign this test plan.
+                    </span>
+                  )}
+                  <button className="ghost" onClick={() => setApproveFor(null)}>{mayApprove ? 'Cancel' : 'Close'}</button>
+                </div>
+              </>
+            )}
           </Modal>
         )
       })() : null}
