@@ -47,16 +47,32 @@ export function DiffView({ text }: { text: string }) {
   )
 }
 
+/** The three ledger calls the card needs. Defaults to the prompt-set
+ * routes; the profile editor passes its own so one card serves both. */
+export interface LedgerClient<R> {
+  version: (set: string, id: string, n: number) => Promise<{ version: number; body: string }>
+  diff: (set: string, id: string, from: number, to: number) => Promise<{ from: number; to: number; diff: string }>
+  rollback: (set: string, id: string, to_version: number, note: string) => Promise<R>
+}
+
+const PROMPT_SET_LEDGER: LedgerClient<SaveResult> = {
+  version: (set, id, n) => api.promptSets.version(set, id, n),
+  diff: (set, id, from, to) => api.promptSets.diff(set, id, from, to),
+  rollback: (set, id, to, note) => api.promptSets.rollback(set, id, to, note),
+}
+
 /** Timeline newest first; pick two → unified diff; view a body; roll back
  * in its own panel with a note. Rolling back records a new version. */
-export function VersionsCard({ set, id, version, recorded, versions, onApplied }: {
+export function VersionsCard<R = SaveResult>({ set, id, version, recorded, versions, onApplied, ledger }: {
   set: string
   id: string
   version: number
   recorded: boolean
   versions: VersionLine[]
-  onApplied: (res: SaveResult, verb: string) => void
+  onApplied: (res: R, verb: string) => void
+  ledger?: LedgerClient<R>
 }) {
+  const client = (ledger ?? PROMPT_SET_LEDGER) as LedgerClient<R>
   const { run, busy } = useAdmin()
   const [pick, setPick] = useState<number[]>([])
   const [diff, setDiff] = useState<{ from: number; to: number; diff: string } | null>(null)
@@ -73,16 +89,16 @@ export function VersionsCard({ set, id, version, recorded, versions, onApplied }
   const showDiff = async () => {
     if (pick.length !== 2) return
     const [a, b] = [...pick].sort((x, y) => x - y)
-    const res = await run(() => api.promptSets.diff(set, id, a, b))
+    const res = await run(() => client.diff(set, id, a, b))
     if (res) { setViewVersion(null); setDiff(res) }
   }
   const doRollback = async () => {
     if (rollbackTo == null || !rollbackNote.trim()) return
-    const res = await run(() => api.promptSets.rollback(set, id, rollbackTo, rollbackNote.trim()))
+    const res = await run(() => client.rollback(set, id, rollbackTo, rollbackNote.trim()))
     if (res) { onApplied(res, `rolled back to v${rollbackTo}, recorded`); setRollbackTo(null); setRollbackNote('') }
   }
   const peek = async (v: number) => {
-    const res = await run(() => api.promptSets.version(set, id, v))
+    const res = await run(() => client.version(set, id, v))
     if (res) { setDiff(null); setViewVersion(res) }
   }
 
@@ -100,9 +116,10 @@ export function VersionsCard({ set, id, version, recorded, versions, onApplied }
         <ol className="timeline" aria-label="Version history">
           {sorted.map((v) => {
             const isCurrent = v.version === version && recorded
+            const hasBody = v.has_body ?? true
             return (
               <li key={v.version} className={isCurrent ? 'current' : ''}>
-                <input type="checkbox" aria-label={`Select v${v.version} to compare`} checked={pick.includes(v.version)} onChange={() => togglePick(v.version)} disabled={!v.has_body && !pick.includes(v.version)} title={v.has_body ? undefined : 'No body recorded for this version'} />
+                <input type="checkbox" aria-label={`Select v${v.version} to compare`} checked={pick.includes(v.version)} onChange={() => togglePick(v.version)} disabled={!hasBody && !pick.includes(v.version)} title={hasBody ? undefined : 'No body recorded for this version'} />
                 <span className="ver">v{v.version}{isCurrent ? <span className="sub">current</span> : null}</span>
                 <div>
                   <div className="note">{v.note || <span className="muted">No note</span>}</div>
@@ -113,8 +130,8 @@ export function VersionsCard({ set, id, version, recorded, versions, onApplied }
                   </div>
                 </div>
                 <div className="cell-actions">
-                  <Button variant="ghost" size="sm" icon={<Eye />} onClick={() => peek(v.version)} disabled={!v.has_body}>View</Button>
-                  <Button variant="ghost" size="sm" icon={<History />} onClick={() => { setRollbackTo(v.version); setRollbackNote('') }} disabled={!v.has_body || isCurrent}>Roll back</Button>
+                  <Button variant="ghost" size="sm" icon={<Eye />} onClick={() => peek(v.version)} disabled={!hasBody}>View</Button>
+                  <Button variant="ghost" size="sm" icon={<History />} onClick={() => { setRollbackTo(v.version); setRollbackNote('') }} disabled={!hasBody || isCurrent}>Roll back</Button>
                 </div>
               </li>
             )

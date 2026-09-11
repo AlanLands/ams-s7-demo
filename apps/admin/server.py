@@ -20,7 +20,17 @@ import os
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import (
+    APIRouter,
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    HTTPException,
+    Query,
+    Response,
+    UploadFile,
+)
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -36,19 +46,25 @@ from s7_delivery.product import (
     config,
     corrections,
     improve,
+    integrations,
     llm_settings,
     observability,
     playbooks_admin,
+    profiles,
     prompt_sets,
     recordings,
+    repos_admin,
     roles_config,
     runs_admin,
     users,
 )
 from s7_delivery.product.config import ConfigError
 from s7_delivery.product.improve import ImproveError
+from s7_delivery.product.integrations import IntegrationError
 from s7_delivery.product.playbooks_admin import PlaybookValidationError
+from s7_delivery.product.profiles import ProfileError
 from s7_delivery.product.prompt_sets import PromptSetError
+from s7_delivery.product.repos_admin import RepositoryNotFound
 from s7_delivery.product.runs_admin import RunNotFound
 from s7_delivery.product.users import UserError
 
@@ -92,6 +108,27 @@ async def _prompt_set_error(_req: Any, exc: PromptSetError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": text})
 
 
+# A ProfileError is a refusal by state (409), an unknown profile (404) or a
+# validation failure (400) — told apart by the sentence the module raises.
+_PROFILE_CONFLICTS = ("already exists", "used by", "cannot be deleted", "not overridden",
+                      "not an ", "not a profile", "only a delivery profile",
+                      "exists only in this profile")
+
+
+def _profile_status(text: str) -> int:
+    if "unknown" in text:
+        return 404
+    if any(marker in text for marker in _PROFILE_CONFLICTS):
+        return 409
+    return 400
+
+
+@app.exception_handler(ProfileError)
+async def _profile_error(_req: Any, exc: ProfileError) -> JSONResponse:
+    text = str(exc)
+    return JSONResponse(status_code=_profile_status(text), content={"detail": text})
+
+
 @app.exception_handler(UserError)
 async def _user_error(_req: Any, exc: UserError) -> JSONResponse:
     status = 404 if str(exc).startswith("unknown user") else 400
@@ -115,6 +152,16 @@ async def _layer_error(_req: Any, exc: LayerError) -> JSONResponse:
     text = str(exc)
     status = 404 if ("no layer file" in text or "has no recorded body" in text) else 400
     return JSONResponse(status_code=status, content={"detail": text})
+
+
+@app.exception_handler(RepositoryNotFound)
+async def _repository_not_found(_req: Any, exc: RepositoryNotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(IntegrationError)
+async def _integration_error(_req: Any, exc: IntegrationError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.exception_handler(RunNotFound)
@@ -170,9 +217,15 @@ def get_overview() -> dict:
     for r in rows:
         by_mode[r["mode"]] = by_mode.get(r["mode"], 0) + 1
     env = llm_settings.describe()["environment"]
+    profile_rows = profiles.list_profiles()
     return {
         "runs": {"total": len(rows), "by_mode": by_mode},
         "prompt_sets": len(prompt_sets.list_sets()),
+        "profiles": {
+            "count": len(profile_rows),
+            "overlays": sum(1 for p in profile_rows if p["kind"] == "profile"),
+            "legacy_sets": sum(1 for p in profile_rows if p["kind"] == "legacy-set"),
+        },
         "users": len(users.list_users()),
         "llm": env,
         "default_set_unrecorded": [lf.id for lf in layers.unrecorded(layers.LAYERS_ROOT)],
@@ -215,16 +268,23 @@ class Rollback(BaseModel):
     note: str
 
 
+_LAYER_KEYS = ("rules", "skills", "tasks", "playbooks", "standards", "templates",
+               "governance", "models", "identity")
+
+
 def _set_root(name: str) -> Path:
+    # Resolves a delivery profile (overlay) first, then a legacy full-copy
+    # prompt set — so the prompt-set routes open a profile's files too.
     try:
-        return prompt_sets.root_of(name)
-    except PromptSetError as exc:
-        raise HTTPException(status_code=404, detail=f"unknown prompt set {name!r}") from exc
+        return profiles.root_of(name)
+    except ProfileError as exc:
+        raise HTTPException(status_code=404,
+                            detail=f"unknown prompt set or delivery profile {name!r}") from exc
 
 
 def _file_row(root: Path, file_id: str) -> dict[str, Any]:
     desc = layers.describe(root)
-    for key in ("rules", "skills", "tasks", "playbooks"):
+    for key in _LAYER_KEYS:
         for row in desc[key]:
             if row["id"] == file_id:
                 return row
@@ -263,8 +323,15 @@ def post_prompt_set(body: CreateSet, actor: str = Depends(_actor)) -> dict:
 def get_prompt_set(set_name: str) -> dict:
     root = _set_root(set_name)
     desc = layers.describe(root)
+    try:
+        summary = prompt_sets.describe(set_name)
+    except PromptSetError:
+        # A delivery profile opened through the legacy route: same file rows,
+        # the profile's own summary.
+        summary = {k: v for k, v in profiles.describe(set_name).items()
+                   if k not in ("groups", "workflows", "history")}
     return {
-        **prompt_sets.describe(set_name),
+        **summary,
         "rules": desc["rules"], "skills": desc["skills"], "tasks": desc["tasks"],
         "playbooks": desc["playbooks"], "workflows": desc["workflows"],
     }
@@ -396,6 +463,193 @@ def get_prompt_set_workflow(set_name: str, workflow_id: str) -> dict:
     raise HTTPException(status_code=404, detail=f"unknown workflow {workflow_id!r}")
 
 
+# --- delivery profiles (s7_delivery/product/profiles.py) -----------------------
+#
+# One named, versioned bundle of everything that configures S7 for a client
+# or project — six layers, one file shape, one ledger. A profile is an
+# overlay: it stores only the files it overrides and falls through to the
+# committed default set. The prompt-set routes above remain as aliases over
+# the same files; these routes add the resolved six-layer view, impact,
+# revert, export and import.
+
+
+class CreateProfile(BaseModel):
+    name: str
+    description: str = ""
+
+
+class PatchProfile(BaseModel):
+    description: str
+
+
+class CreateProfileFile(CreateFile):
+    locked: list[str] = []
+
+
+class RevertFile(BaseModel):
+    note: str
+
+
+def _profile_root(name: str) -> Path:
+    try:
+        return profiles.root_of(name)
+    except ProfileError as exc:
+        raise HTTPException(status_code=404,
+                            detail=f"unknown delivery profile {name!r}") from exc
+
+
+def _profile_file_detail(name: str, root: Path, file_id: str) -> dict[str, Any]:
+    row = _file_row(root, file_id)
+    body = layers.get(file_id, root).body
+    pinned = (recordings.pinned_count(body)
+              if (name == profiles.DEFAULT and row["enters_model_call"]) else 0)
+    return {
+        "file": row,
+        "versions": layers.versions_of(file_id, root),
+        "placeholders": layers.placeholders_of(body),
+        "recordings_pinned": pinned,
+        "impact": profiles.impact(name, file_id),
+    }
+
+
+@router.get("/profiles")
+def get_profiles() -> dict:
+    return {"profiles": profiles.list_profiles()}
+
+
+@router.post("/profiles", status_code=201)
+def post_profile(body: CreateProfile, actor: str = Depends(_actor)) -> dict:
+    return profiles.create(body.name, description=body.description, author=actor)
+
+
+@router.post("/profiles/import", status_code=201)
+async def post_profile_import(
+    file: UploadFile = File(...), name: str | None = Query(default=None),
+    replace: bool = Query(default=False), actor: str = Depends(_actor),
+) -> dict:
+    data = await file.read()
+    return profiles.import_zip(data, name=name or None, author=actor, replace=replace)
+
+
+@router.get("/profiles/{name}")
+def get_profile(name: str) -> dict:
+    _profile_root(name)
+    return profiles.describe(name)
+
+
+@router.patch("/profiles/{name}")
+def patch_profile(name: str, body: PatchProfile, actor: str = Depends(_actor)) -> dict:
+    _profile_root(name)
+    return profiles.update_description(name, body.description, author=actor)
+
+
+@router.delete("/profiles/{name}", status_code=204)
+def delete_profile(name: str, actor: str = Depends(_actor)) -> Response:
+    _profile_root(name)
+    profiles.delete(name, author=actor, in_use_by=runs_admin.runs_using_prompt_set(name))
+    return Response(status_code=204)
+
+
+@router.get("/profiles/{name}/history")
+def get_profile_history(name: str) -> dict:
+    return {"history": layers.history(_profile_root(name))}
+
+
+@router.get("/profiles/{name}/export.zip")
+def get_profile_export(name: str) -> Response:
+    _profile_root(name)
+    data = profiles.export_zip(name)
+    return Response(
+        content=data, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{name}-profile.zip"'},
+    )
+
+
+@router.post("/profiles/{name}/files", status_code=201)
+def post_profile_file(name: str, body: CreateProfileFile,
+                      actor: str = Depends(_actor)) -> dict:
+    root = _profile_root(name)
+    record = layers.create_file(
+        body.layer, body.id, title=body.title, stage=body.stage, summary=body.summary,
+        body=body.body, variables=body.variables, locked=body.locked, note=body.note,
+        author=actor, root=root,
+    )
+    config.audit(actor, "profile.create_file", f"{name}:{body.id}", detail=body.note,
+                 after={"sha256": record["sha256"]})
+    return {"file": _file_row(root, body.id), "version": record}
+
+
+@router.get("/profiles/{name}/files/{file_id}")
+def get_profile_file(name: str, file_id: str) -> dict:
+    return _profile_file_detail(name, _profile_root(name), file_id)
+
+
+@router.put("/profiles/{name}/files/{file_id}")
+def put_profile_file(name: str, file_id: str, body: PutFile,
+                     actor: str = Depends(_actor)) -> dict:
+    root = _profile_root(name)
+    _file_row(root, file_id)
+    record = profiles.write(name, file_id, body.body, note=body.note, author=actor)
+    return {"file": _file_row(root, file_id), "version": record}
+
+
+@router.get("/profiles/{name}/files/{file_id}/versions/{version}")
+def get_profile_file_version(name: str, file_id: str, version: int) -> dict:
+    root = _profile_root(name)
+    _file_row(root, file_id)
+    text = layers.version_body(file_id, version, root)
+    if text is None:
+        raise HTTPException(status_code=404,
+                            detail=f"{file_id}: version {version} has no recorded body")
+    return {"id": file_id, "version": version, "body": text}
+
+
+@router.get("/profiles/{name}/files/{file_id}/diff")
+def get_profile_file_diff(name: str, file_id: str,
+                          from_version: int = Query(alias="from"),
+                          to_version: int = Query(alias="to")) -> dict:
+    root = _profile_root(name)
+    _file_row(root, file_id)
+    return {"id": file_id, "from": from_version, "to": to_version,
+            "diff": layers.diff(file_id, from_version, to_version, root)}
+
+
+@router.post("/profiles/{name}/files/{file_id}/rollback")
+def post_profile_file_rollback(name: str, file_id: str, body: Rollback,
+                               actor: str = Depends(_actor)) -> dict:
+    root = _profile_root(name)
+    before = _file_row(root, file_id)
+    record = layers.rollback(file_id, body.to_version, note=body.note, author=actor, root=root)
+    if record is not None:
+        config.audit(actor, "profile.rollback", f"{name}:{file_id}",
+                     detail=f"to v{body.to_version} as v{record['version']}: {record['note']}",
+                     before={"sha256": before["sha256"]}, after={"sha256": record["sha256"]})
+    return {"file": _file_row(root, file_id), "version": record}
+
+
+@router.post("/profiles/{name}/files/{file_id}/revert")
+def post_profile_file_revert(name: str, file_id: str, body: RevertFile,
+                             actor: str = Depends(_actor)) -> dict:
+    root = _profile_root(name)
+    _file_row(root, file_id)
+    try:
+        record = profiles.revert(name, file_id, note=body.note, author=actor)
+    except LayerError as exc:
+        # The layer module's own refusals of a revert are state conflicts,
+        # not malformed input: nothing to revert, or nothing to fall back to.
+        if _profile_status(str(exc)) == 409:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise
+    return {"file": _file_row(root, file_id), "version": record}
+
+
+@router.get("/profiles/{name}/files/{file_id}/impact")
+def get_profile_file_impact(name: str, file_id: str) -> dict:
+    root = _profile_root(name)
+    _file_row(root, file_id)
+    return profiles.impact(name, file_id)
+
+
 # --- LLM settings, recordings, cache ------------------------------------------
 
 
@@ -486,14 +740,25 @@ def delete_user(user_id: str, actor: str = Depends(_actor)) -> Response:
 # --- runs -----------------------------------------------------------------------
 
 
+def _with_profile(row: dict[str, Any]) -> dict[str, Any]:
+    """The run's prompt set named as the delivery profile it is: `default`,
+    `profile` (overlay), `legacy-set`, or `missing` when the folder is gone."""
+    name = row["prompt_set"]
+    try:
+        kind = profiles.kind_of(name)
+    except ProfileError:
+        kind = "missing"
+    return {**row, "profile": {"name": name, "kind": kind}}
+
+
 @router.get("/runs")
 def get_runs() -> list[dict]:
-    return runs_admin.list_runs()
+    return [_with_profile(r) for r in runs_admin.list_runs()]
 
 
 @router.get("/runs/archived")
 def get_runs_archived() -> list[dict]:
-    return runs_admin.list_archived()
+    return [_with_profile(r) for r in runs_admin.list_archived()]
 
 
 @router.post("/runs/{run_id}/reset")
@@ -728,6 +993,51 @@ def post_learning_reject(set_name: str, proposal_id: str, body: DecideBody,
 def get_audit(limit: int = 200, action: str = "") -> list[dict]:
     return config.audit_log(limit, action=action or None)
 
+
+
+# --- repositories and the GitHub integration ----------------------------------
+
+
+@router.get("/repositories")
+def get_repositories() -> dict:
+    """The cross-run known-repositories registry joined with the runs that
+    use each repository. Read from files; connecting stays a run action."""
+    return repos_admin.list_repositories()
+
+
+class ForgetRepositoryBody(BaseModel):
+    url: str
+
+
+@router.post("/repositories/forget", status_code=204)
+def post_repository_forget(body: ForgetRepositoryBody, actor: str = Depends(_actor)) -> Response:
+    repos_admin.forget(body.url, actor=actor)
+    return Response(status_code=204)
+
+
+@router.post("/repositories/test")
+def post_repository_test(body: ForgetRepositoryBody, actor: str = Depends(_actor)) -> dict:
+    """An explicit operator probe — `git ls-remote`, no clone, audited."""
+    return repos_admin.test_connection(body.url, actor=actor)
+
+
+@router.get("/integrations/github")
+def get_github_integration(profile: str = "default") -> dict:
+    """The effective GitHub integration settings of a profile and the gh
+    CLI's login status (who, never a token)."""
+    root = _set_root(profile)
+    lf = layers.get(integrations.FILE_ID, root)
+    with layers.use(None if root == layers.LAYERS_ROOT else root):
+        conf = integrations.settings()
+        status = integrations.gh_status(conf)
+    return {
+        "provenance": "rule_based",
+        "profile": profile,
+        "source": lf.source,
+        "settings": conf,
+        "gh": status,
+        "consumers": list(layers.CONSUMERS.get(integrations.FILE_ID, ())),
+    }
 
 app.include_router(router)
 

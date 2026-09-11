@@ -584,3 +584,194 @@ def test_assignment_only_regeneration_preserves_approval(eng):
     assert refreshed["test_plan_approved_by"]
     assert refreshed["test_plan_approved_at"]
     eng.delivery_pack_publish(Role.DELIVERY_LEAD, pack_id)  # no re-approval needed
+
+
+def test_git_workflow_five_phrases_and_story_owned_files(eng):
+    """The developer owns commits: the workflow names exactly five phrases,
+    'start working on' neither plans nor codes, and shared files are never
+    edited on a story branch — the rule that stops parallel stories
+    conflicting on merge (README/architecture/application.yml, 2026-09-07)."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory.delivery_packs import (
+        PHRASE_BUILD,
+        PHRASE_COMMIT,
+        PHRASE_PLAN,
+        PHRASE_PUSH,
+        PHRASE_START,
+    )
+
+    pack = eng.state()["build"]["delivery_packs"][0]
+    slug = pack["team_slug"]
+    md = eng.store.path("build", "packs", slug, "git-workflow.md").read_text()
+    for phrase in (PHRASE_START, PHRASE_PLAN, PHRASE_BUILD, PHRASE_COMMIT, PHRASE_PUSH):
+        assert phrase in md
+    assert "working tree only" in md
+    assert "never commits on its own initiative" in md
+    # red baseline commit precedes the implementation commit
+    assert md.index("red baseline") < md.index("implementation (`US-1")
+    # story-owned files: one note per story, shared files off limits
+    for sid in pack["story_ids"]:
+        assert f"docs/delivery/{sid}.md" in md
+    assert "never edits" in md
+    assert "`README.md`" in md and "`architecture.md`" in md
+    assert "One merge at a time" in md
+    assert "--force-with-lease" in md
+    # AGENTS.md carries the same five phrases and the shared-file rule
+    agents = eng.store.path("build", "packs", slug, "AGENTS.md").read_text()
+    for phrase in (PHRASE_START, PHRASE_PLAN, PHRASE_BUILD, PHRASE_COMMIT, PHRASE_PUSH):
+        assert phrase in agents
+    assert "## Story-Owned Files" in agents
+    assert "## UI Rules" in agents
+
+
+def test_build_discipline_is_a_per_criterion_plan_edit_build_verify_loop(eng):
+    """The packs tell a coding agent *how* to write the code, not just how to
+    commit it (2026-09-10). The unit is the acceptance criterion, because that
+    is what a human can actually judge, and each one runs plan → edit → build
+    → observe before the next is planned. Two properties make the gate real
+    rather than decorative: the plan is a file section the developer rewrites
+    (so the agent builds what they left, not what it proposed), and the tick
+    needs an observation in their own words — a yes/no prompt would only train
+    assent. Later criteria are planned late, against code that exists."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory.delivery_packs import (
+        PHRASE_BUILD,
+        PHRASE_COMMIT,
+        PHRASE_PLAN,
+        PHRASE_START,
+    )
+
+    pack = eng.state()["build"]["delivery_packs"][0]
+    slug = pack["team_slug"]
+    md = eng.store.path("build", "packs", slug, "git-workflow.md").read_text()
+    # one criterion planned at a time, just in time, into the story note
+    assert "exactly one acceptance criterion" in md
+    assert "code plan" in md
+    assert "why this criterion needs it" in md
+    assert "never plan ahead of the criterion in hand" in md
+    for sid in pack["story_ids"]:
+        assert f"docs/delivery/{sid}.md" in md
+    # the developer owns that section and the agent builds what they left
+    assert "the developer owns it" in md
+    assert "build what it now says" in md
+    assert "never silently deviate" in md
+    # start neither plans nor codes
+    assert "Do **not** plan them yet" in md
+    # the human verification: observe it, report it, record it, then tick
+    assert "how the developer will see it working" in md.lower()
+    assert "in their own words" in md
+    assert "never describe a manual check that does not exist" in md
+    assert "A criterion nobody looked at is not done" in md
+    assert md.index("the criterion is **not met**") > md.index("what they saw")
+    assert "whole story in one pass" in md
+    # the plan and the observation gate the push
+    assert "Plan check" in md
+    # the phrases run start -> plan -> build -> commit, in that order
+    assert (md.index(PHRASE_START) < md.index(PHRASE_PLAN)
+            < md.index(PHRASE_BUILD) < md.index(PHRASE_COMMIT))
+    # AGENTS.md carries the same discipline, and engineering rules restate it
+    agents = eng.store.path("build", "packs", slug, "AGENTS.md").read_text()
+    assert "## Build Discipline" in agents
+    assert PHRASE_PLAN in agents and PHRASE_BUILD in agents
+    assert "the developer owns it" in agents
+    rules = eng.store.path("architecture", "v1", "engineering-rules.md").read_text()
+    assert "Plan the criterion in hand, on paper first" in rules
+    assert "One criterion at a time, seen by a human" in rules
+
+
+def test_code_conventions_rendered_and_published(eng):
+    """The packs govern how the code itself is written, not only how it is
+    branched and tested (2026-09-10). The load-bearing rule is that the target
+    repository's own conventions outrank the standard: S7 has never seen the
+    codebase and the codebase has, so everything else is a default the
+    neighbouring files may override."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory import publication as pub
+    from s7_delivery.factory.delivery_packs import S7_MARKER
+
+    pack = eng.state()["build"]["delivery_packs"][0]
+    slug = pack["team_slug"]
+    md = eng.store.path(
+        "build", "packs", slug, "code-conventions.md"
+    ).read_text(encoding="utf-8")
+    assert md.startswith(S7_MARKER + "\n# Code conventions")
+    # the repository outranks the standard, and that comes first
+    assert "The repository outranks this file" in md
+    assert md.index("outranks this file") < md.index("## 2. Naming")
+    assert "Reuse before you add" in md
+    # the categories the audit found missing are all covered
+    for rule in ("Never swallow a failure", "Validate at the edge, once",
+                 "Log identifiers, never contents", "Comments say why, never what",
+                 "No dead code", "No speculative abstraction", "No secrets, ever"):
+        assert rule in md, rule
+    # a criterion is not met by a passing test alone
+    assert "follows the rules above" in md
+    # published to the repository, and AGENTS.md points at it
+    plan = pub.file_plan(eng.store, pack)
+    assert plan[".s7/shared/code-conventions.md"] == md
+    agents = eng.store.path(
+        "build", "packs", slug, "AGENTS.md"
+    ).read_text(encoding="utf-8")
+    assert "## Code Rules" in agents
+    assert "code-conventions.md" in agents
+
+
+def test_code_conventions_name_the_stack_but_the_rules_stay_neutral():
+    """Only the opening line differs by stack; every numbered rule is written
+    once and applies to both. An unrecorded stack says so rather than
+    guessing a default."""
+    from s7_delivery.factory.delivery_packs import render_code_conventions_md
+
+    stories = [{"story_id": "US-1", "target_component": "portal"}]
+    java = render_code_conventions_md(team="Portal", stories=stories, stack="maven")
+    py = render_code_conventions_md(team="Portal", stories=stories, stack="pytest")
+    unknown = render_code_conventions_md(team="Portal", stories=stories, stack=None)
+    assert "mvn test" in java and "camelCase" in java
+    assert "pytest" in py and "snake_case" in py
+    assert "not recorded" in unknown
+    # the rules themselves are identical across stacks
+    for text in (java, py, unknown):
+        assert "## 4. Errors" in text and "Never swallow a failure" in text
+    assert java.replace(
+        dp_stack_line("maven"), ""
+    ) == py.replace(dp_stack_line("pytest"), "")
+
+
+def dp_stack_line(stack: str) -> str:
+    from s7_delivery.factory.delivery_packs import STACK_LINES
+
+    return STACK_LINES[stack]
+
+
+def test_ui_guidelines_rendered_and_published(eng):
+    """UI is part of done: every pack carries MapleSure design rules with the
+    Control Centre's own tokens, and publication ships them to
+    `.s7/shared/ui-guidelines.md`."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    from s7_delivery.factory import publication as pub
+    from s7_delivery.factory.delivery_packs import S7_MARKER, UI_TOKENS
+
+    for pack in eng.state()["build"]["delivery_packs"]:
+        md = eng.store.path(
+            "build", "packs", pack["team_slug"], "ui-guidelines.md"
+        ).read_text(encoding="utf-8")
+        assert md.startswith(S7_MARKER)
+        for name, value, _ in UI_TOKENS:
+            assert f"{name}: {value};" in md  # the copy-in CSS block
+        assert "#a20a29" in md  # MapleSure red, same as the app's theme
+        assert "WCAG 2.1 AA" in md
+        assert "1280px" in md and "375px" in md  # screenshot evidence
+        assert "role=\"alert\"" in md
+        plan = pub.file_plan(eng.store, pack)
+        assert plan[".s7/shared/ui-guidelines.md"] == md
+    # engineering rules name the same three disciplines
+    rules = eng.store.path(
+        "architecture", "v1", "engineering-rules.md"
+    ).read_text(encoding="utf-8")
+    assert "Story-owned files" in rules
+    assert "The developer commits" in rules
+    assert "ui-guidelines.md" in rules

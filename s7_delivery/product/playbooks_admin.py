@@ -32,7 +32,7 @@ from s7_delivery.factory import layers, roles, store
 from s7_delivery.factory.layers import LayerError
 from s7_delivery.factory.models import Role
 from s7_delivery.factory.self_heal import GATE_ACTIONS, MECHANICAL_ACTIONS, STATE
-from s7_delivery.product import config, prompt_sets
+from s7_delivery.product import config, profiles
 
 _STEP_ID_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 KINDS = ("mechanical", "gate")
@@ -152,11 +152,11 @@ def _action_info(action: str, kind: str, shipped: dict[str, str]) -> dict[str, A
     }
 
 
-def catalogue(set_name: str = prompt_sets.DEFAULT) -> dict[str, Any]:
+def catalogue(set_name: str = profiles.DEFAULT) -> dict[str, Any]:
     """The payload the editor needs: every action the engine can run or
     observe, the roles it may name, and the change types the set carries."""
     shipped = _shipped_roles()
-    root = prompt_sets.root_of(set_name)
+    root = profiles.root_of(set_name)
     return {
         "mechanical": [_action_info(a, "mechanical", shipped) for a in MECHANICAL_ACTIONS],
         "gate": [_action_info(a, "gate", shipped) for a in GATE_ACTIONS],
@@ -179,11 +179,11 @@ def action_info(action: str) -> dict[str, Any] | None:
 # --- validation -------------------------------------------------------------------
 
 
-def validate_steps(steps: Any, set_name: str = prompt_sets.DEFAULT) -> dict[str, Any]:
+def validate_steps(steps: Any, set_name: str = profiles.DEFAULT) -> dict[str, Any]:
     """Dry run. Returns `{"ok", "problems", "warnings"}` — every refusal
     listed, and the conventions the shipped playbooks follow as warnings.
     `set_name` only has to exist: the permission table is product-wide."""
-    prompt_sets.root_of(set_name)
+    profiles.root_of(set_name)
     problems: list[str] = []
     warnings: list[str] = []
     if not isinstance(steps, list):
@@ -312,7 +312,7 @@ def _row(root: Path, playbook_id: str) -> dict[str, Any]:
 
 def get_playbook(set_name: str, playbook_id: str,
                  *, runs_root: Path | None = None) -> dict[str, Any]:
-    root = prompt_sets.root_of(set_name)
+    root = profiles.root_of(set_name)
     row = _row(root, playbook_id)
     lf = layers.get(playbook_id, root)
     book = layers.playbook(playbook_id, root)
@@ -330,7 +330,7 @@ def get_playbook(set_name: str, playbook_id: str,
 
 
 def list_playbooks(set_name: str, *, runs_root: Path | None = None) -> list[dict[str, Any]]:
-    root = prompt_sets.root_of(set_name)
+    root = profiles.root_of(set_name)
     ids = [lf.id for lf in layers.load_all(root).values() if lf.layer == "playbook"]
     return [get_playbook(set_name, pid, runs_root=runs_root) for pid in ids]
 
@@ -345,7 +345,7 @@ def save_playbook(
 ) -> dict[str, Any]:
     """Validate, render the body, write it through the layer ledger, audit.
     Returns `{"record": LedgerLine | None, "unchanged": bool, "playbook": detail}`."""
-    root = prompt_sets.root_of(set_name)
+    root = profiles.root_of(set_name)
     before = get_playbook(set_name, playbook_id, runs_root=runs_root)
     result = validate_steps(steps, set_name)
     if not result["ok"]:

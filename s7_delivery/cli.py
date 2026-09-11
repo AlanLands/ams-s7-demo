@@ -171,21 +171,24 @@ def _cmd_layers(args: argparse.Namespace) -> int:
               f"{'' if v['recorded'] else ' (unrecorded)'}  sha256={lf.short}")
         print(f"stage: {lf.stage}")
         print(f"path:  s7_delivery/layers/{lf.path}")
-        if lf.layer == "task":
+        if lf.layer in layers.VARIABLE_LAYERS:
             print(f"variables: {', '.join(lf.variables) or '-'}")
+        if lf.locked:
+            print(f"locked: {', '.join(lf.locked)}")
         print()
         print(lf.body)
         return 0
     if args.layers_command == "sets":
-        from s7_delivery.product import prompt_sets
+        from s7_delivery.product import profiles
 
-        print("prompt sets:")
-        for s in prompt_sets.list_sets():
+        print("delivery profiles:")
+        for s in profiles.list_profiles():
             counts = s["counts"]
             flag = f"  UNRECORDED: {', '.join(s['unrecorded'])}" if s["unrecorded"] else ""
-            print(f"  {s['name']:<20} {counts['rules']} rules, {counts['skill']} skills, "
-                  f"{counts['task']} tasks, {counts['playbook']} playbooks  "
-                  f"{'(default)' if s['is_default'] else s['root']}{flag}")
+            over = f"  overrides: {', '.join(s['overridden'])}" if s["overridden"] else ""
+            print(f"  {s['name']:<20} {s['kind']:<11} "
+                  + ", ".join(f"{n} {g}" for g, n in counts.items())
+                  + f"  {'(default)' if s['is_default'] else s['root']}{over}{flag}")
             if s.get("description"):
                 print(f"    {s['description']}")
         return 0
@@ -203,8 +206,12 @@ def _cmd_layers(args: argparse.Namespace) -> int:
         print(f"{len(added)} version(s) appended to s7_delivery/layers/{layers.HISTORY_FILE}")
         return 0
     desc = layers.describe()
-    print("delivery system: four layers (rule_based)")
-    for layer in ("rules", "skills", "tasks", "playbooks"):
+    print("delivery system: four layers (rule_based); profile layers: "
+          + ", ".join(g["id"] for g in desc["layer_groups"]))
+    for layer in ("rules", "skills", "tasks", "playbooks", "standards", "templates",
+                  "governance", "models", "identity"):
+        if not desc[layer]:
+            continue
         print(f"{layer}:")
         for row in desc[layer]:
             flag = "" if row["recorded"] else "  UNRECORDED"

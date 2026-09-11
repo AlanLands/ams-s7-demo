@@ -3,8 +3,8 @@ import { Header } from './components/Header'
 import { SideNav } from './components/SideNav'
 import { BusyOverlay, ErrorPopup, Toast } from './components/ui'
 import { Overview } from './pages/Overview'
-import { PromptSets } from './pages/PromptSets'
-import { PromptEditor } from './pages/PromptEditor'
+import { ProfilesPage } from './pages/Profiles'
+import { ProfileEditor } from './pages/ProfileEditor'
 import { LlmSettingsPage } from './pages/LlmSettings'
 import { RecordingsPage } from './pages/Recordings'
 import { RolesPage } from './pages/Roles'
@@ -14,13 +14,14 @@ import { AuditPage } from './pages/Audit'
 import { PlaybooksPage } from './pages/Playbooks'
 import { ObservabilityPage } from './pages/Observability'
 import { LearningPage } from './pages/Learning'
+import { RepositoriesPage } from './pages/Repositories'
 
 function Shell() {
   const { section } = useAdmin()
   let Page: () => React.ReactElement | null = Overview
   switch (section) {
-    case 'prompt_sets': Page = PromptSets; break
-    case 'prompt_editor': Page = PromptEditor; break
+    case 'profiles': Page = ProfilesPage; break
+    case 'profile_editor': Page = ProfileEditor; break
     case 'playbooks': Page = PlaybooksPage; break
     case 'learning': Page = LearningPage; break
     case 'llm': Page = LlmSettingsPage; break
@@ -28,6 +29,7 @@ function Shell() {
     case 'roles': Page = RolesPage; break
     case 'users': Page = UsersPage; break
     case 'runs': Page = RunsPage; break
+    case 'repositories': Page = RepositoriesPage; break
     case 'observability': Page = ObservabilityPage; break
     case 'audit': Page = AuditPage; break
     default: Page = Overview

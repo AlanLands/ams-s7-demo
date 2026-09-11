@@ -334,6 +334,8 @@ class ArchitectureMeta(BaseModel):
     file_sizes: dict[str, int] = {}
     validations: list[dict] = []  # architecture_checks.run_checks output
     landscape: dict = {}  # architecture.landscape output
+    # delivery-profile files this version was rendered from (`id → id@vN`)
+    pins: dict[str, str] = {}
 
 
 class DeliveryPack(BaseModel):
@@ -357,6 +359,9 @@ class DeliveryPack(BaseModel):
     test_plan_approved_by: str = ""
     test_plan_approved_at: str = ""
     content_hash: str = ""
+    # Delivery-profile files this pack was rendered from, `id → id@vN`
+    # (standards). A later profile edit shows as stale, derived on read.
+    pins: dict[str, str] = {}
     created_at: str = Field(default_factory=now_iso)
     published_at: str = ""
     provenance: Provenance = Provenance.SIMULATED
@@ -596,6 +601,9 @@ class DeliveryRun(BaseModel):
     # The prompt set every model call of this run resolves its rules, skill
     # and task text against ("default" = the committed s7_delivery/layers/).
     prompt_set: str = "default"
+    # sha256 over the profile's resolved file set at creation — a later
+    # profile edit shows as drift on the run, never as a silent change.
+    profile_fingerprint: str = ""
     status: Status = Status.NOT_STARTED
     created_at: str = Field(default_factory=now_iso)
     stages: list[StageState]

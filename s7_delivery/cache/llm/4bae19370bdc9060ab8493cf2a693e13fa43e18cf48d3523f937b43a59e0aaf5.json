@@ -1,0 +1,13 @@
+{
+  "prompt": "Story US-4 \u2014 Ensure accessibility and analytics compliance.\nExisting acceptance criteria (already covered by generated tests):\n\n- US-4-AC1: Given the landing page is accessed, when tested for accessibility, then it meets WCAG 2.1 AA standards.\n- US-4-AC2: Given interactions on the landing page, when analytics events are captured, then only page id and call-to-action id are logged, excluding sensitive identifiers.\n\nThe QA lead proposes this test-plan amendment, verbatim:\n\nUS-4-AC2 (test_given_interactions_on_the_landing_page_when_ana): also cover Add a negative test for US-4-AC2: fire the primary and secondary CTA analytics events while signed in as a sponsor with a known plan and member context, capture the emitted payloads, and assert that none of them contains a member id, plan sponsor id, policy number or claim id, and that only page_id and cta_id keys are present.\n\nRefine it into additional concrete test cases. Do not repeat existing AC\ncoverage. Return JSON exactly matching:\n{\"cases\": [{\"description\": \"<one testable behaviour, one sentence>\"}]}",
+  "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYou are a QA architect refining a QA lead's test-plan amendment into concrete acceptance-style test cases. Each case must trace directly to the amendment text; never invent coverage the amendment does not ask for.",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "response": "{\"cases\": [{\"description\": \"Fire primary and secondary CTA analytics events as a signed-in sponsor and assert emitted payloads do not contain member id, plan sponsor id, policy number, or claim id.\"}, {\"description\": \"Capture analytics event payloads for primary and secondary CTAs as a sponsor and assert payloads include only page_id and cta_id keys.\"}]}",
+  "usage": {
+    "input_tokens": 328,
+    "output_tokens": 76,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null
+  }
+}

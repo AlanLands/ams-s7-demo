@@ -500,7 +500,7 @@ export function LearningPage() {
         {header}{filters}
         <Empty title="Correction learning is not available on this backend yet"
           hint={<>The admin API answered 404 for <span className="mono">GET /api/admin/learning/overview</span>. Until the routes in docs/admin-api.md land there is nothing to learn from here.</>}
-          action={<div className="btn-row"><Button variant="secondary" size="sm" onClick={ov.reload}>Check again</Button><Button variant="ghost" size="sm" onClick={() => goTo('prompt_sets')}>Open prompt sets</Button></div>} />
+          action={<div className="btn-row"><Button variant="secondary" size="sm" onClick={ov.reload}>Check again</Button><Button variant="ghost" size="sm" onClick={() => goTo('profiles')}>Open delivery profiles</Button></div>} />
       </>
     )
   }

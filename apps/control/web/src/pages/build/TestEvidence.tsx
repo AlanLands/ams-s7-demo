@@ -147,13 +147,18 @@ export function TestEvidence() {
   const at = (wf: string) => taskActivity.find((a) => a.workflow === wf)?.timestamp
   const rb = ws?.red_baseline
   const redTs = rb?.checked_at ?? at('test-first')
-  const redSub = rb
-    ? ((rb.tests_failed ?? 0) > 0
-      ? `${rb.tests_failed} failing on branch — real CI baseline`
-      : (rb.conclusion === 'failure'
-        ? 'publication CI failed — real red baseline'
-        : `${rb.tests_failed ?? '?'} failing on branch — real CI baseline`))
-    : `${initialFailures} failures expected`
+  // A red baseline is *failing tests*, not a failing workflow. A build that
+  // never compiled reports no tests at all, and calling that a red baseline
+  // is the one mislabelling this evidence exists to prevent — so each case
+  // below says only what the run actually showed.
+  const redSub = (() => {
+    if (!rb) return `${initialFailures} failures expected`
+    if (rb.build === 'failed') return 'build failed in CI — no test baseline captured'
+    const failedN = rb.tests_failed ?? 0
+    if (failedN > 0) return `${failedN} failing on branch — real CI baseline`
+    if (!rb.tests_total) return 'no tests ran in CI — baseline not confirmed'
+    return `all ${rb.tests_total} passed — not a red baseline`
+  })()
   // Real evidence fills the timeline in a live run: the developer's latest
   // pushed commit is the Code step, a completed real CI run is Green.
   const gitLatest = ws?.git_evidence?.latest
@@ -435,6 +440,20 @@ export function TestEvidence() {
                 <span><span className="as-label">Total</span><b>{String(ws.ci_tests_total ?? '—')}</b></span>
                 <span><span className="as-label">Conclusion</span><b>{ws.ci_evidence.conclusion || ws.ci_evidence.status}</b></span>
               </div>
+              {ws.ci_build === 'failed' ? (
+                <p className="hint dw-stale-note">
+                  <TriangleAlert className="dp-badge-ico" style={{ color: 'var(--amber-text)' }} />
+                  The build failed before any test ran, so this run carries no test counts.
+                  {ws.ci_evidence.build_error
+                    ? <><br /><span className="mono">{ws.ci_evidence.build_error.split('\n').slice(-3).join(' · ')}</span></>
+                    : null}
+                </p>
+              ) : ws.ci_build === 'no_tests' ? (
+                <p className="hint dw-stale-note">
+                  <TriangleAlert className="dp-badge-ico" style={{ color: 'var(--amber-text)' }} />
+                  The build succeeded but ran no tests — nothing here evidences an acceptance criterion.
+                </p>
+              ) : null}
             </div>
           ) : null}
 

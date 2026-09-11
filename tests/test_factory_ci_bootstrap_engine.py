@@ -110,4 +110,11 @@ def test_create_new_app_repo_bootstraps_from_declared_stack(tmp_path, monkeypatc
     monkeypatch.setattr(scaffold_mod, "push_new_repo", fake_push)
     eng.intake_create_new_app_repo(Role.DELIVERY_LEAD)
     repos = eng.state()["intake"]["repos"]
-    assert repos[0]["ci_bootstrap_status"] == "bootstrapped:maven"
+    # A repository S7 creates has no build file of its own, so creation
+    # scaffolds one: without it `mvn -B test` exits before any test and the
+    # repo's CI is red from the first commit for a reason that has nothing
+    # to do with the red baseline S7 later publishes.
+    assert repos[0]["ci_bootstrap_status"] == "bootstrapped:maven+scaffold"
+    repo_dir = eng.store.path("repos", repos[0]["name"])
+    assert (repo_dir / "pom.xml").exists()
+    assert (repo_dir / "src/test/java/smoke/BuildSmokeTest.java").exists()

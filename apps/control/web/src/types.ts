@@ -651,11 +651,16 @@ export interface DeveloperWorkspace {
     conclusion: string
     url: string
     checked_at: string
+    // 'succeeded' | 'no_tests' | 'failed'; undefined on a run summarized
+    // before the workflow reported it — unknown, never assumed succeeded.
+    build?: string | null
+    build_error?: string
     tests_total?: number | null
     tests_passed?: number | null
     tests_failed?: number | null
   } | null
   ci_run_url?: string
+  ci_build?: string | null
   ci_tests_total?: number | null
   ci_tests_passed?: number | null
   ci_tests_failed?: number | null
@@ -665,9 +670,11 @@ export interface DeveloperWorkspace {
     conclusion?: string
     url?: string
     checked_at?: string
-    tests_total?: number
-    tests_passed?: number
-    tests_failed?: number
+    build?: string | null
+    build_error?: string
+    tests_total?: number | null
+    tests_passed?: number | null
+    tests_failed?: number | null
     tests?: unknown
   } | null
   last_sync_at: string

@@ -5,9 +5,22 @@ import { useLoad, LoadError } from '../hooks'
 import { ActionMenu, Badge, Button, ConfirmPanel, Empty, IconButton, Loading, PageHeader, SectionHead, TableWrap, fmtBytes, fmtTime } from '../components/ui'
 import { useAdmin } from '../state/AdminContext'
 import { HealSummaryChips, SelfHealingDrawer } from './RunSelfHealing'
+import { KindBadge } from './Profiles'
 import type { RunRow, SelfHealView } from '../types'
 
 type Pending = { id: string; op: 'reset' | 'archive' | 'delete' }
+
+/** The profile a run resolves against: `profile.name` once the backend
+ * sends it, else the run's prompt_set (the same string names both). */
+function ProfileCell({ r }: { r: RunRow }) {
+  const name = r.profile?.name ?? r.prompt_set ?? 'default'
+  return (
+    <span className="inline">
+      <span className="mono">{name}</span>
+      {r.profile?.kind ? <KindBadge kind={r.profile.kind} /> : null}
+    </span>
+  )
+}
 
 function StageChips({ stages }: { stages: RunRow['stages'] }) {
   if (!stages?.length) return <span className="muted">—</span>
@@ -47,7 +60,7 @@ export function RunsPage() {
   }
 
   const messages: Record<Pending['op'], (r: RunRow) => React.ReactNode> = {
-    reset: (r) => <>Reset <b className="mono">{r.run_id}</b> to its seeded state? Mode, entry mode and prompt set are preserved; every stage, gate and ledger in the run is recreated from seed.</>,
+    reset: (r) => <>Reset <b className="mono">{r.run_id}</b> to its seeded state? Mode, entry mode and profile are preserved; every stage, gate and ledger in the run is recreated from seed.</>,
     archive: (r) => <>Move <b className="mono">{r.run_id}</b> under <span className="mono">artifacts/runs-archive-&lt;date&gt;/</span>? It disappears from the Control Centre's run list but stays on disk.</>,
     delete: (r) => <>Delete <b className="mono">{r.run_id}</b> ({fmtBytes(r.size_bytes)}) permanently? This removes the run's artifact tree — archive instead if the evidence may still be wanted.</>,
   }
@@ -65,7 +78,7 @@ export function RunsPage() {
       {active.data && active.data.length > 0 ? (
         <TableWrap label="Active runs">
           <table>
-            <thead><tr><th>Run</th><th>Mode</th><th>Entry</th><th>Prompt set</th><th>Status</th><th>Created</th><th className="num">Size</th><th>Stages</th><th>Self-healing</th><th className="actions-col"><span className="sr-only">Actions</span></th></tr></thead>
+            <thead><tr><th>Run</th><th>Mode</th><th>Entry</th><th>Profile</th><th>Status</th><th>Created</th><th className="num">Size</th><th>Stages</th><th>Self-healing</th><th className="actions-col"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody>
               {active.data.map((r) => (
                 <Fragment key={r.run_id}>
@@ -73,7 +86,7 @@ export function RunsPage() {
                   <td className="mono nowrap"><b>{r.run_id}</b></td>
                   <td><Badge variant="neutral" label={r.mode} /></td>
                   <td>{r.entry_mode ?? 'project'}</td>
-                  <td className="mono">{r.prompt_set ?? 'default'}</td>
+                  <td><ProfileCell r={r} /></td>
                   <td><Badge status={r.status || 'not_started'} /></td>
                   <td className="nowrap">{fmtTime(r.created_at)}</td>
                   <td className="num">{fmtBytes(r.size_bytes)}</td>
@@ -121,7 +134,7 @@ export function RunsPage() {
       {archived.data && archived.data.length > 0 ? (
         <TableWrap label="Archived runs">
           <table>
-            <thead><tr><th>Run</th><th>Archive</th><th>Mode</th><th>Entry</th><th>Prompt set</th><th>Status</th><th>Created</th><th className="num">Size</th></tr></thead>
+            <thead><tr><th>Run</th><th>Archive</th><th>Mode</th><th>Entry</th><th>Profile</th><th>Status</th><th>Created</th><th className="num">Size</th></tr></thead>
             <tbody>
               {archived.data.map((r) => (
                 <tr key={`${r.archive}-${r.run_id}`}>
@@ -129,7 +142,7 @@ export function RunsPage() {
                   <td className="mono"><span className="trunc" title={r.archive ?? undefined}>{r.archive ?? '—'}</span></td>
                   <td><Badge variant="neutral" label={r.mode} /></td>
                   <td>{r.entry_mode ?? 'project'}</td>
-                  <td className="mono">{r.prompt_set ?? 'default'}</td>
+                  <td><ProfileCell r={r} /></td>
                   <td><Badge status={r.status || 'not_started'} /></td>
                   <td className="nowrap">{fmtTime(r.created_at)}</td>
                   <td className="num">{fmtBytes(r.size_bytes)}</td>

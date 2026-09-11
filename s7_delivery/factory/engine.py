@@ -12,6 +12,7 @@ phase by phase behind the same discipline.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -65,7 +66,7 @@ from s7_delivery.factory.models import (
     now_iso,
 )
 from s7_delivery.factory.store import RunStore, StoreError, next_run_id, sha256_of
-from s7_delivery.product import llm_settings, prompt_sets, users
+from s7_delivery.product import llm_settings, profiles, users
 
 
 class EngineError(Exception):
@@ -124,6 +125,17 @@ partial-submission retention pending SME confirmation.
 """
 
 
+def _in_profile(method):
+    """Run an engine method inside its run's delivery profile, so every
+    layer file a deterministic renderer reads — standards, templates,
+    identity — resolves against the profile the run was created from."""
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._prompt_set():
+            return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Engine:
     """All operations on one run. Stateless between calls — disk is truth."""
 
@@ -144,6 +156,7 @@ class Engine:
             mode=mode,
             entry_mode=entry_mode,
             prompt_set=prompt_set,
+            profile_fingerprint=profiles.fingerprint(prompt_set),
             status=Status.READY,
             stages=[StageState(stage=s) for s in STAGE_ORDER],
         )
@@ -186,10 +199,10 @@ class Engine:
     ) -> Engine:
         if entry_mode not in ("project", "enhancement"):
             raise EngineError(f"Unknown entry mode {entry_mode!r}")
-        if not prompt_sets.exists(prompt_set):
+        if not profiles.exists(prompt_set):
             raise EngineError(
-                f"Unknown prompt set {prompt_set!r} — "
-                f"known: {', '.join(s['name'] for s in prompt_sets.list_sets())}"
+                f"Unknown prompt set {prompt_set!r} — no delivery profile of that"
+                f" name; known: {', '.join(p['name'] for p in profiles.list_profiles())}"
             )
         run_id = next_run_id(root)
         eng = cls(run_id, root=root)
@@ -223,15 +236,77 @@ class Engine:
         return self.run().mode in (DemoMode.LIVE, DemoMode.REPLAY)
 
     def _prompt_root(self):
-        """The directory of this run's prompt set; `None` for the default
-        set (the committed `s7_delivery/layers/`)."""
+        """The layer root of this run's delivery profile — `None` for the
+        default set (the committed `s7_delivery/layers/`), a profile
+        directory (overlay) or a legacy full-copy prompt set."""
         name = self.run().prompt_set
         try:
-            return None if name == prompt_sets.DEFAULT else prompt_sets.root_of(name)
-        except prompt_sets.PromptSetError as exc:
+            root = profiles.root_of(name)
+        except profiles.ProfileError as exc:
             raise EngineError(
-                f"This run's prompt set {name!r} no longer exists: {exc}"
+                f"This run's delivery profile {name!r} no longer exists: {exc}"
             ) from exc
+        return None if root == layers.LAYERS_ROOT else root
+
+    def _require(self, action: str, role: Role) -> None:
+        """The permission check, resolved against this run's profile: the
+        governance layer (`governance/roles.md`) overrides the global table,
+        and the global table overrides the code's defaults — read on every
+        call, so an operator's change applies to the next request."""
+        with self._prompt_set():
+            roles.require(action, role)
+
+    def _layer_pins(self, file_ids) -> dict[str, str]:
+        """`id → id@vN` for the profile files a generated artifact was
+        rendered from — the pin a later profile edit is compared against."""
+        root = self._prompt_root()
+        present = layers.load_all(root)
+        return {fid: layers.pin_ref(fid, root) for fid in file_ids if fid in present}
+
+    def _stale_pins(self, record: dict) -> list[str]:
+        """Pinned files whose current profile version differs — derived on
+        read, never stored, so the artifact says what changed under it."""
+        pins = record.get("pins") or {}
+        if not pins:
+            return []
+        root = self._prompt_root()
+        present = layers.load_all(root)
+        return sorted(
+            fid for fid, ref in pins.items()
+            if fid not in present or layers.pin_ref(fid, root) != ref
+        )
+
+    def _profile_view(self) -> dict[str, Any]:
+        """The run's delivery profile as the app shows it: which one, whether
+        it drifted since the run was created, and which generated artifacts
+        pinned an older version of a file. RULE_BASED, derived on read."""
+        run = self.run()
+        name = run.prompt_set
+        try:
+            self._prompt_root()
+        except EngineError as exc:
+            return {"name": name, "kind": "missing", "error": str(exc),
+                    "provenance": "rule_based"}
+        current = profiles.fingerprint(name)
+        stale: dict[str, list[str]] = {}
+        for pack in self._packs():
+            ids = self._stale_pins(pack)
+            if ids:
+                stale[pack["delivery_pack_id"]] = ids
+        arch = self.store.read_json_or(None, "architecture", "meta.json")
+        if arch:
+            ids = self._stale_pins(arch)
+            if ids:
+                stale["ARCH-001"] = ids
+        return {
+            "name": name,
+            "kind": profiles.kind_of(name),
+            "fingerprint_at_creation": run.profile_fingerprint,
+            "fingerprint": current,
+            "drifted": bool(run.profile_fingerprint) and run.profile_fingerprint != current,
+            "stale_artifacts": stale,
+            "provenance": "rule_based",
+        }
 
     @contextmanager
     def _prompt_set(self):
@@ -281,7 +356,7 @@ class Engine:
         """Restore the run to its seeded state. Ledgers are truncated too:
         a reset is a new rehearsal, not history to preserve (spec §20).
         The run keeps its mode — resetting a demo run yields a demo run."""
-        roles.require("manage_run", role)
+        self._require("manage_run", role)
         from s7_delivery.factory.repos import remove_tree
 
         run = self.run()
@@ -456,6 +531,7 @@ class Engine:
         return {
             "run": run.model_dump(mode="json"),
             "prompt_set": run.prompt_set,
+            "profile": self._profile_view(),
             "scenario": self.store.read_json("scenario.json"),
             "gates": [g.model_dump(mode="json") for g in self.gates()],
             "intake": {
@@ -535,7 +611,8 @@ class Engine:
             "reviews": self.store.read_json_or([], "review", "reviews.json"),
             "architecture": self.store.read_json_or(None, "architecture", "meta.json"),
             "delivery_packs": [
-                {**p, **dict(zip(("artifact_count", "size_bytes"), self._pack_stats(p)))}
+                {**p, **dict(zip(("artifact_count", "size_bytes"), self._pack_stats(p))),
+                 "stale_pins": self._stale_pins(p)}
                 for p in self._packs()
             ],
             "workspaces": self._workspaces_view(),
@@ -730,7 +807,7 @@ class Engine:
     # --- intake (spec §7) ---------------------------------------------------
 
     def intake_analyse(self, role: Role) -> None:
-        roles.require("run_intake_analysis", role)
+        self._require("run_intake_analysis", role)
         self._stage_in_progress(Stage.INTAKE)
         if self._llm_paths():
             self._intake_analyse_live()
@@ -825,7 +902,7 @@ class Engine:
 
     def intake_clarify(self, role: Role) -> None:
         """Live/replay runs only: the model asks its clarifying questions."""
-        roles.require("ask_clarification", role)
+        self._require("ask_clarification", role)
         if not self._llm_paths():
             raise EngineError("AI clarification runs in live or replay mode only")
         import time
@@ -856,7 +933,7 @@ class Engine:
         )
 
     def intake_clarify_answer(self, role: Role, answers: list[str]) -> None:
-        roles.require("answer_clarification", role)
+        self._require("answer_clarification", role)
         clar = self._clarifications()
         if not clar["pending"]:
             raise EngineError("There are no open questions to answer")
@@ -886,7 +963,7 @@ class Engine:
         single signal `intake_extract` and `intake_create_epic` use to know
         a real source was provided — the mechanism that keeps the default
         seeded demo path completely untouched (CLAUDE.md § intake extraction)."""
-        roles.require("upload_intake_document", role)
+        self._require("upload_intake_document", role)
         stripped = text.strip()
         if not stripped:
             raise EngineError("Source text is empty")
@@ -925,7 +1002,7 @@ class Engine:
         # Extraction structures the source the Business Owner provided — it is
         # part of the upload act, not the analysts' deeper analysis, so it
         # rides `upload_intake_document` rather than `run_intake_analysis`.
-        roles.require("upload_intake_document", role)
+        self._require("upload_intake_document", role)
         source = self.store.read_json_or(None, "intake", "source.json")
         if source is None:
             raise EngineError("Provide a source document or pasted text before extracting")
@@ -978,7 +1055,7 @@ class Engine:
         )
 
     def intake_create_epic(self, role: Role) -> None:
-        roles.require("create_epic", role)
+        self._require("create_epic", role)
         if not self.store.exists("intake", "analysis.json"):
             raise EngineError("Run intake analysis before creating the epic")
         extraction = self.store.read_json_or(None, "intake", "extraction.json")
@@ -1021,7 +1098,7 @@ class Engine:
     }
 
     def intake_edit_extraction(self, role: Role, patch: dict) -> None:
-        roles.require("edit_requirement", role)
+        self._require("edit_requirement", role)
         data = self.store.read_json_or(None, "intake", "extraction.json")
         if data is None:
             raise EngineError("No extraction to edit — run extraction first")
@@ -1079,7 +1156,7 @@ class Engine:
         """Attach a source document to the requirement. Demo evidence only —
         the content is stored under the run's own artifact directory
         (gitignored, spec §19), never inspected or parsed."""
-        roles.require("upload_intake_document", role)
+        self._require("upload_intake_document", role)
         safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", filename).lstrip(".") or "document"
         req_data = self.store.read_json_or(None, "intake", "requirement.json")
         if req_data is None:
@@ -1102,11 +1179,12 @@ class Engine:
         )
         return safe_name
 
+    @_in_profile
     def intake_connect_repo(self, role: Role, url: str) -> None:
         """Connect a target repository: shallow clone under the run's own
         artifact tree, record metadata, store the context pack that grounds
         every live call (spec: live-control-centre §2)."""
-        roles.require("connect_repository", role)
+        self._require("connect_repository", role)
         from s7_delivery.factory.repos import (
             RepoConnectError,
             build_context_pack,
@@ -1114,6 +1192,15 @@ class Engine:
             remember_repo,
         )
 
+        # The delivery profile's GitHub integration decides which host and
+        # owners a run may connect (and whether a local path is acceptable)
+        # — checked before anything is cloned, never after.
+        from s7_delivery.product import integrations
+
+        try:
+            integrations.check_repo_url(url)
+        except integrations.IntegrationError as exc:
+            raise EngineError(f"Repository refused by the delivery profile: {exc}") from exc
         try:
             rec = clone_repo(url, self.store.path("repos"))
         except RepoConnectError as exc:
@@ -1159,7 +1246,7 @@ class Engine:
         registry is untouched, so it can be reconnected with one click later.
         Refused once the plan is signed: repositories are load-bearing for the
         downstream lane after G1."""
-        roles.require("connect_repository", role)
+        self._require("connect_repository", role)
         if self.run().plan_locked:
             raise EngineError(
                 "Plan is signed — repositories are load-bearing after G1; "
@@ -1210,7 +1297,7 @@ class Engine:
             )
 
     def intake_add_business_rule(self, role: Role, text: str) -> str:
-        roles.require("manage_business_rules", role)
+        self._require("manage_business_rules", role)
         self._business_rules_open_for_change()
         text = text.strip()
         if not text:
@@ -1262,7 +1349,7 @@ class Engine:
         return rules, target
 
     def intake_edit_business_rule(self, role: Role, rule_id: str, text: str) -> None:
-        roles.require("manage_business_rules", role)
+        self._require("manage_business_rules", role)
         self._business_rules_open_for_change()
         text = text.strip()
         if not text:
@@ -1282,7 +1369,7 @@ class Engine:
         )
 
     def intake_remove_business_rule(self, role: Role, rule_id: str) -> None:
-        roles.require("manage_business_rules", role)
+        self._require("manage_business_rules", role)
         self._business_rules_open_for_change()
         rules, target = self._own_business_rule(rule_id)
         rules.remove(target)
@@ -1314,7 +1401,7 @@ class Engine:
     def intake_route(self, role: Role) -> None:
         """Live/replay runs only: classify routable vs new_application_needed
         before analysis runs."""
-        roles.require("route_requirement", role)
+        self._require("route_requirement", role)
         if not self._llm_paths():
             raise EngineError("Requirement routing runs in live or replay mode only")
         current = self._routing()
@@ -1351,7 +1438,7 @@ class Engine:
         )
 
     def intake_override_route(self, role: Role, verdict: str) -> None:
-        roles.require("route_requirement", role)
+        self._require("route_requirement", role)
         current = self._routing()
         if current is None:
             raise EngineError("Run requirement routing before overriding it")
@@ -1380,7 +1467,7 @@ class Engine:
         )
 
     def intake_new_app_setup(self, role: Role) -> None:
-        roles.require("setup_new_application", role)
+        self._require("setup_new_application", role)
         if not self._llm_paths():
             raise EngineError("New-application setup runs in live or replay mode only")
         import time
@@ -1419,7 +1506,7 @@ class Engine:
         )
 
     def intake_new_app_answer(self, role: Role, answers: list[str]) -> None:
-        roles.require("setup_new_application", role)
+        self._require("setup_new_application", role)
         setup = self._new_app()
         if not setup["pending"]:
             raise EngineError("There are no open questions to answer")
@@ -1457,7 +1544,7 @@ class Engine:
         return files
 
     def intake_generate_scaffold(self, role: Role) -> None:
-        roles.require("setup_new_application", role)
+        self._require("setup_new_application", role)
         import time
 
         from s7_delivery.factory import scaffold as scaffold_mod
@@ -1485,11 +1572,18 @@ class Engine:
             details=f"in={usage.get('input_tokens')} out={usage.get('output_tokens')} tokens",
         )
 
+    @_in_profile
     def intake_create_new_app_repo(self, role: Role) -> None:
         """The approval action: creates the real GitHub repo from the
         reviewed scaffold, then normalizes it into an ordinary connected
         repo — §B needs no special case because of this."""
-        roles.require("create_new_application_repo", role)
+        self._require("create_new_application_repo", role)
+        from s7_delivery.product import integrations
+
+        try:
+            integrations.require_repo_creation()
+        except integrations.IntegrationError as exc:
+            raise EngineError(str(exc)) from exc
         if self.run().mode is DemoMode.REPLAY:
             raise EngineError(
                 "Replay runs never create real repositories — repo creation "
@@ -1531,7 +1625,13 @@ class Engine:
         repo_dir = self.store.path("repos", rec.name)
         stack = ci_bootstrap.detect_stack_from_text(setup["stack"])
         try:
-            bootstrap_status = ci_bootstrap.bootstrap(repo_dir, rec.default_branch, stack)
+            # Scaffold only here, never on connect-by-URL: this repository is
+            # one S7 just created, so it has no build file, and a CI workflow
+            # without one fails before any test runs — every run red for a
+            # reason that has nothing to do with the published red baseline.
+            bootstrap_status = ci_bootstrap.bootstrap(
+                repo_dir, rec.default_branch, stack, scaffold=True
+            )
         except ci_bootstrap.CiBootstrapError:
             bootstrap_status = "push_failed"
 
@@ -1562,7 +1662,7 @@ class Engine:
         })
 
     def intake_pass_gate(self, role: Role) -> None:
-        roles.require("pass_intake_gate", role)
+        self._require("pass_intake_gate", role)
         conditions = gates.intake_gate(
             self.store.read_json_or(None, "intake", "requirement.json"),
             self.store.read_json_or(None, "intake", "analysis.json"),
@@ -1606,7 +1706,7 @@ class Engine:
         return self.store.read_json_or([], "planning", "stories.json")
 
     def planning_generate(self, role: Role) -> None:
-        roles.require("generate_plan", role)
+        self._require("generate_plan", role)
         if self.gate(GateId.INTAKE).status != Status.PASSED:
             raise EngineError("Planning opens after the intake gate (G0) passes")
         if self.run().plan_locked:
@@ -1687,7 +1787,7 @@ class Engine:
         )
 
     def edit_story(self, role: Role, story_id: str, patch: dict) -> None:
-        roles.require("edit_story", role)
+        self._require("edit_story", role)
         if self.run().plan_locked:
             raise EngineError(
                 "The signed plan is locked; changes require an amendment"
@@ -1739,7 +1839,7 @@ class Engine:
     def planning_export_artifacts(self, role: Role) -> None:
         """§C2: write each signed-off story's portable package into the
         run's own artifact tree. No external side effects."""
-        roles.require("export_artifacts", role)
+        self._require("export_artifacts", role)
         if not self.run().plan_locked:
             raise EngineError("Export artifacts after the plan is signed off")
         from s7_delivery.factory.artifact_export import render_story_package, story_folder_name
@@ -1768,7 +1868,7 @@ class Engine:
     def planning_write_to_clone(self, role: Role) -> None:
         """§D1: copy each story's exported folder into its target repo's
         own clone and commit locally. No push — fully reversible."""
-        roles.require("write_delivery_clone", role)
+        self._require("write_delivery_clone", role)
         import subprocess
 
         from s7_delivery.factory.artifact_export import story_folder_name
@@ -1842,7 +1942,7 @@ class Engine:
         refs/heads/delivery/<run_id>, asserted below, not just implied by
         the f-string. Merging it into a developer's own working branch is
         never automated by this system."""
-        roles.require("push_delivery_branch", role)
+        self._require("push_delivery_branch", role)
         import subprocess
 
         marker = self.store.read_json_or(None, "planning", "delivery", f"{repo_name}.json")
@@ -2085,7 +2185,7 @@ class Engine:
         )
 
     def planning_add_story(self, role: Role, fields: dict) -> None:
-        roles.require("edit_story", role)
+        self._require("edit_story", role)
         self._planning_open_for_change()
         stories = self._stories()
         story = self._build_manual_story(fields, stories, Provenance.HUMAN)
@@ -2106,7 +2206,7 @@ class Engine:
     def planning_import_stories(self, role: Role, items: list[dict]) -> int:
         """Import a batch of stories. All-or-nothing: any invalid item aborts
         the whole import before anything is written."""
-        roles.require("edit_story", role)
+        self._require("edit_story", role)
         self._planning_open_for_change()
         if not items:
             raise EngineError("The import contains no stories")
@@ -2139,7 +2239,7 @@ class Engine:
         return len(added)
 
     def planning_revise(self, role: Role, feedback: str) -> None:
-        roles.require("request_plan_revision", role)
+        self._require("request_plan_revision", role)
         if self.run().plan_locked:
             raise EngineError("The signed plan is locked; changes require an amendment")
         if not feedback.strip():
@@ -2153,7 +2253,7 @@ class Engine:
         )
 
     def planning_sign_off(self, role: Role, approver: str, note: str = "") -> None:
-        roles.require("sign_off_plan", role)
+        self._require("sign_off_plan", role)
         stories = self._stories()
         conditions = gates.plan_signoff_gate(
             stories,
@@ -2254,6 +2354,7 @@ class Engine:
             else Provenance.SIMULATED
         )
 
+    @_in_profile
     def _write_architecture_pack(
         self, version: int, revision_note: str, actor: str, prov: Provenance,
         revision_detail: str = "", revision_meta: dict | None = None,
@@ -2299,6 +2400,7 @@ class Engine:
             file_sizes={name: len(text.encode()) for name, text in serialized.items()},
             validations=architecture_checks.run_checks(stories, repos, files),
             landscape=arch.landscape(stories, analysis, repos),
+            pins=self._layer_pins(arch.PINNED_LAYER_FILES),
             **(revision_meta or {}),
         ).model_dump(mode="json")
         self.store.write_json(meta, "architecture", "meta.json")
@@ -2307,7 +2409,7 @@ class Engine:
     def architecture_generate(self, role: Role) -> None:
         """Generate the engineering blueprint from the locked plan. Runs AFTER
         Gate 1 — G1 never depends on this existing."""
-        roles.require("generate_architecture", role)
+        self._require("generate_architecture", role)
         phase = self._build_phase()
         build_phases.require_at_least(
             phase, BuildReviewPhase.GATE1_APPROVED, "Architecture generation"
@@ -2343,7 +2445,7 @@ class Engine:
         (refine.py) — and the refined section is folded into the new
         version's architecture.md. Acceptance always resets: the proposer
         still cannot ship their own edit without the acceptance checkpoint."""
-        roles.require("revise_architecture", role)
+        self._require("revise_architecture", role)
         meta = self._architecture_meta()
         if meta is None:
             raise EngineError("No architecture to revise — generate it first")
@@ -2410,7 +2512,7 @@ class Engine:
     def architecture_accept(self, role: Role, approver: str = "") -> None:
         """Human checkpoint: the generator (the service) never accepts its own
         blueprint. Lightweight by design — not a numbered gate."""
-        roles.require("accept_architecture", role)
+        self._require("accept_architecture", role)
         meta = self._architecture_meta()
         if meta is None:
             raise EngineError("No architecture to accept — generate it first")
@@ -2539,7 +2641,7 @@ class Engine:
         and task packs are shared; the team pack references them. Regeneration
         bumps versions and resets publication status — a new version needs a
         new publish (spec §22 refresh, never a silent overwrite)."""
-        roles.require("generate_delivery_packs", role)
+        self._require("generate_delivery_packs", role)
         from s7_delivery.factory import delivery_packs as dp
         from s7_delivery.factory import test_skeletons
 
@@ -2625,7 +2727,7 @@ class Engine:
         """Human checkpoint on the AC-derived test skeletons: QA approves a
         pack's test plan before it may publish. The generator (the service)
         never approves its own tests."""
-        roles.require("approve_test_plan", role)
+        self._require("approve_test_plan", role)
         phase = self._build_phase()
         build_phases.require_at_least(
             phase, BuildReviewPhase.DELIVERY_PACKS_READY, "Test plan approval"
@@ -2687,7 +2789,7 @@ class Engine:
         published pack needs a fresh publish to carry it."""
         from s7_delivery.factory import test_skeletons
 
-        roles.require("amend_test_plan", role)
+        self._require("amend_test_plan", role)
         phase = self._build_phase()
         build_phases.require_at_least(
             phase, BuildReviewPhase.DELIVERY_PACKS_READY, "Test plan amendment"
@@ -2787,6 +2889,7 @@ class Engine:
             for w in self._workspaces() if w.get("developer")
         }
 
+    @_in_profile
     def _write_team_pack(
         self, *, team: str, all_stories: list[dict], all_tasks: list[dict],
         version: int, plan_version: int, architecture_version: int,
@@ -2827,6 +2930,7 @@ class Engine:
             architecture_version=architecture_version,
             assignments=assignments,
             default_branch=default_branch,
+            stack=self._story_stack(t_stories[0]) if t_stories else None,
         )
         slug = files["workspace-manifest.json"]["team_slug"]
         self._write_files(files, "build", "packs", slug)
@@ -2842,6 +2946,7 @@ class Engine:
             plan_version=plan_version,
             repository=files["workspace-manifest.json"]["repository"],
             content_hash=sha256_of(files),
+            pins=self._layer_pins(dp.PINNED_LAYER_FILES),
             provenance=prov,
         ).model_dump(mode="json")
         self._record(
@@ -2925,6 +3030,7 @@ class Engine:
                 if mapped:
                     ws["ci_status"] = mapped
                 ws["ci_run_url"] = ci_ev.get("url", "")
+                ws["ci_build"] = ci_ev.get("build")
                 ws["ci_tests_total"] = ci_ev.get("tests_total")
                 ws["ci_tests_passed"] = ci_ev.get("tests_passed")
                 ws["ci_tests_failed"] = ci_ev.get("tests_failed")
@@ -2964,7 +3070,7 @@ class Engine:
         runs). Each step drives real engine actions — gates, roles and
         ledgers all run; only the push-failure evidence is scripted
         (demo_sync.py). Live runs use workspaces_sync_git instead."""
-        roles.require("sync_git_evidence", role)
+        self._require("sync_git_evidence", role)
         if self.run().mode is DemoMode.LIVE:
             raise EngineError(
                 "Scripted sync is for demo and simulation runs — live runs "
@@ -2981,7 +3087,7 @@ class Engine:
 
     def demo_rerun_story(self, role: Role, story_id: str) -> dict:
         """Retry the one story whose scripted sync failed — the fix beat."""
-        roles.require("sync_git_evidence", role)
+        self._require("sync_git_evidence", role)
         if self.run().mode is DemoMode.LIVE:
             raise EngineError(
                 "Scripted sync is for demo and simulation runs — live runs "
@@ -3000,7 +3106,7 @@ class Engine:
         Live runs only — a simulation run has no real clone, and mixing
         real git evidence into simulated provenance would muddy the
         badging."""
-        roles.require("sync_git_evidence", role)
+        self._require("sync_git_evidence", role)
         if self.run().mode is not DemoMode.LIVE:
             raise EngineError(
                 "Git evidence sync needs a live run — simulation has no real"
@@ -3346,6 +3452,14 @@ class Engine:
                     subprocess.TimeoutExpired):
                 summary = None
             if summary:
+                # `build` says whether the run compiled far enough to run a
+                # test at all. Absent on a summary produced before the
+                # workflow reported it — left None rather than assumed
+                # "succeeded", because assuming it is how a build failure
+                # reads as a clean run.
+                evidence["build"] = summary.get("build")
+                if summary.get("build_error"):
+                    evidence["build_error"] = summary["build_error"]
                 evidence["tests_total"] = summary.get("tests_total")
                 evidence["tests_passed"] = summary.get("tests_passed")
                 evidence["tests_failed"] = summary.get("tests_failed")
@@ -3457,12 +3571,13 @@ class Engine:
                 evidence, "build", "tasks", task["task_id"], "task-evidence.json"
             )
 
+    @_in_profile
     def delivery_pack_publish(self, role: Role, pack_id: str) -> None:
         """Publish a team pack into its developer repository as S7-managed
         context (AGENTS.md + .s7/** only). Canonical artifacts stay in the
         artifact store — published, not moved. Simulation/replay never touch
         git; only a live run writes to the connected clone."""
-        roles.require("publish_delivery_pack", role)
+        self._require("publish_delivery_pack", role)
         from s7_delivery.factory import delivery_packs as dp
         from s7_delivery.factory import publication as pub
 
@@ -3635,7 +3750,7 @@ class Engine:
         refusal, leaving half the teams' repositories written to and the run in
         a state nobody asked for. Every failure it checks is *foreseeable*
         before any mutation, so it is checked before any mutation."""
-        roles.require("publish_delivery_pack", role)
+        self._require("publish_delivery_pack", role)
         pending = [
             p for p in self._packs()
             if p["publication_status"] != "published"
@@ -3671,7 +3786,7 @@ class Engine:
     def workspace_assign_developer(
         self, role: Role, workspace_id: str, developer: str
     ) -> None:
-        roles.require("assign_developer", role)
+        self._require("assign_developer", role)
         if not developer.strip():
             raise EngineError("Developer name is empty")
         workspaces = self._workspaces()
@@ -3702,7 +3817,7 @@ class Engine:
         ledger, and the workspace stays badged as started before its
         dependency evidence. An automatic block with no human override would
         be this app's only ungoverned gate; this keeps it governed."""
-        roles.require("override_dependency_gate", role)
+        self._require("override_dependency_gate", role)
         if not reason.strip():
             raise EngineError(
                 "A dependency override needs a reason — it is a recorded"
@@ -3853,7 +3968,7 @@ class Engine:
         )
 
     def task_start(self, role: Role, task_id: str) -> None:
-        roles.require("start_task", role)
+        self._require("start_task", role)
         if not self.run().plan_locked:
             raise EngineError("Build opens after the plan is signed (G1)")
         tasks = self._tasks()
@@ -3912,7 +4027,7 @@ class Engine:
         )
 
     def task_generate_tests(self, role: Role, task_id: str) -> None:
-        roles.require("run_development", role)
+        self._require("run_development", role)
         from s7_delivery.factory import simulate
 
         tasks = self._tasks()
@@ -3954,7 +4069,7 @@ class Engine:
         )
 
     def task_develop(self, role: Role, task_id: str) -> None:
-        roles.require("run_development", role)
+        self._require("run_development", role)
         from s7_delivery.factory import simulate
 
         tasks = self._tasks()
@@ -4105,7 +4220,7 @@ class Engine:
         )
 
     def task_verify(self, role: Role, task_id: str) -> None:
-        roles.require("run_development", role)
+        self._require("run_development", role)
         tasks = self._tasks()
         task = self._task(tasks, task_id)
         if not task.get("files_changed"):
@@ -4125,7 +4240,7 @@ class Engine:
         )
 
     def task_submit_review(self, role: Role, task_id: str) -> None:
-        roles.require("submit_for_review", role)
+        self._require("submit_for_review", role)
         tasks = self._tasks()
         task = self._task(tasks, task_id)
         if task.get("progress_pct", 0) < 90:
@@ -4182,7 +4297,7 @@ class Engine:
         return findings
 
     def review_execute(self, role: Role, task_id: str) -> dict:
-        roles.require("execute_review", role)
+        self._require("execute_review", role)
         from s7_delivery.factory import simulate
 
         tasks = self._tasks()
@@ -4291,7 +4406,7 @@ class Engine:
         return report
 
     def review_return_to_development(self, role: Role, task_id: str) -> None:
-        roles.require("return_to_development", role)
+        self._require("return_to_development", role)
         tasks = self._tasks()
         task = self._task(tasks, task_id)
         if task["status"] != Status.BLOCKED.value:
@@ -4347,7 +4462,7 @@ class Engine:
     COVERAGE_THRESHOLD = 80
 
     def quality_run(self, role: Role) -> None:
-        roles.require("run_quality_checks", role)
+        self._require("run_quality_checks", role)
         if self.gate(GateId.INDEPENDENT_REVIEW).status != Status.PASSED:
             raise EngineError(
                 "Quality aggregation opens after the independent-review gate "
@@ -4515,7 +4630,7 @@ class Engine:
                    else f"{', '.join(incomplete)} not complete")
 
     def quality_decide(self, role: Role) -> None:
-        roles.require("decide_quality_gate", role)
+        self._require("decide_quality_gate", role)
         report = self.store.read_json_or(None, "quality", "quality-report.json")
         stale = self.store.read_json_or([], "staleness.json")
         conditions = gates.quality_gate(report, stale)
@@ -4551,13 +4666,14 @@ class Engine:
     def _release(self) -> dict | None:
         return self.store.read_json_or(None, "release", "release-record.json")
 
+    @_in_profile
     def release_document_generate(self, role: Role) -> dict:
         """Render the release/design document from run state (any mode).
 
         A deterministic rendering of the run's own records — never AI
         output, so it is badged rule_based in every mode (spec
         2026-08-10-demo-mode §4)."""
-        roles.require("generate_release_document", role)
+        self._require("generate_release_document", role)
         if self._release() is None:
             raise EngineError(
                 "The release stage has not been reached — request release "
@@ -4594,7 +4710,7 @@ class Engine:
         return meta
 
     def release_request_approval(self, role: Role) -> None:
-        roles.require("request_release_approval", role)
+        self._require("request_release_approval", role)
         if self.gate(GateId.QUALITY).status != Status.PASSED:
             raise EngineError("Release opens after the final gate (G3) passes")
         self._stage_in_progress(Stage.RELEASE)
@@ -4637,7 +4753,7 @@ class Engine:
     def release_approve(
         self, role: Role, approver: str, note: str = "", decision: str = "approved"
     ) -> None:
-        roles.require("approve_release", role)
+        self._require("approve_release", role)
         if self._release() is None:
             raise EngineError("Request release approval first")
         if decision not in ("approved", "rejected"):
@@ -4678,7 +4794,7 @@ class Engine:
             self_heal.advance(self)
 
     def release_deploy(self, role: Role) -> None:
-        roles.require("deploy", role)
+        self._require("deploy", role)
         record = self._release()
         if record is None:
             raise EngineError("Request release approval first")
@@ -4746,7 +4862,7 @@ class Engine:
         the release, the knowledge repository update is recorded — a
         labelled demonstration line, not a real repository write — and the
         run completes."""
-        roles.require("complete_handover", role)
+        self._require("complete_handover", role)
         record = self._release()
         if not record or not record.get("deployment"):
             raise EngineError(
@@ -4800,7 +4916,7 @@ class Engine:
         """The demonstration's upstream change: an SME ruling amends the
         design after downstream work exists. Nothing downstream is touched —
         the ledger marks it stale, and the release gate blocks on it."""
-        roles.require("trigger_upstream_change", role)
+        self._require("trigger_upstream_change", role)
         design = self.store.read_json_or(None, "planning", "design.json")
         if design is None:
             raise EngineError("No design artifact yet; generate the plan first")
@@ -4868,7 +4984,7 @@ class Engine:
         version** re-validated against the changed upstream — never a silent
         update. Corrections land in original creation order so the ledger
         clears the staleness chain naturally."""
-        roles.require("run_self_correction", role)
+        self._require("run_self_correction", role)
         stale = self.store.read_json_or([], "staleness.json")
         if not stale:
             raise EngineError("Nothing is stale; no correction to run")

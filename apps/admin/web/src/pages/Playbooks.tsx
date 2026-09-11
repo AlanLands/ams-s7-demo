@@ -467,7 +467,7 @@ export function PlaybooksPage() {
         description="The self-healing layer, edited as steps. Every action comes from the engine's own catalogue, a gate names the role that records it, and a save is a new version in the set's ledger — the same ledger the prompt editor writes."
         actions={<>
           <Button variant="secondary" size="sm" icon={<RefreshCw />} onClick={() => { catalogue.reload(); list.reload() }} disabled={loading}>Refresh</Button>
-          <Button variant="ghost" size="sm" onClick={() => goTo('prompt_sets')}>Prompt sets</Button>
+          <Button variant="ghost" size="sm" onClick={() => goTo('profiles')}>Delivery profiles</Button>
         </>}
       />
 
@@ -484,7 +484,7 @@ export function PlaybooksPage() {
       {setRow?.is_default ? (
         <div style={{ marginBottom: 16 }}>
           <Notice tone="warning" title="Editing the default set changes committed files."
-            actions={<Button variant="secondary" size="sm" onClick={() => goTo('prompt_sets')}>Clone a set instead</Button>}>
+            actions={<Button variant="secondary" size="sm" onClick={() => goTo('profiles')}>Create a profile instead</Button>}>
             Playbooks make no model call, so no recording is pinned to them — but <code>tests/test_layers.py</code> still refuses an unrecorded default file. Every save here records a new version.
           </Notice>
         </div>
@@ -496,7 +496,7 @@ export function PlaybooksPage() {
       {catalogue.data?.missing ? (
         <Empty title="Playbook editing is not available on this backend yet"
           hint={<>The admin API answered 404 for <span className="mono">GET /api/admin/playbook-actions</span>. Until the routes in docs/admin-api.md land, playbooks are still editable as raw JSON in the prompt editor.</>}
-          action={<div className="btn-row"><Button variant="secondary" size="sm" onClick={catalogue.reload}>Check again</Button><Button variant="ghost" size="sm" onClick={() => goTo('prompt_sets')}>Open the prompt editor</Button></div>} />
+          action={<div className="btn-row"><Button variant="secondary" size="sm" onClick={catalogue.reload}>Check again</Button><Button variant="ghost" size="sm" onClick={() => goTo('profiles')}>Open the profile editor</Button></div>} />
       ) : null}
       {list.error ? <LoadError what={`playbooks in ${set}`} error={list.error} onRetry={list.reload} /> : null}
       {catalogue.data?.cat && list.data && list.data.length === 0 ? (

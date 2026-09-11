@@ -26,12 +26,33 @@ Version directories are immutable: a revision writes `v<N+1>/` and updates
 ## Level 2 — team delivery pack
 
 `build/packs/<team-slug>/` — README.md, team-delivery-pack.md, AGENTS.md
-(spec-§14 sections, first line is the s7-managed marker), assigned-stories.json,
-team-dependencies.json, test-strategy.md, rollback-guidance.md,
-workspace-manifest.json. Pack records live in `build/packs/meta.json`
-(`DeliveryPack`: version, story/task ids, architecture_version, plan_version,
-repository, publication_status, content_hash). Team packs inherit run-level
-architecture **by reference**.
+(spec-§14 sections, first line is the s7-managed marker),
+assigned-stories.json, team-dependencies.json, test-strategy.md,
+rollback-guidance.md, git-workflow.md (the five developer phrases — *start
+working on*, *plan the next criterion*, *build the plan*, *commit the
+changes*, *development completed: please push the code* — the per-criterion
+loop that plans one criterion into the story note for the developer to edit,
+builds what they left there, and records their own observation of it working
+before the next is planned, the story-owned-files rule and the push
+checklist), code-conventions.md (how the code itself is written — read the
+repository first and let its own conventions win, naming, size, errors,
+validation, logging, comments, dead code and speculative abstraction,
+dependencies; only its opening line is stack-aware), ui-guidelines.md (the
+identity's tokens, page anatomy, the five states, WCAG AA, screenshot
+evidence), db-conventions.md (one forward-only migration per story, config
+fragments, synthetic seed data), ui/app.css and ui/layout.html (the starter
+stylesheet and the shared page layout — Thymeleaf for a maven repository,
+Jinja2 for pytest), workspace-manifest.json. The git workflow, code
+conventions, UI guidelines, DB conventions and starter UI files are rendered
+from the delivery profile's Standards layer
+(`s7_delivery/layers/standards/`, tokens from `identity/identity.md`); the
+pack record pins their versions (`pins`) and a later profile edit shows the
+pack as stale rather than silently changing what the next publish carries.
+engineering-rules.md in the architecture pack is the same mechanism
+(`standards/engineering-rules.md`, pinned on `architecture/meta.json`). Pack
+records live in `build/packs/meta.json` (`DeliveryPack`: version, story/task
+ids, architecture_version, plan_version, repository, publication_status,
+content_hash). Team packs inherit run-level architecture **by reference**.
 
 ## Level 3 — story pack (shared, canonical)
 

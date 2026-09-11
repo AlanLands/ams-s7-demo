@@ -63,6 +63,14 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
     plan[".s7/shared/git-workflow.md"] = read(
         "build", "packs", slug, "git-workflow.md"
     )
+    # Standards added after the first packs: tolerate packs generated before
+    # each existed (the UI guidelines, then the DB conventions and starter
+    # UI files of the Standards layer, then the code conventions).
+    for name in ("ui-guidelines.md", "db-conventions.md", "ui/app.css",
+                 "ui/layout.html", "code-conventions.md"):
+        path = store.path("build", "packs", slug, name)
+        if path.is_file():
+            plan[f".s7/shared/{name}"] = path.read_text(encoding="utf-8")
     for story_id in pack["story_ids"]:
         sdir = store.path("build", "stories", story_id)
         for p in sorted(sdir.iterdir()):
@@ -103,13 +111,19 @@ def simulated_commit(content_hash: str) -> str:
 
 
 def check_branch(branch: str, default_branch: str) -> None:
+    """Never a default branch. The refused names come from the active delivery
+    profile's GitHub integration (`integrations/github.md`, default
+    main/master) — a profile can add names, never remove the check."""
+    from s7_delivery.product import integrations
+
     if not branch.startswith("s7/"):
         raise PublicationConflict(f"Refusing non-s7 branch {branch!r}")
     if default_branch and branch == default_branch:
         raise PublicationConflict(
             f"Refusing to publish to the repository's default branch {default_branch!r}"
         )
-    if branch.split("/")[-1] in ("main", "master") or branch in ("main", "master"):
+    refused = set(integrations.refused_branch_names()) | {"main", "master"}
+    if branch.split("/")[-1] in refused or branch in refused:
         raise PublicationConflict(f"Refusing to publish to {branch!r}")
 
 

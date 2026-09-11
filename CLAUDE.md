@@ -406,6 +406,244 @@ and the activity counters split `ai_workflows` (live_ai only) from
 `simulated_workflows` — a simulated event never counts as an AI workflow
 anywhere the ledger is rendered.
 
+**Delivery profiles — one configuration tool, six layers, one mechanism,
+added 2026-09-07.** The admin panel's five separate features (prompt sets,
+LLM settings, roles, users, runs) became one model: a **Delivery Profile**
+is a named, versioned bundle of everything that configures S7 for a client
+or project, and every layer gets the treatment prompt sets already had.
+The six layers — **Prompts** (rules/skills/tasks/playbooks, what the models
+are told), **Standards** (`standards/`: git workflow, engineering rules, UI
+guidelines, DB conventions, starter UI files — what developers are told),
+**Templates** (`templates/`: CI bootstraps, release-document theme — what
+S7 generates mechanically), **Governance** (`governance/roles.md`: roles ×
+permissions overrides), **Models** (`models/`: provider and model per
+stage, pricing) and **Identity** (`identity/identity.md`: organisation,
+palette, synthetic domain) — share one file shape loaded by
+`factory/layers.py` (markdown or JSON body, frontmatter declaring
+`variables:` the engine supplies and `locked:` tokens every edit must
+keep), one ledger, one editor, one audit trail. A profile is an **overlay**
+(`config/profiles/<name>/`, `s7_delivery/product/profiles.py`): it stores
+only the files it overrides and falls through to the committed default set,
+which stays recording-pinned; the first edit of a default file is
+copy-on-write, `revert` deletes the override, and the resolved view marks
+each file *default* or *overridden*. Every consumer **pins a version**: a
+run records the profile fingerprint at creation and reports drift, packs
+and the architecture pack carry `pins: {id: id@vN+sha8}` and report
+`stale_pins` derived on read, so an edit never silently changes a running
+delivery. `Engine._require` resolves every permission check against the
+run's governance layer; `llm_settings.for_stage` reads the run's models
+layer over the global file. `impact()` states what an edit touches before
+it lands — recordings pinned to the bytes (default prompts only), runs
+whose artifacts would go stale, consumers. Profiles export and import as a
+zip. Legacy full-copy prompt sets still resolve (`DeliveryRun.prompt_set`
+keeps its name and now names a profile). Users stay global; gate conditions
+stay in code (follow-ups in the plan). A seventh layer landed the same day:
+**Integrations** (`integrations/github.md`, `product/integrations.py`) —
+host, owner allowlist, whether local paths may be connected, whether S7 may
+create repositories, the branch names publication refuses, the `gh` login
+expected — inputs to checks the engine already makes (`intake_connect_repo`
+refuses before cloning, `intake_create_new_app_repo` refuses creation,
+`publication.check_branch` adds the names), so a profile can only tighten
+them; credentials never live there (hard rule 3), the panel shows only
+`gh auth status`'s login. The admin app's **Repositories** page
+(`product/repos_admin.py`) is the cross-run known-repositories registry
+joined with the runs using each repo, with forget and an audited
+`git ls-remote` connection test; connecting stays a per-run Control Centre
+action. Since 2026-09-08 each row carries a **Status** derived on read from
+the newest `repository.test` audit line (`last_check`), so a repository
+deleted on its host reads *not found* after one probe rather than lingering
+as if fine; run-only rows cannot be forgotten because only the runs naming
+them hold them — the tooltip names those runs. Hard rule 5 is untouched — no mode
+makes a model call it did not make before, and the default profile renders
+the exact bytes the code rendered, because the standards and templates were
+extracted verbatim. Design: `docs/design-history/plans/
+2026-09-07-delivery-profiles.md`; contract: `docs/admin-api.md`
+§ Delivery profiles; tests: `tests/test_profiles.py` and the per-layer
+suites.
+
+**Developer pack hardening — phrases, story-owned files, UI rules, added
+2026-09-07.** The first real multi-story delivery against a live target
+(S7-00011, nine stories in parallel waves) exposed three gaps in what the
+packs told a coding agent, and each is now closed at the renderer
+(`factory/delivery_packs.py`, `architecture.engineering_rules_md`). (1) The
+published `git-workflow.md` treated commits as free, so the agent committed
+before the developer had seen anything; it now names exactly **three
+developer phrases** — *start working on <story-id>* builds in the working
+tree only and stops, *commit the changes* commits what was reviewed (red
+baseline first, implementation second), and the unchanged *development
+completed: please push the code* runs the push checklist — and says the
+agent never commits, stashes or pushes on its own initiative. (2) Every
+story appended its own section to `README.md`, `architecture.md` and
+`application.yml`, which conflicted three times over at merge; the
+**story-owned-files rule** now forbids editing shared files on a story
+branch, gives each story a note at `docs/delivery/<story-id>.md`, puts
+feature-flag defaults in code, confines dependency-manifest edits to one
+named hunk, and adds *one merge at a time* — every open branch rebases
+before the next merge, so a conflict is resolved on the story branch, never
+on the default branch. (3) Nothing described what a page should look like,
+so pages shipped as framework defaults; a new shared **`ui-guidelines.md`**
+(published to `.s7/shared/`, listed in `TEAM_FILES`) carries the Control
+Centre's own MapleSure tokens as a copy-in CSS block, page anatomy, form
+rules, the five states every page renders, WCAG 2.1 AA pinned by a
+contrast test, and the per-state screenshots the pull request must carry;
+`AGENTS.md` gained *UI Rules* and *Story-Owned Files* sections and
+`engineering-rules.md` the same three disciplines. All of it is
+deterministic pack text (no model call, no new provenance kind); packs
+generated before this date lack the UI file and publication tolerates that.
+Existing runs pick the changes up on the next *Generate delivery packs* +
+publish, which is a human action as before.
+
+**Build discipline in the developer packs — one criterion at a time, planned
+late and edited by the developer, added 2026-09-10.** The 2026-09-07
+hardening told a coding agent how to *commit*; nothing told it how the code
+gets *written*, so an agent given *start working on US-003* could emit the
+whole story in one pass and the developer's first sight of the design was a
+finished diff. Two earlier shapes were tried and rejected during review. Per
+*function* approval failed because a yes/no prompt is not a comprehension
+check: twelve of them per story train reflexive assent, so the ceremony of
+approval arrives without the substance. Planning every criterion **up front**
+failed for a quieter reason: a plan for the third criterion written before
+the first exists is guesswork, and it can only name placeholders. What
+shipped is therefore a loop at **acceptance-criterion** grain — the unit a
+human can actually judge, the unit the S7 test skeletons are already one-per,
+and the unit CI evidence already joins on — with each criterion planned only
+when its turn comes. **A fifth developer phrase** splits planning from
+building. On `start working on`, the agent branches, lists the criteria in
+build order with the skeleton test that will prove each, copies the whole red
+baseline in unchanged, raises the questions that block the *story*, and
+stops: it plans nothing and writes nothing. On `plan the next criterion` it
+writes **one** criterion's plan into that criterion's section of the story
+note (`docs/delivery/<story-id>.md`) — the criterion verbatim, its test by
+name, the **code plan** naming every function, module, template and config
+key with why *this* criterion needs it, grounded in real files and real call
+sites because by now they exist, plus how the developer will see it working —
+and stops. **That section is the contract and the developer owns it:** they
+rewrite any part of it, and on `build the plan` the agent **re-reads the
+section as they left it and builds what it now says, not what it proposed**,
+refusing rather than silently deviating if an edit cannot be implemented as
+written. That is what makes the gate real: the developer's engagement
+produces an artifact instead of a "yes", which is § Design review item 1's
+"the handoff is a file at a deterministic path, not a conversation" turned on
+the plan itself. Work *inside* a criterion runs continuously, so nobody is
+asked to approve each function. When its test and the full suite are green,
+the agent hands over the most direct way to observe the criterion — the page
+and the input, the command and the expected output, the query and its rows —
+and waits for what the developer actually saw, **in their own words**; a
+description that does not match means the criterion is not met. The
+observation is recorded in that section, the section is ticked, and only then
+is the next criterion planned. Where the only honest observation is the
+automated test the agent must say exactly that and never describe a manual
+check that does not exist, which is § Staged output applied to the
+developer's own agent. A *Plan check* joins the push checklist (every section
+carries its plan, its tick and its observation, and nothing was built that no
+section named), and the pull request maps each criterion to its test evidence
+*and* the human observation of it. S7 publishes this text and cannot enforce
+it, since the agent runs in the developer's own environment; that is exactly
+why the plan and the verification are reviewable files rather than
+unverifiable claims. All of it is deterministic pack text
+(`layers/standards/git-workflow.md` v5 and `engineering-rules.md` v4,
+`factory/delivery_packs.py` — no model call, no new provenance kind);
+`AGENTS.md` gained a *Build Discipline* section and its *Story-Owned Files*
+pointer became a section reference instead of a rule-number range that
+renumbering silently breaks; packs generated before this date carry the
+three-phrase text and publication tolerates that. Existing runs pick the
+change up on the next *Generate delivery packs* + publish, which is a human
+action as before. **Still open:** the packs govern process, UI pages and
+database migrations but say almost nothing about code craft — naming, error
+handling, logging, validation, layering, dead code, or matching the target
+repository's existing conventions are absent, while the Independent Review
+page renders a *Code Quality & Standards* row and `skills/reviewer.md`
+explicitly tells the reviewer not to judge beyond the criteria. A
+`code-conventions.md` standard is the obvious next file.
+
+**Code conventions — how the code itself is written, added 2026-09-10.** An
+audit of every published pack file found the same shape of gap the UI rules
+closed on 2026-09-07: the packs governed *process* (branching, test-first,
+scope, traceability), *pages* and *migrations*, and said essentially nothing
+about the code. Naming, function size, error handling, logging beyond "no
+PII", input validation, layering inside an application, comments, dead code,
+speculative abstraction and matching the target repository's existing
+patterns were all absent — one unelaborated clause in the architecture pack
+("follow each repository's existing stack and conventions") delegated to a
+file that is never specified or checked to contain any. So a criterion could
+go green, the developer could watch it work, and the code underneath could
+still be poor. A new **`standards/code-conventions.md`** closes it, published
+to `.s7/shared/` and listed in `TEAM_FILES` and `PINNED_LAYER_FILES` like the
+other standards, with a new *Code Rules* section in `AGENTS.md`. Its
+load-bearing rule is the first one: **the repository outranks this file** —
+open the neighbouring files and follow what the codebase already does, and
+where it disagrees with the standard the codebase wins, because S7 has never
+seen it and the repository has. That is the only rule that survives contact
+with a client codebase, so everything after it (naming, one job per function,
+early returns over deep nesting, never swallow a failure, validate once at
+the edge, log identifiers and never contents, comments say *why*, no dead
+code, no speculative abstraction, no invented library calls, no secrets, and
+a new dependency being a team decision rather than a story's convenience) is
+a default the neighbouring files may override. The rules are stack-neutral
+and written once; only the opening line differs by stack (`STACK_LINES` —
+`mvn test` and camelCase for maven, `pytest` and snake_case for pytest, and
+an explicit "not recorded, take it from the files" where the stack is
+unknown), which is the same stack-awareness the test skeletons and starter
+layouts already use. Deterministic pack text as before: no model call, no new
+provenance kind, and `publication.file_plan` tolerates packs generated before
+the file existed. **Still open:** the Independent Review page renders a *Code
+Quality & Standards* row while `skills/reviewer.md` tells the reviewer not to
+judge beyond the criteria — now that a standard exists, that row can either
+be measured against it or stop claiming to.
+
+**A real red baseline — buildable new repositories, and CI that says whether
+it built, added 2026-09-10.** The first live multi-story delivery against a
+repository S7 created itself (`sponsor-login-enhancement`) exposed a false
+green at the root of the evidence chain. `ci_bootstrap.bootstrap` committed
+`.github/workflows/s7-ci.yml` and nothing else, and for a repo created by
+`intake_create_new_app_repo` the stack comes from *typed text* ("Java/Spring"
+→ maven), so a Maven workflow landed on a repository with no `pom.xml`.
+`mvn -B test` then exited before any test, no surefire XML was written, and
+the summarizer — which only ever counted what the reports contained —
+published `{"tests_total": 0, "tests_failed": 0}`. Zero failures. The
+`red_baseline` the app then rendered read *"publication CI failed — real red
+baseline"* (`TestEvidence.tsx`), so a build that never compiled was presented
+as the governed red baseline, which is § Staged output's exact failure in the
+one place built to prevent it. Two fixes, both deterministic and neither an
+AI call. **(1) The summary now reports the build.** Both CI templates capture
+the test command's own exit code (`test-exit-code`, written without hiding
+it — the step still `exit "$code"`s, so a red run stays red) and emit
+`build: succeeded | no_tests | failed` plus `exit_code` and a bounded
+`build_error` tail. When the build failed, `tests_total`/`tests_passed`/
+`tests_failed` are **null, never zero** — § Determinism's "`None` is an
+admission" applied to the one number a room would read as success; pytest's
+exit 5 is classified `no_tests`, not a failure. `build` rides through
+`_ci_run_evidence` into `ci_evidence`/`red_baseline` (absent on runs
+summarized before this — left `None`, never assumed succeeded), and the
+Build & Test Evidence page states only what the run showed: a failed build
+says *"no test baseline captured"*, a run with no tests says *"baseline not
+confirmed"*, and an all-green baseline says it is not a red one. **(2) A
+repository S7 creates is buildable from its first commit.**
+`bootstrap(scaffold=True)` — creation only, never `connect-repo`, whose code
+is the authority on how it builds — also commits the minimal buildable
+project of the stack from five new Templates-layer files
+(`scaffold-maven-pom`, `scaffold-maven-smoke-test`,
+`scaffold-pytest-requirements`, `scaffold-pytest-config`,
+`scaffold-pytest-smoke-test`): a framework-free `pom.xml` (JUnit 5, surefire,
+jacoco — so `coverage_pct` stops being permanently unset) or
+`requirements.txt` + `pyproject.toml`, and one passing smoke test so the
+first run is genuinely green and a *later* red run is attributable to the
+published skeletons. It never overwrites a file that exists, so it cannot
+damage a repository that brought its own build, and re-running writes
+nothing. Hard rule 5 is untouched: simulation and demo runs bootstrap no repo
+and make no model call. **Deliberately not shipped:** the Maven wrapper. The
+developer's agent asked for it and the standard wrapper needs
+`maven-wrapper.jar`, a binary the markdown-bodied layers cannot carry;
+shipping the non-standard script-only variant into client repositories is
+worse than shipping none, so Maven stays a one-time developer-machine
+install like `npm install` under hard rule 4's own amendment. **Still open:**
+the three upstream defects the same transcript surfaced — an acceptance
+criterion satisfiable only by editing a shared file the story branch may
+never touch (`git-workflow.md` rules 21-22 vs. the planner, which validates
+AC *count* and never AC *content*), a criterion with no observable trigger or
+result, and a feature flag the pack mandates while `code-conventions.md`
+rule 25 forbids a switch nothing sets.
+
 **Correction learning — the admin-only loop, added 2026-09-03.** The
 product learns from the humans who correct it, without the dashboard's
 users ever seeing the machinery. Whenever a person edits model output in

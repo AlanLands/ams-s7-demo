@@ -2,15 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { ApiError, api, getActor, getToken, setActor as persistActor, setToken as persistToken } from '../api'
 
 export type Section =
-  | 'overview' | 'prompt_sets' | 'prompt_editor' | 'playbooks' | 'learning' | 'llm' | 'recordings'
-  | 'roles' | 'users' | 'runs' | 'observability' | 'audit'
+  | 'overview' | 'profiles' | 'profile_editor' | 'playbooks' | 'learning' | 'llm' | 'recordings'
+  | 'roles' | 'users' | 'runs' | 'repositories' | 'observability' | 'audit'
 
 interface AdminContextValue {
   section: Section
-  /** Prompt set open in the editor (section === 'prompt_editor'). */
+  /** Delivery profile open in the editor (section === 'profile_editor'). The
+   * name is the run's `prompt_set` — the same string names both. */
   editingSet: string | null
   goTo: (section: Section) => void
-  openEditor: (set: string) => void
+  /** Open the profile editor; `fileId` preselects that file on arrival. */
+  openEditor: (set: string, fileId?: string) => void
+  /** File the Profile Editor should select on arrival — set by a link
+   * elsewhere, cleared once honoured. */
+  editorFileFocus: string | null
+  clearEditorFileFocus: () => void
   /** Playbook the Playbooks page should select on arrival (with its prompt
    * set when known) â€” set by a link elsewhere, cleared once honoured. */
   playbookFocus: { id: string; set?: string | null } | null
@@ -40,8 +46,15 @@ const AdminContext = createContext<AdminContextValue | null>(null)
 const SECTION_KEY = 's7admin.section'
 const SET_KEY = 's7admin.editingSet'
 
+// Sections that no longer exist (the Prompt Sets pages became Delivery
+// Profiles on 2026-09-07) map onto their successors for a stored choice.
+const RENAMED: Record<string, Section> = { prompt_sets: 'profiles', prompt_editor: 'profile_editor' }
+
 function readSection(): Section {
-  try { return (localStorage.getItem(SECTION_KEY) as Section) || 'overview' } catch { return 'overview' }
+  try {
+    const stored = localStorage.getItem(SECTION_KEY) ?? ''
+    return RENAMED[stored] ?? ((stored as Section) || 'overview')
+  } catch { return 'overview' }
 }
 
 export function errorMessage(err: unknown): string {
@@ -56,6 +69,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try { return localStorage.getItem(SET_KEY) } catch { return null }
   })
   const [playbookFocus, setPlaybookFocus] = useState<{ id: string; set?: string | null } | null>(null)
+  const [editorFileFocus, setEditorFileFocus] = useState<string | null>(null)
   const [actor, setActorState] = useState(getActor)
   const [token, setTokenState] = useState(getToken)
   const [health, setHealth] = useState<AdminContextValue['health']>('unknown')
@@ -70,11 +84,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     try { localStorage.setItem(SECTION_KEY, next) } catch { /* ignore */ }
   }, [])
 
-  const openEditor = useCallback((set: string) => {
+  const openEditor = useCallback((set: string, fileId?: string) => {
     setEditingSet(set)
+    setEditorFileFocus(fileId ?? null)
     try { localStorage.setItem(SET_KEY, set) } catch { /* ignore */ }
-    goTo('prompt_editor')
+    goTo('profile_editor')
   }, [goTo])
+  const clearEditorFileFocus = useCallback(() => setEditorFileFocus(null), [])
 
   const openPlaybook = useCallback((id: string, set?: string | null) => {
     setPlaybookFocus({ id, set })
@@ -127,11 +143,11 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   }, [notify, fail])
 
   const value = useMemo<AdminContextValue>(() => ({
-    section, editingSet, goTo, openEditor, playbookFocus, openPlaybook, clearPlaybookFocus,
+    section, editingSet, goTo, openEditor, editorFileFocus, clearEditorFileFocus, playbookFocus, openPlaybook, clearPlaybookFocus,
     actor, setActor, token, setToken,
     health, configRoot, recheckHealth, toast, notify, fail, errorPopup,
     dismissError: () => setErrorPopup(null), run, busy: pending > 0,
-  }), [section, editingSet, goTo, openEditor, playbookFocus, openPlaybook, clearPlaybookFocus,
+  }), [section, editingSet, goTo, openEditor, editorFileFocus, clearEditorFileFocus, playbookFocus, openPlaybook, clearPlaybookFocus,
     actor, setActor, token, setToken,
     health, configRoot, recheckHealth, toast, notify, fail, errorPopup, run, pending])
 

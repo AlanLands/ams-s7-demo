@@ -1,5 +1,5 @@
 import {
-  Activity, ChartColumn, Cpu, Database, FileText, GraduationCap, LayoutDashboard, ListChecks, PenLine, PlayCircle, ShieldCheck, Users,
+  Activity, ChartColumn, Cpu, Database, GitBranch, GraduationCap, Layers, LayoutDashboard, ListChecks, PenLine, PlayCircle, ShieldCheck, Users,
 } from 'lucide-react'
 import { useAdmin, type Section } from '../state/AdminContext'
 
@@ -10,7 +10,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: 'Product',
     items: [
       { key: 'overview', label: 'Overview', icon: <LayoutDashboard /> },
-      { key: 'prompt_sets', label: 'Prompt Sets', icon: <FileText /> },
+      { key: 'profiles', label: 'Delivery Profiles', icon: <Layers /> },
       { key: 'playbooks', label: 'Playbooks', icon: <ListChecks /> },
       { key: 'learning', label: 'Correction Learning', icon: <GraduationCap /> },
       { key: 'llm', label: 'LLM Settings', icon: <Cpu /> },
@@ -28,6 +28,7 @@ const GROUPS: { title: string; items: Item[] }[] = [
     title: 'Operations',
     items: [
       { key: 'runs', label: 'Runs', icon: <PlayCircle /> },
+      { key: 'repositories', label: 'Repositories', icon: <GitBranch /> },
       { key: 'observability', label: 'Observability', icon: <ChartColumn /> },
       { key: 'audit', label: 'Audit', icon: <Activity /> },
     ],
@@ -42,20 +43,20 @@ export function SideNav() {
         <div key={g.title} style={{ display: 'contents' }}>
           <div className="nav-group" aria-hidden="true">{g.title}</div>
           {g.items.map((it) => {
-            const active = section === it.key || (it.key === 'prompt_sets' && section === 'prompt_editor' && !editingSet)
+            const active = section === it.key || (it.key === 'profiles' && section === 'profile_editor' && !editingSet)
             return (
               <div key={it.key} style={{ display: 'contents' }}>
                 <button type="button" className="nav-item" aria-current={active ? 'page' : undefined} title={it.label} onClick={() => goTo(it.key)}>
                   <span className="nav-ico" aria-hidden="true">{it.icon}</span>
                   <span className="nav-label">{it.label}</span>
                 </button>
-                {it.key === 'prompt_sets' && editingSet && (
+                {it.key === 'profiles' && editingSet && (
                   <button
                     type="button"
                     className="nav-item sub"
-                    aria-current={section === 'prompt_editor' ? 'page' : undefined}
+                    aria-current={section === 'profile_editor' ? 'page' : undefined}
                     onClick={() => openEditor(editingSet)}
-                    title={`Prompt editor — ${editingSet}`}
+                    title={`Profile editor — ${editingSet}`}
                   >
                     <span className="nav-ico" aria-hidden="true"><PenLine /></span>
                     <span className="nav-label">Editor <span className="mono">{editingSet}</span></span>
@@ -68,7 +69,7 @@ export function SideNav() {
       ))}
       <div className="nav-foot">
         Configuration plane <code>{configRoot ?? 'config/'}</code>
-        <br />Every change is recorded: prompt edits in the set's ledger, everything else in the audit.
+        <br />Every change is recorded: file edits in the profile's ledger, everything else in the audit.
       </div>
     </nav>
   )

@@ -8,8 +8,27 @@ This directory is the data half of the four-layer delivery system
 | **Rules** | `rules/<id>.md` | The stable prefix every model call of one lane starts with |
 | **Skills** | `skills/<id>.md` | One per stage: the role text that specialises a call |
 | **Playbooks** | `playbooks/<change-type>.md` | The ordered steps a self-healing change runs (JSON body): mechanical steps run automatically, gate steps wait for the named role |
+| **Tasks** | `tasks/<id>.md` | The per-call task text with the `{{variables}}` the workflow supplies |
 | Workflows | `s7_delivery/factory/engine.py`, `gates.py`, `build_phases.py` | Role check → gate check → write → provenance append → activity append |
 | Orchestrator | `apps/control/` and `s7_delivery/cli.py` | Thin surfaces over the same engine |
+
+Since 2026-09-07 this directory is also the **default delivery profile**
+(`docs/design-history/plans/2026-09-07-delivery-profiles.md`): the same
+loader carries every configuration layer, and a profile under
+`config/profiles/<name>/` overrides only the files it changes.
+
+| Profile layer | Where | Body | Consumer |
+|---|---|---|---|
+| **Standards** | `standards/<id>.md` | markdown with `{{variables}}` | delivery packs → `.s7/shared/` (git workflow, engineering rules, UI guidelines, DB conventions, starter UI files) |
+| **Templates** | `templates/<id>.md` | the generated file verbatim | CI bootstrap workflows, new-application build scaffolds, release-document theme |
+| **Governance** | `governance/roles.md` | JSON | `roles.require` on every engine call |
+| **Models** | `models/llm-settings.md`, `models/pricing.md` | JSON | `llm_settings.for_stage`, cost per release |
+| **Identity** | `identity/identity.md` | JSON | organisation, palette and synthetic domain for the standards and the release theme |
+
+Only rules, skills and tasks enter a model call: editing them misses
+recordings (below). Editing any other layer only makes generated artifacts
+stale — packs and the architecture pack pin the versions they were rendered
+from (`pins`), and the Control Centre reports `stale_pins` on read.
 
 The mapping onto the prompt-prefix convention (`common/prompt.py`) is
 exact: a Rules file fills the `rules` slot, a Skills file fills the `role`
@@ -20,10 +39,12 @@ slot, and the workflow supplies `memory`, `ref` and `task` per call.
 ```
 ---
 id: intake-analysis          # must equal the file name
-layer: skill                 # rules | skill
+layer: skill                 # rules | skill | task | playbook | standard | template | governance | model | identity
 title: Intake analysis
 stage: intake
 summary: one line for the app and the CLI
+variables: a, b              # task/standard/template: the only {{placeholders}} the body may use
+locked: {{a}}, s7-managed    # optional: literal tokens every edit must keep
 ---
 <the prompt text, verbatim>
 ```

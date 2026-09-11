@@ -1,0 +1,50 @@
+---
+id: ui-layout-thymeleaf
+layer: standard
+title: UI layout — Thymeleaf
+stage: build_review
+summary: The shared page layout for a Java/Spring (Maven) target — brand bar, skip link, main content slot and footer as a Thymeleaf fragment every page inserts its content into, linking the starter stylesheet at /css/app.css. Published to .s7/shared/ui/layout.html when the repository's stack is maven (or unknown). The engine supplies the identity names.
+variables: organisation, short_mark, product_line
+---
+<!DOCTYPE html>
+<!--
+  Shared layout (ui-guidelines.md §2). Every page uses this shell; a story never
+  builds its own. Usage from a page template:
+
+    <html xmlns:th="http://www.thymeleaf.org"
+          th:replace="~{layout :: page(~{::title}, ~{::main/content()})}">
+      <head><title>Sign in</title></head>
+      <body><main>…page content…</main></body>
+    </html>
+
+  Copy this file to src/main/resources/templates/layout.html and the starter
+  stylesheet to src/main/resources/static/css/app.css.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="page(title, content)">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title th:replace="${title}">{{product_line}}</title>
+  <link rel="stylesheet" th:href="@{/css/app.css}" href="/css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="brand-bar" th:fragment="brandBar">
+    <a class="brand" th:href="@{/}" href="/">
+      <span class="brand-mark" aria-hidden="true">{{short_mark}}</span>
+      <span class="brand-name">{{product_line}}</span>
+    </a>
+    <div class="session" th:if="${#authorization.expression('isAuthenticated()')}">
+      <span th:text="${#authentication.name}">Person name</span>
+      <span th:if="${planNumber}" th:text="'Plan ' + ${planNumber}">Plan 000000</span>
+      <form th:action="@{/logout}" method="post"><button class="button-link" type="submit">Sign out</button></form>
+    </div>
+  </header>
+  <main id="main" th:insert="${content}">
+    <!-- page content is inserted here -->
+  </main>
+  <footer class="site-footer">
+    <p>{{organisation}} &middot; {{product_line}}. Synthetic data only &mdash; no real member, sponsor or claim information appears in this application.</p>
+  </footer>
+</body>
+</html>

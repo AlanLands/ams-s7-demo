@@ -1,0 +1,111 @@
+{
+  "toc": [
+    "Overview",
+    "Plan Approval",
+    "Architecture",
+    "Development",
+    "Testing & Quality",
+    "Acceptance Criteria",
+    "Release Approvals",
+    "Deployment & Handover"
+  ],
+  "run_id": "S7-00001",
+  "epic": {
+    "epic_id": "EPIC-S7-001",
+    "title": "Disability online claim submission <for> plan sponsors",
+    "business_outcome": "Plan sponsors submit disability claims online & track status."
+  },
+  "plan_approvals": [
+    {
+      "approver": "P. Moreau",
+      "role": "business_owner",
+      "decision": "approved",
+      "decided_at": "2026-09-01T09:00:00+00:00",
+      "note": "Scope agreed"
+    }
+  ],
+  "test_plan_approvals": [],
+  "architecture": {
+    "version": 1,
+    "accepted_by": "A. Osei",
+    "accepted_at": "2026-09-01T10:00:00+00:00"
+  },
+  "stories": [
+    {
+      "story_id": "US-001",
+      "title": "Identify plan & member",
+      "team": "portal-team",
+      "developer": "Priya Raman",
+      "tester": "R. Osei",
+      "review_result": "passed",
+      "reviewer": "reviewer",
+      "changes": "Added lookup form",
+      "acceptance_criteria": [
+        {
+          "ac_id": "US-001-AC1",
+          "text": "Policy number is validated",
+          "result": "passed"
+        },
+        {
+          "ac_id": "US-001-AC2",
+          "text": "Member id is pre-populated",
+          "result": "failed"
+        }
+      ]
+    },
+    {
+      "story_id": "US-002",
+      "title": "Upload documents",
+      "team": "services-team",
+      "developer": "—",
+      "tester": "—",
+      "review_result": "pending",
+      "reviewer": "",
+      "changes": "",
+      "acceptance_criteria": [
+        {
+          "ac_id": "US-002-AC1",
+          "text": "Multiple uploads accepted",
+          "result": "not run"
+        }
+      ]
+    }
+  ],
+  "quality_checks": [
+    {
+      "check_id": "QC-01",
+      "name": "All stories reviewed",
+      "status": "passed"
+    },
+    {
+      "check_id": "QC-03",
+      "name": "Every AC has a test",
+      "status": "failed"
+    }
+  ],
+  "release_approvals": [
+    {
+      "approver": "M. Chen",
+      "role": "release_manager",
+      "decision": "approved",
+      "decided_at": "2026-09-02T09:00:00+00:00"
+    }
+  ],
+  "release": {
+    "release_id": "REL-001",
+    "version": "1.0.0",
+    "environment": "production",
+    "release_window": "2026-09-05 22:00–23:00",
+    "feature_flag": "sponsor_claims",
+    "rollback_plan": "Disable flag",
+    "deployment": {
+      "deployed_at": "2026-09-05T22:10:00+00:00",
+      "strategy": "blue-green",
+      "smoke_test_status": "passed"
+    },
+    "handover": {
+      "accepted_by": "S. Patel",
+      "accepted_at": "2026-09-05T23:00:00+00:00"
+    }
+  }
+}

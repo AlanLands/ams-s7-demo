@@ -30,7 +30,11 @@ from s7_delivery.product import config
 DEFAULT = "default"
 META_FILE = "prompt-set.json"
 _NAME_RE = re.compile(r"^[a-z][a-z0-9-]{1,39}$")
-_COPIED = ("rules", "skills", "playbooks", "tasks")
+# Every layer subdirectory (prompts, standards, templates, governance, models,
+# identity): a legacy full copy carries the whole default set. Files a copy
+# lacks (a layer added after it was made) fall through to the default at
+# resolution time — `layers._roots`.
+_COPIED = tuple(layers._SUBDIR.values())
 
 
 class PromptSetError(config.ConfigError):

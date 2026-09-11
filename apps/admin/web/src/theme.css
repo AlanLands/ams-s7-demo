@@ -921,6 +921,36 @@ tbody tr.cor-detail:hover td { background: var(--surface-2); }
 .sh-books li { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
 .sh-books li:first-child { border-top: 0; }
 
+/* --- delivery profiles -------------------------------------------------- */
+
+/* Six cells in a fixed order — one per layer group — so profiles compare
+ * by scanning down the column. Zero counts stay quiet. */
+.layer-strip { display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--surface); vertical-align: middle; }
+.layer-strip span { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 3px 6px; border-left: 1px solid var(--border); font-size: 11px; line-height: 1.2; color: var(--muted); }
+.layer-strip span:first-child { border-left: 0; }
+.layer-strip span b { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.layer-strip span.zero b { color: var(--muted); font-weight: 400; }
+
+.file-tree .group-head {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  margin: 12px 0 2px; padding: 6px 8px; border: 0; border-radius: var(--radius);
+  background: var(--surface); color: var(--ink); text-align: left;
+  font-size: 14px; font-weight: 600;
+}
+.file-tree .group-head:first-child { margin-top: 0; }
+.file-tree .group-head:hover { background: var(--surface-2); }
+.file-tree .group-head .chev { width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .12s; flex-shrink: 0; margin-left: 2px; }
+.file-tree .group-head .chev.open { transform: rotate(45deg); }
+.file-tree .group-head .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-tree .group-head .count { font-family: var(--mono); font-size: 12px; font-weight: 400; color: var(--muted); display: inline-flex; gap: 8px; }
+.file-tree .group-head .count .ov { color: var(--red-dark); font-weight: 600; }
+.file-tree .layer-head.sub { position: static; margin: 6px 0 2px; padding-left: 22px; font-size: 11px; }
+
+.impact-runs { list-style: none; margin-top: 12px; border-top: 1px solid var(--border); }
+.impact-runs li { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.impact-runs li:last-child { border-bottom: 0; }
+
 /* --- responsive --------------------------------------------------------- */
 
 @media (prefers-reduced-motion: reduce) {

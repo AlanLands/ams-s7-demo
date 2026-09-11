@@ -1,0 +1,43 @@
+---
+id: release-doc-theme
+layer: template
+title: Release document — HTML theme
+stage: release
+summary: The stylesheet inlined into the release/design document's self-contained HTML page (no external requests). Colours come from the identity palette so a tenant restyles the document in one place; the markup uses the classes brandline, mark, meta, toc, changes, pass and fail.
+variables: font, ink, muted, bg, surface, surface_2, border, border_strong, primary, primary_dark, primary_pale, success, success_pale, warning_text, warning_pale
+---
+:root{--red:{{primary}};--red2:{{primary_dark}};--ink:#292923;--text:{{ink}};
+--muted:#66655b;--bg:#f2f2ef;--surface:#fff;--border:#d8d8d3;
+--greenp:#dff0e8;--green:{{success}};--redp:#f8e9ed;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);
+font-family:"Segoe UI",Inter,Arial,sans-serif;line-height:1.55}
+.brandline{height:4px;background:var(--red)}
+header{background:var(--surface);border-bottom:1px solid var(--border);
+padding:18px 34px;display:flex;align-items:center;gap:12px}
+.mark{width:38px;height:38px;border-radius:8px;background:var(--red);
+color:#fff;display:grid;place-items:center;font-weight:800;
+font-family:Georgia,serif}
+header small{display:block;color:var(--red);font-size:10px;
+text-transform:uppercase;letter-spacing:.13em;font-weight:800}
+header b{font-size:16px;color:var(--ink)}
+main{max-width:900px;margin:0 auto;padding:30px 24px 60px}
+h1{color:var(--ink);font-size:26px;margin:14px 0 4px}
+.meta{color:var(--muted);font-size:13px;margin-bottom:22px}
+h2{color:var(--red2);font-size:19px;margin:30px 0 10px;
+border-bottom:2px solid var(--red);padding-bottom:5px}
+h3{color:var(--ink);font-size:15px;margin:16px 0 6px}
+ul,ol{margin:8px 0 8px 24px}
+table{width:100%;border-collapse:collapse;background:var(--surface);
+font-size:13.5px;margin:10px 0}
+th{background:var(--red);color:#fff;text-align:left;padding:8px 10px}
+td{border:1px solid var(--border);padding:7px 10px;vertical-align:top}
+.pass{color:var(--green);background:var(--greenp);border-radius:99px;
+padding:1px 9px;font-weight:700;font-size:12px}
+.fail{color:var(--red2);background:var(--redp);border-radius:99px;
+padding:1px 9px;font-weight:700;font-size:12px}
+.toc{background:var(--surface);border:1px solid var(--border);
+border-radius:10px;padding:16px 20px}
+.changes{color:var(--muted);font-size:13px;margin:6px 0}
+footer{color:var(--muted);font-size:12px;text-align:center;
+padding:20px 0;border-top:1px solid var(--border)}

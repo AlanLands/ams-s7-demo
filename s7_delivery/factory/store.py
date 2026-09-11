@@ -61,7 +61,9 @@ class RunStore:
     # --- paths -------------------------------------------------------------
 
     def path(self, *segments: str) -> Path:
-        parts = [_safe(s) for s in segments]
+        # A segment may name a nested file ("ui/app.css"): each part is
+        # validated on its own, so ".." and absolute paths still fail.
+        parts = [_safe(part) for s in segments for part in s.split("/")]
         candidate = self.root.joinpath(*parts)
         resolved = candidate.resolve()
         if not str(resolved).startswith(str(self.root.resolve())):

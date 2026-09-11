@@ -1,0 +1,13 @@
+{
+  "prompt": "Story US-3 \u2014 Add quick-link tiles for existing services.\nExisting acceptance criteria (already covered by generated tests):\n\n- US-3-AC1: Given an advisor on the landing page, when viewing tiles, then they see quick-links to policy lookup, claim status, and commission statement.\n- US-3-AC2: Given an unsigned advisor, when clicking a tile, then they are redirected to the secure sign-in page.\n\nThe QA lead proposes this test-plan amendment, verbatim:\n\nAdd a negative test for the quick-link tiles: as a signed-out advisor, render the landing page and assert that no policy, claim or commission data is present in the tile markup and that activating any tile navigates to secure sign-in with a return URL to the intended journey.\n\nRefine it into additional concrete test cases. Do not repeat existing AC\ncoverage. Return JSON exactly matching:\n{\"cases\": [{\"description\": \"<one testable behaviour, one sentence>\"}]}",
+  "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYou are a QA architect refining a QA lead's test-plan amendment into concrete acceptance-style test cases. Each case must trace directly to the amendment text; never invent coverage the amendment does not ask for.",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "response": "{\"cases\": [{\"description\": \"Verify that as a signed-out advisor, the tile markup on the landing page does not contain any policy, claim, or commission data.\"}, {\"description\": \"Verify that activating any quick-link tile as a signed-out advisor navigates to the secure sign-in page with a return URL for the intended journey.\"}]}",
+  "usage": {
+    "input_tokens": 286,
+    "output_tokens": 70,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null
+  }
+}

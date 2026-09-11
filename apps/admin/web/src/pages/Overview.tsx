@@ -1,4 +1,4 @@
-import { ArrowRight, Cpu, FileText, GraduationCap, PlayCircle, RefreshCw, Users } from 'lucide-react'
+import { ArrowRight, Cpu, FileText, GitBranch, GraduationCap, Layers, PlayCircle, RefreshCw, Users } from 'lucide-react'
 import { ApiError, api } from '../api'
 import { useLoad, LoadError } from '../hooks'
 import { Badge, Button, Card, Empty, Loading, Notice, PageHeader, SectionHead, StatCard, TableWrap, fmtTime, humanize } from '../components/ui'
@@ -95,6 +95,12 @@ export function Overview() {
   const modeSub = modes.length ? modes.map(([m, n]) => `${m} ${n}`).join(', ') : 'no runs'
   const llmMode = data.llm.effective_mode ?? data.llm.LLM_MODE ?? '—'
   const provider = data.llm.LLM_PROVIDER ?? '—'
+  // `profiles` is `{count, overlays, legacy_sets}` from the backend; a bare
+  // number is accepted too.
+  const profiles = data.profiles == null ? null : typeof data.profiles === 'number' ? { count: data.profiles } : data.profiles
+  const profilesSub = profiles && (profiles.overlays != null || profiles.legacy_sets != null)
+    ? `default, ${profiles.overlays ?? 0} overlay${profiles.overlays === 1 ? '' : 's'}${profiles.legacy_sets ? `, ${profiles.legacy_sets} legacy` : ''}`
+    : 'default, overlays and legacy sets'
 
   return (
     <>
@@ -102,19 +108,25 @@ export function Overview() {
 
       <div className="stat-row">
         <StatCard icon={<PlayCircle />} value={String(data.runs.total)} label="Runs" sub={modeSub} accent="red" />
-        <StatCard icon={<FileText />} value={String(data.prompt_sets)} label="Prompt sets" sub="including default" accent="blue" />
+        {profiles
+          ? <StatCard icon={<Layers />} value={String(profiles.count)} label="Delivery profiles" sub={profilesSub} accent="blue" />
+          : <StatCard icon={<FileText />} value={String(data.prompt_sets)} label="Prompt sets" sub="including default" accent="blue" />}
         <StatCard icon={<Users />} value={String(data.users)} label="Users" sub="act-as identities" accent="green" />
         <StatCard icon={<Cpu />} value={String(llmMode)} label="Effective LLM mode" sub={`provider ${provider}`} accent="purple" />
+        {data.repositories
+          ? <StatCard icon={<GitBranch />} value={String(data.repositories.count)} label="Known repositories"
+            sub={data.repositories.run_only ? `${data.repositories.run_only} run-only, not in the registry` : 'the cross-run registry'} accent="teal" />
+          : null}
       </div>
 
       {data.default_set_unrecorded.length > 0 ? (
-        <Notice tone="warning" title="Default prompt set has unrecorded changes."
-          actions={<Button variant="secondary" size="sm" onClick={() => openEditor('default')}>Open the default set</Button>}>
+        <Notice tone="warning" title="Default profile has unrecorded changes."
+          actions={<Button variant="secondary" size="sm" onClick={() => openEditor('default')}>Open the default profile</Button>}>
           <span className="mono">{data.default_set_unrecorded.join(', ')}</span> differ from their last ledger line. The test suite refuses
           an unrecorded file, and committed recordings hash the recorded text — record or roll back before a live or replay run.
         </Notice>
       ) : (
-        <Notice tone="success" title="Default prompt set is fully recorded.">Every file matches its last ledger line.</Notice>
+        <Notice tone="success" title="Default profile is fully recorded.">Every file matches its last ledger line.</Notice>
       )}
 
       <div className="grid cols-2" style={{ marginTop: 24 }}>

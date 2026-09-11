@@ -54,6 +54,31 @@ of which change what the default files assemble to:
   `rollback()` write a file and append its ledger line in one step, and every
   recorded version's body is snapshotted under `versions/<id>/v<N>.md`, so
   `diff()` and `rollback()` work from the ledger rather than from memory.
+
+Delivery profiles (added 2026-09-07). The same loader now carries every
+configuration layer, not only prompts, and resolves through an overlay:
+
+- **Six layers, one file shape.** Prompts (rules/skills/tasks/playbooks),
+  Standards (`standards/` — what developers are told), Templates
+  (`templates/` — what S7 generates mechanically), Governance
+  (`governance/` — roles × permissions), Models (`models/` — provider and
+  model per stage, pricing) and Identity (`identity/` — organisation,
+  palette, synthetic domain). Text layers have markdown bodies; structured
+  layers have JSON bodies, exactly like playbooks. Standards and templates
+  declare `{{variables}}` like tasks and are rendered by `render()`.
+- **Overlay, not copy.** A profile root (a directory holding
+  `profile.json`) resolves a file from the profile first and falls through
+  to the committed default set. `LayerFile.source` says which one answered
+  (`default` / `override`). Editing a default file inside a profile is
+  copy-on-write: the override is created, then versioned in the profile's
+  own ledger; `revert_override()` deletes it and the default shows through
+  again. Legacy full-copy prompt sets (no `profile.json`) still resolve as a
+  single root.
+- **Locked tokens.** A file's frontmatter may declare `locked:` literal
+  tokens that every edit must keep — the lines a consumer depends on (a
+  branch placeholder, the s7-managed marker). `write_body` refuses an edit
+  that drops one, so an operator can restyle a standard but cannot silently
+  break the convention the Control Centre reads progress by.
 """
 
 from __future__ import annotations
@@ -65,7 +90,7 @@ import re
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -84,7 +109,34 @@ ACTIVE_ROOT: ContextVar[Path | None] = ContextVar("s7_layers_active_root", defau
 # `factory/self_heal.py`; this module treats it as bytes like any other layer.
 # Tasks are the fourth (2026-09-03): per-call task text with declared
 # `{{variables}}`, rendered by `render_task()`.
-_SUBDIR = {"rules": "rules", "skill": "skills", "playbook": "playbooks", "task": "tasks"}
+_SUBDIR = {
+    "rules": "rules", "skill": "skills", "playbook": "playbooks", "task": "tasks",
+    # Delivery-profile layers (2026-09-07): developer standards, mechanical
+    # templates, and the three structured layers with JSON bodies.
+    "standard": "standards", "template": "templates",
+    "governance": "governance", "model": "models", "identity": "identity",
+    # Integrations (2026-09-07): how S7 may talk to the tenant's git hosting.
+    "integration": "integrations",
+}
+# Layers whose body may carry `{{placeholders}}` declared in `variables:`.
+VARIABLE_LAYERS = frozenset({"task", "standard", "template"})
+# Layers whose body must parse as JSON (playbooks are validated by
+# `playbook()` with their own structural checks; the rest at load).
+JSON_LAYERS = frozenset({"governance", "model", "identity", "integration"})
+# The six groups the admin surface presents, in order.
+LAYER_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
+    ("prompts", "Prompts — what the models are told", ("rules", "skill", "task", "playbook")),
+    ("standards", "Standards — what developers are told", ("standard",)),
+    ("templates", "Templates — what S7 generates mechanically", ("template",)),
+    ("governance", "Governance — who may decide what", ("governance",)),
+    ("models", "Models and economics", ("model",)),
+    ("identity", "Identity — the tenant's name and palette", ("identity",)),
+    ("integrations", "Integrations — the tenant's git hosting", ("integration",)),
+)
+# Which layers enter a model call: an edit there misses recordings; an edit
+# elsewhere only makes generated artifacts stale.
+PROMPT_LAYERS = frozenset({"rules", "skill", "task"})
+PROFILE_META = "profile.json"
 _ID_RE = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 _PLACEHOLDER_RE = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
 
@@ -104,7 +156,9 @@ class LayerFile:
     path: str  # relative to the set root, POSIX separators
     body: str
     sha256: str
-    variables: tuple[str, ...] = ()  # task layer only: declared placeholders
+    variables: tuple[str, ...] = ()  # variable layers: declared placeholders
+    locked: tuple[str, ...] = ()  # literal tokens every edit must keep
+    source: str = "default"  # "default" | "override" | "set" (legacy full copy)
 
     @property
     def short(self) -> str:
@@ -130,6 +184,38 @@ def use(root: Path | None) -> Iterator[Path]:
 
 def active_root() -> Path:
     return _root(None)
+
+
+def is_overlay(root: Path | None = None) -> bool:
+    """Any root other than the default resolves through the default: a
+    delivery profile (overrides only) or a legacy full copy, which may lack
+    a layer added after it was made."""
+    return _root(root).resolve() != LAYERS_ROOT.resolve()
+
+
+def is_profile(root: Path | None = None) -> bool:
+    """A delivery profile proper — a directory holding `profile.json`."""
+    base = _root(root)
+    return is_overlay(base) and (base / PROFILE_META).is_file()
+
+
+def _roots(root: Path | None) -> tuple[Path, ...]:
+    """Resolution order, first wins: (root, default) for a profile or a
+    legacy set, (default,) for the default itself."""
+    base = _root(root)
+    if base.resolve() == LAYERS_ROOT.resolve():
+        return (LAYERS_ROOT,)
+    return (base, LAYERS_ROOT)
+
+
+def _ledger_root(file_id: str, root: Path | None) -> Path:
+    """The root whose `history.jsonl` owns this file's versions: the root
+    itself when the file is physically there, else the default set."""
+    base = _root(root)
+    if not is_overlay(root):
+        return base
+    lf = get(file_id, root)
+    return base if lf.source != "default" else LAYERS_ROOT
 
 
 def _parse(path: Path, root: Path) -> LayerFile:
@@ -161,12 +247,23 @@ def _parse(path: Path, root: Path) -> LayerFile:
     variables = tuple(
         v.strip() for v in meta.get("variables", "").split(",") if v.strip()
     )
-    if layer == "task":
+    locked = tuple(
+        v.strip() for v in (meta.get("locked") or "").split(",") if v.strip()
+    )
+    if layer in VARIABLE_LAYERS:
         undeclared = sorted(set(_PLACEHOLDER_RE.findall(body)) - set(variables))
         if undeclared:
             raise LayerError(
                 f"{path}: placeholders {undeclared} are not declared in `variables:`"
             )
+    if layer in JSON_LAYERS:
+        try:
+            json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise LayerError(f"{path}: {layer} body is not valid JSON: {exc}") from exc
+    for token in locked:
+        if token not in body:
+            raise LayerError(f"{path}: locked token {token!r} is missing from the body")
     return LayerFile(
         id=file_id,
         layer=layer,
@@ -177,21 +274,37 @@ def _parse(path: Path, root: Path) -> LayerFile:
         body=body,
         sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
         variables=variables,
+        locked=locked,
     )
 
 
 def load_all(root: Path | None = None) -> dict[str, LayerFile]:
-    """Every rules, skill, playbook and task file, keyed by id. Ids are
+    """Every layer file, keyed by id, resolved through the overlay: the
+    default set first, then the profile's overrides replacing by id. Ids are
     unique across all layers so a workflow can name any without ambiguity."""
-    base = _root(root)
+    roots = _roots(root)
     out: dict[str, LayerFile] = {}
-    for sub in ("rules", "skills", "playbooks", "tasks"):
-        for path in sorted((base / sub).glob("*.md")):
-            lf = _parse(path, base)
-            if lf.id in out:
-                raise LayerError(f"duplicate layer id {lf.id!r}")
-            out[lf.id] = lf
+    for base in reversed(roots):
+        if base.resolve() == LAYERS_ROOT.resolve():
+            source = "default"
+        elif (base / PROFILE_META).is_file():
+            source = "override"
+        else:
+            source = "set"
+        seen: set[str] = set()
+        for sub in _SUBDIR.values():
+            for path in sorted((base / sub).glob("*.md")):
+                lf = _parse(path, base)
+                if lf.id in seen:
+                    raise LayerError(f"duplicate layer id {lf.id!r}")
+                seen.add(lf.id)
+                out[lf.id] = replace(lf, source=source)
     return out
+
+
+def overridden(root: Path | None = None) -> list[str]:
+    """Ids the profile overrides (empty for the default set and legacy sets)."""
+    return sorted(lf.id for lf in load_all(root).values() if lf.source == "override")
 
 
 def get(file_id: str, root: Path | None = None) -> LayerFile:
@@ -264,23 +377,57 @@ def placeholders_of(body: str) -> list[str]:
     return seen
 
 
-def render_task(file_id: str, root: Path | None = None, /, **values: Any) -> str:
+def render(file_id: str, root: Path | None = None, /, **values: Any) -> str:
     """Substitute `{{name}}` placeholders verbatim — `str(value)`, no escaping,
     no formatting — so the rendered text is exactly what an f-string built
     before the template existed, byte for byte. Every placeholder in the body
     must be declared *and* supplied; an unsupplied one is a workflow bug, an
     undeclared one is refused at load. Values the template does not use are
-    ignored, so a template may drop a variable without touching the caller."""
+    ignored, so a template may drop a variable without touching the caller.
+    Works for every variable layer: tasks, standards and templates."""
     lf = get(file_id, root)
-    if lf.layer != "task":
-        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a task")
+    if lf.layer not in VARIABLE_LAYERS:
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a renderable layer")
     missing = [n for n in placeholders_of(lf.body) if n not in values]
     if missing:
-        raise LayerError(f"task {file_id!r}: no value supplied for {missing}")
+        raise LayerError(f"{lf.layer} {file_id!r}: no value supplied for {missing}")
     # One pass over the template, never over substituted text: a value that
     # happens to contain `{{name}}` is data and stays exactly as supplied —
     # the same guarantee an f-string gave.
     return _PLACEHOLDER_RE.sub(lambda m: str(values[m.group(1)]), lf.body)
+
+
+def render_task(file_id: str, root: Path | None = None, /, **values: Any) -> str:
+    """`render()` for a task file — the original entry point, kept so every
+    workflow call site reads the same."""
+    lf = get(file_id, root)
+    if lf.layer != "task":
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a task")
+    return render(file_id, root, **values)
+
+
+def standard(file_id: str, root: Path | None = None, /, **values: Any) -> str:
+    """A rendered Standards-layer file (developer-facing text)."""
+    lf = get(file_id, root)
+    if lf.layer != "standard":
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a standard")
+    return render(file_id, root, **values)
+
+
+def template(file_id: str, root: Path | None = None, /, **values: Any) -> str:
+    """A rendered Templates-layer file (mechanically generated output)."""
+    lf = get(file_id, root)
+    if lf.layer != "template":
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a template")
+    return render(file_id, root, **values)
+
+
+def structured(file_id: str, root: Path | None = None) -> dict[str, Any]:
+    """The parsed JSON body of a governance, model or identity file."""
+    lf = get(file_id, root)
+    if lf.layer not in JSON_LAYERS:
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not a structured layer")
+    return json.loads(lf.body)
 
 
 # --- version ledger ---------------------------------------------------------
@@ -310,7 +457,7 @@ def version_of(file_id: str, root: Path | None = None) -> dict[str, Any]:
     False when the file has changed since its last ledger line (or was never
     recorded); `version` is then the *last recorded* number, not a guess."""
     lf = get(file_id, root)
-    rec = latest_versions(root).get(file_id)
+    rec = latest_versions(_ledger_root(file_id, root)).get(file_id)
     return {
         "version": int(rec["version"]) if rec else 0,
         "recorded": bool(rec) and rec["sha256"] == lf.sha256,
@@ -328,12 +475,23 @@ def skill_ref(file_id: str, root: Path | None = None) -> str:
     return f"{file_id}@{v['sha256'][:8]}(unrecorded)"
 
 
+def pin_ref(file_id: str, root: Path | None = None) -> str:
+    """What a generated artifact pins: `id@vN+<sha8>`. The hash disambiguates
+    a profile override (whose ledger restarts at v1) from the default file
+    it replaced, so a pin compares by content, never by number alone."""
+    return f"{skill_ref(file_id, root)}+{get(file_id, root).short}"
+
+
 def unrecorded(root: Path | None = None) -> list[LayerFile]:
-    """Files whose current content is not the last recorded version."""
+    """Files whose current content is not the last recorded version. In a
+    profile only the overrides count — the default files it shows through
+    are the default set's business."""
     latest = latest_versions(root)
+    overlay = is_overlay(root)
     return [
         lf for lf in load_all(root).values()
-        if lf.id not in latest or latest[lf.id]["sha256"] != lf.sha256
+        if (not overlay or lf.source != "default")
+        and (lf.id not in latest or latest[lf.id]["sha256"] != lf.sha256)
     ]
 
 
@@ -363,6 +521,7 @@ def record_versions(
     stamp = now or datetime.now(UTC).isoformat(timespec="seconds")
     wanted = set(only) if only is not None else None
     appended: list[dict[str, Any]] = []
+    default_latest = latest_versions(LAYERS_ROOT) if is_overlay(root) else {}
     for lf in unrecorded(root):
         if wanted is not None and lf.id not in wanted:
             continue
@@ -378,6 +537,11 @@ def record_versions(
             "author": author,
             "note": note.strip(),
         }
+        if not prev and lf.id in default_latest:
+            # First override of a default file: name what it diverged from.
+            base_rec = default_latest[lf.id]
+            rec["previous_sha256"] = base_rec["sha256"]
+            rec["overrides"] = f"default@v{base_rec['version']}"
         appended.append(rec)
     if appended:
         with (base / HISTORY_FILE).open("a", encoding="utf-8", newline="\n") as fh:
@@ -409,9 +573,9 @@ def _normalise_body(body: str) -> str:
 def versions_of(file_id: str, root: Path | None = None) -> list[dict[str, Any]]:
     """Every ledger line for one id, oldest first, each flagged with whether
     its body snapshot is available (`has_body`)."""
-    base = _root(root)
+    base = _ledger_root(file_id, root)
     out = []
-    for rec in history(root):
+    for rec in history(base):
         if rec["id"] == file_id:
             snap = _snapshot_path(base, file_id, int(rec["version"]))
             out.append({**rec, "has_body": snap.exists()})
@@ -422,7 +586,7 @@ def version_body(file_id: str, version: int, root: Path | None = None) -> str | 
     """The body recorded as version N. Falls back to the current file when it
     *is* the recorded version and no snapshot was written (ledger lines that
     pre-date snapshots); `None` when the body is genuinely unavailable."""
-    base = _root(root)
+    base = _ledger_root(file_id, root)
     snap = _snapshot_path(base, file_id, version)
     if snap.exists():
         return snap.read_bytes().decode("utf-8").replace("\r\n", "\n").rstrip("\n")
@@ -446,34 +610,99 @@ def write_body(
     body = _normalise_body(body)
     if body == lf.body:
         return None
-    if lf.layer == "task":
-        undeclared = sorted(set(_PLACEHOLDER_RE.findall(body)) - set(lf.variables))
-        if undeclared:
-            raise LayerError(
-                f"task {file_id!r}: placeholders {undeclared} are not declared in "
-                f"`variables:` ({', '.join(lf.variables) or 'none'})"
-            )
-    if lf.layer == "playbook":
-        try:
-            json.loads(body)
-        except json.JSONDecodeError as exc:
-            raise LayerError(f"playbook {file_id!r}: body is not valid JSON: {exc}") from exc
+    _check_body(lf.layer, file_id, body, lf.variables, lf.locked)
     if not note.strip():
         raise LayerError("a version record needs a note saying what changed and why")
-    prev = version_of(file_id, root)
-    if prev["recorded"] and not _snapshot_path(base, file_id, prev["version"]).exists():
-        _write_snapshot(base, file_id, prev["version"], lf.body)
-    target = base / lf.path
-    front = _frontmatter_raw(target)
+    copy_on_write = is_overlay(root) and lf.source == "default"
+    if copy_on_write:
+        # The default file shows through; the edit creates the override with
+        # the default's frontmatter byte for byte, versioned from v1 in the
+        # profile's own ledger (the line names what it diverged from).
+        source_path = LAYERS_ROOT / lf.path
+        target = base / lf.path
+        target.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        prev = version_of(file_id, root)
+        owner = _ledger_root(file_id, root)
+        if prev["recorded"] and not _snapshot_path(owner, file_id, prev["version"]).exists():
+            _write_snapshot(owner, file_id, prev["version"], lf.body)
+        source_path = target = base / lf.path
+    front = _frontmatter_raw(source_path)
     target.write_bytes((front + body + "\n").encode("utf-8"))
     appended = record_versions(note, author, root, now=now, only=(file_id,))
     return appended[0] if appended else None
 
 
+def _check_body(layer: str, file_id: str, body: str, variables: Iterable[str],
+                locked: Iterable[str]) -> None:
+    """The per-layer body contract, shared by write and create."""
+    if layer in VARIABLE_LAYERS:
+        undeclared = sorted(set(_PLACEHOLDER_RE.findall(body)) - set(variables))
+        if undeclared:
+            raise LayerError(
+                f"{layer} {file_id!r}: placeholders {undeclared} are not declared in "
+                f"`variables:` ({', '.join(variables) or 'none'})"
+            )
+    if layer == "playbook" or layer in JSON_LAYERS:
+        try:
+            json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise LayerError(f"{layer} {file_id!r}: body is not valid JSON: {exc}") from exc
+    missing = [t for t in locked if t not in body]
+    if missing:
+        raise LayerError(
+            f"{layer} {file_id!r}: locked tokens {missing} must stay in the body — "
+            "the Control Centre depends on them"
+        )
+
+
+def revert_override(
+    file_id: str, *, note: str, author: str = "",
+    root: Path | None = None, now: str | None = None,
+) -> dict[str, Any]:
+    """Delete a profile's override so the default file shows through again.
+    Recorded in the profile's ledger as a `reverted_to` line, so the history
+    says when the override existed and what it was; the override's snapshots
+    stay for the record."""
+    if not is_overlay(root):
+        raise LayerError("only a delivery profile can revert an override")
+    base = _root(root)
+    lf = get(file_id, root)
+    if lf.source == "default":
+        raise LayerError(f"{file_id!r} is not overridden in this profile")
+    if file_id not in load_all(LAYERS_ROOT):
+        raise LayerError(
+            f"{file_id!r} exists only in this profile — delete is not a revert"
+        )
+    if not note.strip():
+        raise LayerError("a version record needs a note saying what changed and why")
+    prev = latest_versions(root).get(file_id)
+    if prev and not _snapshot_path(base, file_id, int(prev["version"])).exists():
+        _write_snapshot(base, file_id, int(prev["version"]), lf.body)
+    (base / lf.path).unlink()
+    default = get(file_id, LAYERS_ROOT)
+    default_rec = latest_versions(LAYERS_ROOT).get(file_id)
+    rec = {
+        "recorded_at": now or datetime.now(UTC).isoformat(timespec="seconds"),
+        "id": file_id,
+        "layer": lf.layer,
+        "path": lf.path,
+        "version": (int(prev["version"]) + 1) if prev else 1,
+        "sha256": default.sha256,
+        "previous_sha256": lf.sha256,
+        "author": author,
+        "note": note.strip(),
+        "reverted_to": f"default@v{default_rec['version']}" if default_rec else "default",
+    }
+    with (base / HISTORY_FILE).open("a", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return rec
+
+
 def create_file(
     layer: str, file_id: str, *, title: str, stage: str, summary: str, body: str,
-    variables: Iterable[str] = (), note: str, author: str = "",
-    root: Path | None = None, now: str | None = None,
+    variables: Iterable[str] = (), locked: Iterable[str] = (), note: str,
+    author: str = "", root: Path | None = None, now: str | None = None,
 ) -> dict[str, Any]:
     """Add a new layer file and record it as v1."""
     if layer not in _SUBDIR:
@@ -487,19 +716,16 @@ def create_file(
         raise LayerError("title, stage and summary are all required")
     body = _normalise_body(body)
     variables = tuple(v.strip() for v in variables if v.strip())
-    if layer == "task":
-        undeclared = sorted(set(_PLACEHOLDER_RE.findall(body)) - set(variables))
-        if undeclared:
-            raise LayerError(f"placeholders {undeclared} are not declared in variables")
-    if layer == "playbook":
-        try:
-            json.loads(body)
-        except json.JSONDecodeError as exc:
-            raise LayerError(f"playbook body is not valid JSON: {exc}") from exc
+    locked = tuple(t.strip() for t in locked if t.strip())
+    if any("," in t for t in locked):
+        raise LayerError("a locked token cannot contain a comma")
+    _check_body(layer, file_id, body, variables, locked)
     meta = [f"id: {file_id}", f"layer: {layer}", f"title: {title.strip()}",
             f"stage: {stage.strip()}", f"summary: {summary.strip()}"]
     if variables:
         meta.append("variables: " + ", ".join(variables))
+    if locked:
+        meta.append("locked: " + ", ".join(locked))
     text = "---\n" + "\n".join(meta) + "\n---\n" + body + "\n"
     target = base / _SUBDIR[layer] / f"{file_id}.md"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -676,6 +902,45 @@ WORKFLOW_ENGINE: tuple[dict[str, str], ...] = (
 )
 
 
+# Who reads a non-prompt layer file, so the admin surface can say what an
+# edit touches. Prompt files are described by their workflows instead.
+CONSUMERS: dict[str, tuple[str, ...]] = {
+    "git-workflow": ("delivery_packs.render_git_workflow_md → .s7/shared/git-workflow.md",),
+    "engineering-rules": ("architecture.engineering_rules_md → .s7/shared/engineering-rules.md",),
+    "ui-guidelines": ("delivery_packs.render_ui_guidelines_md → .s7/shared/ui-guidelines.md",),
+    "db-conventions": ("delivery_packs.render_team_pack → .s7/shared/db-conventions.md",),
+    "ui-starter-css": ("delivery_packs.render_team_pack → .s7/shared/ui/app.css",),
+    "ui-layout-thymeleaf": ("delivery_packs.render_team_pack → .s7/shared/ui/layout.html (maven)",),
+    "ui-layout-jinja": ("delivery_packs.render_team_pack → .s7/shared/ui/layout.html (pytest)",),
+    "ci-maven": ("ci_bootstrap.bootstrap → .github/workflows/s7-ci.yml (maven)",),
+    "ci-pytest": ("ci_bootstrap.bootstrap → .github/workflows/s7-ci.yml (pytest)",),
+    "scaffold-maven-pom": ("ci_bootstrap.bootstrap(scaffold=True) → pom.xml (new repos only)",),
+    "scaffold-maven-smoke-test": (
+        "ci_bootstrap.bootstrap(scaffold=True) → src/test/java/smoke/BuildSmokeTest.java",
+    ),
+    "scaffold-pytest-requirements": (
+        "ci_bootstrap.bootstrap(scaffold=True) → requirements.txt (new repos only)",
+    ),
+    "scaffold-pytest-config": (
+        "ci_bootstrap.bootstrap(scaffold=True) → pyproject.toml (new repos only)",
+    ),
+    "scaffold-pytest-smoke-test": (
+        "ci_bootstrap.bootstrap(scaffold=True) → tests/test_build_smoke.py",
+    ),
+    "release-doc-theme": ("release_doc.render_html → release document HTML",),
+    "roles": ("roles_config.effective_permissions → roles.require on every engine call",),
+    "llm-settings": ("llm_settings.for_stage → every model call of a run",),
+    "pricing": ("kpi.cost_per_release (reports None until token usage is measured)",),
+    "identity": ("ui-guidelines tokens, ui-starter-css, release-doc-theme",),
+    "github": (
+        "integrations.check_repo_url → Engine.intake_connect_repo (host, owner allowlist)",
+        "integrations.require_repo_creation → Engine.intake_create_new_app_repo",
+        "integrations.refused_branch_names → publication.check_branch",
+        "admin Repositories page → gh auth status (login only, never a token)",
+    ),
+}
+
+
 def describe(root: Path | None = None) -> dict[str, Any]:
     """The four layers as one JSON payload for the API, the CLI and the app.
     Rule-based: derived from the files and the registry above, never an AI
@@ -695,9 +960,11 @@ def describe(root: Path | None = None) -> dict[str, Any]:
             by_task_workflows.setdefault(tid, []).append(wf["id"])
     base = _root(root)
     is_default = base.resolve() == LAYERS_ROOT.resolve()
+    overlay = is_overlay(root)
+    default_latest = latest_versions(LAYERS_ROOT) if overlay else latest
 
     def row(lf: LayerFile) -> dict[str, Any]:
-        rec = latest.get(lf.id)
+        rec = (latest if (not overlay or lf.source != "default") else default_latest).get(lf.id)
         used_by = {"rules": by_rules_workflows, "skill": by_skill_workflows,
                    "task": by_task_workflows}.get(lf.layer, {})
         return {
@@ -706,6 +973,10 @@ def describe(root: Path | None = None) -> dict[str, Any]:
             "path": (f"s7_delivery/layers/{lf.path}" if is_default else lf.path),
             "sha256": lf.sha256, "short": lf.short, "body": lf.body,
             "variables": list(lf.variables),
+            "locked": list(lf.locked),
+            "source": lf.source,
+            "enters_model_call": lf.layer in PROMPT_LAYERS,
+            "consumers": list(CONSUMERS.get(lf.id, ())),
             "version": int(rec["version"]) if rec else 0,
             "recorded": bool(rec) and rec["sha256"] == lf.sha256,
             "recorded_at": rec["recorded_at"] if rec else None,
@@ -725,8 +996,24 @@ def describe(root: Path | None = None) -> dict[str, Any]:
             "change_type": book["change_type"], "trigger": book.get("trigger", ""),
             "steps": book["steps"],
         })
+    other_rows = {
+        kind: [row(lf) for lf in files.values() if lf.layer == kind]
+        for kind in ("standard", "template", "governance", "model", "identity", "integration")
+    }
     return {
         "provenance": "rule_based",
+        "overlay": is_profile(root),
+        "overridden": overridden(root) if overlay else [],
+        "layer_groups": [
+            {"id": gid, "label": label, "layers": list(kinds)}
+            for gid, label, kinds in LAYER_GROUPS
+        ],
+        "standards": other_rows["standard"],
+        "templates": other_rows["template"],
+        "governance": other_rows["governance"],
+        "models": other_rows["model"],
+        "identity": other_rows["identity"],
+        "integrations": other_rows["integration"],
         "prompt_mapping": {
             "rules": "Rules layer — the `rules` slot, identical for every call of a lane",
             "role": "Skills layer — the `role` slot, identical for every call of a stage",

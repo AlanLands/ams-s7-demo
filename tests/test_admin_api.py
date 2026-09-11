@@ -459,9 +459,10 @@ def test_runs_list_reset_archive_delete(client, run_id):
     other = Engine.create(DemoMode.DEMO, root=store_module.RUNS_ROOT).run_id
     rows = client.get(f"{A}/runs").json()
     assert [r["run_id"] for r in rows] == [run_id, other]
-    assert {"run_id", "mode", "entry_mode", "prompt_set", "status", "created_at", "stages",
-            "size_bytes", "archived"} == set(rows[0])
+    assert {"run_id", "mode", "entry_mode", "prompt_set", "profile", "status", "created_at",
+            "stages", "size_bytes", "archived"} == set(rows[0])
     assert rows[0]["prompt_set"] == "default" and rows[0]["archived"] is False
+    assert rows[0]["profile"] == {"name": "default", "kind": "default"}
 
     Engine(run_id, root=store_module.RUNS_ROOT).intake_analyse(Role.PRODUCT_ANALYST)
     reset = client.post(f"{A}/runs/{run_id}/reset", headers={"X-Admin-User": "ops"})

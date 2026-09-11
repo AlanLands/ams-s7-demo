@@ -32,7 +32,7 @@ from s7_delivery.factory.engine import Engine, EngineError
 from s7_delivery.factory.models import DemoMode, Role
 from s7_delivery.factory.roles import PermissionError_, actions_for, permitted_roles
 from s7_delivery.factory.store import StoreError, list_runs
-from s7_delivery.product import prompt_sets, users
+from s7_delivery.product import profiles, prompt_sets, users
 
 STATIC_DIR = Path(__file__).resolve().parent / "web" / "dist"
 
@@ -166,6 +166,17 @@ def get_prompt_sets() -> list[dict]:
     ]
 
 
+@app.get("/api/profiles")
+def get_profiles() -> dict:
+    """Every delivery profile a new run may be created from — the default,
+    overlay profiles and any legacy full-copy prompt set. Read-only; the
+    editor lives in the admin app."""
+    return {"profiles": [
+        {"name": p["name"], "kind": p["kind"], "description": p["description"]}
+        for p in profiles.list_profiles()
+    ]}
+
+
 @app.get("/api/delivery-system")
 def get_delivery_system() -> dict:
     """The four-layer delivery system — rules and skills as versioned files,
@@ -187,6 +198,10 @@ class CreateRun(BaseModel):
     # The prompt set the run's model calls resolve against; "default" is the
     # committed s7_delivery/layers/ set. An unknown set is a 400.
     prompt_set: str = "default"
+    # The delivery profile the run is created from — the same field under
+    # its current name (a prompt set is a profile's prompts layer). When both
+    # are given, `profile` wins.
+    profile: str | None = None
 
 
 @app.post("/api/runs")
@@ -195,8 +210,9 @@ def post_runs(body: CreateRun) -> dict:
         mode = DemoMode(body.mode)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=f"Unknown mode {body.mode!r}") from exc
+    prompt_set = body.profile or body.prompt_set
     try:
-        eng = Engine.create(mode, entry_mode=body.entry_mode, prompt_set=body.prompt_set)
+        eng = Engine.create(mode, entry_mode=body.entry_mode, prompt_set=prompt_set)
     except EngineError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     return eng.state()

@@ -6,7 +6,12 @@ export type Layer = 'rules' | 'skill' | 'task' | 'playbook'
 export interface Overview {
   runs: { total: number; by_mode: Record<string, number> }
   prompt_sets: number
+  /** Present once the backend counts delivery profiles: `{count, overlays,
+   * legacy_sets}` (the shipped shape) or a bare count. */
+  profiles?: number | { count: number; overlays?: number; legacy_sets?: number }
   users: number
+  /** Present once the backend counts the known-repositories registry. */
+  repositories?: { count: number; run_only?: number }
   llm: { LLM_PROVIDER?: string | null; LLM_MODE?: string | null; effective_mode?: string | null; [k: string]: unknown }
   default_set_unrecorded: string[]
   recent_audit: AuditRow[]
@@ -56,7 +61,8 @@ export interface LedgerLine {
 }
 
 export interface VersionLine extends LedgerLine {
-  has_body: boolean
+  /** Absent on the profile routes — treated as true. */
+  has_body?: boolean
 }
 
 export interface FileDetail extends FileRow {
@@ -196,6 +202,8 @@ export interface RunRow {
   mode: string
   entry_mode: string
   prompt_set: string
+  /** The delivery profile the run resolves against (same name as prompt_set). */
+  profile?: { name: string; kind: ProfileKind } | null
   status: string
   created_at: string
   stages: { stage: string; status: string }[]
@@ -563,4 +571,211 @@ export interface ProposeBody {
   days?: number
   learnable_only?: boolean
   note?: string
+}
+
+/* --- Delivery profiles (one bundle, seven layers, overlay over default) -- */
+
+export type ProfileKind = 'default' | 'profile' | 'legacy-set'
+export type ProfileLayer = 'rules' | 'skill' | 'task' | 'playbook' | 'standard' | 'template' | 'governance' | 'model' | 'identity' | 'integration'
+export type ProfileGroupId = 'prompts' | 'standards' | 'templates' | 'governance' | 'models' | 'identity' | 'integrations'
+/** Where a resolved file comes from: the committed default set, an
+ * override stored in the profile, or a legacy full-copy set. */
+export type FileSource = 'default' | 'override' | 'set'
+
+export interface ProfileSummary {
+  name: string
+  kind: ProfileKind
+  description: string
+  base: string | null
+  created_at: string | null
+  created_by: string | null
+  root: string
+  is_default: boolean
+  overlay: boolean
+  files: number
+  counts: Record<ProfileGroupId, number>
+  overridden: string[]
+  unrecorded: string[]
+  versions: number
+  fingerprint: string
+}
+
+export interface ProfileFileRow {
+  id: string
+  layer: ProfileLayer
+  title: string
+  stage: string
+  summary: string
+  path: string
+  sha256: string
+  short: string
+  body: string
+  /** `{{variables}}` the workflow supplies; a body may only reference these. */
+  variables: string[]
+  /** Literal tokens that must survive every edit. */
+  locked: string[]
+  source: FileSource
+  enters_model_call: boolean
+  consumers: string[]
+  version: number
+  recorded: boolean
+  recorded_at: string | null
+  workflows: string[]
+}
+
+export interface ProfileGroup {
+  id: ProfileGroupId | string
+  label: string
+  layers: ProfileLayer[]
+  files: ProfileFileRow[]
+  overridden: number
+}
+
+export interface ProfileDetail extends ProfileSummary {
+  groups: ProfileGroup[]
+  workflows: Workflow[]
+  history: LedgerLine[]
+}
+
+export interface ImpactArtifact {
+  artifact: string
+  kind: string
+  artifact_version: number | string | null
+  pinned: string
+  stale: boolean
+}
+
+export interface ImpactRun {
+  run_id: string
+  artifacts: ImpactArtifact[]
+  would_go_stale: string[]
+}
+
+/** What an edit to a file would touch — from files and run ledgers, never guessed. */
+export interface Impact {
+  profile: string
+  file_id: string
+  layer: ProfileLayer
+  source: FileSource
+  current: string
+  enters_model_call: boolean
+  recordings_pinned: number
+  re_record_needed: boolean
+  consumers: string[]
+  runs: ImpactRun[]
+}
+
+export interface ProfileFileDetail {
+  file: ProfileFileRow
+  versions: VersionLine[]
+  placeholders: string[]
+  recordings_pinned: number
+  impact: Impact
+}
+
+/** PUT / rollback / revert / create all answer with the file as it now is
+ * and the ledger line recorded — null when the server found nothing changed. */
+export interface ProfileSaveResult {
+  file: ProfileFileRow
+  version: LedgerLine | null
+}
+
+export interface ProfileNewFile {
+  layer: ProfileLayer
+  id: string
+  title: string
+  stage: string
+  summary: string
+  body: string
+  variables: string[]
+  locked: string[]
+  note: string
+}
+
+/* --- Repositories and the GitHub integration (Operations → Repositories) -- */
+
+/** One run that names the repository in its intake/repos.json. */
+export interface RepoRunRef {
+  run_id: string
+  mode: string
+  status: string
+  profile: string
+  ci_bootstrap_status: string
+  default_branch: string
+}
+
+/** A known repository: the cross-run registry entry (artifacts/known_repos.json)
+ * joined with the runs that use it. `in_registry: false` means a run names
+ * it but the registry forgot it — shown as "run only". Extra registry
+ * fields (head_sha, cloned_at, file_count, provenance…) pass through. */
+export interface RepoRow {
+  url: string
+  name: string
+  kind: 'https' | 'ssh' | 'local' | string
+  host: string
+  owner: string
+  default_branch: string
+  ci_bootstrap_status: string
+  stack: string
+  in_registry: boolean
+  runs: RepoRunRef[]
+  run_count: number
+  /** Newest `repository.test` audit line for the url; null when never probed. */
+  last_check: { at: string; reachable: boolean; detail: string } | null
+  last_connected_at?: string
+  head_sha?: string
+  cloned_at?: string
+  file_count?: number
+  provenance?: string
+  [k: string]: unknown
+}
+
+export interface RepositoriesPayload {
+  provenance: string
+  registry_path: string
+  repositories: RepoRow[]
+}
+
+/** `git ls-remote` on demand — never run by a run, only by an operator. */
+export interface RepoTestResult {
+  url: string
+  reachable: boolean
+  default_branch: string
+  heads: number
+  error: string
+  checked_at: string
+  kind?: string
+  host?: string
+  owner?: string
+  repo?: string
+}
+
+export interface GithubSettings {
+  host: string
+  allowed_owners: string[]
+  allow_local_paths: boolean
+  allow_repo_creation: boolean
+  refuse_branch_names: string[]
+  expected_gh_login: string
+}
+
+/** `gh auth status` as the admin sees it: whether a login exists and who it
+ * is. No token is ever requested or shown. */
+export interface GhStatus {
+  available: boolean
+  authenticated: boolean
+  login: string
+  host: string
+  error: string
+  expected_login: string
+  login_matches: boolean | null
+  checked_at: string
+}
+
+export interface GithubIntegration {
+  profile: string
+  source: FileSource
+  settings: GithubSettings
+  gh: GhStatus
+  consumers: string[]
 }

@@ -32,6 +32,7 @@ both in step with it.
 {
   "runs": {"total": 7, "by_mode": {"simulation": 4, "demo": 1, "live": 2, "replay": 0}},
   "prompt_sets": 2,
+  "profiles": {"count": 3, "overlays": 1, "legacy_sets": 1},
   "users": 5,
   "llm": {"LLM_PROVIDER": "anthropic", "LLM_MODE": "replay", "effective_mode": "replay"},
   "default_set_unrecorded": [],
@@ -39,7 +40,112 @@ both in step with it.
 }
 ```
 
-## Prompt sets (`s7_delivery/product/prompt_sets.py`, `factory/layers.py`)
+## Delivery profiles (`s7_delivery/product/profiles.py`, `factory/layers.py`)
+
+A **delivery profile** is one named, versioned bundle of everything that
+configures S7 for a client or project — six layers (prompts, standards,
+templates, governance, models, identity), one file shape, one ledger, one
+editor, one audit trail (design: `docs/design-history/plans/
+2026-09-07-delivery-profiles.md`). A run is created *from* a profile
+(`DeliveryRun.prompt_set` names it) and pins the versions it consumed.
+
+- **Overlay, not copy.** A profile (`config/profiles/<name>/`) stores only
+  `profile.json` plus the files it **overrides**; every other file falls
+  through to the committed default set in `s7_delivery/layers/`, which stays
+  recording-pinned. Every file row carries `source`: `default` (showing
+  through), `override` (the profile's own copy) or `set` (a legacy full-copy
+  prompt set). The first PUT of a default file is copy-on-write: the override
+  is created with the default's frontmatter and versioned from v1 in the
+  profile's own `history.jsonl`; `revert` deletes it and the default shows
+  through again (recorded as a `reverted_to` ledger line, never silently).
+- **Pins.** Generated artifacts record the version they consumed as
+  `id@vN+<sha8>` (delivery packs: `pins: {file_id: ref}`; the architecture
+  pack: the engineering-rules version). A later edit shows as *stale* on the
+  artifact, derived on read; regeneration stays a human gate.
+- **Impact is stated before a save**, from the files and the run ledgers:
+  `recordings_pinned` (committed recordings whose prompt carries the current
+  bytes — counted for the default profile's prompt-layer files only, since
+  only those enter a model call), the runs on the profile and which of their
+  artifacts pinned an older version (`would_go_stale`), and the `consumers`
+  that read the file. `enters_model_call` is the flag that separates *edit
+  freely* (standards, templates, the structured layers) from *this misses
+  recordings* (rules, skills, tasks).
+- **Locked tokens.** A file's frontmatter may declare `locked:` literal
+  tokens that every edit must keep — the lines a consumer depends on. A PUT
+  that drops one is refused (`400`). Variable layers (tasks, standards,
+  templates) may only use placeholders declared in `variables`.
+- **Kinds.** `default` (the committed set), `profile` (overlay), `legacy-set`
+  (a full copy under `config/prompt-sets/`, created before profiles existed;
+  still resolves, still editable, cannot revert or export).
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/profiles` | | `{"profiles": [ProfileSummary]}` — default first, then profiles, then legacy sets |
+| POST | `/profiles` | `{name, description?}` | `ProfileSummary` (201); `400` bad name (lowercase kebab-case, 2–40); `409` name taken |
+| GET | `/profiles/{name}` | | `ProfileDetail` |
+| PATCH | `/profiles/{name}` | `{description}` | `ProfileSummary`; `409` for the default or a legacy set |
+| DELETE | `/profiles/{name}` | | 204; `409` for the default or while a run names it; `404` unknown |
+| GET | `/profiles/{name}/history` | | `{"history": [LedgerLine]}` oldest first (the profile's own ledger — overrides only) |
+| GET | `/profiles/{name}/files/{id}` | | `ProfileFileDetail` |
+| PUT | `/profiles/{name}/files/{id}` | `{body, note}` | `{"file": FileRow, "version": LedgerLine \| null}` — `null` when unchanged; copy-on-write in a profile |
+| POST | `/profiles/{name}/files` | `{layer, id, title, stage, summary, body, variables?: [str], locked?: [str], note}` | `{"file": FileRow, "version": LedgerLine}` (201); `400` unknown layer, bad id, duplicate id, undeclared placeholder |
+| GET | `/profiles/{name}/files/{id}/versions/{n}` | | `{"id", "version": n, "body"}`; `404` when no body recorded |
+| GET | `/profiles/{name}/files/{id}/diff?from=1&to=2` | | `{"id", "from", "to", "diff": str}` (unified) |
+| POST | `/profiles/{name}/files/{id}/rollback` | `{to_version, note}` | same shape as PUT — a rollback is a *new* version |
+| POST | `/profiles/{name}/files/{id}/revert` | `{note}` | same shape as PUT (`version.reverted_to` = `default@vN`); `409` when the file is not overridden, exists only in the profile, or the name is not an overlay profile |
+| GET | `/profiles/{name}/files/{id}/impact` | | `Impact` |
+| GET | `/profiles/{name}/export.zip` | | `application/zip`, `Content-Disposition: attachment; filename="<name>-profile.zip"` — the profile directory exactly; `409` for the default or a legacy set |
+| POST | `/profiles/import?name=&replace=false` | multipart form, field `file` (the zip) | `ProfileSummary` (201); `400` not a zip / no `profile.json` / a member outside the profile shape / a file that does not parse; `409` name exists without `replace`, or names something that is not a profile |
+
+Shapes:
+
+```
+ProfileSummary = {name, kind: "default"|"profile"|"legacy-set", description, base,
+                  created_at, created_by, root, is_default, overlay: bool,
+                  files: int,                        # resolved file count (overlay + default)
+                  counts: {prompts, standards, templates, governance, models, identity},
+                  overridden: [id],                  # overlay profiles only
+                  unrecorded: [id], versions: int,   # the profile's own ledger
+                  fingerprint: str}                  # 12 hex over the resolved file set;
+                                                     # a run records it at creation
+ProfileDetail  = ProfileSummary + {
+                  groups: [{id, label, layers: [layer], files: [FileRow], overridden: int}],
+                  workflows: [Workflow], history: [LedgerLine], provenance: "rule_based"}
+FileRow        = layers.describe(root) row: {id, layer, title, stage, summary, path,
+                  sha256, short, body, variables, locked, source, enters_model_call,
+                  consumers: [str], version, recorded, recorded_at, workflows}
+                  # version/recorded answer from the ledger that owns the file:
+                  # the profile's for an override, the default set's otherwise
+ProfileFileDetail = {"file": FileRow, "versions": [LedgerLine + {has_body}],
+                  "placeholders": [str], "recordings_pinned": int, "impact": Impact}
+Impact         = {provenance: "rule_based", profile, file_id, layer, source,
+                  current: "id@vN+sha8", enters_model_call: bool,
+                  recordings_pinned: int, re_record_needed: bool, consumers: [str],
+                  runs: [{run_id, artifacts: [{artifact, kind, artifact_version,
+                          pinned, stale}], would_go_stale: [artifact]}]}
+```
+
+Structured layers (`governance`, `model`, `identity`) validate on PUT the
+way their consumers read them: `roles` through `roles_config.validate`
+(never an action with no holder), `llm-settings` through
+`llm_settings.validate`, `identity` needs organisation/short_mark/
+product_line/synthetic_domain and a `#hex` palette, `pricing` non-negative
+rates. A refused body is `400`, nothing written.
+
+Audit actions: `profile.create`, `profile.describe`, `profile.delete`,
+`profile.write` (target `<name>:<id>`), `profile.create_file`,
+`profile.rollback`, `profile.revert`, `profile.import`. Exports are reads and
+are not audited.
+
+## Prompt sets — legacy alias, resolves profiles too (`s7_delivery/product/prompt_sets.py`, `factory/layers.py`)
+
+These routes predate delivery profiles and stay as aliases over the same
+files: `{set}` is resolved through `profiles.root_of`, so a delivery profile
+opens here as well (its file routes edit the same overlay, copy-on-write
+included, and `GET /prompt-sets/{profile}` returns the profile's summary with
+the prompt-layer rows). `POST /prompt-sets` still creates a legacy full copy;
+new configuration should be a profile. The playbook routes below resolve a
+legacy set or the default only.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
@@ -143,7 +249,7 @@ is absent.
 
 | Method | Path | Body | Returns |
 |---|---|---|---|
-| GET | `/runs` | | `[{run_id, mode, entry_mode, prompt_set, status, created_at, stages: [{stage, status}], size_bytes, archived: false}]` |
+| GET | `/runs` | | `[{run_id, mode, entry_mode, prompt_set, profile: {name, kind}, status, created_at, stages: [{stage, status}], size_bytes, archived: false}]` — `profile.kind` is `default`, `profile`, `legacy-set`, or `missing` when the folder the run names is gone |
 | GET | `/runs/archived` | | same rows with `archived: true, archive: "<dir name>"` |
 | POST | `/runs/{id}/reset` | | run row |
 | POST | `/runs/{id}/archive` | | `{archived_to: str}` — moves `artifacts/runs/<id>` under `artifacts/runs-archive-<YYYYMMDD>/` |
@@ -151,6 +257,35 @@ is absent.
 | DELETE | `/runs/{id}` | | 204 |
 
 Every action is audited with the actor.
+
+## Repositories and the GitHub integration (`s7_delivery/product/repos_admin.py`, `integrations.py`)
+
+Connecting a repository stays a per-run action in the Control Centre (Intake
+→ connect by URL). The admin panel shows the **cross-run registry** those
+reconnect chips read (`artifacts/known_repos.json`), joined with the runs
+that name each repository, and the **GitHub integration layer** of a
+profile — `integrations/github.md`, the seventh profile layer (added
+2026-09-07): host, owner allowlist, whether local paths may be connected,
+whether S7 may create repositories, the branch names publication refuses,
+and the `gh` login expected. Credentials never live in configuration (hard
+rule 3): publication, CI sync and repo creation use the `gh` CLI's own
+login, and the panel reports only whether that login exists and who it is.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `/repositories` | | `{provenance: "rule_based", registry_path, repositories: [{url, name, kind: https\|ssh\|local, host, owner, default_branch, ci_bootstrap_status, stack, in_registry, runs: [{run_id, mode, status, profile, ci_bootstrap_status, default_branch}], run_count, last_check: {at, reachable, detail} \| null, …registry fields}]}` — a repository a run names but the registry forgot appears with `in_registry: false`; `last_check` is the newest `repository.test` audit line for the url (derived on read, never stored twice), so a repository deleted on its host stays visibly *not found* after one probe |
+| POST | `/repositories/forget` | `{url}` | 204; 404 when not in the registry. Runs keep their own record |
+| POST | `/repositories/test` | `{url}` | `{url, reachable, default_branch, heads, error, checked_at, kind, host, owner, repo}` — an explicit operator probe: the profile's URL checks first (a disallowed owner is reported as policy, git never runs), then `git ls-remote --symref --heads`, no clone; audited `repository.test` |
+| GET | `/integrations/github?profile=` | | `{provenance, profile, source: default\|override\|set, settings: {host, allowed_owners, allow_local_paths, allow_repo_creation, refuse_branch_names, expected_gh_login}, gh: {available, authenticated, login, host, error, expected_login, login_matches, checked_at}, consumers}` — 404 for an unknown profile |
+
+The settings are edited like any other profile file
+(`PUT /profiles/{name}/files/github`, validated by `integrations.validate`:
+a body carrying a token, password or secret is refused). They are inputs to
+checks the engine already makes and can only tighten them:
+`Engine.intake_connect_repo` refuses a host, owner or local path the profile
+does not allow before anything is cloned; `intake_create_new_app_repo`
+refuses when `allow_repo_creation` is false; `publication.check_branch` adds
+`refuse_branch_names` to the main/master refusal it always had.
 
 ## Audit
 
@@ -302,5 +437,10 @@ actions: `prompt.propose`, `prompt.accept_proposal`, `prompt.reject_proposal`.
 
 - `POST /api/runs` accepts `prompt_set` (default `"default"`); `404`-style
   `400` for an unknown set. The run's state payload carries `prompt_set`.
+  `profile` is accepted as an alias for the same field (a delivery profile
+  name; wins when both are given) with the same `400` for an unknown name.
+- `GET /api/profiles` → `{"profiles": [{name, kind, description}]}` — every
+  delivery profile a new run may be created from, for the run-creation
+  picker. Read-only; the editor is the admin app.
 - `GET /api/users` and the `X-S7-User` header, as above.
 - `GET /api/delivery-system` unchanged, plus a `tasks` list and `root`.

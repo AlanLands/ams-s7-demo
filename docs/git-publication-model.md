@@ -26,7 +26,11 @@ simulated flag).
 ├── AGENTS.md                 ← s7-managed marker on line 1
 └── .s7/
     ├── shared/               architecture.md · engineering-rules.md ·
-    │                         repository-map.json · workspace-manifest.json
+    │                         repository-map.json · workspace-manifest.json ·
+    │                         assigned-stories.json · git-workflow.md ·
+    │                         ui-guidelines.md · db-conventions.md
+    │   └── ui/               app.css (starter stylesheet, identity tokens) ·
+    │                         layout.html (Thymeleaf for maven, Jinja2 for pytest)
     ├── stories/<US-00N>/     story.md · acceptance-criteria.md ·
     │                         dependencies.json · story-context.json
     └── tasks/<TASK-00N>/     task.md · context.json · test-plan.md

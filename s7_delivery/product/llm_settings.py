@@ -99,7 +99,37 @@ def validate(data: Any) -> dict[str, Any]:
 
 
 def load() -> dict[str, Any]:
+    """The global settings file — what the admin LLM page edits."""
     return validate(config.read_json(FILE, _EMPTY))
+
+
+def effective() -> dict[str, Any]:
+    """The settings a model call resolves against: the active delivery
+    profile's `models/llm-settings.md` layered over the global file. The
+    profile is whatever `layers.use()` set for the current call — the
+    engine sets it per run — so two runs on two profiles can point the same
+    stage at different models. A profile with no such file (the default set
+    before 2026-09-07, a legacy prompt set) contributes nothing."""
+    base = load()
+    try:
+        from s7_delivery.factory import layers
+
+        overlay = validate(layers.structured("llm-settings"))
+    except Exception:  # noqa: BLE001 — no layer file, or a malformed one: global wins
+        return base
+    def over(base_entry: dict, entry: dict) -> dict:
+        # only a value the profile actually sets wins; an empty slot in the
+        # profile leaves the global setting in place
+        return {**base_entry, **{k: v for k, v in entry.items() if v}}
+
+    merged = {
+        "default": over(base["default"], overlay["default"]),
+        "stages": {**base["stages"]},
+        "llm_mode": overlay["llm_mode"] or base["llm_mode"],
+    }
+    for key, entry in overlay["stages"].items():
+        merged["stages"][key] = over(merged["stages"].get(key, {}), entry)
+    return merged
 
 
 def save(data: Any, *, actor: str = "") -> dict[str, Any]:
@@ -114,7 +144,7 @@ def for_stage(key: str) -> dict[str, str]:
     """`complete()` keyword overrides for one stage: only the keys that are
     set, so an unset stage falls through to the environment exactly as before
     this module existed."""
-    settings = load()
+    settings = effective()
     entry = settings["stages"].get(key) or {}
     default = settings["default"]
     out: dict[str, str] = {}
@@ -136,7 +166,7 @@ def for_stage(key: str) -> dict[str, str]:
 
 def mode_override() -> str | None:
     """The configured LLM mode, or `None` to leave the environment in charge."""
-    return load()["llm_mode"]
+    return effective()["llm_mode"]
 
 
 def _env_model(provider: str) -> str | None:

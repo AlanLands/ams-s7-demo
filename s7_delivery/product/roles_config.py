@@ -209,10 +209,33 @@ def reset(*, actor: str = "") -> dict[str, Any]:
 # --- the effective tables ----------------------------------------------------
 
 
+def effective_overrides() -> dict[str, Any]:
+    """The overrides a permission check resolves against: the active
+    delivery profile's `governance/roles.md` layered over the global file
+    (an action listed in the profile replaces the global entry for that
+    action; a profile with no such file contributes nothing). The profile
+    is whatever `layers.use()` set for the current call — the engine sets
+    it per run through `Engine._require`."""
+    base = load()
+    try:
+        from s7_delivery.factory import layers
+
+        overlay = validate(layers.structured("roles"))
+    except Exception:  # noqa: BLE001 — no layer file, or a malformed one: global wins
+        return base
+    return {
+        "permissions": {**base["permissions"], **overlay["permissions"]},
+        "profiles": {
+            rid: {**base["profiles"].get(rid, {}), **overlay["profiles"].get(rid, {})}
+            for rid in set(base["profiles"]) | set(overlay["profiles"])
+        },
+    }
+
+
 def effective_permissions() -> dict[str, set[Role]]:
     """`PERMISSIONS` with each overridden action replaced by its holder set."""
     table = {action: set(holders) for action, holders in PERMISSIONS.items()}
-    for action, holders in load()["permissions"].items():
+    for action, holders in effective_overrides()["permissions"].items():
         table[action] = {Role(r) for r in holders}
     return table
 
@@ -220,7 +243,7 @@ def effective_permissions() -> dict[str, set[Role]]:
 def effective_profiles() -> dict[Role, dict[str, Any]]:
     """`ROLE_PROFILES` with the overridden fields replaced per role."""
     table = {role: dict(prof) for role, prof in ROLE_PROFILES.items()}
-    for rid, entry in load()["profiles"].items():
+    for rid, entry in effective_overrides()["profiles"].items():
         table[Role(rid)] = {**table[Role(rid)], **entry}
     return table
 

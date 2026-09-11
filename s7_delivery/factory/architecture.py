@@ -13,6 +13,12 @@ the same engine method later without changing this contract.
 
 from __future__ import annotations
 
+from s7_delivery.factory import layers
+
+# Delivery-profile files the pack is rendered from; the engine pins their
+# versions on `architecture/meta.json` (see delivery_packs.PINNED_LAYER_FILES).
+PINNED_LAYER_FILES: tuple[str, ...] = ("engineering-rules",)
+
 FILES = (
     "architecture.md",
     "repository-map.json",
@@ -329,27 +335,10 @@ def integration_guidelines_md(stories: list[dict]) -> str:
 
 
 def engineering_rules_md() -> str:
-    return "\n".join(
-        [
-            "# Engineering Rules",
-            "",
-            "Non-negotiable rules for every workspace in this delivery.",
-            "",
-            "- **Scope**: change only components your story names. Touching an"
-            " out-of-scope component requires a new ticket, not a bigger diff.",
-            "- **Test-first**: every acceptance criterion has a linked,"
-            " executable test; the red baseline is recorded before"
-            " implementation.",
-            "- **Traceability**: commits and pull requests reference their"
-            " story and task ids.",
-            "- **No self-approval**: the implementer never approves their own"
-            " review; independent review precedes quality handoff.",
-            "- **Rollback ready**: the story's feature flag and rollback plan"
-            " are wired before release, not after.",
-            "- **Data**: synthetic data only; no client-identifiable"
-            " information anywhere in code, tests or fixtures.",
-        ]
-    ) + "\n"
+    """The `engineering-rules` standard of the run's delivery profile —
+    the non-negotiable rules every workspace follows, published to
+    `.s7/shared/engineering-rules.md`."""
+    return layers.standard("engineering-rules") + "\n"
 
 
 def render_pack(

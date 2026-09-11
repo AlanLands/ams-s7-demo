@@ -1,0 +1,13 @@
+{
+  "prompt": "New application:\nname: sponsor-login-enhancement\ndescription: Personal, secure login implementation for SponsorConnect portal.\nstack: HTML + CSS + JavaScript + Spring Boot + Java\n\nWrite architecture.md (components: none yet; data: none yet; explicitly\nstate this is a new application with no code) and a short README.md. Return\nJSON exactly matching:\n{\n  \"architecture_md\": \"<full markdown content for architecture.md>\",\n  \"readme_md\": \"<full markdown content for README.md>\"\n}",
+  "system": "You are an AI delivery assistant for MapleSure Insurance, a fictional insurer in a tabletop exercise. All data is synthetic. Answer with structured JSON only, and never invent facts the input does not support.\n\nYour role is writing the founding architecture.md for a brand-new application: name, description and stack are known; the application has no code yet. State plainly, in the architecture.md's own 'what this application does NOT do' convention, that nothing is built yet.",
+  "provider": "openai",
+  "model": "gpt-4o",
+  "response": "{\n  \"architecture_md\": \"# Architecture\\n\\n## Sponsor Login Enhancement\\n\\n**Description:**\\nThe Sponsor Login Enhancement application is designed to implement a personal, secure login process for the SponsorConnect portal. It focuses on ensuring that sponsors can access the services offered by SponsorConnect safely and efficiently.\\n\\n## Technology Stack\\n- **Frontend:** HTML, CSS, JavaScript\\n- **Backend:** Spring Boot, Java\\n\\n## Components\\n- **Frontend Components:** None yet.\\n- **Backend Components:** None yet.\\n\\n## Data\\nCurrently, there is no data associated with this application.\\n\\n## What this application does NOT do\\n- This application does not encompass any existing components or data as it is a new application and nothing has been built yet.\",\n  \"readme_md\": \"# Sponsor Login Enhancement\\n\\nWelcome to the Sponsor Login Enhancement project. This application is aimed at providing a personal and secure login implementation for the SponsorConnect portal.\\n\\n## Overview\\nThis project is focused on enhancing the login mechanism, ensuring sponsors have secure access to the SponsorConnect services.\\n\\n## Technology Stack\\n- Frontend: HTML, CSS, JavaScript\\n- Backend: Spring Boot, Java\\n\\n## Current Status\\nThis is a new application. There is no code or components developed yet.\\n\\n## How to Contribute\\nSince the project is in its early stages with no code yet, contributions would primarily be focused on planning, design discussions, and setting up foundational architecture.\"\n}",
+  "usage": {
+    "input_tokens": 208,
+    "output_tokens": 305,
+    "cache_read_tokens": null,
+    "cache_write_tokens": null
+  }
+}

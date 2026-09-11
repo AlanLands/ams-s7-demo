@@ -415,7 +415,7 @@ export function ObservabilityPage() {
       </div>
       {(pr?.unrecorded_default ?? []).length ? (
         <div style={{ marginTop: 12 }}>
-          <Notice tone="warning" title="Unrecorded default files." actions={<Button variant="secondary" size="sm" onClick={() => goTo('prompt_sets')}>Open prompt sets</Button>}>The test suite refuses these until they are recorded or rolled back.</Notice>
+          <Notice tone="warning" title="Unrecorded default files." actions={<Button variant="secondary" size="sm" onClick={() => goTo('profiles')}>Open delivery profiles</Button>}>The test suite refuses these until they are recorded or rolled back.</Notice>
         </div>
       ) : null}
 
