@@ -32,6 +32,24 @@ RULES_ID = "delivery-assistant"
 _REPO_NAME_RE = re.compile(r"^[a-z][a-z0-9-]{2,38}$")
 
 
+def _canonical_repo_name(name: str) -> str:
+    """Fold a proposed application name to the lowercase-kebab convention.
+
+    Not the exception to this module's "reject, don't repair" rule that it
+    looks like: GitHub would accept `Personal-Logins-SponsorConnect`
+    verbatim, so a mixed-case proposal is not a malformed response — our
+    own convention is narrower than the host's, and refusing it burned a
+    capped live conversation over spelling. Folding case and separators
+    also keeps *one* spelling of the name everywhere it is used as a key:
+    the already-connected check compares names exactly, and the clone lands
+    in a directory on a filesystem that may be case-insensitive. Anything
+    still outside the convention after folding — punctuation, a sentence
+    rather than a name — is a genuine miss and still raises.
+    """
+    folded = re.sub(r"[\s_]+", "-", name.strip().lower())
+    return re.sub(r"-{2,}", "-", folded).strip("-")
+
+
 def _rules() -> str:
     return layers.rules(RULES_ID)
 
@@ -303,9 +321,12 @@ def run_new_app_setup(
         if not 1 <= len(questions) <= 3:
             raise LLMError(f"expected 1-3 setup questions, got {len(questions)}")
         return {"done": False, "questions": questions}, usage
-    name = str(data.get("name", "")).strip()
+    proposed = str(data.get("name", "")).strip()
+    name = _canonical_repo_name(proposed)
     if not _REPO_NAME_RE.match(name):
-        raise LLMError(f"new application name {name!r} is not a valid repository name")
+        raise LLMError(
+            f"new application name {proposed!r} is not a valid repository name"
+        )
     description = str(data.get("description", "")).strip()
     stack = str(data.get("stack", "")).strip()
     if not description or not stack:

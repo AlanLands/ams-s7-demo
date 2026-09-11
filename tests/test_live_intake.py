@@ -321,6 +321,14 @@ def test_run_new_app_setup_settles(monkeypatch):
     }
 
 
+def test_run_new_app_setup_folds_name_to_convention(monkeypatch):
+    """A mixed-case proposal GitHub would accept is folded, not refused."""
+    bad = dict(GOOD_NEW_APP_SETTLED, name="Personal-Logins_SponsorConnect")
+    monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
+    result, _ = live_intake.run_new_app_setup(REQUIREMENT, [])
+    assert result["name"] == "personal-logins-sponsorconnect"
+
+
 def test_run_new_app_setup_rejects_invalid_name(monkeypatch):
     bad = dict(GOOD_NEW_APP_SETTLED, name="Not A Valid Name!")
     monkeypatch.setattr(live_intake, "complete", fake_complete(bad))
