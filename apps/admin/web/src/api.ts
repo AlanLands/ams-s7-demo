@@ -4,7 +4,8 @@ import type {
   WorkflowPreview, LedgerLine, Observability, PlaybookActions, PlaybookDetail,
   PlaybookSaveResult, PlaybookStep, PlaybookValidation,
   Correction, LearningOverview, Proposal, ProposalDetail, ProposeBody, SelfHealView,
-  Impact, ProfileDetail, ProfileFileDetail, ProfileNewFile, ProfileSaveResult, ProfileSummary,
+  AssetBrowseResult, AssetCreateResult, AssetImportResult, AssetSelection,
+  Impact, NewAsset, ProfileDetail, ProfileFileDetail, ProfileNewFile, ProfileSaveResult, ProfileSummary,
   GithubIntegration, RepoTestResult, RepositoriesPayload,
 } from './types'
 
@@ -142,6 +143,12 @@ export const api = {
     saveFile: (name: string, id: string, body: string, note: string) =>
       put<ProfileSaveResult>(`/profiles/${enc(name)}/files/${enc(id)}`, { body, note }),
     createFile: (name: string, body: ProfileNewFile) => post<ProfileSaveResult>(`/profiles/${enc(name)}/files`, body),
+    createAsset: (name: string, body: NewAsset) =>
+      post<AssetCreateResult>(`/profiles/${enc(name)}/assets`, body),
+    browseAssets: (name: string, body: { repository: string; ref?: string; subdir?: string }) =>
+      post<AssetBrowseResult>(`/profiles/${enc(name)}/assets/browse`, body),
+    importAssets: (name: string, body: { repository: string; ref?: string; note?: string; files: AssetSelection[] }) =>
+      post<AssetImportResult>(`/profiles/${enc(name)}/assets/import`, body),
     version: (name: string, id: string, n: number) =>
       get<{ id: string; version: number; body: string }>(`/profiles/${enc(name)}/files/${enc(id)}/versions/${n}`),
     diff: (name: string, id: string, from: number, to: number) =>

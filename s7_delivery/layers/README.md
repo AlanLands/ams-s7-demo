@@ -24,6 +24,8 @@ loader carries every configuration layer, and a profile under
 | **Governance** | `governance/roles.md` | JSON | `roles.require` on every engine call |
 | **Models** | `models/llm-settings.md`, `models/pricing.md` | JSON | `llm_settings.for_stage`, cost per release |
 | **Identity** | `identity/identity.md` | JSON | organisation, palette and synthetic domain for the standards and the release theme |
+| **Integrations** | `integrations/github.md` | JSON | how S7 may talk to the tenant's git hosting — host, owner allowlist, refused branch names |
+| **Assets** | `assets/<id>.md` | the artifact verbatim | delivery packs → `.s7/assets/<dest>` — project artifacts (baseline schema, API contract, document template). **Not** a variable layer: `{{…}}` is the content's own templating syntax and survives untouched. The default set ships none. |
 
 Only rules, skills and tasks enter a model call: editing them misses
 recordings (below). Editing any other layer only makes generated artifacts

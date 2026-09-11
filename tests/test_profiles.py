@@ -1,4 +1,4 @@
-"""Delivery profiles — one configuration bundle, six layers, one mechanism.
+"""Delivery profiles — one configuration bundle, eight layers, one mechanism.
 
 Overlay resolution (a profile overrides only what it changes and falls
 through to the committed default), copy-on-write editing through the ledger,
@@ -32,12 +32,17 @@ def cfg(tmp_path, monkeypatch):
 # --- overlay resolution -------------------------------------------------------
 
 
-def test_default_set_carries_six_layer_groups():
+def test_default_set_carries_eight_layer_groups():
     desc = layers.describe()
     assert [g["id"] for g in desc["layer_groups"]] == [
-        "prompts", "standards", "templates", "governance", "models", "identity", "integrations",
+        "prompts", "standards", "templates", "governance", "models", "identity",
+        "integrations", "assets",
     ]
     assert desc["overlay"] is False
+    # The Assets layer ships empty: a profile that supplies no project
+    # artifacts must publish exactly what it published before the layer
+    # existed (hard rule 5, and every pack generated before 2026-09-11).
+    assert desc["assets"] == []
     # the structured layers ship as defaults so every profile resolves them
     ids = {r["id"] for r in desc["governance"] + desc["models"] + desc["identity"]}
     assert {"roles", "llm-settings", "pricing", "identity"} <= ids

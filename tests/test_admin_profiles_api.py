@@ -67,7 +67,7 @@ def test_list_create_describe_patch_delete(client):
     assert summary["created_by"] == "admin" and summary["versions"] == 0
     assert summary["files"] == len(layers.load_all(layers.LAYERS_ROOT))
     assert set(summary["counts"]) == {"prompts", "standards", "templates", "governance",
-                                      "models", "identity", "integrations"}
+                                      "models", "identity", "integrations", "assets"}
     assert {"root", "created_at", "fingerprint", "unrecorded"} <= set(summary)
 
     assert client.post(f"{A}/profiles", json={"name": "tenant-a"}).status_code == 409
@@ -77,7 +77,8 @@ def test_list_create_describe_patch_delete(client):
 
     detail = client.get(f"{A}/profiles/tenant-a").json()
     assert [g["id"] for g in detail["groups"]] == [
-        "prompts", "standards", "templates", "governance", "models", "identity", "integrations",
+        "prompts", "standards", "templates", "governance", "models", "identity",
+        "integrations", "assets",
     ]
     for group in detail["groups"]:
         assert {"id", "label", "layers", "files", "overridden"} <= set(group)

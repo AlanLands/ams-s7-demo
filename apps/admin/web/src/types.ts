@@ -576,7 +576,7 @@ export interface ProposeBody {
 /* --- Delivery profiles (one bundle, seven layers, overlay over default) -- */
 
 export type ProfileKind = 'default' | 'profile' | 'legacy-set'
-export type ProfileLayer = 'rules' | 'skill' | 'task' | 'playbook' | 'standard' | 'template' | 'governance' | 'model' | 'identity' | 'integration'
+export type ProfileLayer = 'rules' | 'skill' | 'task' | 'playbook' | 'standard' | 'template' | 'governance' | 'model' | 'identity' | 'integration' | 'asset'
 export type ProfileGroupId = 'prompts' | 'standards' | 'templates' | 'governance' | 'models' | 'identity' | 'integrations'
 /** Where a resolved file comes from: the committed default set, an
  * override stored in the profile, or a legacy full-copy set. */
@@ -610,6 +610,10 @@ export interface ProfileFileRow {
   sha256: string
   short: string
   body: string
+  /** Assets only: the path this file publishes to under `.s7/assets/`. */
+  dest: string
+  /** Assets only: the full repository path, e.g. `.s7/assets/db/baseline.sql`. */
+  publishes_to: string
   /** `{{variables}}` the workflow supplies; a body may only reference these. */
   variables: string[]
   /** Literal tokens that must survive every edit. */
@@ -690,6 +694,60 @@ export interface ProfileNewFile {
   variables: string[]
   locked: string[]
   note: string
+  /** Assets only — where the file publishes to under `.s7/assets/`. */
+  dest?: string
+}
+
+/* --- Assets (project artifacts published into the developer's repo) ------ */
+
+export interface NewAsset {
+  id: string
+  dest: string
+  title: string
+  summary: string
+  body: string
+  note: string
+  stage?: string
+}
+
+export interface AssetBrowseFile {
+  path: string
+  bytes: number
+  importable: boolean
+  reason: string
+  preview: string
+  suggested_id?: string
+  suggested_dest?: string
+}
+
+export interface AssetBrowseResult {
+  repository: string
+  ref: string
+  subdir: string
+  files: AssetBrowseFile[]
+  truncated: boolean
+  importable: number
+}
+
+export interface AssetSelection {
+  path: string
+  id?: string
+  dest?: string
+  title?: string
+  summary?: string
+}
+
+export interface AssetImportResult {
+  repository: string
+  ref: string
+  created: { id: string; path: string }[]
+  warnings: { id: string; path: string; warnings: string[] }[]
+  files: ProfileFileRow[]
+}
+
+/** A created asset, with anything the safety scan wants a human to look at. */
+export interface AssetCreateResult extends ProfileSaveResult {
+  warnings: string[]
 }
 
 /* --- Repositories and the GitHub integration (Operations → Repositories) -- */

@@ -2923,15 +2923,25 @@ class Engine:
              for r in self._connected_repos() if r["name"] == repo_name),
             "main",
         )
-        files = dp.render_team_pack(
-            run_id=self.run_id, team=team, stories=t_stories,
-            tasks=t_tasks, all_stories=all_stories, pack_version=version,
-            plan_version=plan_version,
-            architecture_version=architecture_version,
-            assignments=assignments,
-            default_branch=default_branch,
-            stack=self._story_stack(t_stories[0]) if t_stories else None,
-        )
+        # Pack text is rendered from the run's *own* delivery profile: every
+        # standard, the identity palette and the Assets layer resolve through
+        # the active root. Without this context the renderers fall back to the
+        # committed default set while `pins` below names the profile's
+        # versions — the pack would claim a provenance its bytes do not have.
+        with self._prompt_set():
+            files = dp.render_team_pack(
+                run_id=self.run_id, team=team, stories=t_stories,
+                tasks=t_tasks, all_stories=all_stories, pack_version=version,
+                plan_version=plan_version,
+                architecture_version=architecture_version,
+                assignments=assignments,
+                default_branch=default_branch,
+                stack=self._story_stack(t_stories[0]) if t_stories else None,
+            )
+            # Assets are pinned by id like every other profile file, but the
+            # set is per-profile rather than a fixed tuple, so it is collected
+            # here rather than declared in `delivery_packs`.
+            asset_ids = tuple(a.id for a in layers.assets())
         slug = files["workspace-manifest.json"]["team_slug"]
         self._write_files(files, "build", "packs", slug)
         pack = DeliveryPack(
@@ -2946,7 +2956,7 @@ class Engine:
             plan_version=plan_version,
             repository=files["workspace-manifest.json"]["repository"],
             content_hash=sha256_of(files),
-            pins=self._layer_pins(dp.PINNED_LAYER_FILES),
+            pins=self._layer_pins(dp.PINNED_LAYER_FILES + asset_ids),
             provenance=prov,
         ).model_dump(mode="json")
         self._record(

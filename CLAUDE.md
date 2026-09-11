@@ -644,6 +644,50 @@ AC *count* and never AC *content*), a criterion with no observable trigger or
 result, and a feature flag the pack mandates while `code-conventions.md`
 rule 25 forbids a switch nothing sets.
 
+**Assets — project artifacts, the eighth profile layer, added 2026-09-11.**
+The Delivery Profile carried what the models are told (Prompts), what
+developers are told (Standards), what S7 generates mechanically (Templates),
+and the four structured layers — but nothing for what the *project* supplies:
+a baseline schema, an OpenAPI contract, a document template, a reference
+payload. `db-conventions.md` was the gap in miniature, giving developers
+eleven rules on writing migrations and shipping zero SQL. **Assets**
+(`layers/assets/<id>.md`, `product/assets.py`) closes it with the same file
+shape, ledger, overlay and pinning as every other layer, published verbatim
+to `.s7/assets/<dest>` and listed in the team pack's `AGENTS.md` so a coding
+agent knows the files exist. Four deliberate differences. (1) **An asset is
+not a variable layer** — its body *is* the artifact, so `{{...}}` inside one
+is the content's own templating syntax (Handlebars, Jinja, a Flyway
+placeholder) and survives untouched; rendering assets would refuse a
+perfectly good Handlebars template at load for declaring no `variables:`,
+which is exactly the artifact this layer exists to carry. (2) **`dest` is
+frontmatter, validated on create *and* on load** (`check_asset_dest`), so a
+hand-edited file cannot escape the managed root — no leading slash, no `..`,
+no backslash, four directories deep at most, an extension required, and two
+assets may not claim one `dest`. (3) **Text only, credentials refused** — a
+layer body is hashed, CRLF-normalised text, so binaries are refused at the
+door (512 KB cap) rather than base64-smuggled through a mechanism that cannot
+diff them, the same wall that kept the Maven wrapper out; a private key or
+cloud key is refused outright (hard rule 3) while content that merely *looks*
+like personal data returns `warnings`, never a refusal, because an operator's
+own schema legitimately mentions `email` and a false refusal teaches people
+to route around the check. (4) **Import is a loader, not a link** — assets
+are authored in the panel or copied out of a repository
+(`assets/browse` + `assets/import`, gated by the profile's Integrations
+allowlist exactly as `intake_connect_repo` is), and nothing re-syncs
+afterwards, because a pinned artifact silently following someone else's
+`main` would defeat the pinning every other layer depends on. **The default
+set ships no assets**, so a profile that supplies none publishes exactly what
+it published before the layer existed and hard rule 5 is untouched. Two
+fixes fell out of building it, both pre-existing: `_write_team_pack` rendered
+pack text with **no profile context**, so every standard and the identity
+palette resolved against the committed default set while `pins` named the
+profile's versions — a pack claiming a provenance its bytes did not have; and
+the admin API's `_LAYER_KEYS` was a hand-maintained tuple that had already
+drifted, hiding the Integrations layer from file lookup, now derived from
+`LAYER_GROUPS` (`layers.describe_keys()`) so it cannot drift again. Contract:
+`docs/admin-api.md` § Assets; tests: `tests/test_assets_layer.py` and
+`tests/test_admin_assets_api.py`.
+
 **Correction learning — the admin-only loop, added 2026-09-03.** The
 product learns from the humans who correct it, without the dashboard's
 users ever seeing the machinery. Whenever a person edits model output in

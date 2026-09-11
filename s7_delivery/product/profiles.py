@@ -189,7 +189,7 @@ def describe(name: str) -> dict[str, Any]:
         "playbook": desc["playbooks"], "standard": desc["standards"],
         "template": desc["templates"], "governance": desc["governance"],
         "model": desc["models"], "identity": desc["identity"],
-        "integration": desc["integrations"],
+        "integration": desc["integrations"], "asset": desc["assets"],
     }
     groups = []
     for gid, label, kinds in layers.LAYER_GROUPS:

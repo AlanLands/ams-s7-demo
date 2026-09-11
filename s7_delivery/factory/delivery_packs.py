@@ -403,14 +403,34 @@ def render_ui_starter_files(*, stack: str | None = None) -> dict[str, str]:
 
 def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
                           *, architecture_version: int,
-                          assignments: dict[str, str] | None = None) -> str:
+                          assignments: dict[str, str] | None = None,
+                          assets: list | None = None) -> str:
     """Developer/coding-agent guidance (spec §14). The developer owns
     implementation; a coding assistant may help — S7 provides the context."""
     assignments = assignments or {}
+    assets = layers.assets() if assets is None else assets
     story_ids = [s["story_id"] for s in stories]
     components = sorted(
         {s.get("target_component", "") for s in stories if s.get("target_component")}
     )
+    assets_section: list[str] = []
+    if assets:
+        assets_section = [
+            "## Project Assets",
+            "Artifacts this project supplies, published verbatim under"
+            " `.s7/assets/`. They are **reference material, not source**:"
+            " copy what you need into the story's own files — a baseline"
+            " schema becomes your migration, a contract becomes your"
+            " generated client. Never edit a file under `.s7/assets/`;"
+            " S7 overwrites that directory on the next publish.",
+            "",
+            *[f"- `.s7/assets/{a.dest}` — {a.summary or a.title}" for a in assets],
+            "",
+            "Where an asset disagrees with this repository, **the repository"
+            " wins** — the same rule `code-conventions.md` opens with. S7 has"
+            " never seen your code; the neighbouring files have.",
+            "",
+        ]
     lines = [
         S7_MARKER,
         f"# {team} — delivery context",
@@ -567,6 +587,7 @@ def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
         " fragment per story, never an edit to the shared config; synthetic"
         " seed data in a dev profile only.",
         "",
+        *assets_section,
         "## Scope Boundaries",
         f"This pack covers {', '.join(story_ids)} only.",
         "",
@@ -593,6 +614,45 @@ def render_team_agents_md(team: str, stories: list[dict], tasks: list[dict],
     return "\n".join(lines) + "\n"
 
 
+def render_asset_files(assets: list | None = None) -> dict[str, object]:
+    """The Assets layer of the run's delivery profile, laid out for the pack.
+
+    Returns `assets/<dest> -> body` plus an `assets-manifest.json` naming
+    every file with the layer id and version it came from. Bodies are copied
+    **verbatim**: an asset is the artifact itself, so nothing is rendered,
+    escaped or re-indented on the way through (see `layers.ASSET_LAYERS`).
+    An empty Assets layer contributes nothing at all — no manifest, no
+    directory — so a profile that supplies no assets publishes exactly what
+    it published before this layer existed.
+    """
+    assets = layers.assets() if assets is None else assets
+    if not assets:
+        return {}
+    out: dict[str, object] = {
+        f"assets/{a.dest}": a.body + "\n" for a in assets
+    }
+    out["assets-manifest.json"] = {
+        "count": len(assets),
+        "published_root": ".s7/assets",
+        "provenance": "rule_based",
+        "note": "Reference material supplied with this project; copy from it,"
+                " never edit it in place — S7 overwrites .s7/assets on publish.",
+        "assets": [
+            {
+                "id": a.id,
+                "title": a.title,
+                "summary": a.summary,
+                "dest": a.dest,
+                "published_to": f".s7/assets/{a.dest}",
+                "sha256": a.sha256,
+                "source": a.source,
+            }
+            for a in assets
+        ],
+    }
+    return out
+
+
 def render_team_pack(
     *,
     run_id: str,
@@ -608,6 +668,7 @@ def render_team_pack(
     stack: str | None = None,
 ) -> dict[str, object]:
     assignments = assignments or {}
+    project_assets = layers.assets()
     slug = team_slug(team)
     repo = next((s.get("target_repository", "") for s in stories), "")
     story_ids = [s["story_id"] for s in stories]
@@ -643,6 +704,11 @@ def render_team_pack(
         "- `ui/app.css`, `ui/layout.html` — the starter stylesheet and shared"
         " page layout every page copies in",
         "- `workspace-manifest.json` — what the developer workspace receives",
+        *([
+            "- `assets/` — project artifacts supplied with this delivery"
+            f" ({len(project_assets)}), published verbatim to `.s7/assets/`;"
+            " reference material to copy from, never to edit in place",
+        ] if project_assets else []),
     ]) + "\n"
     readme = "\n".join([
         f"# {team} delivery pack",
@@ -689,7 +755,7 @@ def render_team_pack(
         "team-delivery-pack.md": pack_md,
         "AGENTS.md": render_team_agents_md(
             team, stories, tasks, architecture_version=architecture_version,
-            assignments=assignments,
+            assignments=assignments, assets=project_assets,
         ),
         "assigned-stories.json": {
             "team": team,
@@ -719,5 +785,6 @@ def render_team_pack(
             stories=stories, default_branch=default_branch,
         ),
         **render_ui_starter_files(stack=stack),
+        **render_asset_files(project_assets),
         "workspace-manifest.json": manifest,
     }

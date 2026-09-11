@@ -43,9 +43,9 @@ both in step with it.
 ## Delivery profiles (`s7_delivery/product/profiles.py`, `factory/layers.py`)
 
 A **delivery profile** is one named, versioned bundle of everything that
-configures S7 for a client or project — six layers (prompts, standards,
-templates, governance, models, identity), one file shape, one ledger, one
-editor, one audit trail (design: `docs/design-history/plans/
+configures S7 for a client or project — eight layers (prompts, standards,
+templates, governance, models, identity, integrations, assets), one file
+shape, one ledger, one editor, one audit trail (design: `docs/design-history/plans/
 2026-09-07-delivery-profiles.md`). A run is created *from* a profile
 (`DeliveryRun.prompt_set` names it) and pins the versions it consumed.
 
@@ -136,6 +136,63 @@ Audit actions: `profile.create`, `profile.describe`, `profile.delete`,
 `profile.write` (target `<name>:<id>`), `profile.create_file`,
 `profile.rollback`, `profile.revert`, `profile.import`. Exports are reads and
 are not audited.
+
+### Assets — project artifacts (`s7_delivery/product/assets.py`)
+
+The eighth layer (2026-09-11). An **asset** is a file the *project* supplies
+that is neither a prompt, a developer standard, nor something S7 generates
+mechanically — a baseline schema, an OpenAPI contract, a document template,
+a reference payload. Assets are published verbatim into every repository the
+profile delivers to, under `.s7/assets/<dest>`, and listed in the team pack's
+`AGENTS.md` so a coding agent knows they exist.
+
+Four things separate assets from the other layers:
+
+- **The body is the artifact, not a template.** Assets are not a variable
+  layer: `{{...}}` inside one is the content's own templating syntax
+  (Handlebars, Jinja, Liquid, a Flyway placeholder) and survives untouched.
+  Rendering them would refuse a perfectly good Handlebars template at load
+  for declaring no `variables:`.
+- **`dest` is frontmatter.** Every asset declares where it publishes to,
+  relative to `.s7/assets/`. It is validated on create *and* on load, so a
+  hand-edited file cannot escape the managed root: no leading slash, no
+  `..`, no backslash, at most four directories deep, and an extension. Two
+  assets may not claim the same `dest`.
+- **Text only, and credentials are refused.** A layer body is hashed,
+  CRLF-normalised text; binaries are refused at the door (512 KB cap) rather
+  than base64-smuggled through a mechanism that cannot diff them. A private
+  key, cloud key or hard-coded secret is refused outright (hard rule 3);
+  content that merely *looks* like personal data comes back as `warnings`,
+  never a refusal — an operator's own schema legitimately mentions `email`.
+- **The default set ships none.** `s7_delivery/layers/assets/` is empty, so a
+  profile that supplies no assets publishes exactly what it published before
+  the layer existed, and hard rule 5 is untouched.
+
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/api/admin/profiles/{name}/assets` | Author one. Body `{id, dest, title, summary, body, note, stage?}` → `201 {file, version, warnings}`. `400` on a bad `dest`, a credential, or the `default` profile. |
+| POST | `/api/admin/profiles/{name}/assets/browse` | `{repository, ref?, subdir?}` → the repository's importable text files with `suggested_id`, `suggested_dest`, a preview, and `importable:false` + `reason` for binaries. Read-only: the clone is temporary. |
+| POST | `/api/admin/profiles/{name}/assets/import` | `{repository, ref?, note?, files:[{path, id?, dest?, title?, summary?}]}` → `201 {created, warnings, files}`. Each file is re-read from a fresh clone. |
+
+Both git routes honour the profile's Integrations layer (`integrations/
+github.md`) exactly as `intake_connect_repo` does — host, allowed owners,
+whether local paths are permitted. Audit actions: `profile.create_asset`,
+`profile.browse_assets`, `profile.import_assets`.
+
+**Import is a loader, not a link.** Imported files become ordinary asset
+files versioned in the profile's ledger; nothing re-syncs afterwards. A
+pinned artifact that silently followed someone else's `main` would defeat the
+pinning every other layer depends on, so re-importing is an explicit,
+versioned act.
+
+**Publication.** `delivery_packs.render_asset_files()` lays them out under
+`build/packs/<slug>/assets/` with an `assets-manifest.json`;
+`publication.file_plan` carries them to `.s7/assets/**` and the manifest to
+`.s7/shared/assets-manifest.json`. `.s7` is already a managed root, so the
+foreign-content refusal and the never-a-default-branch check cover assets
+unchanged. Asset ids are pinned on the pack like every other profile file, so
+editing one marks the pack stale rather than silently changing the next
+publish.
 
 ## Prompt sets — legacy alias, resolves profiles too (`s7_delivery/product/prompt_sets.py`, `factory/layers.py`)
 

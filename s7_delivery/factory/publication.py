@@ -28,6 +28,10 @@ from s7_delivery.factory.test_skeletons import runnable_root
 
 PYTEST_ROOT = "tests/s7"
 JUNIT_ROOT = "src/test/java/s7"
+# Project assets land under their own root inside the already-managed `.s7`
+# tree, so no new trust surface is created: the foreign-content refusal and
+# the never-a-default-branch check cover them unchanged.
+ASSETS_ROOT = ".s7/assets"
 MANAGED_ROOTS = ("AGENTS.md", ".s7", PYTEST_ROOT, JUNIT_ROOT)
 _TEST_ROOTS = (PYTEST_ROOT, JUNIT_ROOT)
 
@@ -71,6 +75,21 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
         path = store.path("build", "packs", slug, name)
         if path.is_file():
             plan[f".s7/shared/{name}"] = path.read_text(encoding="utf-8")
+    # Project assets — the Assets layer, published verbatim under a root of
+    # their own so `.s7/assets/` is nothing but the artifacts themselves. The
+    # manifest that describes them sits with the other shared context. Packs
+    # generated before the layer existed carry neither; that is not an error.
+    adir = store.path("build", "packs", slug, "assets")
+    if adir.is_dir():
+        for p in sorted(adir.rglob("*")):
+            if p.is_file():
+                rel = p.relative_to(adir).as_posix()
+                plan[f"{ASSETS_ROOT}/{rel}"] = p.read_text(encoding="utf-8")
+    manifest_path = store.path("build", "packs", slug, "assets-manifest.json")
+    if manifest_path.is_file():
+        plan[".s7/shared/assets-manifest.json"] = manifest_path.read_text(
+            encoding="utf-8"
+        )
     for story_id in pack["story_ids"]:
         sdir = store.path("build", "stories", story_id)
         for p in sorted(sdir.iterdir()):

@@ -60,6 +60,8 @@ from s7_delivery.product import (
 )
 from s7_delivery.product.config import ConfigError
 from s7_delivery.product.improve import ImproveError
+from s7_delivery.product import assets as assets_lib
+from s7_delivery.product.assets import AssetError
 from s7_delivery.product.integrations import IntegrationError
 from s7_delivery.product.playbooks_admin import PlaybookValidationError
 from s7_delivery.product.profiles import ProfileError
@@ -161,6 +163,11 @@ async def _repository_not_found(_req: Any, exc: RepositoryNotFound) -> JSONRespo
 
 @app.exception_handler(IntegrationError)
 async def _integration_error(_req: Any, exc: IntegrationError) -> JSONResponse:
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+
+@app.exception_handler(AssetError)
+async def _asset_error(_req: Any, exc: AssetError) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
@@ -268,8 +275,9 @@ class Rollback(BaseModel):
     note: str
 
 
-_LAYER_KEYS = ("rules", "skills", "tasks", "playbooks", "standards", "templates",
-               "governance", "models", "identity")
+# Derived from `LAYER_GROUPS`, never hand-listed: a layer added to the
+# delivery profile is looked up here the day it exists.
+_LAYER_KEYS = layers.describe_keys()
 
 
 def _set_root(name: str) -> Path:
@@ -484,6 +492,39 @@ class PatchProfile(BaseModel):
 
 class CreateProfileFile(CreateFile):
     locked: list[str] = []
+    # Assets only: the path the file publishes to under `.s7/assets/`.
+    dest: str = ""
+
+
+class CreateAsset(BaseModel):
+    id: str
+    dest: str
+    title: str
+    summary: str
+    body: str
+    note: str
+    stage: str = "build_review"
+
+
+class BrowseAssets(BaseModel):
+    repository: str
+    ref: str = ""
+    subdir: str = ""
+
+
+class AssetSelection(BaseModel):
+    path: str
+    id: str = ""
+    dest: str = ""
+    title: str = ""
+    summary: str = ""
+
+
+class ImportAssets(BaseModel):
+    repository: str
+    ref: str = ""
+    note: str = ""
+    files: list[AssetSelection]
 
 
 class RevertFile(BaseModel):
@@ -572,11 +613,62 @@ def post_profile_file(name: str, body: CreateProfileFile,
     record = layers.create_file(
         body.layer, body.id, title=body.title, stage=body.stage, summary=body.summary,
         body=body.body, variables=body.variables, locked=body.locked, note=body.note,
-        author=actor, root=root,
+        author=actor, root=root, dest=body.dest,
     )
     config.audit(actor, "profile.create_file", f"{name}:{body.id}", detail=body.note,
                  after={"sha256": record["sha256"]})
     return {"file": _file_row(root, body.id), "version": record}
+
+
+@router.post("/profiles/{name}/assets", status_code=201)
+def post_profile_asset(name: str, body: CreateAsset,
+                       actor: str = Depends(_actor)) -> dict:
+    """Author an asset in the panel. Goes through `assets.create` rather than
+    `layers.create_file` so the credential refusal and the PII warnings apply
+    to a pasted file exactly as they do to an imported one."""
+    root = _profile_root(name)
+    out = assets_lib.create(
+        name, file_id=body.id, dest=body.dest, title=body.title,
+        summary=body.summary, body=body.body, note=body.note,
+        author=actor, stage=body.stage,
+    )
+    config.audit(actor, "profile.create_asset", f"{name}:{body.id}",
+                 detail=body.note,
+                 after={"sha256": out["record"]["sha256"], "dest": body.dest})
+    return {"file": _file_row(root, body.id), "version": out["record"],
+            "warnings": out["warnings"]}
+
+
+@router.post("/profiles/{name}/assets/browse")
+def post_profile_assets_browse(name: str, body: BrowseAssets,
+                               actor: str = Depends(_actor)) -> dict:
+    """List the importable text files in a repository. Read-only: the clone
+    is temporary and nothing is connected to a run."""
+    _profile_root(name)
+    result = assets_lib.browse(body.repository, ref=body.ref, subdir=body.subdir)
+    config.audit(actor, "profile.browse_assets", f"{name}:{result['repository']}",
+                 detail=f"{result['importable']} importable files")
+    return result
+
+
+@router.post("/profiles/{name}/assets/import", status_code=201)
+def post_profile_assets_import(name: str, body: ImportAssets,
+                               actor: str = Depends(_actor)) -> dict:
+    """Copy chosen files out of a repository into this profile's Assets
+    layer. A loader, not a link: nothing re-syncs afterwards."""
+    root = _profile_root(name)
+    result = assets_lib.import_from_git(
+        name, body.repository,
+        [sel.model_dump() for sel in body.files],
+        ref=body.ref, author=actor, note=body.note,
+    )
+    config.audit(actor, "profile.import_assets", f"{name}:{result['repository']}",
+                 detail=f"{len(result['created'])} assets",
+                 after={"ids": [c["id"] for c in result["created"]]})
+    return {
+        **result,
+        "files": [_file_row(root, c["id"]) for c in result["created"]],
+    }
 
 
 @router.get("/profiles/{name}/files/{file_id}")

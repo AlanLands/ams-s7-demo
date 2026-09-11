@@ -117,9 +117,20 @@ _SUBDIR = {
     "governance": "governance", "model": "models", "identity": "identity",
     # Integrations (2026-09-07): how S7 may talk to the tenant's git hosting.
     "integration": "integrations",
+    # Assets (2026-09-11): project artifacts a delivery carries into the
+    # developer's repository — a baseline schema, an OpenAPI contract, a
+    # document template. Content, not machinery; see ASSET_LAYERS below.
+    "asset": "assets",
 }
 # Layers whose body may carry `{{placeholders}}` declared in `variables:`.
 VARIABLE_LAYERS = frozenset({"task", "standard", "template"})
+# Assets are deliberately *not* a variable layer. Their body is the artifact
+# itself, published byte for byte, so `{{...}}` inside an asset is the
+# content's own templating syntax (Handlebars, Jinja, Liquid, a Flyway
+# placeholder) and must survive untouched. Treating assets as renderable
+# would refuse a perfectly good Handlebars template at load for declaring no
+# `variables:` — exactly the kind of artifact this layer exists to carry.
+ASSET_LAYERS = frozenset({"asset"})
 # Layers whose body must parse as JSON (playbooks are validated by
 # `playbook()` with their own structural checks; the rest at load).
 JSON_LAYERS = frozenset({"governance", "model", "identity", "integration"})
@@ -132,18 +143,76 @@ LAYER_GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("models", "Models and economics", ("model",)),
     ("identity", "Identity — the tenant's name and palette", ("identity",)),
     ("integrations", "Integrations — the tenant's git hosting", ("integration",)),
+    ("assets", "Assets — project artifacts published to the repository", ("asset",)),
 )
 # Which layers enter a model call: an edit there misses recordings; an edit
 # elsewhere only makes generated artifacts stale.
 PROMPT_LAYERS = frozenset({"rules", "skill", "task"})
+# The key each layer kind appears under in `describe()`. The two vocabularies
+# (singular layer kind, plural payload key) meet here and nowhere else, so a
+# consumer can walk every layer without hand-maintaining a parallel list — the
+# drift that hid the integrations layer from the admin file lookup until the
+# Assets layer landed beside it.
+DESCRIBE_KEY: dict[str, str] = {
+    "rules": "rules", "skill": "skills", "task": "tasks", "playbook": "playbooks",
+    "standard": "standards", "template": "templates", "governance": "governance",
+    "model": "models", "identity": "identity", "integration": "integrations",
+    "asset": "assets",
+}
+
+
+def describe_keys() -> tuple[str, ...]:
+    """Every `describe()` payload key holding layer-file rows, in group order."""
+    return tuple(dict.fromkeys(
+        DESCRIBE_KEY[kind] for _, _, kinds in LAYER_GROUPS for kind in kinds
+    ))
 PROFILE_META = "profile.json"
 _ID_RE = re.compile(r"^[a-z][a-z0-9-]{1,63}$")
 _PLACEHOLDER_RE = re.compile(r"\{\{([A-Za-z_][A-Za-z0-9_]*)\}\}")
+# An asset's `dest:` — where it lands under `.s7/assets/` in the developer's
+# repository. Constrained so a dest can never escape that managed root: no
+# leading slash, no `..`, no backslash, and an extension so the file arrives
+# as the type its content actually is.
+_ASSET_DEST_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*\.[A-Za-z0-9]+$")
+ASSET_DEST_MAX = 180
+ASSET_DEST_MAX_DEPTH = 4
 
 
 class LayerError(RuntimeError):
     """A layer file is missing or malformed. Raised at import of the module
     that needs it — a missing skill must fail loudly, never fall back."""
+
+
+def check_asset_dest(dest: str) -> str:
+    """Validate an asset's publication path and return it stripped.
+
+    Every asset resolves under `.s7/assets/`, so this is the only thing
+    between an operator's typed path and a write outside the managed root
+    that `publication.py` guarantees. It refuses rather than sanitises: a
+    path that needs cleaning is a path the operator should be shown.
+    """
+    d = (dest or "").strip()
+    if not d:
+        raise LayerError(
+            "an asset needs a `dest:` — the path it publishes to under .s7/assets/"
+        )
+    if "\\" in d:
+        raise LayerError(f"asset dest {d!r} must use forward slashes, not backslashes")
+    if ".." in d or "//" in d or not _ASSET_DEST_RE.match(d):
+        raise LayerError(
+            f"asset dest {d!r} must be a relative path ending in a file extension — "
+            "letters, digits, dot, dash, underscore and forward slash only, with no "
+            "leading slash and no '..'"
+        )
+    if len(d) > ASSET_DEST_MAX:
+        raise LayerError(
+            f"asset dest {d!r} is longer than {ASSET_DEST_MAX} characters"
+        )
+    if d.count("/") > ASSET_DEST_MAX_DEPTH:
+        raise LayerError(
+            f"asset dest {d!r} is deeper than {ASSET_DEST_MAX_DEPTH} directories"
+        )
+    return d
 
 
 @dataclass(frozen=True)
@@ -159,6 +228,7 @@ class LayerFile:
     variables: tuple[str, ...] = ()  # variable layers: declared placeholders
     locked: tuple[str, ...] = ()  # literal tokens every edit must keep
     source: str = "default"  # "default" | "override" | "set" (legacy full copy)
+    dest: str = ""  # asset layer: the path it publishes to under .s7/assets/
 
     @property
     def short(self) -> str:
@@ -261,6 +331,12 @@ def _parse(path: Path, root: Path) -> LayerFile:
             json.loads(body)
         except json.JSONDecodeError as exc:
             raise LayerError(f"{path}: {layer} body is not valid JSON: {exc}") from exc
+    dest = ""
+    if layer in ASSET_LAYERS:
+        try:
+            dest = check_asset_dest(meta.get("dest", ""))
+        except LayerError as exc:
+            raise LayerError(f"{path}: {exc}") from exc
     for token in locked:
         if token not in body:
             raise LayerError(f"{path}: locked token {token!r} is missing from the body")
@@ -275,6 +351,7 @@ def _parse(path: Path, root: Path) -> LayerFile:
         sha256=hashlib.sha256(body.encode("utf-8")).hexdigest(),
         variables=variables,
         locked=locked,
+        dest=dest,
     )
 
 
@@ -420,6 +497,33 @@ def template(file_id: str, root: Path | None = None, /, **values: Any) -> str:
     if lf.layer != "template":
         raise LayerError(f"{file_id!r} is a {lf.layer} file, not a template")
     return render(file_id, root, **values)
+
+
+def asset(file_id: str, root: Path | None = None) -> LayerFile:
+    """One Assets-layer file. Returns the `LayerFile` rather than its body,
+    because an asset's `dest` matters as much as its content."""
+    lf = get(file_id, root)
+    if lf.layer not in ASSET_LAYERS:
+        raise LayerError(f"{file_id!r} is a {lf.layer} file, not an asset")
+    return lf
+
+
+def assets(root: Path | None = None) -> list[LayerFile]:
+    """Every Assets-layer file of the active profile, ordered by `dest` so a
+    pack, a manifest and the AGENTS.md list always agree on order. Two assets
+    may not claim the same `dest`: one would silently overwrite the other at
+    publication, and which one won would depend on load order."""
+    out = [lf for lf in load_all(root).values() if lf.layer in ASSET_LAYERS]
+    out.sort(key=lambda lf: (lf.dest, lf.id))
+    seen: dict[str, str] = {}
+    for lf in out:
+        if lf.dest in seen:
+            raise LayerError(
+                f"assets {seen[lf.dest]!r} and {lf.id!r} both publish to "
+                f"{lf.dest!r} — one would overwrite the other"
+            )
+        seen[lf.dest] = lf.id
+    return out
 
 
 def structured(file_id: str, root: Path | None = None) -> dict[str, Any]:
@@ -703,8 +807,10 @@ def create_file(
     layer: str, file_id: str, *, title: str, stage: str, summary: str, body: str,
     variables: Iterable[str] = (), locked: Iterable[str] = (), note: str,
     author: str = "", root: Path | None = None, now: str | None = None,
+    dest: str = "",
 ) -> dict[str, Any]:
-    """Add a new layer file and record it as v1."""
+    """Add a new layer file and record it as v1. An asset also needs `dest` —
+    the path it publishes to under `.s7/assets/`."""
     if layer not in _SUBDIR:
         raise LayerError(f"layer must be one of {', '.join(sorted(_SUBDIR))}, got {layer!r}")
     if not _ID_RE.match(file_id):
@@ -720,8 +826,14 @@ def create_file(
     if any("," in t for t in locked):
         raise LayerError("a locked token cannot contain a comma")
     _check_body(layer, file_id, body, variables, locked)
+    if layer in ASSET_LAYERS:
+        dest = check_asset_dest(dest)
+    elif dest:
+        raise LayerError(f"a {layer} file has no `dest:` — only an asset publishes to a path")
     meta = [f"id: {file_id}", f"layer: {layer}", f"title: {title.strip()}",
             f"stage: {stage.strip()}", f"summary: {summary.strip()}"]
+    if dest:
+        meta.append(f"dest: {dest}")
     if variables:
         meta.append("variables: " + ", ".join(variables))
     if locked:
@@ -975,6 +1087,8 @@ def describe(root: Path | None = None) -> dict[str, Any]:
             "variables": list(lf.variables),
             "locked": list(lf.locked),
             "source": lf.source,
+            "dest": lf.dest,
+            "publishes_to": (f".s7/assets/{lf.dest}" if lf.dest else ""),
             "enters_model_call": lf.layer in PROMPT_LAYERS,
             "consumers": list(CONSUMERS.get(lf.id, ())),
             "version": int(rec["version"]) if rec else 0,
@@ -998,7 +1112,8 @@ def describe(root: Path | None = None) -> dict[str, Any]:
         })
     other_rows = {
         kind: [row(lf) for lf in files.values() if lf.layer == kind]
-        for kind in ("standard", "template", "governance", "model", "identity", "integration")
+        for kind in ("standard", "template", "governance", "model", "identity",
+                     "integration", "asset")
     }
     return {
         "provenance": "rule_based",
@@ -1014,6 +1129,7 @@ def describe(root: Path | None = None) -> dict[str, Any]:
         "models": other_rows["model"],
         "identity": other_rows["identity"],
         "integrations": other_rows["integration"],
+        "assets": other_rows["asset"],
         "prompt_mapping": {
             "rules": "Rules layer — the `rules` slot, identical for every call of a lane",
             "role": "Skills layer — the `role` slot, identical for every call of a stage",
