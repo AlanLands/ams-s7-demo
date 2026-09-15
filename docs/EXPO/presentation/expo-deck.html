@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control Center — Engineering Excellence Expo 2026</title>
+<!--
+  Expo deck, built slide by slide. Replaces expo-10min.pptx as the presented deck.
+
+  Look: paper, crimson and gold from the tabletop deck; Liquid Glass surfaces over
+  a soft aurora, the same material as the Expo films; Apple's system type.
+
+  Type: San Francisco (the Mac's own system font) on Apple machines. Its licence
+  does not allow bundling it, so every other machine gets Inter, which is bundled
+  and was drawn to match it. Nothing is fetched.
+
+  Icons: Lucide v0.460.0 (ISC), inlined below. Font: Inter (SIL OFL 1.1).
+  The asset folder must travel with this file — or run make_portable.py and send
+  the single-file copy it writes.
+
+  Keys: → / space / click advance · ← back · 1–9 jump · R replay · F fullscreen
+        P presenter view (notes, timer, next slide) · L lite mode for weak GPUs
+
+  No client name anywhere (hard rule 2). MapleSure Insurance is fictional.
+-->
+<style>
+/* ===================================================================
+   TYPE — Apple system font first, bundled Inter everywhere else
+   =================================================================== */
+@font-face{font-family:"InterDeck";font-style:normal;font-weight:100 900;font-display:block;
+  src:url("expo-deck-assets/fonts/inter-latin-wght-normal.woff2") format("woff2")}
+
+/* ===================================================================
+   THEME
+   =================================================================== */
+:root{
+  --paper:#f7f3ee; --paper-3:#e9e4dc;
+  --ink:#16130e; --ink-soft:#3b3830; --stone:#5c594f;
+  --crimson:#ba0c2f; --crimson-bright:#d31145; --gold:#c7a566; --gold-ink:#94620a;
+  --font-display:-apple-system,BlinkMacSystemFont,"InterDeck","Helvetica Neue",Arial,sans-serif;
+  --font-sans:-apple-system,BlinkMacSystemFont,"InterDeck","Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--paper-3)}
+body{font-family:var(--font-sans);color:var(--ink);-webkit-font-smoothing:antialiased;
+  font-feature-settings:"ss01","cv11"}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+img{display:block;max-width:100%}
+[hidden]{display:none !important}
+
+/* ===================================================================
+   STAGE — fixed 1600x900, scaled as a whole
+   =================================================================== */
+#stage{position:fixed;left:50%;top:50%;width:1600px;height:900px;transform-origin:50% 50%}
+.slide{position:absolute;inset:0;background:var(--paper);overflow:hidden;cursor:pointer;
+  opacity:0;visibility:hidden;transition:none}
+.slide.live{opacity:1;visibility:visible;transition:opacity .5s var(--ease)}
+.abs{position:absolute}
+
+/* ===================================================================
+   AURORA — glass only reads when there is coloured light behind it
+   =================================================================== */
+.aurora{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.aurora b{position:absolute;display:block;border-radius:50%;filter:blur(80px);opacity:.55}
+.aurora .b1{width:720px;height:720px;left:-200px;top:-260px;background:#f2b6c0;animation:drift1 26s ease-in-out infinite}
+.aurora .b2{width:620px;height:620px;right:-140px;top:-200px;background:#bcd6ec;animation:drift2 30s ease-in-out infinite}
+.aurora .b3{width:700px;height:700px;right:120px;bottom:-380px;background:#edd39a;animation:drift2 28s ease-in-out infinite}
+.aurora .b4{width:560px;height:560px;left:220px;bottom:-320px;background:#c4e6d5;animation:drift1 24s ease-in-out infinite}
+.aurora .b5{width:460px;height:460px;left:900px;top:140px;background:#f6c2b0;opacity:.5;animation:drift1 22s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,28px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-36px,-24px)}}
+/* only the live slide animates — hidden slides cost nothing */
+.slide:not(.live) .aurora b,.slide:not(.live) .float{animation-play-state:paused}
+
+/* ===================================================================
+   LIQUID GLASS — panels
+   =================================================================== */
+.glass{
+  background:rgba(255,255,255,.5);
+  -webkit-backdrop-filter:blur(22px) saturate(185%);
+  backdrop-filter:blur(22px) saturate(185%);
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.95),
+    inset 0 -1px 1px rgba(255,255,255,.3),
+    inset 0 0 24px rgba(255,255,255,.3),
+    0 1px 2px rgba(60,30,20,.06),
+    0 26px 60px -22px rgba(90,40,30,.3);
+}
+.glass::before{                              /* rim light, brightest top-left */
+  content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.98) 0%,rgba(255,255,255,.3) 30%,
+             rgba(255,255,255,.06) 55%,rgba(255,255,255,.65) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+.glass::after{                               /* specular sheen */
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.42) 0%,rgba(255,255,255,0) 48%)}
+.glass>*{position:relative;z-index:1}
+/* L key: lite mode for venue machines that cannot afford live blur */
+body.lite .glass{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(255,255,255,.9)}
+body.lite .aurora b{animation:none}
+
+/* ===================================================================
+   APP ICONS — tinted glass tiles with a white line glyph
+   =================================================================== */
+.app{position:relative;display:grid;place-items:center;border-radius:28%;
+  background:linear-gradient(155deg,var(--c1) 0%,var(--c2) 100%);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.55),inset 0 -3px 8px rgba(0,0,0,.16),
+    0 2px 4px rgba(0,0,0,.08),0 14px 26px -10px var(--sh)}
+.app::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.36) 0%,rgba(255,255,255,.1) 48%,rgba(255,255,255,0) 52%)}
+.app::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.2px;pointer-events:none;
+  background:linear-gradient(155deg,rgba(255,255,255,.8),rgba(255,255,255,.06) 45%,rgba(255,255,255,.3));
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+.app>svg{position:relative;z-index:1;width:50%;height:50%;color:#fff;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.22))}
+.app.blue  {--c1:#6590b5;--c2:#2d5378;--sh:rgba(45,83,120,.55)}
+.app.gold  {--c1:#d6a650;--c2:#98690f;--sh:rgba(152,105,15,.5)}
+.app.red   {--c1:#d9354f;--c2:#8e0a23;--sh:rgba(142,10,35,.5)}
+.app.green {--c1:#43a07b;--c2:#1a5f45;--sh:rgba(26,95,69,.5)}
+.app.ink   {--c1:#57524b;--c2:#1f1c18;--sh:rgba(31,28,24,.5)}
+.app.violet{--c1:#8574cc;--c2:#473690;--sh:rgba(71,54,144,.5)}
+.app.grey  {--c1:#a9a49b;--c2:#6f6a61;--sh:rgba(80,74,66,.45)}
+
+/* ---------- reveal engine: data-at="n" shows on beat n ---------- */
+[data-at]{opacity:0;transform:translateY(18px) scale(.98);filter:blur(6px);
+  transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
+[data-at].on{opacity:1;transform:none;filter:none}
+
+/* ===================================================================
+   SHARED CHROME
+   =================================================================== */
+.hdr{left:64px;top:50px;height:54px;display:flex;align-items:center;gap:12px;padding:0 22px 0 9px;border-radius:99px}
+.hdr .mk{width:36px;height:36px;border-radius:50%;background:var(--crimson);display:grid;place-items:center;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.45)}
+.hdr .mk svg{width:20px;height:20px}
+.hdr b{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.hdr i{width:1px;height:20px;background:rgba(22,19,14,.18)}
+.hdr span{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--stone)}
+.pg{right:64px;top:50px;height:54px;padding:0 20px;border-radius:99px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--crimson)}
+.ftr{left:64px;right:64px;bottom:32px;display:flex;justify-content:space-between;
+  font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
+.ftr .sep{font-style:normal;margin:0 12px;color:rgba(22,19,14,.28)}
+.ftr .conf{font-weight:700;color:var(--ink-soft)}
+.kick{display:flex;align-items:center;justify-content:center;gap:14px;font-family:var(--font-mono);font-size:13px;
+  font-weight:700;letter-spacing:.22em;text-transform:uppercase;color:var(--crimson)}
+.kick i{display:block;width:40px;height:2px;background:var(--crimson)}
+.mono-lbl{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--stone)}
+.tag{padding:5px 11px;border-radius:99px;background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px rgba(22,19,14,.16);
+  font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+
+/* headlines — Apple keynote register: heavy, tight, no italics */
+.t-h1{font-family:var(--font-display);font-weight:700;letter-spacing:-.035em;line-height:1.02}
+.t-h1 span{display:block;overflow:hidden;padding-bottom:6px}
+.t-h1 em{display:block;font-style:normal;font-size:72px;white-space:nowrap;transform:translateY(112%)}
+.live .t-h1 em{animation:rise .9s var(--ease) forwards}
+.live .t-h1 .l1 em{animation-delay:.25s}
+.live .t-h1 .l2 em{animation-delay:.37s}
+.live .t-h1 .l3 em{animation-delay:.49s}
+.t-h1 .l3 em,.t-h1 .grad em{background:linear-gradient(90deg,var(--crimson),var(--crimson-bright) 55%,var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes rise{to{transform:translateY(0)}}
+.center-head{left:0;right:0;top:112px;text-align:center}
+.center-head .t-h1{margin-top:14px}
+.center-head .t-h1 em{font-size:58px}
+
+/* ===================================================================
+   01 · TITLE
+   =================================================================== */
+.hero{left:110px;top:176px;width:720px}
+.sub{margin-top:26px;font-size:24px;font-weight:500;line-height:1.45;letter-spacing:-.01em;color:var(--ink-soft)}
+.sub em{font-style:normal;font-weight:700;color:var(--crimson)}
+
+.shot{left:850px;top:160px;width:660px;transition-delay:.3s}
+.device{position:relative;padding:14px;border-radius:30px;transform:perspective(1800px) rotateY(-8deg) rotateX(2deg)}
+.device img{width:100%;border-radius:18px;box-shadow:0 0 0 1px rgba(22,19,14,.08)}
+
+/* small status chips that hang on the frame's edge, never over the content */
+.float{animation:bob 6s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+.chip{display:flex;align-items:center;gap:10px;height:48px;padding:0 18px 0 8px;border-radius:99px;
+  font-size:15px;font-weight:700;letter-spacing:-.01em;color:var(--ink-soft);white-space:nowrap}
+.chip .app{width:34px;height:34px}
+
+.toast{left:800px;top:452px;display:flex;align-items:center;gap:13px;padding:11px 22px 11px 11px;border-radius:22px;transition-delay:.7s}
+.toast .app{width:42px;height:42px}
+.toast b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.toast div span{display:block;margin-top:2px;font-size:14px;font-weight:600;color:var(--gold-ink)}
+
+.rail-lbl{left:112px;top:570px;display:flex;align-items:center;gap:10px;font-family:var(--font-mono);font-size:13px;
+  font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);transition-delay:.45s}
+.rail-lbl svg{width:16px;height:16px;color:var(--crimson)}
+.rail{left:110px;top:604px;width:1380px;height:180px;border-radius:34px;display:flex;align-items:flex-start;
+  justify-content:space-between;padding:24px 44px 0;transition-delay:.5s}
+.st{display:flex;flex-direction:column;align-items:center;width:200px}
+.st .app{width:74px;height:74px}
+.st b{margin-top:13px;font-size:20px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.st .g{margin-top:8px;display:inline-flex;align-items:center;gap:6px;padding:4px 11px 4px 9px;border-radius:99px;
+  background:rgba(251,246,234,.8);box-shadow:inset 0 0 0 1px rgba(148,98,10,.3);
+  font-size:13px;font-weight:700;color:var(--gold-ink);white-space:nowrap}
+.st .g svg{width:13px;height:13px}
+.arrow{margin-top:28px;width:52px;height:18px;color:rgba(95,92,82,.45)}
+
+/* ===================================================================
+   02 · PROBLEM — one ticket, copied by hand, three different results
+   =================================================================== */
+.ticket{left:480px;top:290px;width:640px;display:flex;align-items:center;gap:20px;padding:16px 22px 16px 16px;border-radius:30px}
+.ticket .app{width:68px;height:68px;flex:0 0 auto}
+.ticket .tag{position:absolute;right:24px;top:-15px;box-shadow:inset 0 0 0 1px rgba(22,19,14,.16),0 6px 14px -6px rgba(60,30,20,.25)}
+.ticket h3{margin-top:5px;font-size:18px;font-weight:700;letter-spacing:-.015em}
+.vals{margin-top:9px;display:flex;gap:10px}
+.vals span{display:inline-flex;align-items:baseline;gap:7px;padding:6px 14px;border-radius:14px;
+  background:rgba(255,255,255,.72);box-shadow:inset 0 1px 1px #fff,inset 0 0 0 1px rgba(22,19,14,.07);
+  font-size:15px;font-weight:600;color:var(--stone)}
+.vals b{font-size:28px;font-weight:700;line-height:1;letter-spacing:-.03em;color:var(--ink)}
+
+.wires{position:absolute;left:0;top:0;width:1600px;height:900px;pointer-events:none}
+.wires path{fill:none;stroke:rgba(95,92,82,.42);stroke-width:2.2;stroke-linecap:round;
+  stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1s var(--ease)}
+.wires.on path{stroke-dashoffset:0}
+.paste{display:flex;align-items:center;gap:7px;height:32px;padding:0 13px 0 9px;border-radius:99px;
+  font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.paste svg{width:16px;height:16px;color:var(--gold-ink)}
+
+.dev{position:absolute;top:488px;width:340px;padding:20px 20px 18px;border-radius:30px;
+  display:flex;flex-direction:column;align-items:center;text-align:center}
+.dev .app{width:64px;height:64px}
+.dev .bad{position:absolute;z-index:2;right:-9px;top:-9px;width:30px;height:30px;border-radius:50%;background:#fff;
+  color:var(--crimson);display:grid;place-items:center;box-shadow:0 4px 12px rgba(142,10,35,.28)}
+.dev .bad svg{width:24px;height:24px}
+.dev .who{margin-top:12px;font-size:19px;font-weight:700;letter-spacing:-.015em}
+.dev .ctx{margin-top:3px;font-size:15px;color:var(--stone)}
+.dev .what{margin-top:12px;font-size:14px;font-weight:600;color:var(--stone)}
+.dev .res{margin-top:4px;font-size:50px;font-weight:700;line-height:1;letter-spacing:-.035em;color:var(--crimson)}
+.dev .want{margin-top:8px;font-size:15px;font-weight:700;color:var(--ink-soft)}
+.punch{left:0;right:0;top:784px;text-align:center}
+.punch p{font-size:25px;font-weight:500;letter-spacing:-.015em;color:var(--ink-soft)}
+.punch b{font-weight:700;color:var(--crimson)}
+
+/* ===================================================================
+   03 · THE DIFFERENCE — paste by hand vs. publish once
+   =================================================================== */
+.side{position:absolute;top:298px;width:660px;height:440px;padding:24px 26px 22px;border-radius:32px;display:flex;flex-direction:column}
+.side.before{left:110px}
+.side.after{left:830px;transition-delay:.1s}
+.side-hd{display:flex;align-items:center;gap:14px}
+.side-hd .app{width:52px;height:52px;flex:0 0 auto}
+.side-hd b{display:block;font-size:23px;font-weight:700;letter-spacing:-.025em}
+.side-hd div span{display:block;margin-top:2px;font-family:var(--font-mono);font-size:12px;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
+.steps{margin-top:26px;list-style:none;display:flex;flex-direction:column;gap:22px}
+.steps li{display:flex;align-items:flex-start;gap:16px}
+.steps .app{width:52px;height:52px;flex:0 0 auto}
+.steps p{padding-top:13px;font-size:20px;font-weight:600;letter-spacing:-.015em;color:var(--ink)}
+.before .steps p{color:var(--ink-soft)}
+.kit{margin-top:9px;display:flex;flex-wrap:wrap;gap:8px}
+.kit span{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:10px;
+  background:rgba(255,255,255,.75);box-shadow:inset 0 1px 1px #fff,inset 0 0 0 1px rgba(22,19,14,.08);
+  font-size:13.5px;font-weight:600;color:var(--ink-soft)}
+.kit svg{width:14px;height:14px;color:var(--crimson)}
+.outcome{margin-top:auto;display:flex;align-items:center;gap:12px;padding:14px 18px;border-radius:18px;font-size:18px;font-weight:700;letter-spacing:-.01em}
+.outcome svg{width:26px;height:26px;flex:0 0 auto}
+.outcome.bad{background:rgba(253,236,239,.88);color:#8e0a23;box-shadow:inset 0 0 0 1px rgba(186,12,47,.22)}
+.outcome.good{background:rgba(232,245,238,.92);color:#1a5f45;box-shadow:inset 0 0 0 1px rgba(26,95,69,.24)}
+.vs{left:772px;top:490px;width:56px;height:56px;border-radius:50%;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--stone);transition-delay:.1s}
+
+/* ===================================================================
+   RAIL (navigation dots)
+   =================================================================== */
+#rail{position:fixed;right:12px;bottom:30px;z-index:60;display:flex;flex-direction:column;align-items:center;gap:10px}
+#rail .dot{width:6px;height:6px;border-radius:99px;background:rgba(22,19,14,.2);transition:all .3s var(--ease);cursor:pointer}
+#rail .dot.now{height:20px;background:var(--crimson)}
+#rail .fs{margin-top:4px;width:28px;height:28px;border-radius:8px;border:1px solid rgba(22,19,14,.14);
+  background:rgba(255,255,255,.6);color:var(--stone);display:grid;place-items:center;backdrop-filter:blur(8px)}
+#rail .fs svg{width:14px;height:14px}
+
+/* ===================================================================
+   PRESENTER VIEW (opened with P, in its own window)
+   =================================================================== */
+#presenter{position:fixed;inset:0;display:flex;flex-direction:column;background:#16130e;color:#f4efe6;font-family:var(--font-sans)}
+#presenter header{display:flex;align-items:center;gap:22px;padding:18px 28px;border-bottom:1px solid rgba(255,255,255,.12)}
+#presenter header b{font-family:var(--font-mono);font-size:22px;color:#e3c98f}
+#presenter #pv-title{font-size:22px;font-weight:700;letter-spacing:-.02em}
+#presenter #pv-beat{font-family:var(--font-mono);font-size:15px;color:rgba(244,239,230,.6)}
+#presenter .clocks{margin-left:auto;display:flex;gap:22px;font-family:var(--font-mono);font-size:24px}
+#presenter #pv-timer{color:#e3c98f}
+#presenter main{flex:1;overflow:auto;padding:26px 34px;font-size:27px;line-height:1.5}
+#presenter main p+p{margin-top:16px}
+#presenter main b{color:#fff}
+#presenter footer{display:flex;justify-content:space-between;padding:16px 28px;border-top:1px solid rgba(255,255,255,.12);
+  font-size:17px;color:rgba(244,239,230,.7)}
+#presenter footer b{color:#fff}
+
+@media print{
+  @page{size:1600px 900px;margin:0}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  #stage{position:absolute;left:0;top:0;transform:none !important}
+  #rail{display:none !important}
+  .slide,.slide *,[data-at]{transition:none !important;animation:none !important}
+  .t-h1 em{transform:none !important}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.2s !important}
+}
+</style>
+</head>
+<body>
+
+<!-- ===================================================================
+     GLYPHS — Lucide v0.460.0 (ISC), one <symbol> each, used via <use>
+     =================================================================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-file-text" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></symbol>
+    <symbol id="i-clipboard-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4"/><path d="M12 16h4"/><path d="M8 11h.01"/><path d="M8 16h.01"/></symbol>
+    <symbol id="i-code-xml" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></symbol>
+    <symbol id="i-flask-conical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.350 22.350 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-sparkles" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+    <symbol id="i-circle-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-circle-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></symbol>
+    <symbol id="i-user-round" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+    <symbol id="i-ticket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></symbol>
+    <symbol id="i-clipboard-paste" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H9a1 1 0 0 0-1 1v2c0 .6.4 1 1 1h6c.6 0 1-.4 1-1V3c0-.6-.4-1-1-1Z"/><path d="M8 4H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2M16 4h2a2 2 0 0 1 2 2v2M11 14h10"/><path d="m17 10 4 4-4 4"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></symbol>
+    <symbol id="i-git-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+    <symbol id="i-list-checks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+  </defs>
+</svg>
+
+<div id="stage">
+
+<!-- ══════════════════ 01 · TITLE ══════════════════ -->
+<section class="slide" data-subs="0" data-title="Title — from requirement to governed release">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Engineering Excellence Expo 2026</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs hero">
+    <h1 class="t-h1">
+      <span class="l1"><em>From requirement</em></span>
+      <span class="l2"><em>to governed</em></span>
+      <span class="l3"><em>release.</em></span>
+    </h1>
+    <p class="sub">AI prepares the work. A named human signs every gate.<br><em>Evidence proves it.</em></p>
+  </div>
+
+  <!-- the real application, cropped to the sign-off itself -->
+  <div class="abs shot" data-at="0">
+    <div class="device glass">
+      <img src="expo-deck-assets/shots/plan-signoff-crop.jpg" alt="Plan sign-off (Gate 1): every checklist item complete, plan signed and locked">
+    </div>
+  </div>
+  <div class="abs glass chip float" style="left:1350px;top:112px" data-at="0">
+    <span class="app violet"><svg><use href="#i-sparkles"/></svg></span>AI assisted
+  </div>
+  <div class="abs glass chip float" style="left:1306px;top:504px;animation-delay:-3s" data-at="0">
+    <span class="app red"><svg><use href="#i-shield-check"/></svg></span>Human governed
+  </div>
+  <div class="abs glass toast" data-at="0">
+    <span class="app green"><svg><use href="#i-circle-check"/></svg></span>
+    <div><b>Plan signed &amp; locked</b><span>Signed by the business owner</span></div>
+  </div>
+
+  <p class="abs rail-lbl" data-at="0"><svg><use href="#i-lock"/></svg>Five gates · a named human signs each one</p>
+  <div class="abs glass rail" data-at="0">
+    <div class="st"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><b>Intake</b>
+      <span class="g"><svg><use href="#i-lock"/></svg>Business owner</span></div>
+    <svg class="arrow" viewBox="0 0 56 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h48M44 3l6 6-6 6"/></svg>
+    <div class="st"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg></span><b>Plan</b>
+      <span class="g"><svg><use href="#i-lock"/></svg>Business owner</span></div>
+    <svg class="arrow" viewBox="0 0 56 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h48M44 3l6 6-6 6"/></svg>
+    <div class="st"><span class="app red"><svg><use href="#i-code-xml"/></svg></span><b>Build &amp; Review</b>
+      <span class="g"><svg><use href="#i-lock"/></svg>Independent reviewer</span></div>
+    <svg class="arrow" viewBox="0 0 56 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h48M44 3l6 6-6 6"/></svg>
+    <div class="st"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><b>Quality</b>
+      <span class="g"><svg><use href="#i-lock"/></svg>QA lead</span></div>
+    <svg class="arrow" viewBox="0 0 56 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h48M44 3l6 6-6 6"/></svg>
+    <div class="st"><span class="app ink"><svg><use href="#i-rocket"/></svg></span><b>Release</b>
+      <span class="g"><svg><use href="#i-lock"/></svg>Release manager</span></div>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>0:00 – 0:35 · Opening.</b> Don't read the slide.</p>
+    <p>Hook: "Every AI demo today generates code. This one is about what happens before and after the code — because that is where a regulated business says yes."</p>
+    <p>Point at the rail once: five stages, and at every gate a named human signs.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 02 · PROBLEM ══════════════════
+     beat 0: the ticket · beat 1: copied by hand into three AI chats, three results · beat 2: why
+     Source: the Expo films' three-developer story — illustrative, labelled from the first beat. -->
+<section class="slide" data-subs="2" data-title="The problem — same requirement, three different results">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>The problem</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>The problem<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Same requirement.</em></span>
+      <span class="l2 grad"><em>Three different results.</em></span>
+    </h2>
+  </div>
+
+  <!-- beat 0 · the ticket -->
+  <div class="abs glass ticket">
+    <span class="app blue"><svg><use href="#i-ticket"/></svg></span>
+    <div>
+      <p class="mono-lbl">Ticket on the board</p>
+      <h3>Remember the device · lock after failed sign-ins</h3>
+      <div class="vals"><span><b>30</b>days</span><span><b>5</b>tries</span><span><b>15</b>min lock</span></div>
+    </div>
+    <span class="tag">Illustrative example</span>
+  </div>
+
+  <!-- beat 1 · each developer copies it by hand into their IDE's AI assistant -->
+  <svg class="wires" viewBox="0 0 1600 900" data-at="1" aria-hidden="true">
+    <path pathLength="1" d="M800 414 C800 462 380 458 380 484"/>
+    <path pathLength="1" d="M800 414 L800 484"/>
+    <path pathLength="1" d="M800 414 C800 462 1220 458 1220 484"/>
+  </svg>
+  <div class="abs glass paste" style="left:538px;top:440px" data-at="1"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+  <div class="abs glass paste" style="left:748px;top:440px;transition-delay:.05s" data-at="1"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+  <div class="abs glass paste" style="left:958px;top:440px;transition-delay:.1s" data-at="1"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+
+  <div class="glass dev" style="left:210px;transition-delay:.15s" data-at="1">
+    <span class="app blue"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+    <p class="who">Developer A</p><p class="ctx">pasted the description</p>
+    <p class="what">Remembers the device for</p><p class="res">14 days</p><p class="want">Should be 30 days</p>
+  </div>
+  <div class="glass dev" style="left:630px;transition-delay:.3s" data-at="1">
+    <span class="app gold"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+    <p class="who">Developer B</p><p class="ctx">pasted half, wrote their own prompt</p>
+    <p class="what">Locks the account after</p><p class="res">3 tries</p><p class="want">Should be 5 tries</p>
+  </div>
+  <div class="glass dev" style="left:1050px;transition-delay:.45s" data-at="1">
+    <span class="app violet"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+    <p class="who">Developer C</p><p class="ctx">pasted just the title</p>
+    <p class="what">Lockout test</p><p class="res">Missing</p><p class="want">Never written</p>
+  </div>
+
+  <!-- beat 2 · why -->
+  <div class="abs punch" data-at="2">
+    <p>Every copy-paste becomes a different prompt — <b>and nothing checks the result.</b></p>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>0:35 – 1:45 · The problem.</b> Say "illustrative" out loud — a teaching example, not a measured incident.</p>
+    <p><b>Beat 0.</b> One ticket on the board: remember the device 30 days, lock after 5 tries, for 15 minutes.</p>
+    <p><b>Beat 1.</b> Three developers each copy it into their IDE's AI assistant. One pastes the description, one pastes half and writes their own prompt, one pastes just the title. Three different prompts — three different results.</p>
+    <p><b>Beat 2.</b> Nobody was careless. The AI turns each prompt into finished code, confidently and fast — and nothing checks it against the requirement.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 03 · THE DIFFERENCE ══════════════════
+     beat 0: today, copy-paste · beat 1: with Control Center, a published kit · beat 2: the line to remember
+     What the kit is: Control Center publishes AGENTS.md and .s7/ (stories, acceptance criteria,
+     architecture references, one failing test per criterion) to a branch of the target repository. -->
+<section class="slide" data-subs="2" data-title="The difference — paste by hand vs. publish once">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>The difference</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>The difference<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Don't paste the context.</em></span>
+      <span class="l2 grad"><em>Publish it.</em></span>
+    </h2>
+  </div>
+
+  <!-- beat 0 · today -->
+  <section class="glass side before">
+    <div class="side-hd">
+      <span class="app grey"><svg><use href="#i-clipboard-paste"/></svg></span>
+      <div><b>Today</b><span>Copied by hand</span></div>
+    </div>
+    <ul class="steps">
+      <li><span class="app blue"><svg><use href="#i-ticket"/></svg></span><p>Each developer opens the ticket</p></li>
+      <li><span class="app gold"><svg><use href="#i-clipboard-paste"/></svg></span><p>Copies what they notice into the AI chat</p></li>
+      <li><span class="app violet"><svg><use href="#i-bot"/></svg></span><p>Every AI gets a different prompt</p></li>
+    </ul>
+    <p class="outcome bad"><svg><use href="#i-circle-x"/></svg>Something gets missed · results differ</p>
+  </section>
+
+  <div class="abs glass vs" data-at="1">vs</div>
+
+  <!-- beat 1 · with Control Center -->
+  <section class="glass side after" data-at="1">
+    <div class="side-hd">
+      <span class="app red"><svg><use href="#i-shield-check"/></svg></span>
+      <div><b>With Control Center</b><span>Published once, shared by all</span></div>
+    </div>
+    <ul class="steps">
+      <li><span class="app red"><svg><use href="#i-layers"/></svg></span><p>Builds one context kit from the approved plan</p></li>
+      <li><span class="app ink"><svg><use href="#i-git-branch"/></svg></span>
+        <div><p>Publishes it to git, next to the code</p>
+          <div class="kit">
+            <span><svg><use href="#i-file-text"/></svg>AGENTS.md</span>
+            <span><svg><use href="#i-list-checks"/></svg>Stories + criteria</span>
+            <span><svg><use href="#i-layers"/></svg>Architecture</span>
+            <span><svg><use href="#i-flask-conical"/></svg>Failing tests</span>
+          </div></div></li>
+      <li><span class="app violet"><svg><use href="#i-bot"/></svg></span><p>Every developer's AI reads the same kit</p></li>
+    </ul>
+    <p class="outcome good"><svg><use href="#i-circle-check"/></svg>Nothing missed · one requirement, a test for each rule</p>
+  </section>
+
+  <!-- beat 2 · the line to remember -->
+  <div class="abs punch" data-at="2">
+    <p>Nothing to copy. Nothing to miss. <b>Every assistant starts from the same requirement.</b></p>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>1:45 – 2:45 · The difference.</b></p>
+    <p><b>Beat 0 — today.</b> The developer opens the ticket, copies whatever they notice into the AI chat in their IDE. Whatever they missed, the AI never sees. Every prompt is different.</p>
+    <p><b>Beat 1 — with Control Center.</b> We build one context kit from the approved plan: AGENTS.md, the stories with their acceptance criteria, the architecture, and a failing test for every criterion. We publish it to git, next to the code. Every developer's assistant reads the same files.</p>
+    <p><b>Beat 2.</b> Nothing to copy, nothing to miss. The context is a deliverable — versioned, shared, and checked by the tests that ship with it.</p>
+  </aside>
+</section>
+
+</div><!-- /stage -->
+
+<div id="rail"></div>
+
+<!-- presenter view — only shown when this file is opened with ?presenter -->
+<div id="presenter" hidden>
+  <header><b id="pv-count"></b><span id="pv-title"></span><span id="pv-beat"></span>
+    <span class="clocks"><span id="pv-clock"></span><span id="pv-timer">00:00</span></span></header>
+  <main id="pv-notes"></main>
+  <footer><span>Next: <b id="pv-next"></b></span><span>← → drive the deck · T resets the timer</span></footer>
+</div>
+
+<script>
+/* ===================================================================
+   SHARED
+   =================================================================== */
+const SLIDES = [...document.querySelectorAll(".slide")];
+const SUBS   = SLIDES.map(s => +(s.dataset.subs || 0));
+const pad    = n => String(n).padStart(2, "0");
+const PRESENTER = new URLSearchParams(location.search).has("presenter");
+
+/* ===================================================================
+   PRESENTER WINDOW — notes, beat, next slide, clock and timer.
+   Talks to the deck with postMessage, which works from file://.
+   =================================================================== */
+if (PRESENTER) {
+  document.getElementById("stage").hidden = true;
+  document.getElementById("rail").hidden = true;
+  document.getElementById("presenter").hidden = false;
+  document.title = "Presenter — " + document.title;
+  let t0 = Date.now();
+  const $ = id => document.getElementById(id);
+  const show = (s, b) => {
+    $("pv-count").textContent = pad(s + 1) + " / " + pad(SLIDES.length);
+    $("pv-title").textContent = SLIDES[s].dataset.title || "";
+    $("pv-beat").textContent  = "beat " + (b + 1) + " of " + (SUBS[s] + 1);
+    $("pv-notes").innerHTML   = (SLIDES[s].querySelector(".notes") || {}).innerHTML || "<p>No notes.</p>";
+    $("pv-next").textContent  = s < SLIDES.length - 1 ? (b < SUBS[s] ? "beat " + (b + 2) + " on this slide" : SLIDES[s + 1].dataset.title) : "end of deck";
+  };
+  const tick = () => {
+    const e = Math.floor((Date.now() - t0) / 1000);
+    $("pv-timer").textContent = pad(Math.floor(e / 60)) + ":" + pad(e % 60);
+    $("pv-clock").textContent = new Date().toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+  };
+  setInterval(tick, 500); tick(); show(0, 0);
+  addEventListener("message", e => { const m = e.data || {}; if (m.type === "pos") show(m.slide, m.sub); });
+  addEventListener("keydown", e => {
+    const send = dir => window.opener && window.opener.postMessage({type: "nav", dir}, "*");
+    if (["ArrowRight", " ", "PageDown", "Enter"].includes(e.key)) { e.preventDefault(); send(1); }
+    else if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); send(-1); }
+    else if (e.key === "t" || e.key === "T") { t0 = Date.now(); tick(); }
+  });
+  if (window.opener) window.opener.postMessage({type: "hello"}, "*");
+} else {
+
+/* ===================================================================
+   DECK ENGINE — each slide declares its last beat index in data-subs
+   =================================================================== */
+let slide = 0, sub = 0, presenter = null;
+
+SLIDES.forEach((s, i) => { const p = s.querySelector(".pg"); if (p) p.textContent = pad(i + 1) + " / " + pad(SLIDES.length); });
+
+function fit(){
+  const k = Math.min(innerWidth / 1600, innerHeight / 900);
+  document.getElementById("stage").style.transform = "translate(-50%,-50%) scale(" + k + ")";
+}
+addEventListener("resize", fit); fit();
+if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(document.documentElement);
+document.addEventListener("fullscreenchange", fit);
+
+function reveal(root, n){ root.querySelectorAll("[data-at]").forEach(el => el.classList.toggle("on", +el.dataset.at <= n)); }
+function post(){ if (presenter && !presenter.closed) presenter.postMessage({type: "pos", slide, sub}, "*"); }
+function paint(){
+  // leaving a slide resets its beats, so returning replays them
+  SLIDES.forEach((s, i) => { s.classList.toggle("live", i === slide); if (i !== slide) reveal(s, -1); });
+  document.querySelectorAll("#rail .dot").forEach((d, i) => d.classList.toggle("now", i === slide));
+  reveal(SLIDES[slide], sub);
+  post();
+}
+function go(s, b){
+  slide = Math.max(0, Math.min(SLIDES.length - 1, s));
+  sub   = Math.max(0, Math.min(SUBS[slide], b ?? 0));
+  paint();
+  try { history.replaceState(null, "", location.search + "#" + (slide + 1) + (sub ? "." + sub : "")); } catch (e) {}
+}
+function next(){ if (sub < SUBS[slide]) { sub++; paint(); } else if (slide < SLIDES.length - 1) go(slide + 1, 0); }
+function prev(){ if (sub > 0) { sub--; paint(); } else if (slide > 0) go(slide - 1, SUBS[slide - 1]); }
+/* replay restarts the headline rise without hiding the slide (no flash) */
+function replay(){
+  const s = SLIDES[slide];
+  reveal(s, -1);
+  s.getAnimations({subtree: true}).forEach(a => { if (a.animationName === "rise") { a.cancel(); a.play(); } });
+  setTimeout(() => { sub = 0; paint(); }, 60);
+}
+function openPresenter(){
+  presenter = window.open(location.pathname + "?presenter=1", "control-center-presenter", "width=1100,height=720");
+  setTimeout(post, 500);
+}
+addEventListener("message", e => {
+  const m = e.data || {};
+  if (m.type === "nav") (m.dir > 0 ? next : prev)();
+  if (m.type === "hello") post();
+});
+
+(function(){
+  const rail = document.getElementById("rail");
+  SLIDES.forEach((_, i) => {
+    const d = document.createElement("div");
+    d.className = "dot";
+    d.addEventListener("click", e => { e.stopPropagation(); go(i, 0); });
+    rail.appendChild(d);
+  });
+  const fs = document.createElement("button");
+  fs.className = "fs"; fs.title = "Fullscreen (F)";
+  fs.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M21 3l-7 7M3 21l7-7M9 21H3v-6"/></svg>';
+  fs.addEventListener("click", e => { e.stopPropagation(); toggleFs(); });
+  rail.appendChild(fs);
+})();
+
+let autoFs = true;
+function toggleFs(){
+  autoFs = false;
+  if (document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen().catch(() => {});
+}
+function presentOnFirstGesture(){
+  if (!autoFs) return;
+  autoFs = false;
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+}
+
+/* Coming back from another window (the film, the presenter view) takes a click
+   to focus this one. That click must not advance the slide or grab fullscreen. */
+let returning = false, swallowClick = false;
+addEventListener("blur", () => { returning = true; });
+addEventListener("pointerdown", e => {
+  if (returning) { returning = false; swallowClick = true; return; }
+  if (!e.target.closest || !e.target.closest("#rail .fs")) presentOnFirstGesture();
+}, true);
+SLIDES.forEach(s => s.addEventListener("click", () => { if (swallowClick) { swallowClick = false; return; } next(); }));
+
+addEventListener("keydown", e => {
+  const k = e.key;
+  returning = false;
+  if (!"fFpPlL".includes(k)) presentOnFirstGesture();
+  if (["ArrowRight", " ", "Enter", "PageDown", "ArrowDown"].includes(k)) { e.preventDefault(); next(); }
+  else if (["ArrowLeft", "Backspace", "PageUp", "ArrowUp"].includes(k)) { e.preventDefault(); prev(); }
+  else if (k === "Home") go(0, 0);
+  else if (k === "End")  go(SLIDES.length - 1, SUBS[SLIDES.length - 1]);
+  else if (k === "r" || k === "R") replay();
+  else if (k === "f" || k === "F") toggleFs();
+  else if (k === "p" || k === "P") openPresenter();
+  else if (k === "l" || k === "L") document.body.classList.toggle("lite");
+  else if (/^[1-9]$/.test(k)) go(+k - 1, 0);
+});
+
+(function(){
+  const h = decodeURIComponent(location.hash).replace("#", "").trim();
+  if (!h) { paint(); return; }
+  const [a, b] = h.split(".").map(Number);
+  if (Number.isFinite(a)) go(a - 1, Number.isFinite(b) ? b : 0); else paint();
+})();
+
+}
+</script>
+</body>
+</html>

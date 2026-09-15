@@ -1,0 +1,79 @@
+<template id="screensb-template">
+  <div id="screensb-root" data-composition-id="screensb" data-width="1920" data-height="1080">
+    <div class="stagechip"><b>09</b> / 13 · THE REAL SCREENS</div>
+
+    <style>
+      [data-composition-id="screensb"] { position: absolute; inset: 0; }
+      #screensb-root .s-block { position: absolute; inset: 0; opacity: 0; }
+      #screensb-root .s-head { position: absolute; left: 240px; top: 50px; width: 1440px; }
+      #screensb-root .s-head .kicker { margin-bottom: 8px; }
+      #screensb-root .s-head .sub { margin-bottom: 9px; }
+      #screensb-root .s-d {
+        font-size: 23px; line-height: 1.34; color: var(--muted); margin: 0; white-space: nowrap;
+      }
+      #screensb-root .s-d b { color: var(--warn); font-weight: 700; }
+      #screensb-root .screen { position: absolute; left: 240px; top: 198px; width: 1440px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#screensb-root";
+        var root = document.querySelector(R);
+        var BEATS = [
+          { shot: "build-test-evidence.jpg", page: "Build &amp; Test Evidence",
+            kicker: "Stage 04 &middot; Build &amp; test evidence",
+            title: "Real CI, joined to acceptance criteria.",
+            desc: "Six of six tests passed on a real GitHub Actions run; the simulated baseline beside it stays badged <b>SIMULATED</b>.",
+            hl: [1103, 454, 308, 182] },
+          { shot: "final-gating.jpg", page: "Final Gating",
+            kicker: "Stage 05 &middot; Final gating",
+            title: "Explicit conditions, never a score.",
+            desc: "Ten of ten checks passed. The score on the right is marked informational — the gate is the explicit conditions below.",
+            hl: [1126, 272, 279, 88] },
+          { shot: "release-approvals.jpg", page: "Release",
+            kicker: "Stage 06 &middot; Release",
+            title: "Five named approvals, each under its own role.",
+            desc: "Business owner, engineering lead, QA lead, release manager and support lead — each under their own role.",
+            hl: [852, 333, 544, 167] }
+        ];
+        var HOLD = 13;
+
+        BEATS.forEach(function (b, i) {
+          var el = document.createElement("div");
+          el.className = "s-block";
+          el.id = "screensb-b" + i;
+          el.innerHTML =
+            '<div class="s-head">' +
+              '<span class="kicker">' + b.kicker + '</span>' +
+              '<h3 class="sub">' + b.title + '</h3>' +
+              '<p class="s-d">' + b.desc + '</p>' +
+            '</div>' +
+            '<div class="screen">' +
+              '<div class="chrome"><i></i><i></i><i></i>' +
+              '<span class="url">s7-delivery-control-centre &middot; run S7&#8209;00002 &middot; ' + b.page + '</span></div>' +
+              '<img src="assets/' + b.shot + '" alt="' + b.page + '" />' +
+              '<div class="hilite" style="left:' + b.hl[0] + 'px;top:' + b.hl[1] +
+                'px;width:' + b.hl[2] + 'px;height:' + b.hl[3] + 'px;"></div>' +
+            '</div>';
+          root.appendChild(el);
+        });
+
+        var tl = gsap.timeline({ paused: true });
+        BEATS.forEach(function (b, i) {
+          var at = i * HOLD;
+          var S = R + " #screensb-b" + i + " ";
+          var B = R + " #screensb-b" + i;
+          tl.fromTo(B, { opacity: 0 }, { opacity: 1, duration: 0.55, ease: "power1.out" }, at);
+          tl.fromTo(S + ".kicker", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, at + 0.2);
+          tl.fromTo(S + ".sub", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, at + 0.38);
+          tl.fromTo(S + ".s-d", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, at + 0.58);
+          tl.fromTo(S + ".screen", { opacity: 0, y: 40, scale: 0.975 }, { opacity: 1, y: 0, scale: 1, duration: 0.85, ease: "power3.out" }, at + 0.5);
+          tl.fromTo(S + ".screen", { scale: 1 }, { scale: 1.022, duration: 10.4, ease: "none" }, at + 1.4);
+          tl.fromTo(S + ".hilite", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" }, at + 4.2);
+          tl.to(B, { opacity: 0, duration: 0.45, ease: "power1.in" }, at + 12.55);
+        });
+        window.__timelines["screensb"] = tl;
+      })();
+    </script>
+  </div>
+</template>

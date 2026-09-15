@@ -1,0 +1,84 @@
+<template id="screensa-template">
+  <div id="screensa-root" data-composition-id="screensa" data-width="1920" data-height="1080">
+    <div class="stagechip"><b>06</b> / 13 · THE REAL SCREENS</div>
+
+    <style>
+      [data-composition-id="screensa"] { position: absolute; inset: 0; }
+      #screensa-root .s-block { position: absolute; inset: 0; opacity: 0; }
+      #screensa-root .s-head { position: absolute; left: 240px; top: 50px; width: 1440px; }
+      #screensa-root .s-head .kicker { margin-bottom: 8px; }
+      #screensa-root .s-head .sub { margin-bottom: 9px; }
+      #screensa-root .s-d {
+        font-size: 23px; line-height: 1.34; color: var(--muted); margin: 0; white-space: nowrap;
+      }
+      #screensa-root .s-d b { color: var(--warn); font-weight: 700; }
+      #screensa-root .screen { position: absolute; left: 240px; top: 198px; width: 1440px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#screensa-root";
+        var root = document.querySelector(R);
+        var BEATS = [
+          { shot: "intake-extraction.jpg", page: "Intake",
+            kicker: "Stage 01 &middot; Intake",
+            title: "The requirement, parsed — and grounded.",
+            desc: "Extraction runs against a connected repository — a shallow clone plus a context pack, so analysis is grounded in real code.",
+            hl: [770, 265, 638, 423] },
+          { shot: "epic-to-stories.jpg", page: "Epic to Stories",
+            kicker: "Stage 02 &middot; Planning",
+            title: "Epic decomposed, every story accountable.",
+            desc: "Four stories, twelve acceptance criteria, three dependencies — one accountable team each, planned into sprints.",
+            hl: [251, 374, 819, 98] },
+          { shot: "plan-signoff.jpg", page: "Plan Sign-off",
+            kicker: "Gate 1 &middot; Plan sign-off",
+            title: "The plan locks, and the phase machine enforces it.",
+            desc: "Ten checklist conditions a human clears. Out-of-order downstream actions are refused by the server, not greyed out.",
+            hl: [651, 307, 405, 381] },
+          { shot: "delivery-packs.jpg", page: "Delivery Packs",
+            kicker: "Stage 03 &middot; Delivery packs",
+            title: "Governed context, published to a branch.",
+            desc: "Per-team packs reference the architecture by version rather than copying it, and publish to a fresh, restricted branch.",
+            hl: [1103, 174, 304, 512] }
+        ];
+        var HOLD = 13;
+
+        BEATS.forEach(function (b, i) {
+          var el = document.createElement("div");
+          el.className = "s-block";
+          el.id = "screensa-b" + i;
+          el.innerHTML =
+            '<div class="s-head">' +
+              '<span class="kicker">' + b.kicker + '</span>' +
+              '<h3 class="sub">' + b.title + '</h3>' +
+              '<p class="s-d">' + b.desc + '</p>' +
+            '</div>' +
+            '<div class="screen">' +
+              '<div class="chrome"><i></i><i></i><i></i>' +
+              '<span class="url">s7-delivery-control-centre &middot; run S7&#8209;00002 &middot; ' + b.page + '</span></div>' +
+              '<img src="assets/' + b.shot + '" alt="' + b.page + '" />' +
+              '<div class="hilite" style="left:' + b.hl[0] + 'px;top:' + b.hl[1] +
+                'px;width:' + b.hl[2] + 'px;height:' + b.hl[3] + 'px;"></div>' +
+            '</div>';
+          root.appendChild(el);
+        });
+
+        var tl = gsap.timeline({ paused: true });
+        BEATS.forEach(function (b, i) {
+          var at = i * HOLD;
+          var S = R + " #screensa-b" + i + " ";
+          var B = R + " #screensa-b" + i;
+          tl.fromTo(B, { opacity: 0 }, { opacity: 1, duration: 0.55, ease: "power1.out" }, at);
+          tl.fromTo(S + ".kicker", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, at + 0.2);
+          tl.fromTo(S + ".sub", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, at + 0.38);
+          tl.fromTo(S + ".s-d", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, at + 0.58);
+          tl.fromTo(S + ".screen", { opacity: 0, y: 40, scale: 0.975 }, { opacity: 1, y: 0, scale: 1, duration: 0.85, ease: "power3.out" }, at + 0.5);
+          tl.fromTo(S + ".screen", { scale: 1 }, { scale: 1.022, duration: 10.4, ease: "none" }, at + 1.4);
+          tl.fromTo(S + ".hilite", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power2.out" }, at + 4.2);
+          tl.to(B, { opacity: 0, duration: 0.45, ease: "power1.in" }, at + 12.55);
+        });
+        window.__timelines["screensa"] = tl;
+      })();
+    </script>
+  </div>
+</template>

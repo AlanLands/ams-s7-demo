@@ -1,0 +1,57 @@
+<template id="kpi-template">
+  <div id="kpi-root" data-composition-id="kpi" data-width="1920" data-height="1080">
+    <div class="pad stack">
+      <span class="kicker k-k">Evidence-derived KPIs</span>
+      <h2 class="head k-h">The scorecard reports what the run can evidence —<br />and says so when it cannot.</h2>
+
+      <div class="k-table">
+        <div class="k-row k-head"><span>Delivery KPI</span><span>Reported</span><span>Derived from</span></div>
+        <div class="k-row"><span>Velocity</span><span class="yes">Computed</span><span>Completed story points per sprint, from the plan and task ledger</span></div>
+        <div class="k-row"><span>Cycle time</span><span class="yes">Computed</span><span>Provenance timestamp to review timestamp, with an explicit simulation caveat</span></div>
+        <div class="k-row"><span>First-time-right</span><span class="yes">Computed</span><span>Independent-review attempts per story</span></div>
+        <div class="k-row"><span>Estimation accuracy</span><span class="no">Not measurable</span><span>Needs historical actuals — named as the forward grounding source</span></div>
+        <div class="k-row"><span>Defect leakage</span><span class="no">Not measurable</span><span>Needs a post-release window; review-caught findings reported as context</span></div>
+        <div class="k-row"><span>On-time / on-budget</span><span class="no">Not measurable</span><span>No client baseline established on a first delivery</span></div>
+        <div class="k-row"><span>Cost per release</span><span class="no">Not measurable</span><span>Cache telemetry is logged; the pricing table is deliberately empty</span></div>
+      </div>
+
+      <p class="lede k-f">A provider that reports no cache counters yields <b class="accent">blanks</b> — not zeros, and not estimates.</p>
+    </div>
+    <div class="stagechip"><b>13</b> / 13 · MEASUREMENT</div>
+
+    <style>
+      [data-composition-id="kpi"] { position: absolute; inset: 0; }
+      #kpi-root .k-h { margin-bottom: 50px; }
+      #kpi-root .k-table { margin-bottom: 40px; }
+      #kpi-root .k-row {
+        display: flex; align-items: center; padding: 17px 0;
+        border-bottom: 1.5px solid var(--line); font-size: 24px; color: var(--muted);
+      }
+      #kpi-root .k-row span:nth-child(1) { width: 400px; color: var(--ink); font-weight: 700; }
+      #kpi-root .k-row span:nth-child(2) { width: 300px; }
+      #kpi-root .k-row span:nth-child(3) { flex: 1; }
+      #kpi-root .k-head {
+        font-size: 18px; letter-spacing: 2.2px; text-transform: uppercase; font-weight: 700;
+        color: var(--muted); padding-bottom: 12px;
+      }
+      #kpi-root .k-head span:nth-child(1) { color: var(--muted); }
+      #kpi-root .k-row:last-of-type { border-bottom: none; }
+      #kpi-root .yes { color: var(--ok); font-weight: 700; }
+      #kpi-root .no { color: var(--warn); font-weight: 700; }
+      #kpi-root .k-f { font-size: 27px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#kpi-root ";
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".k-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.2);
+        tl.fromTo(R + ".k-h", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.45);
+        tl.fromTo(R + ".k-row", { opacity: 0, x: -22 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.42, ease: "power2.out" }, 1.4);
+        tl.fromTo(R + ".k-f", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 13.2);
+        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 19.3);
+        window.__timelines["kpi"] = tl;
+      })();
+    </script>
+  </div>
+</template>

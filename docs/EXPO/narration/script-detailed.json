@@ -1,0 +1,35 @@
+{
+  "_": [
+    "Narration for video-detailed. Same rules as script-short.json — see that file.",
+    "Scenes shared with the short film carry the same words on purpose: a viewer",
+    "who watches both should hear one story told at two depths, not two stories."
+  ],
+
+  "intro": "This is Control Center, a governed A.I. assisted delivery pipeline. Let us walk it end to end.",
+
+  "problem-context": "Here is what really happens on a project. One story, three developers. The first pastes the ticket into their A.I. assistant. The second reads a README from two years ago. The third has only the title. Same story, three different contexts. So three different answers.",
+
+  "one-pack": "Now the same requirement goes in once, and out comes a set of files. The epic. Four user stories. Twelve acceptance criteria, each a numbered, testable sentence about what done actually means. The architecture. And one failing test for every criterion. All three developers now read the same pack, and all three get it right.",
+
+  "architecture": "Underneath, it is plain Python. Four layers: the rules every call reads, the skills for each role, the workflow engine, and the app itself. Every model call goes through a single module, so the same code can run live, record itself, or replay from disk with no network at all.",
+
+  "upstream": "The work splits into two halves. The first half is upstream: agree what done means. The requirement is read, the design is drawn, the plan is written, and a named human signs it. Every step leaves a file behind, not a conversation.",
+
+  "screensa": "Now the real screens. Intake first. The business owner uploads the requirement, and the system reads it against the actual code in the target repository, so the analysis is grounded in real files rather than guesswork. It asks the business its own clarifying questions. The design step draws the data flow and the entity relationships from the run's own stories. Then planning turns the epic into user stories, each with acceptance criteria, an owning team, and an estimate, and a dependency map shows which story blocks which. Finally, Gate One. Every condition on that checklist must be complete, and a named human signs it. Until that signature exists, nothing downstream exists either.",
+
+  "ide": "This is the developer's loop — the part most demos skip. The developer says, start working on a story. The agent creates the branch, lists the criteria in build order, copies in the failing tests, and stops. Nothing planned, nothing written. Then: plan the next criterion. It plans exactly one. The test that proves it, the functions it touches, and how you will see it working. Then the developer edits that plan, and the agent builds what the file now says. After three failed attempts it stops and asks, instead of guessing again.",
+
+  "downstream": "The second half is downstream: build until it is provably done. The pack lands on a fresh branch. The developer's agent takes one criterion at a time. Real tests run. A second model reviews the work before any human is asked to look at it.",
+
+  "screensb": "Downstream now. The delivery pack is published to a fresh branch that only touches managed paths, so it cannot overwrite the team's own files. Continuous integration runs for real, and each test result is joined back to the acceptance criterion it proves. If the build itself fails, the test counts read null, never zero, because a build that never compiled is not a passing test run. Then independent review: a second model checks the work before a human is asked. And release needs five named approvals, each under its own role.",
+
+  "review": "No phase signs off its own work. The reviewer is a different model with its own instructions, and its verdict is recorded on the artifact itself, so the next step can refuse to run on work that was never checked.",
+
+  "provenance": "Every artifact says what made it. Live A.I., rule based, simulated, or human. A deterministic script is never dressed up as A.I., and simulated work is never counted as A.I. work anywhere.",
+
+  "proof": "And it runs. One requirement went from intake to a released, running application in a single overnight run. Real repository, real pull request, merged, ninety eight point five percent coverage.",
+
+  "kpi": "The scorecard computes velocity, cycle time, and first time right from the run's own ledgers. The rest read not measurable, with the reason given. We could have put a number in every row. That is exactly why the ones that are there can be trusted.",
+
+  "outro": "Governance is the product. Not how much the A.I. writes, but how many places a human has to sign."
+}

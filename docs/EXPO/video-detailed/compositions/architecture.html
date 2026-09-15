@@ -1,0 +1,62 @@
+<template id="architecture-template">
+  <div id="architecture-root" data-composition-id="architecture" data-width="1920" data-height="1080">
+    <div class="pad stack">
+      <span class="kicker a-k">Four layers over one artifact plane</span>
+      <h2 class="head a-h">Plain Python underneath.<br />Nothing bound to a vendor's tooling.</h2>
+
+      <div class="a-cols">
+        <div class="a-left">
+          <div class="a-layer box glass sheen"><span class="a-tag">Orchestrator</span><p>The Control Centre app and the CLI. The app is where a human decides or reads; the CLI is where an agent executes.</p></div>
+          <div class="a-layer box glass sheen"><span class="a-tag">Workflows</span><p>The engine, the gates, and a server-validated phase machine that refuses out-of-order actions outright.</p></div>
+          <div class="a-layer box glass sheen"><span class="a-tag">Skills</span><p>Role instructions per stage — versioned files with an append-only ledger, not constants buried in code.</p></div>
+          <div class="a-layer box glass sheen"><span class="a-tag">Rules</span><p>The stable instruction layer every call loads identically, held first in the prompt so the cached prefix stays intact.</p></div>
+        </div>
+        <div class="a-right">
+          <div class="card a-card box glass sheen">
+            <p class="card-h">One LLM module</p>
+            <p class="card-b">Every external call routes through a single provider-agnostic module — five providers plus an OpenAI-compatible escape hatch — in <b>live</b>, <b>record</b> or <b>replay</b> mode. A missing recording raises by name; it never quietly falls through to a live call.</p>
+          </div>
+          <div class="card a-card box glass sheen">
+            <p class="card-h">The artifact plane</p>
+            <p class="card-b">Stage outputs land at deterministic paths. Each artifact names what produced it, <b>which artifact it derives from</b>, and whether it passed independent verification — so any output walks back to the request that caused it.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="stagechip"><b>04</b> / 13 · ARCHITECTURE</div>
+
+    <style>
+      [data-composition-id="architecture"] { position: absolute; inset: 0; }
+      #architecture-root .a-h { margin-bottom: 54px; }
+      #architecture-root .a-cols { display: flex; gap: 40px; align-items: stretch; }
+      #architecture-root .a-left { width: 1000px; display: flex; flex-direction: column; gap: 16px; }
+      #architecture-root .a-layer {
+        background: var(--white); border: 1.5px solid var(--line); border-left: 6px solid var(--red);
+        border-radius: 12px; padding: 20px 26px; flex: 1;
+        box-shadow: 0 8px 24px rgba(120, 80, 50, 0.06);
+      }
+      #architecture-root .a-tag {
+        display: block; font-size: 24px; font-weight: 700; color: var(--ink); margin-bottom: 6px;
+      }
+      #architecture-root .a-layer p { margin: 0; font-size: 21px; color: var(--muted); line-height: 1.34; }
+      #architecture-root .a-right { width: 640px; display: flex; flex-direction: column; gap: 20px; }
+      #architecture-root .a-card { flex: 1; padding: 26px 30px; }
+      #architecture-root .a-card .card-h { font-size: 29px; margin-bottom: 12px; }
+      #architecture-root .a-card .card-b { font-size: 21px; line-height: 1.38; }
+      #architecture-root .a-card .card-b b { color: var(--ink-soft); font-weight: 700; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#architecture-root ";
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".a-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.2);
+        tl.fromTo(R + ".a-h", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.45);
+        tl.fromTo(R + ".a-layer", { opacity: 0, x: -34 }, { opacity: 1, x: 0, duration: 0.65, stagger: 0.75, ease: "power2.out" }, 1.5);
+        tl.fromTo(R + ".a-card", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.7, stagger: 1.5, ease: "power2.out" }, 5.4);
+        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 21.3);
+        window.__timelines["architecture"] = tl;
+      })();
+    </script>
+  </div>
+</template>

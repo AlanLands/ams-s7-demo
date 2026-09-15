@@ -1,0 +1,99 @@
+<template id="captions-template">
+  <div id="cap-root" data-composition-id="captions" data-width="1920" data-height="1080">
+    <div id="cap-stage"></div>
+
+    <style>
+      [data-composition-id="captions"] { position: absolute; inset: 0; pointer-events: none; }
+      #cap-root #cap-stage {
+        position: absolute;
+        left: 50%;
+        bottom: 122px;
+        transform: translateX(-50%);
+        width: 1420px;
+      }
+      #cap-root .cue {
+        position: absolute;
+        bottom: 0;
+        left: 50%;              /* centred by xPercent in the timeline */
+        opacity: 0;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: baseline;
+        gap: 2px 13px;
+        width: max-content;     /* the pill hugs its words */
+        max-width: 1420px;
+        padding: 19px 34px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(22px) saturate(160%);
+        border: 1px solid rgba(255, 255, 255, 0.86);
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.95),
+          0 14px 38px rgba(100, 66, 44, 0.13);
+        box-sizing: border-box;
+      }
+      #cap-root .w {
+        font-family: "Source Sans 3", system-ui, sans-serif;
+        font-size: 37px;
+        font-weight: 600;
+        line-height: 1.30;
+        color: #2b2b2b;          /* already spoken, and the resting state */
+        opacity: 0;              /* a word is invisible until it is spoken */
+        white-space: pre;
+      }
+      /* the word being spoken on this frame */
+      #cap-root .w.on { color: #d8232a; }
+    </style>
+
+    <script>
+      (function () {
+        var tl = gsap.timeline({ paused: true });
+        var stage = document.querySelector("#cap-root #cap-stage");
+
+        /* Two passes are rendered from this same page: one clean film to
+           present over, and one captioned cut that becomes the narrated share.
+           Reading the flag from the URL is deterministic, so frame output stays
+           reproducible either way. */
+        var want = new URLSearchParams(window.location.search).get("captions");
+        var CUES = (want === "0") ? [] : (window.__CAPTIONS || []);
+
+        CUES.forEach(function (cue) {
+          var el = document.createElement("div");
+          el.className = "cue";
+          var spans = cue.words.map(function (w) {
+            var s = document.createElement("span");
+            s.className = "w";
+            s.textContent = w.w;
+            el.appendChild(s);
+            return s;
+          });
+          stage.appendChild(el);
+
+          /* the pill arrives just before its first word and leaves after the
+             last one, so it is never on screen empty */
+          tl.fromTo(el, { opacity: 0, y: 14, xPercent: -50 },
+            { opacity: 1, y: 0, xPercent: -50, duration: 0.26, ease: "power2.out" },
+            Math.max(0, cue.start - 0.18));
+          tl.to(el, { opacity: 0, y: -10, duration: 0.24, ease: "power2.in" },
+            cue.end + 0.06);
+
+          cue.words.forEach(function (w, i) {
+            var span = spans[i];
+            /* Each word lands on the frame it is actually spoken. These are
+               ElevenLabs' own character alignments, not a guess made by
+               dividing a clip's length up by letter count — which is what the
+               macOS pass had to do, and which drifts the moment a voice
+               pauses for breath. */
+            tl.fromTo(span, { opacity: 0, y: 8 },
+              { opacity: 1, y: 0, duration: 0.14, ease: "power2.out" }, w.s);
+            tl.set(span, { attr: { class: "w on" } }, w.s);
+            tl.set(span, { attr: { class: "w" } }, w.e + 0.02);
+          });
+        });
+
+        window.__timelines["captions"] = tl;
+      })();
+    </script>
+  </div>
+</template>

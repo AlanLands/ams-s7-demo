@@ -1,0 +1,39 @@
+<template id="intro-template">
+  <div data-composition-id="intro" data-width="1920" data-height="1080">
+    <div class="pad center">
+      <span class="kicker i-k">Engineering Excellence Expo 2026 · BFSI Canada</span>
+      <h1 class="big i-t">Control Center</h1>
+      <div class="rule i-r"></div>
+      <p class="lede i-s">A governed AI-assisted SDLC —<br />business requirement to production release.</p>
+      <div class="i-b">
+        <span class="pill glass">Human governed</span>
+        <span class="pill glass">AI assisted</span>
+        <span class="pill glass">Evidence recorded</span>
+      </div>
+    </div>
+    <div class="stagechip i-c"><b>01</b> / 10 · OVERVIEW</div>
+
+    <style>
+      [data-composition-id="intro"] { position: absolute; inset: 0; }
+      [data-composition-id="intro"] .i-t { margin-bottom: 30px; }
+      [data-composition-id="intro"] .i-r { margin-bottom: 34px; }
+      [data-composition-id="intro"] .i-s { font-size: 34px; text-align: center; margin-bottom: 44px; }
+      [data-composition-id="intro"] .i-b { display: flex; gap: 18px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = '[data-composition-id="intro"] ';
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".i-k", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.25);
+        tl.fromTo(R + ".i-t", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.55);
+        tl.fromTo(R + ".i-r", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power2.inOut" }, 1.15);
+        tl.fromTo(R + ".i-s", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 1.45);
+        tl.fromTo(R + ".i-b .pill", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.13, ease: "power2.out" }, 2.0);
+        tl.fromTo(R + ".i-c", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.3);
+        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 6.3);
+        window.__timelines["intro"] = tl;
+      })();
+    </script>
+  </div>
+</template>

@@ -1,0 +1,264 @@
+1
+00:00:01,035 --> 00:00:05,586
+This is Control Center, a governed AI assisted delivery pipeline.
+
+2
+00:00:05,621 --> 00:00:07,327
+Let us walk it end to end.
+
+3
+00:00:08,845 --> 00:00:11,190
+Here is what really happens on a project.
+
+4
+00:00:11,306 --> 00:00:13,466
+One story, three developers.
+
+5
+00:00:13,512 --> 00:00:17,471
+The first pastes the ticket into their AI assistant.
+
+6
+00:00:17,494 --> 00:00:20,420
+The second reads a README from two years ago.
+
+7
+00:00:20,466 --> 00:00:22,359
+The third has only the title.
+
+8
+00:00:22,440 --> 00:00:24,774
+Same story, three different contexts.
+
+9
+00:00:24,867 --> 00:00:26,573
+So three different answers.
+
+10
+00:00:29,145 --> 00:00:34,044
+Now the same requirement goes in once, and out comes a set of files.
+
+11
+00:00:34,079 --> 00:00:34,799
+The epic.
+
+12
+00:00:34,845 --> 00:00:36,064
+Four user stories.
+
+13
+00:00:36,122 --> 00:00:42,775
+Twelve acceptance criteria, each a numbered, testable sentence about what done actually means.
+
+14
+00:00:42,845 --> 00:00:43,808
+The architecture.
+
+15
+00:00:43,866 --> 00:00:46,757
+And one failing test for every criterion.
+
+16
+00:00:46,792 --> 00:00:51,332
+All three developers now read the same pack, and all three get it right.
+
+17
+00:00:52,835 --> 00:00:54,971
+Underneath, it is plain Python.
+
+18
+00:00:55,064 --> 00:01:01,937
+Four layers: the rules every call reads, the skills for each role, the workflow engine, and the app itself.
+
+19
+00:01:01,972 --> 00:01:11,051
+Every model call goes through a single module, so the same code can run live, record itself, or replay from disk with no network at all.
+
+20
+00:01:14,146 --> 00:01:16,643
+The work splits into two halves.
+
+21
+00:01:16,701 --> 00:01:19,429
+The first half is upstream: agree what done means.
+
+22
+00:01:19,452 --> 00:01:24,862
+The requirement is read, the design is drawn, the plan is written, and a named human signs it.
+
+23
+00:01:24,897 --> 00:01:27,997
+Every step leaves a file behind, not a conversation.
+
+24
+00:01:33,435 --> 00:01:35,246
+Now the real screens.
+
+25
+00:01:35,327 --> 00:01:36,163
+Intake first.
+
+26
+00:01:36,244 --> 00:01:48,029
+The business owner uploads the requirement, and the system reads it against the actual code in the target repository, so the analysis is grounded in real files rather than guesswork.
+
+27
+00:01:48,063 --> 00:01:51,465
+It asks the business its own clarifying questions.
+
+28
+00:01:51,488 --> 00:01:57,700
+The design step draws the data flow and the entity relationships from the run's own stories.
+
+29
+00:01:57,816 --> 00:02:08,671
+Then planning turns the epic into user stories, each with acceptance criteria, an owning team, and an estimate, and a dependency map shows which story blocks which.
+
+30
+00:02:08,787 --> 00:02:10,192
+Finally, Gate One.
+
+31
+00:02:10,250 --> 00:02:14,987
+Every condition on that checklist must be complete, and a named human signs it.
+
+32
+00:02:15,022 --> 00:02:19,259
+Until that signature exists, nothing downstream exists either.
+
+33
+00:02:24,735 --> 00:02:28,473
+This is the developer's loop the part most demos skip.
+
+34
+00:02:28,508 --> 00:02:31,213
+The developer says, start working on a story.
+
+35
+00:02:31,236 --> 00:02:37,320
+The agent creates the branch, lists the criteria in build order, copies in the failing tests, and stops.
+
+36
+00:02:37,436 --> 00:02:39,155
+Nothing planned, nothing written.
+
+37
+00:02:39,248 --> 00:02:41,152
+Then: plan the next criterion.
+
+38
+00:02:41,210 --> 00:02:42,661
+It plans exactly one.
+
+39
+00:02:42,707 --> 00:02:47,258
+The test that proves it, the functions it touches, and how you will see it working.
+
+40
+00:02:47,293 --> 00:02:52,076
+Then the developer edits that plan, and the agent builds what the file now says.
+
+41
+00:02:52,123 --> 00:02:56,674
+After three failed attempts it stops and asks, instead of guessing again.
+
+42
+00:02:59,046 --> 00:03:03,574
+The second half is downstream: build until it is provably done.
+
+43
+00:03:03,609 --> 00:03:06,047
+The pack lands on a fresh branch.
+
+44
+00:03:06,070 --> 00:03:09,472
+The developer's agent takes one criterion at a time.
+
+45
+00:03:09,797 --> 00:03:11,341
+Real tests run.
+
+46
+00:03:11,516 --> 00:03:16,891
+A second model reviews the work before any human is asked to look at it.
+
+47
+00:03:18,505 --> 00:03:19,666
+Downstream now.
+
+48
+00:03:19,782 --> 00:03:27,386
+The delivery pack is published to a fresh branch that only touches managed paths, so it cannot overwrite the team's own files.
+
+49
+00:03:27,421 --> 00:03:34,713
+Continuous integration runs for real, and each test result is joined back to the acceptance criterion it proves.
+
+50
+00:03:34,736 --> 00:03:42,468
+If the build itself fails, the test counts read null, never zero, because a build that never compiled is not a passing test run.
+
+51
+00:03:42,503 --> 00:03:46,995
+Then independent review: a second model checks the work before a human is asked.
+
+52
+00:03:47,042 --> 00:03:50,827
+And release needs five named approvals, each under its own role.
+
+53
+00:03:56,805 --> 00:03:59,951
+No phase signs off its own work.
+
+54
+00:03:59,986 --> 00:04:11,375
+The reviewer is a different model with its own instructions, and its verdict is recorded on the artifact itself, so the next step can refuse to run on work that was never checked.
+
+55
+00:04:14,105 --> 00:04:15,997
+Every artifact says what made it.
+
+56
+00:04:16,090 --> 00:04:19,260
+Live AI, rule based, simulated, or human.
+
+57
+00:04:19,294 --> 00:04:28,141
+A deterministic script is never dressed up as AI, and simulated work is never counted as AI work anywhere.
+
+58
+00:04:29,765 --> 00:04:30,891
+And it runs.
+
+59
+00:04:30,937 --> 00:04:37,706
+One requirement went from intake to a released, running application in a single overnight run.
+
+60
+00:04:37,857 --> 00:04:43,604
+Real repository, real pull request, merged, 98.5% coverage.
+
+61
+00:04:45,095 --> 00:04:51,631
+The scorecard computes velocity, cycle time, and first time right from the run's own ledgers.
+
+62
+00:04:51,747 --> 00:04:55,172
+The rest read not measurable, with the reason given.
+
+63
+00:04:55,254 --> 00:04:57,877
+We could have put a number in every row.
+
+64
+00:04:58,052 --> 00:05:01,860
+That is exactly why the ones that are there can be trusted.
+
+65
+00:05:04,395 --> 00:05:06,218
+Governance is the product.
+
+66
+00:05:06,310 --> 00:05:11,198
+Not how much the AI writes, but how many places a human has to sign.
+

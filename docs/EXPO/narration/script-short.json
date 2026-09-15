@@ -1,0 +1,30 @@
+{
+  "_": [
+    "Narration for video-short. One entry per scene id in ../video-short/index.html.",
+    "Written to be understood by someone who joined the team this week: short",
+    "sentences, every term defined the first time it is used, no acronym left bare.",
+    "Numbers are spelled the way they should be spoken — the speech synthesiser",
+    "reads '98.5%' badly. Each line must fit its scene window; build_narration.py",
+    "fails loudly with the overrun if it does not, rather than clipping mid-word."
+  ],
+
+  "intro": "This is Control Center. It takes a business requirement all the way to release.",
+
+  "problem-context": "Here is what really happens on a project. One story, three developers. The first pastes the ticket into their A.I. assistant. The second reads a README from two years ago. The third has only the title. Same story, three different contexts. So three different answers.",
+
+  "one-pack": "Now the same requirement goes in once, and out comes a set of files. The epic. Four user stories. Twelve acceptance criteria, each a numbered, testable sentence about what done actually means. The architecture. And one failing test for every criterion. All three developers now read the same pack, and all three get it right.",
+
+  "upstream": "The work splits into two halves. The first half is upstream: agree what done means. The requirement is read, the design is drawn, the plan is written, and a named human signs it. Every step leaves a file behind, not a conversation.",
+
+  "downstream": "The second half is downstream: build until it is provably done. The pack lands on a fresh branch. The developer's agent takes one criterion at a time. Real tests run. A second model reviews the work before any human is asked to look at it.",
+
+  "ide": "Here is the developer's side. They say, start working, and the agent creates the branch and stops. They say, plan the next criterion, and it writes a plan for exactly one. Then the developer edits that plan. That edit is the contract, and the agent builds what the file now says, not what it proposed.",
+
+  "screens": "This is the real application, not a mock-up. This is Gate One, plan sign-off. Nothing downstream generates, publishes, or runs until a named person clicks. A click is a decision. Typing yes at a prompt is not.",
+
+  "provenance": "Every artifact says what made it. Live A.I., rule based, simulated, or human. A deterministic script is never dressed up as A.I., and simulated work is never counted as A.I. work anywhere.",
+
+  "evidence": "And it runs. One requirement went from intake to a released application overnight. Real repository, real pull request, merged, ninety eight point five percent test coverage.",
+
+  "outro": "Governance is the product. Not how much the A.I. writes, but how many places a human has to sign."
+}

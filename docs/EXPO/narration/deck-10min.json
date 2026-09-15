@@ -1,0 +1,35 @@
+{
+  "_": [
+    "Per-slide narration for expo-10min.pptx, keyed by slide number.",
+    "Same voice and same rules as the films (see script-short.json): short",
+    "sentences, every term defined on first use, numbers spelled for the",
+    "synthesiser. Written so someone who joined this week can follow the whole",
+    "argument without anyone standing next to the screen."
+  ],
+
+  "1": "This is Control Center. It takes one business requirement all the way to a released application, with a named human signing at every gate. Here is the whole idea in ten minutes.",
+
+  "2": "The client asked for one thing: a business requirement delivered end to end, using an A.I. assisted software lifecycle. Not code generation on its own. The whole journey, from the business request through design, build and test, to production release.",
+
+  "3": "Here is what really happens today. One story, three developers, three different sets of context. The first pastes the ticket into their assistant. The second reads a README from two years ago. The third has only the story title. The requirement actually said thirty days, five attempts, fifteen minutes. All three shipped something different, and nobody was careless. The assistant faithfully amplified whatever context it was handed.",
+
+  "4": "So we stop handing out context by accident. One requirement goes in, and one governed pack comes out. The epic. Four user stories. Twelve acceptance criteria, each with an identifier. An architecture version that cannot be edited in place. Delivery packs. And one failing test for every criterion. It is written for the agent as much as for the person, the way code is.",
+
+  "5": "The work has two halves. Upstream, we agree what done means, and a named human signs the plan. Downstream, agents build until it is provably done. Every step in both lanes leaves a file behind, and that file is what survives the handoff into a developer's own environment.",
+
+  "6": "Now let the film do the talking. Just under three minutes, end to end.",
+
+  "7": "This is the part that earns trust. Every artifact says what made it: live A.I., rule based, simulated, or human. A deterministic script is never dressed up as A.I., and simulated work is never counted as A.I. work in any ledger.",
+
+  "8": "Every model call goes through one module, which can run live, record itself, or replay from disk. So a fresh clone with no A.P.I. key runs the entire pipeline offline. That is not just convenience. A demo that works four times in five is worse than one that works five times in five.",
+
+  "9": "The scorecard computes velocity, cycle time, and first time right from the run's own records. The rest read not measurable, each with the reason. We could have filled every row with a number. Choosing not to is the point.",
+
+  "10": "On a real project, not everything can be automated. Seventy percent of the effort here runs agentically. Eighteen percent is A.I. assisted but owned by another team. Eleven percent is manual. And a team we do not recognise is classified as manual, rather than quietly counted as coverage.",
+
+  "11": "And it runs. One requirement went from intake to a released, running application in a single overnight run. Real repository, real pull request, merged, ninety eight point five percent test coverage. One measured improvement: evidence turnaround fell from sixty five seconds to fourteen.",
+
+  "12": "What is reusable is not the demo. It is the governed pack templates, the provenance discipline, and the gate model. Those drop onto any engagement, on any technology stack.",
+
+  "13": "Governance is the product. Not how much the A.I. writes, but how many places a human has to sign."
+}

@@ -1,0 +1,92 @@
+<template id="downstream-template">
+  <div id="downstream-root" data-composition-id="downstream" data-width="1920" data-height="1080">
+    <div class="pad stack">
+      <span class="kicker l-k">Downstream &middot; agents execute, nobody is watching</span>
+      <h2 class="head l-h">Then build until it is <span class="mark"><span class="swipe"></span><span class="txt">provably</span></span> done.</h2>
+      <div class="l-lane"><span class="lane t-violet"><span class="ico"></span>AGENTS EXECUTE &middot; EVIDENCE IS COLLECTED</span></div>
+      <div class="l-row"></div>
+      <div class="caption l-foot box glass sheen">
+        <p class="t">The same pack the gate approved is the pack the agent reads. <b>Nothing is re-typed, re-explained or remembered</b> along the way.</p>
+      </div>
+    </div>
+    <div class="stagechip"><b>08</b> / 13 · DOWNSTREAM</div>
+
+    <style>
+      [data-composition-id="downstream"] { position: absolute; inset: 0; }
+      #downstream-root .l-h { margin-bottom: 26px; }
+      #downstream-root .l-lane { margin-bottom: 40px; }
+      #downstream-root .l-lane .ico svg { width: 22px; height: 22px; display: block; }
+      #downstream-root .l-row { display: flex; align-items: stretch; justify-content: center; gap: 0; margin-bottom: 44px; }
+      #downstream-root .l-step { width: 250px; text-align: center; padding: 24px 18px 22px; }
+      #downstream-root .l-step .ic { margin: 0 auto; }
+      #downstream-root .l-step .ttl { font-size: 24px; font-weight: 700; color: var(--ink); margin-top: 16px; line-height: 1.16; }
+      #downstream-root .l-step .sub { font-size: 17px; color: var(--muted); margin-top: 6px; line-height: 1.28; min-height: 44px; }
+      #downstream-root .l-step .out {
+        margin-top: 12px; font-size: 16px; display: inline-block;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        background: var(--bg); color: var(--fg); border: 1.5px solid var(--ln);
+        border-radius: 9px; padding: 6px 12px;
+      }
+      #downstream-root .l-link { width: 58px; display: flex; align-items: center; justify-content: center; gap: 0; }
+      #downstream-root .l-link .beam { width: 40px; }
+      #downstream-root .l-foot { padding: 20px 26px; }
+      #downstream-root .l-foot .t { font-size: 22px; margin: 0; line-height: 1.34; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#downstream-root ";
+        var root = document.querySelector("#downstream-root");
+        var I = window.ICONS;
+        var STEPS = [
+          ["branch", "t-teal", "Publish", "The pack lands on a fresh branch touching only managed paths.", ".s7/"],
+          ["dev", "t-blue", "Build", "The developer\x27s own agent works one acceptance criterion at a time.", "1 AC at a time"],
+          ["flask", "t-amber", "Evidence", "Real CI runs, joined back to each acceptance criterion by test name.", "6/6 green"],
+          ["eye", "t-violet", "Review", "A second model checks the work before any human is asked to look.", "no self-approve"],
+          ["rocket", "t-red", "Release", "Five named roles each approve under their own role.", "5 approvals", "hot"]
+        ];
+        var row = root.querySelector(".l-row");
+        STEPS.forEach(function (s, n) {
+          if (n) {
+            var lk = document.createElement("div");
+            lk.className = "l-link";
+            lk.innerHTML = '<div class="beam ' + (s[5] || "on") + '" id="downstreamlk' + n + '"></div>' +
+                           '<div class="tip ' + (s[5] === "hot" ? "hot" : "on") + '"></div>';
+            row.appendChild(lk);
+          }
+          var el = document.createElement("div");
+          el.className = "l-step box glass sheen " + s[1];
+          el.id = "downstreamst" + n;
+          el.innerHTML = '<div class="ic ' + s[1] + '">' + I(s[0]) + "</div>" +
+                         '<div class="ttl">' + s[2] + "</div>" +
+                         '<div class="sub">' + s[3] + "</div>" +
+                         '<div class="out">' + s[4] + "</div>";
+          row.appendChild(el);
+        });
+        root.querySelector(".l-lane .ico").innerHTML = I("t-violet" === "t-teal" ? "people" : "bot");
+
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".l-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.2);
+        tl.fromTo(R + ".l-h", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.45);
+        tl.fromTo(R + ".l-lane .lane", { opacity: 0, scale: 0.88 },
+          { opacity: 1, scale: 1, duration: 0.55, ease: "back.out(2.2)" }, 1.1);
+        STEPS.forEach(function (s, n) {
+          var at = 1.9 + n * 2.5;
+          var S = R + "#downstreamst" + n + " ";
+          tl.fromTo(R + "#downstreamst" + n, { opacity: 0, y: 34, scale: 0.92 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.62, ease: "back.out(1.6)" }, at);
+          tl.fromTo(S + ".ic", { scale: 0.5, rotate: -12 },
+            { scale: 1, rotate: 0, duration: 0.55, ease: "back.out(3)" }, at + 0.1);
+          tl.fromTo(S + ".out", { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.42, ease: "back.out(2)" }, at + 0.62);
+          if (n) tl.fromTo(R + "#downstreamlk" + n, { scaleX: 0 },
+            { scaleX: 1, duration: 0.34, ease: "power2.out" }, at - 0.3);
+        });
+        tl.fromTo(R + ".l-foot", { opacity: 0, y: 22 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 1.9 + STEPS.length * 2.5 + 0.4);
+        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 19.3);
+        window.__timelines["downstream"] = tl;
+      })();
+    </script>
+  </div>
+</template>

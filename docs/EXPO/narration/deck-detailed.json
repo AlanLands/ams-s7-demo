@@ -1,0 +1,77 @@
+{
+  "_": [
+    "Per-slide narration for expo-detailed.pptx, keyed by slide number.",
+    "Same rules as deck-10min.json. Slides shared with the ten-minute deck carry",
+    "the same words on purpose — one story at two depths, not two stories."
+  ],
+
+  "1": "This is Control Center, a governed A.I. assisted delivery pipeline. Let us walk the whole thing, end to end.",
+
+  "2": "Four movements. The problem, the design, the walkthrough, and the proof. About thirty five minutes if you watch all of it.",
+
+  "3": "The client asked for a business driven, multi sprint change delivered end to end, using an A.I. assisted lifecycle, and measured on delivery metrics: velocity, cycle time, first time right, and defect leakage.",
+
+  "4": "Three constraints shaped everything you are about to see. It has to survive a locked down environment, so there are no cloud services and every dependency is pinned. No client data may appear anywhere, so the whole thing runs on a fictional insurer. And every A.I. claim has to survive a hard question.",
+
+  "5": "One story, three developers, three different sets of context. The requirement said thirty days, five attempts, fifteen minutes. All three shipped something different. Nobody was careless — the assistant amplified whatever context it was handed.",
+
+  "6": "One requirement in, one governed pack out. The epic, the stories, twelve acceptance criteria each with an identifier, an architecture version that cannot be edited in place, delivery packs, test skeletons, and instructions written for the agent. All of it as files, published to git.",
+
+  "7": "Upstream agrees what done means. Downstream builds until it is provably done. The human review gate is the hinge between the two.",
+
+  "8": "The split is not by phase, it is by who is acting. The app is where a human decides or reads. The command line is where an agent executes.",
+
+  "9": "Plain Python underneath. Four layers: the rules every call reads, the skills for each role, the workflow engine, and the orchestrator. Nothing is bound to a particular vendor's tooling.",
+
+  "10": "Every external call routes through one module with live, record, and replay modes. A fresh clone with no A.P.I. key runs the whole pipeline offline.",
+
+  "11": "Every artifact says what made it: live A.I., rule based, simulated, or human. Simulated work is never counted as A.I. work anywhere in the system.",
+
+  "12": "These are the places a human has to sign. The intake gate. Plan sign off. The Q.A. test plan. Dependency unlocks. And release. Every one of them blocks for real.",
+
+  "13": "Here is the film. Just over five minutes, the whole walk.",
+
+  "14": "The requirement is parsed, not retyped. Upload a document and the title, the business objective, and the numbered requirements are extracted from what was actually given.",
+
+  "15": "Grounding is a file in the repository, not a fine tune. Each target repository carries its own architecture document, and every call reads it. That is how the analysis knows the real code.",
+
+  "16": "The epic is decomposed into user stories. Every story carries acceptance criteria, an owning team, an estimate, and its dependencies. And every business rule has to be claimed by some story, or the planner is sent back to fix it.",
+
+  "17": "The design step draws the data flow and the entity relationships. This is the phase the client named explicitly, and it is the one a terminal cannot show.",
+
+  "18": "Gate One, plan sign off. Every condition on the checklist must be complete, and a named human signs it. A click is a decision. Typing y at a prompt is not.",
+
+  "19": "Delivery packs are layered, never copied. A task pack references the plan and the architecture by version, so editing one thing cannot silently change a delivery already in flight.",
+
+  "20": "Each pack carries one deliberately failing test per acceptance criterion. That produces a real red baseline in continuous integration before anybody writes a line of code.",
+
+  "21": "One acceptance criterion at a time, planned late and edited by the developer. The agent plans exactly one criterion. The developer rewrites that plan. Then the agent builds what the file now says, not what it proposed.",
+
+  "22": "The published standards each announce their own moment. A routing table tells the agent what to read and when, instead of hoping it remembers one long document it skimmed at the start.",
+
+  "23": "Continuous integration runs for real, and each test result is joined back to the acceptance criterion it proves.",
+
+  "24": "This is the bug worth showing you. A Maven workflow landed on a repository that had no build file. Nothing compiled, no tests ran, so the summary reported zero failures — and a build that never compiled was presented as a governed red baseline. Now the build itself is reported, and when it fails the test counts read null, never zero.",
+
+  "25": "No phase signs off its own work. A second model reviews before a human is asked to look, and its verdict is recorded on the artifact itself.",
+
+  "26": "Quality is expressed as explicit named conditions, never as a score. A score invites an argument about the threshold. A condition either holds or it does not.",
+
+  "27": "Release needs five named approvals, each under its own role. Nobody can approve their own work.",
+
+  "28": "Seven configuration layers, one mechanism. Prompts, standards, templates, governance, models, identity, and integrations are all versioned files inside a profile, and every run records the version it used.",
+
+  "29": "When a person corrects the model's output, both the original and the human version are recorded. An operator can then ask for an improved prompt, read the difference, and accept or reject it. Nothing is ever applied automatically.",
+
+  "30": "Seventy percent agentic, eighteen percent A.I. assisted but externally owned, eleven percent manual. An honest seventy that survives a question beats a claimed hundred that does not.",
+
+  "31": "Reported only where the run can evidence it. Velocity, cycle time, and first time right come from the ledgers. The rest say not measurable, and give the reason.",
+
+  "32": "One requirement to a released application, overnight. Real repository, real pull request, merged, ninety eight point five percent coverage.",
+
+  "33": "The reusable part is a governed delivery accelerator: the pack templates, the gate model, and the provenance discipline.",
+
+  "34": "And what it does not do yet. It is not an I.D.E. and does not integrate with one. Estimates still need historical delivery data behind them. And it publishes standards into a developer's own environment that it cannot enforce once they are there.",
+
+  "35": "Governance is the product. Not how much the A.I. writes, but how many places a human has to sign."
+}

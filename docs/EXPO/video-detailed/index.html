@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Control Center — Governed AI-Assisted SDLC (detailed walkthrough)</title>
+<!--
+  Detailed expo walkthrough (5:12). Authoring tooling, not demo runtime —
+  rendered offline to renders/video-detailed.mp4 by render.js, which steps
+  window.SEEK(t) frame by frame. Self-contained: gsap, the icon set and the
+  font are local; the application screenshots under assets/ are the real
+  Control Centre, run S7-00002. MapleSure Insurance is fictional.
+-->
+<link rel="stylesheet" href="theme.css" />
+<script src="vendor/gsap.min.js"></script>
+<script src="icons.js"></script>
+<script src="captions-data.js"></script>
+<script src="runtime.js"></script>
+</head>
+<body>
+  <div id="master-root" data-composition-id="master"
+       data-start="0" data-duration="312.38" data-width="1920" data-height="1080">
+
+    <div id="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b></div>
+
+    <div id="sc-intro" class="scene" data-composition-id="intro"
+         data-composition-src="compositions/intro.html"
+         data-start="0" data-duration="8.51" data-track-index="0"></div>
+
+    <div id="sc-problem" class="scene" data-composition-id="problem-context"
+         data-composition-src="compositions/problem-context.html"
+         data-start="sc-intro - 0.7" data-duration="21.0" data-track-index="1"></div>
+
+    <div id="sc-pack" class="scene" data-composition-id="one-pack"
+         data-composition-src="compositions/one-pack.html"
+         data-start="sc-problem - 0.7" data-duration="24.39" data-track-index="0"></div>
+
+    <div id="sc-architecture" class="scene" data-composition-id="architecture"
+         data-composition-src="compositions/architecture.html"
+         data-start="sc-pack - 0.7" data-duration="22.0" data-track-index="1"></div>
+
+    <div id="sc-upstream" class="scene" data-composition-id="upstream"
+         data-composition-src="compositions/upstream.html"
+         data-start="sc-architecture - 0.7" data-duration="20.0" data-track-index="0"></div>
+
+    <div id="sc-screensa" class="scene" data-composition-id="screensa"
+         data-composition-src="compositions/screens-upstream.html"
+         data-start="sc-upstream - 0.7" data-duration="52.0" data-track-index="1"></div>
+
+    <div id="sc-ide" class="scene" data-composition-id="ide"
+         data-composition-src="compositions/ide.html"
+         data-start="sc-screensa - 0.7" data-duration="35.0" data-track-index="0"></div>
+
+    <div id="sc-downstream" class="scene" data-composition-id="downstream"
+         data-composition-src="compositions/downstream.html"
+         data-start="sc-ide - 0.7" data-duration="20.17" data-track-index="1"></div>
+
+    <div id="sc-screensb" class="scene" data-composition-id="screensb"
+         data-composition-src="compositions/screens-downstream.html"
+         data-start="sc-downstream - 0.7" data-duration="39.0" data-track-index="0"></div>
+
+    <div id="sc-review" class="scene" data-composition-id="review"
+         data-composition-src="compositions/review.html"
+         data-start="sc-screensb - 0.7" data-duration="18.0" data-track-index="1"></div>
+
+    <div id="sc-provenance" class="scene" data-composition-id="provenance"
+         data-composition-src="compositions/provenance.html"
+         data-start="sc-review - 0.7" data-duration="16.36" data-track-index="0"></div>
+
+    <div id="sc-proof" class="scene" data-composition-id="proof"
+         data-composition-src="compositions/proof.html"
+         data-start="sc-provenance - 0.7" data-duration="16.03" data-track-index="1"></div>
+
+    <div id="sc-kpi" class="scene" data-composition-id="kpi"
+         data-composition-src="compositions/kpi.html"
+         data-start="sc-proof - 0.7" data-duration="20.0" data-track-index="0"></div>
+
+    <div id="sc-outro" class="scene" data-composition-id="outro"
+         data-composition-src="compositions/outro.html"
+         data-start="sc-kpi - 0.7" data-duration="9.02" data-track-index="1"></div>
+
+    <div id="sc-captions" class="scene" data-composition-id="captions"
+         data-composition-src="compositions/captions.html"
+         data-start="0" data-duration="312.38" data-track-index="9"
+         style="z-index:80"></div>
+
+    <div id="vignette"></div>
+    <div id="topbar"></div>
+    <div id="wordmark">
+      <span class="dot">MS</span>
+      <span class="txt">MapleSure Insurance · Control Center</span>
+    </div>
+
+    <script>
+      var masterTL = gsap.timeline({ paused: true });
+      masterTL.to("#vignette", { opacity: 1, duration: 1.4, ease: "power1.out" }, 0);
+      masterTL.from("#topbar", { scaleX: 0, duration: 1.1, ease: "power2.out" }, 0.15);
+      masterTL.from("#wordmark", { opacity: 0, y: 14, duration: 0.9, ease: "power2.out" }, 0.5);
+      masterTL.fromTo("#aurora .b1", { x: 0, y: 0 }, { x: 110, y: 70, duration: 312.38, ease: "none" }, 0);
+      masterTL.fromTo("#aurora .b2", { x: 0, y: 0 }, { x: -90, y: 95, duration: 312.38, ease: "none" }, 0);
+      masterTL.fromTo("#aurora .b3", { x: 0, y: 0 }, { x: -75, y: -85, duration: 312.38, ease: "none" }, 0);
+      masterTL.fromTo("#aurora .b4", { x: 0, y: 0 }, { x: 100, y: -60, duration: 312.38, ease: "none" }, 0);
+
+      /* The stage chip is small text in a fixed corner, which is where
+         a crossfade's doubling reads worst: two legible labels on top
+         of each other. Hand it over instead — the outgoing chip leaves
+         at the start of the dissolve and the incoming one arrives at
+         the end, so in the middle neither is drawn.
+
+         This has to wait for the boot promise. Scenes are fetched
+         asynchronously, and GSAP resolves a selector when the tween is
+         created, so building these up front silently matches nothing —
+         which is exactly what happened the first time. */
+
+      /* The stage chip is small text in a fixed corner, which is where
+         a crossfade's doubling reads worst: two legible labels on top
+         of each other. Hand it over instead — the outgoing chip leaves
+         at the start of the dissolve and the incoming one arrives at
+         the end, so in the middle neither is drawn.
+
+         This has to wait for the boot promise. Scenes are fetched
+         asynchronously, and GSAP resolves a selector when the tween is
+         created, so building these up front silently matches nothing —
+         which is exactly what happened the first time. */
+      /* >>> generated by narration/compose_film.py — do not edit <<< */
+      /* ---- camera and transitions ---------------------------------
+         Written by narration/compose_film.py. The scene timelines own
+         what happens inside a scene; the master owns the move across
+         it and the dissolve between scenes. Different elements, so no
+         two timelines ever animate the same property at once. */
+      var SCENES = [
+        { id: "#sc-intro", at: 0.00, dur: 8.51 },
+        { id: "#sc-problem", at: 7.81, dur: 21.00 },
+        { id: "#sc-pack", at: 28.11, dur: 24.39 },
+        { id: "#sc-architecture", at: 51.80, dur: 22.00 },
+        { id: "#sc-upstream", at: 73.10, dur: 20.00 },
+        { id: "#sc-screensa", at: 92.40, dur: 52.00 },
+        { id: "#sc-ide", at: 143.70, dur: 35.00 },
+        { id: "#sc-downstream", at: 178.00, dur: 20.17 },
+        { id: "#sc-screensb", at: 197.47, dur: 39.00 },
+        { id: "#sc-review", at: 235.77, dur: 18.00 },
+        { id: "#sc-provenance", at: 253.07, dur: 16.36 },
+        { id: "#sc-proof", at: 268.73, dur: 16.03 },
+        { id: "#sc-kpi", at: 284.06, dur: 20.00 },
+        { id: "#sc-outro", at: 303.36, dur: 9.02 }
+      ];
+      SCENES.forEach(function (s, i) {
+        /* A real crossfade: the incoming scene fades up while the
+           outgoing one fades down. Fading only the incoming scene is
+           not enough — each scene carries its own stage chip outside
+           the block its timeline fades, so both chips stayed fully
+           legible through the overlap and read as a glitch. */
+        if (i > 0) {
+          masterTL.fromTo(s.id, { opacity: 0 },
+            { opacity: 1, duration: 0.70, ease: "power1.inOut" }, s.at);
+        }
+        if (i < SCENES.length - 1) {
+          masterTL.to(s.id,
+            { opacity: 0, duration: 0.70, ease: "power1.inOut" },
+            s.at + s.dur - 0.70);
+        }
+        /* slow push-in, drifting a few pixels; direction alternates so
+           a long run of scenes does not read as one repeated move */
+        var dir = i % 2 ? -1 : 1;
+        masterTL.fromTo(s.id,
+          { scale: 1.0, x: 0, y: 0 },
+          { scale: 1.025, x: 10 * dir, y: -6, duration: s.dur,
+            ease: "none" }, s.at);
+      });
+
+      /* The stage chip is small text in a fixed corner, which is where
+         a crossfade's doubling reads worst: two legible labels on top
+         of each other. Hand it over instead — the outgoing chip leaves
+         at the start of the dissolve and the incoming one arrives at
+         the end, so in the middle neither is drawn.
+
+         This has to wait for the boot promise. Scenes are fetched
+         asynchronously, and GSAP resolves a selector when the tween is
+         created, so building these up front silently matches nothing —
+         which is exactly what happened the first time. */
+      window.__hfBoot.then(function () {
+        SCENES.forEach(function (s, i) {
+          var chip = s.id + " .stagechip";
+          if (!document.querySelector(chip)) { return; }
+          if (i < SCENES.length - 1) {
+            masterTL.to(chip, { opacity: 0, duration: 0.22,
+              ease: "power2.in" }, s.at + s.dur - 0.70);
+          }
+          if (i > 0) {
+            masterTL.fromTo(chip, { opacity: 0 },
+              { opacity: 1, duration: 0.22, ease: "power2.out" },
+              s.at + 0.48);
+          }
+        });
+      });
+      /* >>> end generated <<< */
+      window.__timelines["master"] = masterTL;
+    </script>
+  </div>
+</body>
+</html>

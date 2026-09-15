@@ -1,0 +1,36 @@
+<template id="outro-template">
+  <div data-composition-id="outro" data-width="1920" data-height="1080">
+    <div class="pad center">
+      <h1 class="big o-h">Governance is the product.</h1>
+      <div class="rule o-r"></div>
+      <p class="lede o-s">The confidence story is not feature breadth. It is how fabrication is stopped,<br />and how many places a human has to sign.</p>
+      <div class="o-b">
+        <span class="pill glass">Control Center</span>
+        <span class="pill glass">Governed AI-assisted SDLC</span>
+      </div>
+      <p class="o-n">MapleSure Insurance is fictional. Every figure shown comes from this system's own run ledgers.</p>
+    </div>
+
+    <style>
+      [data-composition-id="outro"] { position: absolute; inset: 0; }
+      [data-composition-id="outro"] .o-h { margin-bottom: 34px; }
+      [data-composition-id="outro"] .o-r { margin-bottom: 38px; }
+      [data-composition-id="outro"] .o-s { font-size: 32px; text-align: center; margin-bottom: 46px; }
+      [data-composition-id="outro"] .o-b { display: flex; gap: 18px; margin-bottom: 40px; }
+      [data-composition-id="outro"] .o-n { font-size: 20px; color: var(--muted); margin: 0; }
+    </style>
+
+    <script>
+      (function () {
+        var R = '[data-composition-id="outro"] ';
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".o-h", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.3);
+        tl.fromTo(R + ".o-r", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power2.inOut" }, 0.9);
+        tl.fromTo(R + ".o-s", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 1.2);
+        tl.fromTo(R + ".o-b .pill", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.14, ease: "power2.out" }, 1.8);
+        tl.fromTo(R + ".o-n", { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power1.out" }, 2.5);
+        window.__timelines["outro"] = tl;
+      })();
+    </script>
+  </div>
+</template>

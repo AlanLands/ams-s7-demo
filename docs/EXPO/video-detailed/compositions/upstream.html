@@ -1,0 +1,96 @@
+<template id="upstream-template">
+  <div id="upstream-root" data-composition-id="upstream" data-width="1920" data-height="1080">
+    <div class="pad stack">
+      <span class="kicker l-k">Upstream &middot; the app leads, humans direct</span>
+      <h2 class="head l-h">First, agree what <span class="mark"><span class="swipe"></span><span class="txt">done</span></span> means.</h2>
+      <div class="l-lane"><span class="lane t-teal"><span class="ico"></span>HUMANS DIRECT &middot; THE APP LEADS</span></div>
+      <div class="l-row"></div>
+      <div class="caption l-foot box glass sheen">
+        <p class="t">Everything above produces <b>files at fixed paths</b> — not a conversation. That is what survives the handoff into a developer&#39;s own environment.</p>
+      </div>
+    </div>
+    <div class="stagechip"><b>05</b> / 13 · UPSTREAM</div>
+
+    <style>
+      [data-composition-id="upstream"] { position: absolute; inset: 0; }
+      #upstream-root .l-h { margin-bottom: 26px; }
+      #upstream-root .l-lane { margin-bottom: 40px; }
+      #upstream-root .l-lane .ico svg { width: 22px; height: 22px; display: block; }
+      #upstream-root .l-row { display: flex; align-items: stretch; justify-content: center; gap: 0; margin-bottom: 44px; }
+      #upstream-root .l-step { width: 250px; text-align: center; padding: 24px 18px 22px; }
+      #upstream-root .l-step .ic { margin: 0 auto; }
+      #upstream-root .l-step .ttl { font-size: 24px; font-weight: 700; color: var(--ink); margin-top: 16px; line-height: 1.16; }
+      #upstream-root .l-step .sub { font-size: 17px; color: var(--muted); margin-top: 6px; line-height: 1.28; min-height: 44px; }
+      #upstream-root .l-step .out {
+        margin-top: 12px; font-size: 16px; display: inline-block;
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        background: var(--bg); color: var(--fg); border: 1.5px solid var(--ln);
+        border-radius: 9px; padding: 6px 12px;
+      }
+      #upstream-root .l-link { width: 58px; display: flex; align-items: center; justify-content: center; gap: 0; }
+      #upstream-root .l-link .beam { width: 40px; }
+      #upstream-root .l-foot { padding: 20px 26px; }
+      #upstream-root .l-foot .t { font-size: 22px; margin: 0; line-height: 1.34; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#upstream-root ";
+        var root = document.querySelector("#upstream-root");
+        var I = window.ICONS;
+        var STEPS = [
+          ["doc", "t-red", "Intake", "The requirement is extracted and grounded in the real repository.", "epic.md"],
+          ["split", "t-violet", "Design", "Data flow and entity diagrams, derived from the run\x27s own stories.", "data-flow"],
+          ["layers", "t-blue", "Plan", "Epic becomes stories, each with acceptance criteria and a team.", "12 AC ids"],
+          ["lock", "t-red", "Gate 1", "A named human signs. The plan locks and nothing downstream runs before it.", "plan.locked", "hot"]
+        ];
+        var row = root.querySelector(".l-row");
+        STEPS.forEach(function (s, n) {
+          if (n) {
+            var lk = document.createElement("div");
+            lk.className = "l-link";
+            lk.innerHTML = '<div class="beam ' + (s[5] || "on") + '" id="upstreamlk' + n + '"></div>' +
+                           '<div class="tip ' + (s[5] === "hot" ? "hot" : "on") + '"></div>';
+            row.appendChild(lk);
+          }
+          var el = document.createElement("div");
+          el.className = "l-step box glass sheen " + s[1];
+          el.id = "upstreamst" + n;
+          el.innerHTML = '<div class="ic ' + s[1] + '">' + I(s[0]) + "</div>" +
+                         '<div class="ttl">' + s[2] + "</div>" +
+                         '<div class="sub">' + s[3] + "</div>" +
+                         '<div class="out">' + s[4] + "</div>";
+          row.appendChild(el);
+        });
+        root.querySelector(".l-lane .ico").innerHTML = I("t-teal" === "t-teal" ? "people" : "bot");
+
+        var tl = gsap.timeline({ paused: true });
+        tl.fromTo(R + ".l-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.2);
+        tl.fromTo(R + ".l-h", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.45);
+        tl.fromTo(R + ".l-lane .lane", { opacity: 0, scale: 0.88 },
+          { opacity: 1, scale: 1, duration: 0.55, ease: "back.out(2.2)" }, 1.1);
+        STEPS.forEach(function (s, n) {
+          var at = 1.9 + n * 2.5;
+          var S = R + "#upstreamst" + n + " ";
+          tl.fromTo(R + "#upstreamst" + n, { opacity: 0, y: 34, scale: 0.92 },
+            { opacity: 1, y: 0, scale: 1, duration: 0.62, ease: "back.out(1.6)" }, at);
+          tl.fromTo(S + ".ic", { scale: 0.5, rotate: -12 },
+            { scale: 1, rotate: 0, duration: 0.55, ease: "back.out(3)" }, at + 0.1);
+          tl.fromTo(S + ".out", { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.42, ease: "back.out(2)" }, at + 0.62);
+          if (n) tl.fromTo(R + "#upstreamlk" + n, { scaleX: 0 },
+            { scaleX: 1, duration: 0.34, ease: "power2.out" }, at - 0.3);
+        });
+        tl.fromTo(R + ".l-foot", { opacity: 0, y: 22 },
+          { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 1.9 + STEPS.length * 2.5 + 0.4);
+        /* Closing beat on the gate — the step the whole lane exists to reach. */
+        tl.to(R + "#upstreamst3", { scale: 1.05, duration: 0.5, yoyo: true, repeat: 1,
+                                    ease: "power2.inOut" }, 14.6);
+        tl.to(R + "#upstreamst3 .ic", { rotate: 0, scale: 1.12, duration: 0.5, yoyo: true,
+                                        repeat: 1, ease: "back.out(3)" }, 14.6);
+        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 19.3);
+        window.__timelines["upstream"] = tl;
+      })();
+    </script>
+  </div>
+</template>
