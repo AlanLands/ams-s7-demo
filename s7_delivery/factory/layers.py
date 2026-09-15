@@ -905,7 +905,23 @@ WORKFLOW_ENGINE: tuple[dict[str, str], ...] = (
 # Who reads a non-prompt layer file, so the admin surface can say what an
 # edit touches. Prompt files are described by their workflows instead.
 CONSUMERS: dict[str, tuple[str, ...]] = {
+    "when-to-read-what": (
+        "delivery_packs.render_when_to_read_what_md → .s7/shared/when-to-read-what.md"
+        " (the routing index every other standard is reached through)",
+    ),
     "git-workflow": ("delivery_packs.render_git_workflow_md → .s7/shared/git-workflow.md",),
+    "verification": (
+        "delivery_packs.render_situational_standards → .s7/shared/verification.md",
+    ),
+    "debugging": (
+        "delivery_packs.render_situational_standards → .s7/shared/debugging.md",
+    ),
+    "reviewing-feedback": (
+        "delivery_packs.render_situational_standards → .s7/shared/reviewing-feedback.md",
+    ),
+    "code-conventions": (
+        "delivery_packs.render_code_conventions_md → .s7/shared/code-conventions.md",
+    ),
     "engineering-rules": ("architecture.engineering_rules_md → .s7/shared/engineering-rules.md",),
     "ui-guidelines": ("delivery_packs.render_ui_guidelines_md → .s7/shared/ui-guidelines.md",),
     "db-conventions": ("delivery_packs.render_team_pack → .s7/shared/db-conventions.md",),

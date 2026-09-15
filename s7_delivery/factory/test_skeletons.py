@@ -190,12 +190,14 @@ def resolve_stack(repo: dict | None, repo_dir: Path | None) -> str | None:
     """The connected repo's stack: the bootstrap record first (it already
     made this call at connect time), file detection second, None when
     neither knows — never a guess."""
-    status = (repo or {}).get("ci_bootstrap_status", "")
-    if status.startswith("bootstrapped:"):
-        stack = status.split(":", 1)[1]
-        return stack if stack in ("pytest", "maven") else None
+    from s7_delivery.factory.ci_bootstrap import (
+        detect_stack_from_files, stack_from_status,
+    )
+
+    stack = stack_from_status((repo or {}).get("ci_bootstrap_status", ""))
+    if stack is not None:
+        return stack
     if repo_dir is not None and Path(repo_dir).is_dir():
-        from s7_delivery.factory.ci_bootstrap import detect_stack_from_files
         return detect_stack_from_files(Path(repo_dir))
     return None
 

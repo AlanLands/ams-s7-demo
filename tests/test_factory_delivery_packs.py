@@ -97,6 +97,29 @@ def test_regeneration_bumps_version_and_resets_publication(eng):
         assert p["publication_status"] == "not_published"
 
 
+def test_regeneration_drops_a_previous_generations_skeleton_files(eng):
+    """Publication ships every file in a story's test directory into the
+    resolved stack's runnable root, so a skeleton left behind by an earlier
+    generation lands under the new stack — src/test/java/s7/test_us_1.py.
+    The renderer owns the directory."""
+    accepted(eng)
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+    story_id = eng.state()["planning"]["stories"][0]["story_id"]
+    tdir = eng.store.path("build", "tests", story_id)
+    (tdir / "test_from_another_stack.py").write_text("stale\n", encoding="utf-8")
+    (tdir / "qa-amendment.json").write_text("{}", encoding="utf-8")
+
+    eng.delivery_packs_generate(Role.ENGINEERING_LEAD)
+
+    assert not (tdir / "test_from_another_stack.py").exists()
+    # the QA lead's amendment is an input to generation, never its leftover
+    assert (tdir / "qa-amendment.json").exists()
+    manifest = json.loads((tdir / "test-manifest.json").read_text(encoding="utf-8"))
+    named = {t["file"] for t in manifest["tests"]}
+    on_disk = {p.name for p in tdir.iterdir()} - {"test-manifest.json", "qa-amendment.json"}
+    assert on_disk == named
+
+
 def test_architecture_revision_marks_packs_stale(eng):
     accepted(eng)
     eng.delivery_packs_generate(Role.ENGINEERING_LEAD)

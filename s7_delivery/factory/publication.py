@@ -65,9 +65,12 @@ def file_plan(store: RunStore, pack: dict) -> dict[str, str]:
     )
     # Standards added after the first packs: tolerate packs generated before
     # each existed (the UI guidelines, then the DB conventions and starter
-    # UI files of the Standards layer, then the code conventions).
+    # UI files of the Standards layer, then the code conventions, then the
+    # routing index and the three situational standards).
     for name in ("ui-guidelines.md", "db-conventions.md", "ui/app.css",
-                 "ui/layout.html", "code-conventions.md"):
+                 "ui/layout.html", "code-conventions.md",
+                 "when-to-read-what.md", "verification.md", "debugging.md",
+                 "reviewing-feedback.md"):
         path = store.path("build", "packs", slug, name)
         if path.is_file():
             plan[f".s7/shared/{name}"] = path.read_text(encoding="utf-8")

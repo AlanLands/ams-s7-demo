@@ -59,6 +59,21 @@ def test_detect_stack_from_files_unknown(tmp_path):
     assert ci_bootstrap.detect_stack_from_files(tmp_path) is None
 
 
+def test_stack_from_status_round_trips_every_status_bootstrap_writes():
+    """Whatever bootstrap() returns, this reads the stack back out of it.
+    The two functions are one contract: a suffix added to the status without
+    being parsed here is how a scaffolded Maven repository came to resolve to
+    no stack at all."""
+    for stack in ci_bootstrap.STACK_TEMPLATES:
+        assert ci_bootstrap.stack_from_status(f"bootstrapped:{stack}") == stack
+        assert ci_bootstrap.stack_from_status(f"bootstrapped:{stack}+scaffold") == stack
+
+
+def test_stack_from_status_admits_the_statuses_that_record_no_stack():
+    for status in ("push_failed", "unsupported_stack", "bootstrapped:ruby", ""):
+        assert ci_bootstrap.stack_from_status(status) is None
+
+
 def test_detect_stack_from_text_java():
     assert ci_bootstrap.detect_stack_from_text("Java Spring Boot") == "maven"
 

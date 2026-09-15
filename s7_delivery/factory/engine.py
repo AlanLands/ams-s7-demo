@@ -2636,6 +2636,24 @@ class Engine:
             else:
                 self.store.write_json(payload, *segments, name)
 
+    # The QA lead's stored amendment is an input to the next generation, not
+    # an output of this one, so it survives alongside whatever was rendered.
+    _TEST_DIR_KEEPS = frozenset({"qa-amendment.json"})
+
+    def _drop_stale_skeletons(self, story_id: str, keep: set[str]) -> None:
+        """Remove skeleton files a previous generation rendered that this one
+        did not. Best effort: a directory that cannot be read is not worth
+        failing a regeneration over."""
+        try:
+            tdir = self.store.path("build", "tests", story_id)
+        except StoreError:
+            return
+        if not tdir.is_dir():
+            return
+        for p in tdir.iterdir():
+            if p.is_file() and p.name not in keep and p.name not in self._TEST_DIR_KEEPS:
+                p.unlink()
+
     def delivery_packs_generate(self, role: Role) -> None:
         """One governed pack per accountable team, layered: canonical story
         and task packs are shared; the team pack references them. Regeneration
@@ -2680,6 +2698,14 @@ class Engine:
             self._write_files(
                 {**t_files, "test-manifest.json": t_manifest},
                 "build", "tests", story["story_id"],
+            )
+            # A regeneration that resolves a different stack renders a
+            # differently-named file, and publication ships every file in this
+            # directory into the new stack's runnable root — so a leftover
+            # would land as src/test/java/s7/test_us_1.py. The renderer owns
+            # this directory: what it did not just write is not a skeleton.
+            self._drop_stale_skeletons(
+                story["story_id"], keep=set(t_files) | {"test-manifest.json"}
             )
         teams: list[str] = []
         for s in stories:

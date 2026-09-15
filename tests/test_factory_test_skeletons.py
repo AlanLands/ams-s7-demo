@@ -170,3 +170,31 @@ def test_resolve_stack_prefers_bootstrap_record(tmp_path):
     (tmp_path / "requirements.txt").write_text("pytest\n")
     assert ts.resolve_stack({}, tmp_path) == "pytest"
     assert ts.resolve_stack(None, tmp_path / "missing") is None
+
+
+def test_resolve_stack_reads_through_the_scaffold_suffix():
+    """A repository S7 created itself records "bootstrapped:<stack>+scaffold",
+    because bootstrap() wrote the build scaffold as well as the workflow.
+    Reading that suffix as an unknown stack rendered pytest skeletons into a
+    Maven repository and marked them non-runnable, so publication put them on
+    the context branch instead of src/test/java/s7 — `mvn test` never saw an
+    acceptance test and CI went green carrying no per-AC evidence at all."""
+    for status, stack in (
+        ("bootstrapped:maven+scaffold", "maven"),
+        ("bootstrapped:pytest+scaffold", "pytest"),
+    ):
+        assert ts.resolve_stack({"ci_bootstrap_status": status}, None) == stack
+
+    _, manifest = ts.render_story_tests(
+        STORY, ts.resolve_stack({"ci_bootstrap_status": "bootstrapped:maven+scaffold"}, None)
+    )
+    assert (manifest["stack"], manifest["runnable"]) == ("maven", True)
+    assert ts.runnable_root(manifest["stack"]) == "src/test/java/s7"
+
+
+def test_resolve_stack_falls_back_to_files_when_the_status_names_no_stack(tmp_path):
+    """A status that records no stack this build supports is not the last
+    word: the cloned repository's own files still answer."""
+    (tmp_path / "pom.xml").write_text("<project/>\n")
+    assert ts.resolve_stack({"ci_bootstrap_status": "bootstrapped:ruby"}, tmp_path) == "maven"
+    assert ts.resolve_stack({"ci_bootstrap_status": "push_failed"}, tmp_path) == "maven"

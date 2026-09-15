@@ -35,10 +35,14 @@ TEAMS = (
     "qa-automation", "platform-team",
 )
 STANDARD_IDS = (
-    "git-workflow", "code-conventions", "engineering-rules", "ui-guidelines",
-    "db-conventions",
+    "when-to-read-what", "git-workflow", "verification", "debugging",
+    "reviewing-feedback", "code-conventions", "engineering-rules",
+    "ui-guidelines", "db-conventions",
     "ui-starter-css", "ui-layout-thymeleaf", "ui-layout-jinja",
 )
+# The three standards a coding agent opens because of a situation it must
+# notice itself, not because the developer said a phrase.
+SITUATIONAL = ("verification.md", "debugging.md", "reviewing-feedback.md")
 # The variables each renderer supplies — the contract an edit may use.
 ENGINE_VARIABLES = {
     "git-workflow": {
@@ -46,6 +50,13 @@ ENGINE_VARIABLES = {
         "note_rows", "phrase_start", "phrase_plan", "phrase_build",
         "phrase_commit", "phrase_push",
     },
+    "when-to-read-what": {
+        "team", "phrase_start", "phrase_plan", "phrase_build", "phrase_commit",
+        "phrase_push",
+    },
+    "verification": {"team", "suite_command"},
+    "debugging": {"team", "suite_command"},
+    "reviewing-feedback": {"team"},
     "code-conventions": {"team", "stack_line", "scope_line"},
     "engineering-rules": set(),
     "ui-guidelines": {
@@ -98,7 +109,8 @@ def test_seeded_run_renders_the_captured_standards_byte_for_byte(eng):
     packs = {p["team_slug"]: p for p in eng.state()["build"]["delivery_packs"]}
     assert set(packs) == set(TEAMS)
     for slug in TEAMS:
-        for name in ("git-workflow.md", "ui-guidelines.md"):
+        for name in ("git-workflow.md", "ui-guidelines.md",
+                     "code-conventions.md"):
             assert stored(eng, "build", "packs", slug, name) == fixture(slug, name), (slug, name)
     assert stored(eng, "architecture", "v1", "engineering-rules.md") == fixture(
         "architecture", "engineering-rules.md"
@@ -133,6 +145,71 @@ def test_new_standards_land_in_every_pack_with_the_marker(eng):
         # the seeded repos have no clone, so the stack is unknown → Thymeleaf
         assert 'xmlns:th="http://www.thymeleaf.org"' in layout
         assert "/css/app.css" in layout and "Synthetic data only" in layout
+
+
+def test_every_moment_routes_to_exactly_one_published_file(eng):
+    """The routing index is the mechanism: a rule folded into a long document
+    is read once at the start and forgotten by the moment it governs. Every
+    file the index names must actually be published beside it, and every
+    developer phrase must appear in it — an index that points at a file the
+    pack does not carry is worse than no index."""
+    for slug in TEAMS:
+        index = stored(eng, "build", "packs", slug, "when-to-read-what.md")
+        assert index.startswith(dp.S7_MARKER + "\n# When to read what")
+        for phrase in (dp.PHRASE_START, dp.PHRASE_PLAN, dp.PHRASE_BUILD,
+                       dp.PHRASE_COMMIT, dp.PHRASE_PUSH):
+            assert f"`{phrase}`" in index, (slug, phrase)
+        named = {
+            "git-workflow.md", "debugging.md", "verification.md",
+            "code-conventions.md", "ui-guidelines.md", "db-conventions.md",
+            "reviewing-feedback.md",
+        }
+        for name in named:
+            assert name in index, (slug, name)
+            assert eng.store.path("build", "packs", slug, name).is_file(), (slug, name)
+
+
+def test_situational_standards_announce_their_trigger(eng):
+    """Each situational file opens with the condition that should make an
+    agent open it — the trigger is the whole point of splitting them out."""
+    for slug in TEAMS:
+        for name in SITUATIONAL:
+            body = stored(eng, "build", "packs", slug, name)
+            assert body.startswith(dp.S7_MARKER + "\n# "), (slug, name)
+            # paragraph after the heading, i.e. the first thing a reader meets
+            assert "**Use when:**" in body.split("\n\n")[1], (slug, name)
+    # the phrase-driven standards announce theirs too
+    for name in ("git-workflow.md", "code-conventions.md", "ui-guidelines.md",
+                 "db-conventions.md", "when-to-read-what.md"):
+        assert "**Use when:**" in stored(eng, "build", "packs", TEAMS[0], name), name
+
+
+def test_test_integrity_rules_reach_the_developer(eng):
+    """The rule the whole per-AC evidence chain rests on: a test bent to pass
+    still joins to its criterion by name and still reports green. It has to be
+    published, not merely believed."""
+    for slug in TEAMS:
+        v = stored(eng, "build", "packs", slug, "verification.md")
+        assert "Test integrity" in v
+        for forbidden in ("weaken", "rename", "skip", "delet"):
+            assert forbidden in v.lower(), (slug, forbidden)
+        assert "watch it fail" in v.lower()
+        # and the git workflow routes to it rather than restating it
+        assert "verification.md` § Test integrity" in stored(
+            eng, "build", "packs", slug, "git-workflow.md"
+        )
+
+
+def test_suite_command_follows_the_stack(eng):
+    """The situational standards name a command the developer can actually
+    run. The seeded repos have no clone, so the stack is unknown and the text
+    must say so rather than guess `mvn test`."""
+    assert dp.suite_command_for("maven") == "`mvn test`"
+    assert dp.suite_command_for("pytest") == "`pytest`"
+    assert dp.suite_command_for(None) == dp.SUITE_FALLBACK
+    body = stored(eng, "build", "packs", TEAMS[0], "verification.md")
+    assert dp.SUITE_FALLBACK in body
+    assert "`mvn test`" not in body and "`pytest`" not in body
 
 
 def test_packs_and_architecture_pin_the_standards(eng):

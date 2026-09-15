@@ -27,8 +27,12 @@ simulated flag).
 └── .s7/
     ├── shared/               architecture.md · engineering-rules.md ·
     │                         repository-map.json · workspace-manifest.json ·
-    │                         assigned-stories.json · git-workflow.md ·
-    │                         ui-guidelines.md · db-conventions.md
+    │                         assigned-stories.json ·
+    │                         when-to-read-what.md (the routing index) ·
+    │                         git-workflow.md · verification.md ·
+    │                         debugging.md · reviewing-feedback.md ·
+    │                         code-conventions.md · ui-guidelines.md ·
+    │                         db-conventions.md
     │   └── ui/               app.css (starter stylesheet, identity tokens) ·
     │                         layout.html (Thymeleaf for maven, Jinja2 for pytest)
     ├── stories/<US-00N>/     story.md · acceptance-criteria.md ·

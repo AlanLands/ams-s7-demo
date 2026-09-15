@@ -8,6 +8,8 @@ variables: team, scope_line, css_block, token_rows, organisation, short_mark, pr
 ---
 # UI guidelines — {{team}}
 
+**Use when:** a criterion adds or changes a page, a form, or anything a person looks at.
+
 A page that passes its tests but looks like a framework default is not done. Every page a story adds or changes follows this file; the reviewer checks the pull request's screenshots against it.
 
 {{scope_line}}

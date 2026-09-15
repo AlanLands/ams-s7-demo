@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from s7_delivery.factory import ci_bootstrap
 from s7_delivery.factory import repos as repos_module
 from s7_delivery.factory import store as store_module
 from s7_delivery.product import integrations
@@ -58,6 +59,21 @@ def _runs_by_url(runs_root: Path | None) -> dict[str, list[dict[str, Any]]]:
     return out
 
 
+def _stack_of(rec: dict[str, Any], runs: list[dict[str, Any]]) -> str:
+    """The stack a repository's bootstrap status records, parsed by the
+    module that writes that status so a "+scaffold" suffix is not mistaken
+    for part of the stack name. The registry entry does not always carry a
+    status, so the newest run naming the repository answers for it — "" only
+    when nothing recorded one."""
+    for status in [rec.get("ci_bootstrap_status") or ""] + [
+        r.get("ci_bootstrap_status") or "" for r in runs
+    ]:
+        stack = ci_bootstrap.stack_from_status(status)
+        if stack:
+            return stack
+    return ""
+
+
 def list_repositories(
     *, registry_root: Path | None = None, runs_root: Path | None = None,
 ) -> dict[str, Any]:
@@ -79,8 +95,7 @@ def list_repositories(
             "runs": runs,
             "run_count": len(runs),
             "last_check": checks.get(url),
-            "stack": (rec.get("ci_bootstrap_status") or "").split(":", 1)[1]
-            if ":" in (rec.get("ci_bootstrap_status") or "") else "",
+            "stack": _stack_of(rec, runs),
         })
     for url, runs in by_url.items():
         if url in seen:
@@ -91,7 +106,8 @@ def list_repositories(
             "host": parts["host"], "owner": parts["owner"],
             "default_branch": runs[0].get("default_branch", ""),
             "ci_bootstrap_status": runs[0].get("ci_bootstrap_status", ""),
-            "in_registry": False, "runs": runs, "run_count": len(runs), "stack": "",
+            "in_registry": False, "runs": runs, "run_count": len(runs),
+            "stack": _stack_of({}, runs),
             "last_check": checks.get(url),
         })
     return {

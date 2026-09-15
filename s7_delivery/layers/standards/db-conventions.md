@@ -9,6 +9,8 @@ locked: {{default_branch}}
 ---
 # Database conventions
 
+**Use when:** a criterion adds, changes or reads persistent data — schema, migration, config or seed data.
+
 Rules for every story that adds, changes or reads persistent data. They exist for the same reason as the git workflow: parallel stories that each edit the same schema file or the same config file are how merges conflict, and a migration that changes after it has run is how environments drift apart.
 
 ## Schema changes are story-owned

@@ -8,6 +8,8 @@ variables: team, stack_line, scope_line
 ---
 # Code conventions — {{team}}
 
+**Use when:** you are about to write or change any application code — before the first line, not at review time.
+
 How the code in this repository is written. `.s7/shared/engineering-rules.md` says what must be true of a delivery; this file says what must be true of the code. {{scope_line}}
 
 {{stack_line}}

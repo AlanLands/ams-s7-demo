@@ -644,6 +644,91 @@ AC *count* and never AC *content*), a criterion with no observable trigger or
 result, and a feature flag the pack mandates while `code-conventions.md`
 rule 25 forbids a switch nothing sets.
 
+**Reporting written for a developer, added 2026-09-11.** The packs told a
+coding agent what to *do* at each phrase and never what its report should
+look like, so the start-phrase handoff on the first real story came back as
+a governance document: rule numbers quoted at the reader, this file's own
+process vocabulary verbatim, and six open questions written as open-ended
+prose with no options and no recommendation. A developer read it and could
+not tell what was being asked of them — which is the failure that matters,
+because every phrase in this loop ends in a human decision, and a report
+nobody can act on stalls a story exactly as surely as a missing test does.
+So a **How to report back** section joins `git-workflow.md` (v6) and a
+*Report for a human* rule joins `engineering-rules.md` (v5), with a
+*Reporting* section in the pack's `AGENTS.md`: lead with state — which
+story, which phase, what the developer's next word is — show the branch,
+files, criteria and test results rather than narrating them, explain a
+refusal by what it breaks and never by a rule number (the developer has not
+read these files and should not need to), and keep the process words out of
+it. Each open question becomes a decision answerable in a word: one line of
+context, two or three **lettered options**, a marked recommendation with one
+clause of why, and who owns the answer where it is the story author's rather
+than the developer's — blocking questions first, quick confirmations after.
+One discipline carries forward from the false-green fix of 2026-09-10 and is
+now prohibited in as many words: **an unproven result is never reported as
+verified** — a build that did not compile is not a red baseline, and a change
+nobody ran is not working. Deterministic pack text as before (no model call,
+no new provenance kind). The stale "plan it function by function" line in the
+pack's `AGENTS.md`, left over from the per-function shape rejected on
+2026-09-10, became "one acceptance criterion at a time" — which is what the
+Build Discipline section below it already said. Existing runs pick the change
+up on the next *Generate delivery packs* + publish, a human action as before.
+
+**Trigger-scoped standards — each rule announces its own moment, added
+2026-09-11.** The packs had grown to the point where their own shape was the
+problem: `git-workflow.md` alone was 126 lines, and a coding agent read the
+whole thing once at the start of a story and then worked from memory of it for
+the rest. Rules whose moment arrives much later — or arrives unannounced — were
+the ones that got missed. The fix is borrowed from a public agent-skills
+repository (obra/superpowers, MIT) that this repo has in fact already used at
+the meta level: `docs/design-history/` is its brainstorming → writing-plans →
+executing-plans output shape, under its original name `docs/superpowers/` until
+the 2026-09-03 reorganisation. Its transferable idea is not any rule but the
+**trigger line** — a skill opens by saying when to use it, so the agent pulls
+in what applies now instead of skimming everything once. Installing it stays
+declined for the same two reasons as 2026-08-03 (§ decision 6): an installed
+skill is untrusted instructions in an agent's context, and it will not exist in
+the locked-down environment. The durable half is the file format, as with the
+internal team's framework. So: every published standard now opens with a **Use
+when** line, a new `when-to-read-what.md` is the routing table the pack's
+`AGENTS.md` points at first (phrases the developer says in one table, situations
+the agent must notice itself in another), and the two moments nobody announces
+became their own files. **`verification.md`** carries the claim-to-evidence
+table (what "the tests pass", "it builds", "the criterion is met", "the red
+baseline is in" each actually require, and what does not count) plus § Test
+integrity — the gap the audit found: nothing anywhere forbade *weakening a test
+to reach green*, and since the skeleton's method name is what CI evidence joins
+on, an assertion quietly loosened still reports the criterion as met. That is
+the false-green class of 2026-09-10 and 2026-09-11 arriving deliberately instead
+of accidentally, in the one place no engine-side fix can reach, because it
+happens in the developer's own repository. It also pins the red baseline S7
+ships: give the skeleton real assertions and **watch it fail for the right
+reason** before implementing, because a test that has never failed has never
+been shown to test anything. **`debugging.md`** governs the loop between red and
+green, which nothing did: read the whole error, reproduce, trace the bad value
+to its source, one hypothesis and one change per run, and after three failed
+attempts stop and take it to the developer rather than trying a fourth — three
+failures usually mean the criterion's plan is wrong, and the plan is the
+developer's to change. **`reviewing-feedback.md`** covers PR comments: verify
+each against the code before implementing any, ask about the unclear ones before
+starting the clear ones, push back with evidence where one is wrong.
+`git-workflow.md` v7 renumbers to route to them (new rules 13-14 in the build
+phase; the acceptance and report steps of the push checklist now name the
+evidence they need) and `engineering-rules.md` v6 carries the three new
+invariants. Deliberately *not* copied: the subagent, parallel-agent and worktree
+skills (Design review item 7 — "not going agentic", and worktrees fight the
+one-branch-per-story model), the `.claude/`-native hook machinery that
+force-feeds a skill (hard rule 4), and the register — that repo browbeats an
+agent, while these files are read by a developer too since 2026-09-11. All of it
+is deterministic pack text (no model call, no new provenance kind);
+`publication.file_plan` tolerates packs generated before the four new files
+existed. Existing runs pick the change up on the next *Generate delivery packs*
++ publish, a human action as before. **The honest limit, published in the index
+itself:** their hook can enforce a trigger inside their own tool; S7 publishes
+files into a developer's environment and cannot. That is why the plan and the
+verification are reviewable artifacts rather than claims — the same answer as
+every other gate here.
+
 **Correction learning — the admin-only loop, added 2026-09-03.** The
 product learns from the humans who correct it, without the dashboard's
 users ever seeing the machinery. Whenever a person edits model output in

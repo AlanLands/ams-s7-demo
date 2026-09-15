@@ -76,6 +76,25 @@ def detect_stack_from_files(repo_dir: Path) -> str | None:
     return None
 
 
+def stack_from_status(status: str) -> str | None:
+    """The stack recorded by a `bootstrap()` status string, or None when it
+    records no usable one ("push_failed", "unsupported_stack", or a stack
+    this build does not support).
+
+    `bootstrap()` suffixes the status "+scaffold" when it wrote the build
+    scaffold as well as the workflow, so the stack is the segment between
+    the colon and that suffix. Parsing it here, once, is what stops a new
+    suffix reading as an unknown stack — which is exactly what happened:
+    every repository S7 created itself recorded "bootstrapped:maven+scaffold",
+    resolved to no stack at all, and so had its acceptance tests rendered
+    pytest-style and published as non-runnable reference files that `mvn
+    test` never sees."""
+    if not status.startswith("bootstrapped:"):
+        return None
+    stack = status.split(":", 1)[1].split("+", 1)[0]
+    return stack if stack in STACK_TEMPLATES else None
+
+
 def detect_stack_from_text(stack_hint: str) -> str | None:
     """Keyword-match a human-typed stack description from the new-app setup
     conversation, before any code exists."""

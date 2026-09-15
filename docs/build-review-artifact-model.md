@@ -28,13 +28,22 @@ Version directories are immutable: a revision writes `v<N+1>/` and updates
 `build/packs/<team-slug>/` — README.md, team-delivery-pack.md, AGENTS.md
 (spec-§14 sections, first line is the s7-managed marker),
 assigned-stories.json, team-dependencies.json, test-strategy.md,
-rollback-guidance.md, git-workflow.md (the five developer phrases — *start
+rollback-guidance.md, when-to-read-what.md (the routing index every other
+standard is reached through — the five phrases in one table, and in another
+the situations an agent must notice for itself: a failure, a claim about to
+be made, review comments arriving), git-workflow.md (the five developer phrases — *start
 working on*, *plan the next criterion*, *build the plan*, *commit the
 changes*, *development completed: please push the code* — the per-criterion
 loop that plans one criterion into the story note for the developer to edit,
 builds what they left there, and records their own observation of it working
 before the next is planned, the story-owned-files rule and the push
-checklist), code-conventions.md (how the code itself is written — read the
+checklist), verification.md (what each claim requires before it may be made,
+and § Test integrity — a test is never weakened, renamed, skipped or deleted
+to reach green, and the skeleton gets real assertions watched failing before
+implementation), debugging.md (cause before fix, one change per run, escalate
+after three failed attempts), reviewing-feedback.md (verify each review
+comment against the code before implementing any),
+code-conventions.md (how the code itself is written — read the
 repository first and let its own conventions win, naming, size, errors,
 validation, logging, comments, dead code and speculative abstraction,
 dependencies; only its opening line is stack-aware), ui-guidelines.md (the
@@ -42,7 +51,10 @@ identity's tokens, page anatomy, the five states, WCAG AA, screenshot
 evidence), db-conventions.md (one forward-only migration per story, config
 fragments, synthetic seed data), ui/app.css and ui/layout.html (the starter
 stylesheet and the shared page layout — Thymeleaf for a maven repository,
-Jinja2 for pytest), workspace-manifest.json. The git workflow, code
+Jinja2 for pytest), workspace-manifest.json. Every one of these standards opens
+with a **Use when** line naming the moment it governs, so an agent opens what
+applies now instead of reading all of them once at the start of a story. The
+routing index, git workflow, verification, debugging, review-feedback, code
 conventions, UI guidelines, DB conventions and starter UI files are rendered
 from the delivery profile's Standards layer
 (`s7_delivery/layers/standards/`, tokens from `identity/identity.md`); the
