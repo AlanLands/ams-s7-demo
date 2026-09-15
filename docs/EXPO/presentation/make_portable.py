@@ -16,8 +16,8 @@ SRC = HERE / "expo-deck.html"
 OUT = HERE / "expo-deck-portable.html"
 TYPES = {".woff2": "font/woff2", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
          ".png": "image/png", ".svg": "image/svg+xml"}
-# src="expo-deck-assets/..." and url("expo-deck-assets/...")
-REF = re.compile(r"""((?:src=|url\()["'])(expo-deck-assets/[^"']+)(["'])""")
+# src="expo-deck-assets/...", data-shot="expo-deck-assets/..." and url("expo-deck-assets/...")
+REF = re.compile(r"""((?:src=|data-shot=|url\()["'])(expo-deck-assets/[^"']+)(["'])""")
 
 
 def inline(match):

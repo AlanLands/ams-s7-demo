@@ -128,6 +128,7 @@ body.lite .aurora b{animation:none}
 [data-at]{opacity:0;transform:translateY(18px) scale(.98);filter:blur(6px);
   transition:opacity .7s var(--ease),transform .7s var(--ease),filter .7s var(--ease)}
 [data-at].on{opacity:1;transform:none;filter:none}
+[data-at]:not(.on){pointer-events:none}   /* a card not yet revealed cannot be clicked */
 
 /* ===================================================================
    SHARED CHROME
@@ -269,6 +270,380 @@ body.lite .aurora b{animation:none}
   font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--stone);transition-delay:.1s}
 
 /* ===================================================================
+   04 · THE SOLUTION — one pipeline: two lanes, one kit between them
+   =================================================================== */
+.lane{position:absolute;left:110px;width:1380px;height:136px;padding:0 26px;border-radius:32px;display:flex;align-items:center;gap:24px}
+.lane.up{top:296px}
+.lane.down{top:564px}
+.lane-lbl{flex:0 0 290px}
+.lane-lbl .pill{display:inline-block;padding:3px 10px;border-radius:99px;font-family:var(--font-mono);font-size:11.5px;
+  font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:var(--crimson)}
+.lane.down .lane-lbl .pill{background:var(--ink)}
+.lane-lbl b{display:block;margin-top:8px;font-size:21px;font-weight:700;letter-spacing:-.02em;white-space:nowrap}
+.lane-lbl .s{display:block;margin-top:2px;font-size:14px;color:var(--stone)}
+.stages{flex:1;display:flex;align-items:center;justify-content:space-between}
+.stg{display:flex;align-items:center;gap:12px;width:222px}
+.stg .app{width:52px;height:52px;flex:0 0 auto}
+.stg .lk{position:absolute;z-index:2;right:-7px;top:-7px;width:22px;height:22px;border-radius:50%;background:#fff;
+  color:var(--crimson);display:grid;place-items:center;box-shadow:0 3px 8px rgba(142,10,35,.28)}
+.stg .lk svg{width:12px;height:12px}
+.stg b{display:block;font-size:17px;font-weight:700;letter-spacing:-.015em;white-space:nowrap}
+.stg .d{display:block;margin-top:2px;font-size:13.5px;line-height:1.3;color:var(--stone)}
+.stages .ar{width:22px;height:14px;flex:0 0 auto;color:rgba(95,92,82,.45)}
+.kitcard{left:350px;top:464px;width:900px;height:68px;display:flex;align-items:center;gap:14px;padding:0 20px 0 12px;
+  border-radius:24px;transition-delay:.15s}
+.kitcard .app{width:46px;height:46px;flex:0 0 auto}
+.kitcard b{display:block;font-size:18px;font-weight:700;letter-spacing:-.015em;white-space:nowrap}
+.kitcard .m{font-family:var(--font-mono);font-size:11.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--stone);white-space:nowrap}
+.kitcard .kit{margin:0 0 0 auto;flex-wrap:nowrap}
+.pk{width:22px;height:22px;color:var(--crimson);vertical-align:-4px;margin-right:4px}
+
+/* ===================================================================
+   05 · UPSTREAM — four steps; each card opens the real screen
+   =================================================================== */
+.steps4{left:110px;top:296px;width:1380px;display:grid;grid-template-columns:repeat(4,1fr);gap:26px}
+.stepcard{position:relative;display:flex;flex-direction:column;padding:20px 20px 18px;border-radius:30px;cursor:zoom-in}
+.sc-top{display:flex;align-items:center;gap:12px}
+.sc-top .app{width:56px;height:56px;flex:0 0 auto}
+.sc-top .no{font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--stone)}
+.sc-top .gate{margin-left:auto;display:inline-flex;align-items:center;gap:5px;padding:4px 10px 4px 8px;border-radius:99px;
+  background:rgba(251,246,234,.85);box-shadow:inset 0 0 0 1px rgba(148,98,10,.3);font-size:12.5px;font-weight:700;
+  color:var(--gold-ink);white-space:nowrap}
+.sc-top .gate svg{width:12px;height:12px}
+.stepcard h3{margin-top:14px;font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stepcard .dsc{margin-top:6px;min-height:63px;font-size:15px;line-height:1.4;color:var(--stone)}
+.thumb{position:relative;margin-top:14px;height:150px;border-radius:14px;background-repeat:no-repeat;
+  box-shadow:0 0 0 1px rgba(22,19,14,.1),0 10px 20px -12px rgba(60,30,20,.35);transition:background-size .6s var(--ease)}
+.thumb .real{position:absolute;left:8px;bottom:8px;padding:3px 8px;border-radius:99px;background:rgba(22,19,14,.72);color:#fff;
+  font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.view{margin-top:14px;align-self:flex-start;display:inline-flex;align-items:center;gap:8px;padding:7px 14px 7px 10px;border-radius:99px;
+  background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px rgba(22,19,14,.12);font-size:14px;font-weight:700;color:var(--crimson)}
+.view svg{width:15px;height:15px}
+.stepcard:hover .view{background:#fff}
+
+/* ===================================================================
+   LIGHTBOX — a real screen, full size, on glass
+   =================================================================== */
+.lb{position:absolute;inset:0;z-index:80;display:grid;place-items:center;background:rgba(22,19,14,.42);
+  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);opacity:0;transition:opacity .25s var(--ease);cursor:zoom-out}
+.lb.open{opacity:1}
+.lb-frame{position:relative;width:1260px;padding:14px 14px 0;border-radius:30px;background:rgba(255,255,255,.84);
+  transform:scale(.96);transition:transform .35s var(--ease)}
+.lb.open .lb-frame{transform:none}
+.lb-frame img{width:100%;border-radius:18px;box-shadow:0 0 0 1px rgba(22,19,14,.1)}
+.lb-frame figcaption{display:flex;align-items:center;gap:16px;padding:14px 10px 16px}
+.lb-frame figcaption b{display:block;font-size:21px;font-weight:700;letter-spacing:-.02em}
+.lb-frame figcaption .cap{display:block;margin-top:2px;font-size:15.5px;color:var(--stone)}
+.lb-frame .tag{margin-left:auto;white-space:nowrap}
+.lb-hint{position:absolute;left:0;right:0;bottom:22px;text-align:center;font-family:var(--font-mono);font-size:12px;
+  font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.88)}
+
+/* the packet on slide 5 — opens the kit, unpacked */
+.packet{display:flex;align-items:center;gap:12px;height:64px;padding:0 22px 0 10px;border-radius:99px;text-align:left;cursor:pointer}
+.packet .app{width:46px;height:46px;flex:0 0 auto}
+.packet b{display:block;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.packet small{display:block;margin-top:1px;font-size:13px;color:var(--stone)}
+.packet .app::after{animation:rimpulse 2.4s ease-in-out infinite}
+@keyframes rimpulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ===================================================================
+   DETAIL VIEWS — generated, animated pages opened from the slides.
+   Never part of the timed path; everything drawn is based on run S7-00002.
+   =================================================================== */
+.detail{position:absolute;inset:0;z-index:90;background:var(--paper);opacity:0;transition:opacity .3s var(--ease);cursor:default}
+.detail.open{opacity:1}
+.dbar{position:absolute;left:64px;right:64px;top:40px;height:52px;display:flex;align-items:center;gap:12px;z-index:5}
+.dback{position:relative;display:flex;align-items:center;gap:9px;height:48px;padding:0 20px 0 14px;border-radius:99px;
+  font-size:15px;font-weight:700;color:var(--ink-soft)}
+.dback svg{width:18px;height:18px}
+.dtabs{margin-left:auto;display:flex;gap:8px}
+.dtab{position:relative;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 12px;border-radius:99px;
+  font-size:14px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.dtab svg{width:16px;height:16px;color:var(--crimson)}
+.dtab.now{background:linear-gradient(155deg,#d9354f,#8e0a23);color:#fff}
+.dtab.now svg{color:#fff}
+.dp{position:absolute;inset:0}
+.dp-head{position:absolute;left:0;right:0;top:112px;text-align:center}
+.dp-head h2{margin-top:10px;font-size:46px;font-weight:700;letter-spacing:-.035em}
+.dp-head .sub2{margin-top:6px;font-size:19px;color:var(--stone)}
+.gen{position:absolute;left:0;right:0;bottom:36px;text-align:center}
+.dp .pop{opacity:0;transform:translateY(12px) scale(.97)}
+.dp.run .pop{animation:dpop .55s var(--ease) forwards;animation-delay:var(--d,0s)}
+@keyframes dpop{to{opacity:1;transform:none}}
+.dp svg .pop{transform-box:fill-box;transform-origin:center}
+.dp .draw{stroke-dasharray:1;stroke-dashoffset:1}
+.dp.run .draw{animation:ddraw var(--t,.9s) var(--ease) forwards;animation-delay:var(--d,0s)}
+@keyframes ddraw{to{stroke-dashoffset:0}}
+
+/* --- detail · the kit, unpacked --- */
+.kit-pack{position:absolute;left:752px;top:244px;width:96px;height:96px}
+.kit-pack .app{width:96px;height:96px}
+.kit-pack .ring{position:absolute;inset:-12px;border-radius:34px;border:2px solid rgba(186,12,47,.3);opacity:0}
+.dp.run .kit-pack .ring{animation:ring 1.4s var(--ease) .35s 2}
+@keyframes ring{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.4);opacity:0}}
+.kit-wires{position:absolute;left:0;top:0;width:1600px;height:900px;pointer-events:none}
+.kit-wires path{fill:none;stroke:rgba(95,92,82,.42);stroke-width:2.2;stroke-linecap:round}
+.kit-cols{position:absolute;left:110px;top:394px;width:1380px;display:grid;grid-template-columns:repeat(3,1fr);gap:30px}
+.kcol{position:relative;padding:14px 18px 6px;border-radius:26px}
+.kcol-hd{display:flex;align-items:center;gap:12px;padding-bottom:8px;border-bottom:1px solid rgba(22,19,14,.08)}
+.kcol-hd .app{width:40px;height:40px;flex:0 0 auto}
+.kcol-hd b{display:block;font-size:17px;font-weight:700;letter-spacing:-.015em}
+.kcol-hd code{display:block;margin-top:1px;font-family:var(--font-mono);font-size:12px;color:var(--stone)}
+.krow{display:flex;align-items:center;gap:12px;height:58px;border-bottom:1px solid rgba(22,19,14,.06)}
+.krow:last-child{border-bottom:0}
+.krow i{width:34px;height:34px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;
+  background:rgba(255,255,255,.85);box-shadow:inset 0 0 0 1px rgba(22,19,14,.08);color:var(--crimson)}
+.krow i svg{width:17px;height:17px}
+.krow code{display:block;font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--ink)}
+.krow .w{display:block;margin-top:1px;font-size:13.5px;color:var(--stone)}
+.kit-count{position:absolute;left:0;right:0;top:792px;display:flex;justify-content:center;align-items:center;gap:10px}
+.cnt{position:relative;display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 16px;border-radius:99px;
+  font-size:14px;font-weight:600;color:var(--stone)}
+.cnt b{font-size:20px;font-weight:700;color:var(--ink)}
+
+/* --- detail · how the kit reaches git --- */
+.gpanel{position:absolute;top:262px;height:404px;padding:20px 24px;border-radius:28px}
+.gpanel.graph{left:110px;width:780px}
+.gpanel.tree{left:920px;width:570px}
+.gp-hd{display:flex;align-items:center;gap:12px}
+.gp-hd .app{width:40px;height:40px;flex:0 0 auto}
+.gp-hd b{font-size:18px;font-weight:700;letter-spacing:-.015em}
+.gsvg{position:absolute;left:0;top:74px;width:780px;height:206px;overflow:visible}
+.gsvg .ln{fill:none;stroke-width:5;stroke-linecap:round}
+.gsvg .main{stroke:#a39d92}
+.gsvg .br{stroke:var(--crimson)}
+.gsvg .devb{stroke:#2d5378}
+.gsvg .pr{stroke:#1a7a4f}
+.gsvg text{font-family:var(--font-mono);font-size:13px;font-weight:600;fill:var(--stone)}
+.gsvg text.bl{font-weight:700}
+.gsteps{position:absolute;left:24px;right:24px;bottom:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gstep{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:14px;background:rgba(255,255,255,.75);
+  box-shadow:inset 0 0 0 1px rgba(22,19,14,.07);font-size:14.5px;font-weight:600;color:var(--ink)}
+.gstep b{width:24px;height:24px;flex:0 0 auto;border-radius:50%;background:var(--crimson);color:#fff;display:grid;place-items:center;
+  font-size:12px;font-weight:700}
+.tree-lines{margin-top:12px;font-family:var(--font-mono);font-size:14px;line-height:26px}
+.tree-lines div{white-space:nowrap;color:var(--ink-soft)}
+.tree-lines div em{font-style:normal;font-weight:700;color:#1a7a4f;margin-right:10px}
+.tree-lines div.more{margin-top:4px;color:var(--stone)}
+.grules{position:absolute;left:0;right:0;top:694px;display:flex;justify-content:center;gap:10px}
+.grule{position:relative;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 16px 0 12px;border-radius:99px;
+  font-size:14px;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+.grule svg{width:17px;height:17px;color:var(--crimson)}
+
+/* ===================================================================
+   06 · DOWNSTREAM — generated mini-previews on the step cards
+   =================================================================== */
+.mini{position:relative;margin-top:14px;height:150px;border-radius:14px;overflow:hidden;
+  box-shadow:0 0 0 1px rgba(22,19,14,.1),0 10px 20px -12px rgba(60,30,20,.35)}
+.mini.light{background:rgba(255,255,255,.8)}
+.mini.dark{background:#1c1a17}
+.mini .genl{position:absolute;right:8px;top:8px;padding:3px 8px;border-radius:99px;background:rgba(22,19,14,.62);color:#fff;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.mini.dark .genl{background:rgba(255,255,255,.16)}
+.mini .mg{position:absolute;left:0;top:0;width:100%;height:100%}
+.mini .code{position:absolute;left:14px;top:30px;right:8px;font-family:var(--font-mono);font-size:11.5px;line-height:19px;
+  color:#d8d2c7;white-space:pre}
+/* code colours — scoped to code blocks so one-letter classes can't leak into slides */
+:is(.code,.ide-code) .k{color:#ff8e9a}
+:is(.code,.ide-code) .t{color:#8fc6ff}
+:is(.code,.ide-code) .s{color:#b5e3a1}
+:is(.code,.ide-code) .c{color:#8a847a}
+:is(.code,.ide-code) .n{color:#e3c98f}
+:is(.code,.ide-code) .f{color:#f2d98d}
+.caret{display:inline-block;width:7px;height:13px;margin-left:2px;background:#e3c98f;vertical-align:-2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.mini .rows{position:absolute;left:12px;right:12px;top:36px;display:flex;flex-direction:column;gap:6px}
+.mini .rows div{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border-radius:9px;background:#fff;
+  box-shadow:inset 0 0 0 1px rgba(22,19,14,.07);font-family:var(--font-mono);font-size:11.5px;font-weight:600;color:var(--ink-soft)}
+.mini .rows svg{width:16px;height:16px;margin-left:auto;color:#1a7a4f}
+.mini .appr{position:absolute;left:0;right:0;top:40px;display:flex;justify-content:center;gap:10px}
+.mini .appr span{position:relative;width:42px;height:42px;border-radius:50%;display:grid;place-items:center;color:#fff;
+  font-size:12px;font-weight:700;box-shadow:inset 0 1px 1px rgba(255,255,255,.4)}
+.mini .appr span svg{position:absolute;right:-5px;bottom:-5px;width:19px;height:19px;border-radius:50%;background:#fff;color:#1a7a4f}
+.mini .apprl{position:absolute;left:0;right:0;top:98px;text-align:center;font-size:13px;font-weight:700;color:var(--ink-soft)}
+
+/* --- detail · IDE at work (a generated timeline: chat, typed code, terminal) --- */
+.ide{position:absolute;left:110px;top:250px;width:1380px;height:500px;border-radius:22px;overflow:hidden;background:#1b1916;
+  box-shadow:0 30px 70px -30px rgba(40,20,10,.55),0 0 0 1px rgba(22,19,14,.2);display:flex;flex-direction:column}
+.ide-bar{height:38px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 14px;background:#26231f;border-bottom:1px solid rgba(255,255,255,.06)}
+.ide-bar i{width:12px;height:12px;border-radius:50%}
+.ide-bar span{margin-left:14px;font-family:var(--font-mono);font-size:12.5px;color:#a8a196}
+.ide-body{flex:1;display:grid;grid-template-columns:280px 1fr 430px;grid-template-rows:minmax(0,1fr);min-height:0}
+.ide-ex{padding:10px 8px;border-right:1px solid rgba(255,255,255,.06);font-family:var(--font-mono);font-size:12.5px;line-height:25px;color:#a9a296}
+.ide-ex div{padding-left:calc(var(--lv,0) * 14px + 8px);border-radius:6px;white-space:nowrap;transition:background .3s,color .3s}
+.ide-ex div.hot{background:rgba(227,201,143,.2);color:#fff}
+.ide-ex div.read::after{content:" ✓";color:#7fd0a7}
+.ide-mid{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid rgba(255,255,255,.06)}
+.ide-tab{height:36px;flex:0 0 auto;display:flex;align-items:center;padding:0 14px;font-family:var(--font-mono);font-size:12.5px;
+  color:#e8e2d6;background:#211e1b;border-bottom:1px solid rgba(255,255,255,.06)}
+.ide-code{flex:1;padding:14px 18px;font-family:var(--font-mono);font-size:14.5px;line-height:25px;color:#e6e0d4;white-space:pre;overflow:hidden}
+.ide-code .cl{min-height:25px}
+.ide-term{height:104px;flex:0 0 auto;padding:10px 16px;background:#141210;border-top:1px solid rgba(255,255,255,.06);
+  font-family:var(--font-mono);font-size:13px;line-height:22px;color:#b9b2a6;white-space:pre;overflow:hidden}
+.ide-term .bad{color:#ff8e9a}.ide-term .ok{color:#7fd0a7}
+.ide-ai{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;background:#1f1c19}
+.ide-ai-hd{height:36px;flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:0 14px;font-size:13px;font-weight:700;
+  color:#e8e2d6;border-bottom:1px solid rgba(255,255,255,.06)}
+.ide-ai-hd svg{width:16px;height:16px;color:#c9b8ff}
+.ide-chat{flex:1;min-height:0;padding:14px;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;overflow:hidden}
+.msg{max-width:92%;padding:10px 13px;border-radius:14px;font-size:14px;line-height:1.45;animation:msgin .35s var(--ease)}
+.msg.me{align-self:flex-end;background:linear-gradient(155deg,#d9354f,#8e0a23);color:#fff;font-family:var(--font-mono);
+  font-size:13.5px;border-bottom-right-radius:4px}
+.msg.bot{align-self:flex-start;background:#2c2824;color:#e8e2d6;border-bottom-left-radius:4px}
+.msg code{font-family:var(--font-mono);font-size:12.5px;color:#e3c98f}
+.msg .chips{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+.msg .chips span{padding:3px 8px;border-radius:8px;background:rgba(127,208,167,.14);color:#9fe0bd;font-family:var(--font-mono);font-size:11.5px}
+@keyframes msgin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ide-note{position:absolute;left:0;right:0;top:772px;display:flex;justify-content:center;align-items:center;gap:8px}
+.ide-note .mono-lbl{margin-right:4px}
+.phr{position:relative;display:inline-flex;align-items:center;height:36px;padding:0 13px;border-radius:99px;
+  font-family:var(--font-mono);font-size:12.5px;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+
+/* --- detail · gates & rules --- */
+.grail{position:absolute;left:110px;top:256px;width:1380px;height:176px;border-radius:30px}
+.grail-line{position:absolute;left:0;top:0;width:1380px;height:176px;pointer-events:none}
+.grail-line path{fill:none;stroke:rgba(186,12,47,.35);stroke-width:3;stroke-linecap:round}
+.gnodes{position:absolute;left:0;top:0;width:100%;height:100%;display:grid;grid-template-columns:repeat(5,1fr);padding-top:24px}
+.gnode{display:flex;flex-direction:column;align-items:center;text-align:center}
+.gnode .app{width:56px;height:56px}
+.gnode .lk{position:absolute;z-index:2;right:-7px;top:-7px;width:22px;height:22px;border-radius:50%;background:#fff;
+  color:var(--crimson);display:grid;place-items:center;box-shadow:0 3px 8px rgba(142,10,35,.28)}
+.gnode .lk svg{width:12px;height:12px}
+.gnode b{margin-top:10px;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.gnode em{margin-top:2px;font-style:normal;font-size:13.5px;font-weight:700;color:var(--gold-ink)}
+.gnode small{margin-top:2px;font-size:12.5px;color:var(--stone)}
+.gp2{position:absolute;top:456px;height:316px;padding:18px 22px;border-radius:28px}
+.gp2.dec{left:110px;width:520px}
+.gp2.qcp{left:660px;width:830px}
+.decs{margin-top:10px;display:flex;flex-direction:column;gap:4px}
+.dec-row{display:flex;align-items:center;gap:12px;height:42px}
+.dec-row .app{width:34px;height:34px;flex:0 0 auto}
+.dec-row b{flex:1;font-size:15px;font-weight:700}
+.dec-row em{padding:3px 10px;border-radius:99px;background:rgba(251,246,234,.9);box-shadow:inset 0 0 0 1px rgba(148,98,10,.3);
+  font-style:normal;font-size:12.5px;font-weight:700;color:var(--gold-ink);white-space:nowrap}
+.qcs{margin-top:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.qc{position:relative;height:57px;padding:8px 12px;border-radius:14px;background:rgba(22,19,14,.045);box-shadow:inset 0 0 0 1px rgba(22,19,14,.07)}
+.qc i{display:block;font-style:normal;font-family:var(--font-mono);font-size:11.5px;font-weight:700;color:var(--stone)}
+.qc b{display:block;margin-top:3px;font-size:13.5px;font-weight:700;line-height:1.2;color:var(--ink-soft)}
+.qc.blk{background:rgba(253,236,239,.9);box-shadow:inset 0 0 0 1px rgba(186,12,47,.22)}
+.qc.blk i{color:var(--crimson)}
+.qc.blk svg{position:absolute;right:10px;top:9px;width:14px;height:14px;color:var(--crimson)}
+.qc .rep{position:absolute;right:10px;top:10px;font-family:var(--font-mono);font-size:9.5px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--stone)}
+.qcnote{margin-top:12px;display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-soft)}
+.qcnote svg{width:16px;height:16px;flex:0 0 auto;color:var(--crimson)}
+
+/* --- detail · self-healing --- */
+.trig{position:absolute;left:110px;top:256px;width:400px}
+.trig .mono-lbl{margin:0 0 10px 4px}
+.tcard{position:relative;display:flex;align-items:center;gap:14px;height:86px;margin-bottom:12px;padding:0 18px;border-radius:22px}
+.tcard .app{width:48px;height:48px;flex:0 0 auto}
+.tcard b{display:block;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.tcard .m2{display:block;margin-top:2px;font-family:var(--font-mono);font-size:12px;color:var(--stone)}
+.tcard.on{box-shadow:inset 0 0 0 2px rgba(186,12,47,.45),0 20px 40px -24px rgba(142,10,35,.45)}
+.tcard .play{margin-left:auto;padding:3px 9px;border-radius:99px;background:var(--crimson);color:#fff;font-family:var(--font-mono);
+  font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+.hnote{position:relative;margin-top:4px;padding:16px 18px;border-radius:22px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
+.hnote b{color:var(--ink)}
+.hflow{position:absolute;left:540px;top:256px;width:950px;height:540px;padding:20px 24px;border-radius:28px}
+.hrow{display:flex;align-items:center;gap:12px}
+.hcard{position:relative;flex:1;display:flex;align-items:center;gap:12px;height:66px;padding:0 16px;border-radius:18px;
+  background:rgba(255,255,255,.75);box-shadow:inset 0 0 0 1px rgba(22,19,14,.08);font-size:15px;font-weight:600;line-height:1.3;color:var(--ink)}
+.hcard .app{width:40px;height:40px;flex:0 0 auto}
+.hcard.warn{background:rgba(251,243,224,.92);box-shadow:inset 0 0 0 1px rgba(148,98,10,.3)}
+.harrow{width:30px;height:18px;flex:0 0 auto;color:rgba(95,92,82,.5)}
+.hsteps{position:relative;margin-top:16px;display:flex;flex-direction:column;gap:8px}
+.rail2{position:absolute;left:20px;top:22px;width:4px;height:296px}
+.rail2 path{fill:none;stroke:rgba(95,92,82,.35);stroke-width:4}
+.hstep{position:relative;display:flex;align-items:center;gap:14px;height:50px}
+.hstep .app{width:44px;height:44px;flex:0 0 auto}
+.hstep p{flex:1;font-size:15.5px;font-weight:600;color:var(--ink)}
+.hstep .who2{padding:4px 10px;border-radius:99px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.hstep .who2.auto{background:rgba(22,19,14,.06);color:var(--stone)}
+.hstep .who2.gate{background:rgba(251,246,234,.92);box-shadow:inset 0 0 0 1px rgba(148,98,10,.3);color:var(--gold-ink)}
+.hstep .ok{width:24px;height:24px;flex:0 0 auto;color:#1a7a4f;opacity:0;transform:scale(.5)}
+.dp.run .hstep .ok{animation:dpop .4s var(--ease) forwards;animation-delay:var(--c)}
+.hend{margin-top:14px;display:flex;align-items:center;gap:12px;height:56px;padding:0 18px;border-radius:18px;
+  background:rgba(232,245,238,.92);box-shadow:inset 0 0 0 1px rgba(26,95,69,.25);color:#1a5f45;font-size:16px;font-weight:700}
+.hend svg{width:24px;height:24px}
+
+/* ===================================================================
+   07 · GETTING BETTER — the admin panel's learning loop and version ledger
+   =================================================================== */
+.loop{top:296px;left:110px;width:650px;height:452px;padding:22px;border-radius:32px}
+.loop-grid{position:absolute;left:22px;right:22px;top:72px;bottom:22px;display:grid;grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;gap:40px}
+.lstep{position:relative;display:flex;flex-direction:column;justify-content:center;gap:6px;padding:14px 18px;border-radius:22px;
+  background:rgba(255,255,255,.74);box-shadow:inset 0 1px 1px #fff,inset 0 0 0 1px rgba(22,19,14,.07)}
+.lstep .top2{display:flex;align-items:center;gap:10px}
+.lstep .app{width:44px;height:44px;flex:0 0 auto}
+.lstep .num{margin-left:auto;width:26px;height:26px;border-radius:50%;background:var(--crimson);color:#fff;display:grid;
+  place-items:center;font-size:13px;font-weight:700}
+.lstep b{font-size:18px;font-weight:700;letter-spacing:-.015em}
+.lstep .s2{font-size:14px;line-height:1.35;color:var(--stone)}
+.loop-hub{position:absolute;left:calc(50% - 32px);top:223px;width:64px;height:64px;border-radius:50%;display:grid;place-items:center;
+  background:#fff;box-shadow:0 10px 24px -10px rgba(142,10,35,.45),inset 0 0 0 1px rgba(186,12,47,.2);color:var(--crimson)}
+.loop-hub svg{width:28px;height:28px}
+.loop-hub::before{content:"";position:absolute;inset:-7px;border-radius:50%;border:2px dashed rgba(186,12,47,.35);animation:spin 18s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.slide:not(.live) .loop-hub::before{animation-play-state:paused}
+.ledger{top:296px;left:790px;width:700px;height:452px;padding:22px 26px;border-radius:32px}
+.lrow{display:grid;grid-template-columns:200px 1fr;align-items:center;gap:4px 16px;padding:13px 0;border-bottom:1px solid rgba(22,19,14,.07)}
+.lrow:last-child{border-bottom:0}
+.lrow>div:first-child{grid-row:span 2}
+.lrow code{display:block;font-family:var(--font-mono);font-size:14.5px;font-weight:700;color:var(--ink)}
+.lrow .lay{display:block;margin-top:2px;font-size:12.5px;color:var(--stone)}
+.vdots{display:flex;align-items:center;gap:8px}
+.vdots i{width:22px;height:22px;border-radius:50%;background:rgba(22,19,14,.08)}
+.vdots i.v{background:linear-gradient(155deg,#d9354f,#8e0a23);box-shadow:inset 0 1px 1px rgba(255,255,255,.45)}
+.ledger.on .vdots i.v{animation:dotin .45s var(--ease) both;animation-delay:var(--d,0s)}
+@keyframes dotin{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+.vdots b{margin-left:6px;font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--crimson)}
+.lrow .note{font-size:14px;line-height:1.35;color:var(--stone)}
+
+/* ===================================================================
+   08 · PROOF — one real run, requirement to release (run S7-00035)
+   =================================================================== */
+.prail{top:300px;left:110px;width:1380px;height:180px;border-radius:32px}
+.prail-line{position:absolute;left:0;top:0;width:1380px;height:180px;pointer-events:none}
+.prail-line path{fill:none;stroke:rgba(186,12,47,.3);stroke-width:3;stroke-linecap:round}
+.pnodes{position:absolute;left:0;top:0;width:100%;height:100%;display:grid;grid-template-columns:repeat(7,1fr);padding:26px 14px 0}
+.pnode{display:flex;flex-direction:column;align-items:center;text-align:center}
+.pnode .app{width:56px;height:56px}
+.pnode .flag{position:absolute;z-index:2;right:-8px;top:-8px;width:24px;height:24px;border-radius:50%;background:#fff;
+  display:grid;place-items:center;color:#1a7a4f;box-shadow:0 3px 8px rgba(0,0,0,.2)}
+.pnode .flag svg{width:16px;height:16px}
+.pnode b{margin-top:12px;font-size:16px;font-weight:700;letter-spacing:-.01em;white-space:nowrap}
+.pnode small{margin-top:4px;max-width:176px;font-size:13px;line-height:1.35;color:var(--stone)}
+.pstats{top:510px;left:110px;width:1380px;display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.pstat{position:relative;height:168px;padding:20px 24px;border-radius:28px;display:flex;flex-direction:column;justify-content:center}
+.pstat .big{font-size:56px;font-weight:700;line-height:1;letter-spacing:-.04em;color:var(--ink)}
+.pstat .big.grad{background:linear-gradient(90deg,var(--crimson),var(--crimson-bright) 60%,var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.pstat b{margin-top:10px;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.pstat .ps{margin-top:3px;font-size:13.5px;line-height:1.35;color:var(--stone)}
+.pev{top:712px;left:0;right:0;display:flex;justify-content:center;align-items:center;gap:12px;font-size:14.5px;color:var(--stone)}
+
+/* ===================================================================
+   09 · CLOSE
+   =================================================================== */
+.close-head{top:162px;left:0;right:0;text-align:center}
+.close-head .t-h1{margin-top:18px}
+.close-head .t-h1 em{font-size:96px}
+.close-sub{margin:24px auto 0;max-width:1080px;font-size:24px;font-weight:500;line-height:1.45;letter-spacing:-.01em;color:var(--ink-soft)}
+.close-sub b{font-weight:700;color:var(--crimson)}
+.takeaways{top:548px;left:110px;width:1380px;display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.take{position:relative;display:flex;align-items:center;gap:16px;height:104px;padding:0 24px 0 18px;border-radius:28px}
+.take .app{width:60px;height:60px;flex:0 0 auto}
+.take b{font-size:19px;font-weight:700;line-height:1.25;letter-spacing:-.015em}
+.take .ts{display:block;margin-top:3px;font-size:14px;font-weight:500;color:var(--stone)}
+.thanks{top:708px;left:0;right:0;display:flex;justify-content:center}
+.thanks span.pill2{position:relative;display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 28px 0 12px;border-radius:99px;
+  font-size:19px;font-weight:700;letter-spacing:-.01em;color:var(--ink)}
+.thanks .app{width:38px;height:38px}
+
+/* ===================================================================
    RAIL (navigation dots)
    =================================================================== */
 #rail{position:fixed;right:12px;bottom:30px;z-index:60;display:flex;flex-direction:column;align-items:center;gap:10px}
@@ -332,7 +707,22 @@ body.lite .aurora b{animation:none}
     <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></symbol>
     <symbol id="i-git-branch" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></symbol>
     <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+    <!-- i-scan is Lucide "maximize-2": used for "view the real screen" -->
+    <symbol id="i-scan" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></symbol>
     <symbol id="i-list-checks" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+    <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 7.703 4.734a2 2 0 0 0 1.994 0L20.7 7"/><path d="m7.5 4.27 9 5.15"/></symbol>
+    <symbol id="i-git-pull-request" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M13 6h3a2 2 0 0 1 2 2v7"/><line x1="6" x2="6" y1="9" y2="21"/></symbol>
+    <symbol id="i-git-merge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><path d="M6 21V9a9 9 0 0 0 9 9"/></symbol>
+    <symbol id="i-git-commit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><line x1="3" x2="9" y1="12" y2="12"/><line x1="15" x2="21" y1="12" y2="12"/></symbol>
+    <symbol id="i-folder-tree" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10a1 1 0 0 0 1-1V6a1 1 0 0 0-1-1h-2.5a1 1 0 0 1-.8-.4l-.9-1.2A1 1 0 0 0 15 3h-2a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M20 21a1 1 0 0 0 1-1v-3a1 1 0 0 0-1-1h-2.9a1 1 0 0 1-.88-.55l-.42-.85a1 1 0 0 0-.92-.6H13a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1Z"/><path d="M3 5a2 2 0 0 0 2 2h3"/><path d="M3 3v13a2 2 0 0 0 2 2h3"/></symbol>
+    <symbol id="i-file-code" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/></symbol>
+    <symbol id="i-file-json" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 12a1 1 0 0 0-1 1v1a1 1 0 0 1-1 1 1 1 0 0 1 1 1v1a1 1 0 0 0 1 1"/><path d="M14 18a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1 1 1 0 0 1-1-1v-1a1 1 0 0 0-1-1"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+    <symbol id="i-refresh-cw" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></symbol>
+    <symbol id="i-user-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></symbol>
+    <symbol id="i-triangle-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
   </defs>
 </svg>
 
@@ -543,6 +933,707 @@ body.lite .aurora b{animation:none}
   </aside>
 </section>
 
+<!-- ══════════════════ 04 · THE SOLUTION ══════════════════
+     The map slides 5 and 6 zoom into.
+     beat 0: upstream lane · beat 1: the context kit between the lanes · beat 2: downstream lane + the gates line
+     Gate locks match slide 1: requirement (G0), plan (G1), review (G2), quality (G3), release (G4). -->
+<section class="slide" data-subs="2" data-title="The solution — one pipeline, two lanes">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>The solution</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>The solution<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Agree what done means.</em></span>
+      <span class="l2 grad"><em>Then build until it's proven.</em></span>
+    </h2>
+  </div>
+
+  <!-- beat 0 · upstream -->
+  <section class="glass lane up">
+    <div class="lane-lbl"><span class="pill">Upstream</span><b>Agree what done means</b><span class="s">Business + AI · in Control Center</span></div>
+    <div class="stages">
+      <div class="stg"><span class="app blue"><svg><use href="#i-file-text"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span>
+        <div><b>Requirement in</b><span class="d">from the business</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span>
+        <div><b>AI plans it</b><span class="d">stories and criteria</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span>
+        <div><b>Human signs</b><span class="d">the plan locks</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span>
+        <div><b>Kit published</b><span class="d">to git, for every team</span></div></div>
+    </div>
+  </section>
+
+  <!-- beat 1 · the kit that joins the lanes -->
+  <svg class="wires" viewBox="0 0 1600 900" data-at="1" aria-hidden="true">
+    <path pathLength="1" d="M800 436 L800 458 M794 452 L800 458 L806 452"/>
+    <path pathLength="1" d="M800 536 L800 558 M794 552 L800 558 L806 552"/>
+  </svg>
+  <div class="abs glass kitcard" data-at="1">
+    <span class="app red"><svg><use href="#i-layers"/></svg></span>
+    <div><b>Context kit</b><p class="m">the same files for everyone</p></div>
+    <div class="kit">
+      <span><svg><use href="#i-file-text"/></svg>AGENTS.md</span>
+      <span><svg><use href="#i-list-checks"/></svg>Stories + criteria</span>
+      <span><svg><use href="#i-layers"/></svg>Architecture</span>
+      <span><svg><use href="#i-flask-conical"/></svg>Failing tests</span>
+    </div>
+  </div>
+
+  <!-- beat 2 · downstream -->
+  <section class="glass lane down" data-at="2">
+    <div class="lane-lbl"><span class="pill">Downstream</span><b>Build until it's proven</b><span class="s">Developers + AI · in their own IDE</span></div>
+    <div class="stages">
+      <div class="stg"><span class="app blue"><svg><use href="#i-code-xml"/></svg></span>
+        <div><b>AI-assisted build</b><span class="d">developer in control</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span>
+        <div><b>Reviewer checks</b><span class="d">an independent review</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app green"><svg><use href="#i-flask-conical"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span>
+        <div><b>Tests prove it</b><span class="d">evidence for every rule</span></div></div>
+      <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+      <div class="stg"><span class="app ink"><svg><use href="#i-rocket"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span>
+        <div><b>Human releases</b><span class="d">named approvals</span></div></div>
+    </div>
+  </section>
+  <div class="abs punch" style="top:748px" data-at="2">
+    <p><svg class="pk"><use href="#i-lock"/></svg>a named human signs · five of them — <b>and nothing approves its own work.</b></p>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>2:45 – 3:30 · The solution.</b> This is the map — the next two slides zoom into each lane.</p>
+    <p><b>Beat 0 — upstream.</b> The requirement comes in from the business. AI plans the work: stories and acceptance criteria. A named human signs the plan, and it locks. The output is published to git.</p>
+    <p><b>Beat 1 — the kit.</b> What gets published is the context kit from the last slide: AGENTS.md, the stories with their criteria, the architecture, and a failing test for every criterion. The same files for every developer.</p>
+    <p><b>Beat 2 — downstream.</b> Each developer builds with their AI in their own IDE, an independent review checks it, tests prove every rule, and a human approves the release. Point at the locks: five places a named human signs — and nothing approves its own work.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 05 · UPSTREAM ══════════════════
+     beats 0–3: one step card each · beat 4: the output line
+     Every card opens a real Control Center screen (run S7-00002, synthetic MapleSure data). -->
+<section class="slide" data-subs="4" data-title="Upstream — agree what done means">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Upstream</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>Upstream<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Agree what done means —</em></span>
+      <span class="l2 grad"><em>before any code is written.</em></span>
+    </h2>
+  </div>
+
+  <div class="abs steps4">
+    <article class="glass stepcard" data-at="0"
+      data-shot="expo-deck-assets/shots/intake-extraction-crop.jpg"
+      data-shot-title="Intake — the requirement comes in"
+      data-shot-cap="The business uploads the document; AI extracts it. REQ-1 and REQ-2 are the 30-day and 5-try rules from slide 2.">
+      <div class="sc-top"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><span class="no">Step 1</span>
+        <span class="gate"><svg><use href="#i-lock"/></svg>Business owner</span></div>
+      <h3>Requirement in</h3>
+      <p class="dsc">The business uploads the document. AI extracts it — nobody retypes a word.</p>
+      <div class="thumb" style="background-image:url('expo-deck-assets/shots/intake-extraction-crop.jpg');background-size:200%;background-position:94% 100%"><span class="real">Real screen</span></div>
+      <span class="view"><svg><use href="#i-scan"/></svg>View the screen</span>
+    </article>
+    <article class="glass stepcard" data-at="1"
+      data-shot="expo-deck-assets/shots/epic-to-stories-crop.jpg"
+      data-shot-title="Epic to stories — AI plans the work"
+      data-shot-cap="AI proposes the plan: 4 stories, 3 teams, 12 acceptance criteria. Every story can be edited before sign-off.">
+      <div class="sc-top"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span><span class="no">Step 2</span></div>
+      <h3>AI plans it</h3>
+      <p class="dsc">AI breaks the requirement into stories, each with numbered acceptance criteria.</p>
+      <div class="thumb" style="background-image:url('expo-deck-assets/shots/epic-to-stories-crop.jpg');background-size:170%;background-position:5% 100%"><span class="real">Real screen</span></div>
+      <span class="view"><svg><use href="#i-scan"/></svg>View the screen</span>
+    </article>
+    <article class="glass stepcard" data-at="2"
+      data-shot="expo-deck-assets/shots/plan-signoff-crop.jpg"
+      data-shot-title="Plan sign-off — Gate 1"
+      data-shot-cap="Every checklist item complete, then a named human signs — and the plan locks against further edits.">
+      <div class="sc-top"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg></span><span class="no">Step 3</span>
+        <span class="gate"><svg><use href="#i-lock"/></svg>Business owner</span></div>
+      <h3>Human signs</h3>
+      <p class="dsc">A named owner checks every item and signs. The plan locks.</p>
+      <div class="thumb" style="background-image:url('expo-deck-assets/shots/plan-signoff-crop.jpg');background-size:180%;background-position:82% 50%"><span class="real">Real screen</span></div>
+      <span class="view"><svg><use href="#i-scan"/></svg>View the screen</span>
+    </article>
+    <article class="glass stepcard" data-at="3"
+      data-shot="expo-deck-assets/shots/delivery-packs-crop.jpg"
+      data-shot-title="Delivery packs — the kit is published"
+      data-shot-cap="One pack per team, published to git: AGENTS.md, stories, acceptance criteria, architecture and test strategy.">
+      <div class="sc-top"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><span class="no">Step 4</span></div>
+      <h3>Kit published</h3>
+      <p class="dsc">Architecture and test plan approved, then one kit per team goes to git.</p>
+      <div class="thumb" style="background-image:url('expo-deck-assets/shots/delivery-packs-crop.jpg');background-size:170%;background-position:5% 55%"><span class="real">Real screen</span></div>
+      <span class="view"><svg><use href="#i-scan"/></svg>View the screen</span>
+    </article>
+  </div>
+
+  <div class="abs punch" style="top:752px;right:340px" data-at="4">
+    <p>Before anyone writes code: <b>one signed plan, and one kit for every team.</b></p>
+  </div>
+  <!-- the upstream output as a packet: opens the generated "kit, unpacked" view -->
+  <button class="abs glass packet" style="left:1240px;top:736px" data-at="4" data-detail="kit">
+    <span class="app red"><svg><use href="#i-package"/></svg></span>
+    <span><b>Open the kit</b><small>see what upstream generates</small></span>
+  </button>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>3:30 – 5:00 · Upstream.</b> Each click brings in one step. Click a card to open the real screen; click again (or space) to close. Open at most one in the 10-minute slot.</p>
+    <p><b>Step 1 — Requirement in.</b> The business uploads the requirement document. AI extracts the objective and the numbered requirements — nobody retypes it. The business owner signs the intake gate. (If you open it: REQ-1 and REQ-2 are exactly the 30-day and 5-try rules from the problem slide.)</p>
+    <p><b>Step 2 — AI plans it.</b> AI breaks it into stories, each with numbered acceptance criteria and an accountable team. Everything is editable before sign-off.</p>
+    <p><b>Step 3 — Human signs.</b> A named business owner works through the checklist and signs. The plan locks — the server refuses later edits.</p>
+    <p><b>Step 4 — Kit published.</b> Architecture accepted, QA approves the test plan, then one context kit per team is published to git.</p>
+    <p><b>Beat 5.</b> Before anyone writes code, there's one signed plan and one kit for every team.</p>
+    <p><b>Optional — Open the kit.</b> The packet opens an animated view of everything upstream generates, file by file, with what each one is for. Back (or Esc) returns here.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 06 · DOWNSTREAM ══════════════════
+     beats 0–3: one step card each · beat 4: the line + "Detailed view"
+     Every card opens a generated detail view (git, IDE, gates, self-healing). Previews are generated, not screenshots. -->
+<section class="slide" data-subs="4" data-title="Downstream — build until it's proven">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Downstream</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>Downstream<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Build until it's proven —</em></span>
+      <span class="l2 grad"><em>in the developer's own IDE.</em></span>
+    </h2>
+  </div>
+
+  <div class="abs steps4">
+    <article class="glass stepcard" data-at="0" data-detail="git">
+      <div class="sc-top"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><span class="no">Step 1</span></div>
+      <h3>Kit lands in git</h3>
+      <p class="dsc">A fresh branch per team. Every developer's AI reads the kit from there.</p>
+      <div class="mini light">
+        <svg class="mg" viewBox="0 0 285 150" aria-hidden="true">
+          <path d="M20 118 L265 118" stroke="#a39d92" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M48 118 C72 118 72 72 96 72 L196 72" stroke="#ba0c2f" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <circle cx="128" cy="72" r="6" fill="#fff" stroke="#a39d92" stroke-width="3"/>
+          <circle cx="172" cy="72" r="7" fill="#ba0c2f"/>
+          <path d="M196 72 C226 72 222 118 244 118" stroke="#1a7a4f" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <circle cx="244" cy="118" r="8" fill="#fff" stroke="#1a7a4f" stroke-width="4"/>
+          <text x="96" y="56" font-family="ui-monospace,Menlo,Consolas,monospace" font-size="11" font-weight="700" fill="#ba0c2f">s7/…-platform-team</text>
+        </svg>
+        <span class="genl">Generated view</span>
+      </div>
+      <span class="view"><svg><use href="#i-scan"/></svg>See how it works</span>
+    </article>
+    <article class="glass stepcard" data-at="1" data-detail="ide">
+      <div class="sc-top"><span class="app blue"><svg><use href="#i-code-xml"/></svg></span><span class="no">Step 2</span></div>
+      <h3>AI builds in the IDE</h3>
+      <p class="dsc">The developer says “start working on US-1”. The AI builds one criterion at a time.</p>
+      <div class="mini dark">
+        <div class="code"><span class="n">@Test</span>
+<span class="k">void</span> <span class="f">test_given_an_advisor…</span>() {
+    <span class="f">fail</span>(<span class="s">"not implemented"</span>);
+}
+until = clock.get().plus(<span class="n">30</span> days)<span class="caret"></span></div>
+        <span class="genl">Generated view</span>
+      </div>
+      <span class="view"><svg><use href="#i-scan"/></svg>Watch the IDE work</span>
+    </article>
+    <article class="glass stepcard" data-at="2" data-detail="gates">
+      <div class="sc-top"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><span class="no">Step 3</span>
+        <span class="gate"><svg><use href="#i-lock"/></svg>QA lead</span></div>
+      <h3>Tests prove it</h3>
+      <p class="dsc">Every criterion has a named test. CI evidence joins back to it.</p>
+      <div class="mini light">
+        <div class="rows">
+          <div>US-1-AC1 · 30 days<svg><use href="#i-circle-check"/></svg></div>
+          <div>US-1-AC2 · skip question<svg><use href="#i-circle-check"/></svg></div>
+          <div>US-1-AC3 · ask again<svg><use href="#i-circle-check"/></svg></div>
+        </div>
+        <span class="genl">Generated view</span>
+      </div>
+      <span class="view"><svg><use href="#i-scan"/></svg>See the rules</span>
+    </article>
+    <article class="glass stepcard" data-at="3" data-detail="heal">
+      <div class="sc-top"><span class="app ink"><svg><use href="#i-rocket"/></svg></span><span class="no">Step 4</span>
+        <span class="gate"><svg><use href="#i-lock"/></svg>Release manager</span></div>
+      <h3>Human releases</h3>
+      <p class="dsc">Five named approvals. A late change re-opens the gates it touches.</p>
+      <div class="mini light">
+        <div class="appr">
+          <span style="background:linear-gradient(155deg,#6590b5,#2d5378)">BO<svg><use href="#i-circle-check"/></svg></span>
+          <span style="background:linear-gradient(155deg,#57524b,#1f1c18)">EL<svg><use href="#i-circle-check"/></svg></span>
+          <span style="background:linear-gradient(155deg,#43a07b,#1a5f45)">QA<svg><use href="#i-circle-check"/></svg></span>
+          <span style="background:linear-gradient(155deg,#d9354f,#8e0a23)">RM<svg><use href="#i-circle-check"/></svg></span>
+          <span style="background:linear-gradient(155deg,#d6a650,#98690f)">SL<svg><use href="#i-circle-check"/></svg></span>
+        </div>
+        <p class="apprl">5 of 5 named approvals</p>
+        <span class="genl">Generated view</span>
+      </div>
+      <span class="view"><svg><use href="#i-scan"/></svg>See self-healing</span>
+    </article>
+  </div>
+
+  <div class="abs punch" style="top:752px;right:340px" data-at="4">
+    <p>Every criterion has a test. <b>Nothing ships until named people approve.</b></p>
+  </div>
+  <button class="abs glass packet" style="left:1240px;top:736px" data-at="4" data-detail="kit">
+    <span class="app ink"><svg><use href="#i-layers"/></svg></span>
+    <span><b>Detailed view</b><small>kit · git · IDE · rules · healing</small></span>
+  </button>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>5:00 – 6:45 · Downstream.</b> Each click brings in one step. Every card opens a generated, animated detail view — Back (or Esc) returns here; → / ← move between detail pages.</p>
+    <p><b>Step 1 — Kit lands in git.</b> Control Center publishes the kit to a fresh s7/ branch for the team — never main, only its own paths. Developers branch from it.</p>
+    <p><b>Step 2 — AI builds in the IDE.</b> The developer says "start working on US-1". The AI reads the kit, finds the three criteria and their failing tests, and builds one criterion at a time — the developer approves the plan for each. (Best single click in the 10-minute slot: "Watch the IDE work", about 20 seconds.)</p>
+    <p><b>Step 3 — Tests prove it.</b> Every acceptance criterion has a named test, and CI results join back to it. QA lead signs the quality gate.</p>
+    <p><b>Step 4 — Human releases.</b> Five named approvals. If anything changes late, everything built on it goes stale and a versioned playbook re-opens exactly the gates it touched.</p>
+    <p><b>Beat 5.</b> Every criterion has a test, and nothing ships until named people approve. "Detailed view" opens all five detail pages.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 07 · GETTING BETTER — THE ADMIN PANEL ══════════════════
+     beat 0: the learning loop · beat 1: the version ledger · beat 2: the counts
+     Sources: product/corrections.py + improve.py (the loop); s7_delivery/layers/history.jsonl
+     (82 recorded versions of 63 files — versions and notes quoted from it). -->
+<section class="slide" data-subs="2" data-title="Admin panel — it learns, on the record">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Admin panel</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>The admin panel<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>It learns from every correction —</em></span>
+      <span class="l2 grad"><em>and every change is on the record.</em></span>
+    </h2>
+  </div>
+
+  <!-- beat 0 · the learning loop (clockwise: 1 → 2 → 3 → 4) -->
+  <section class="glass abs loop" data-at="0">
+    <div class="gp-hd"><span class="app red"><svg><use href="#i-refresh-cw"/></svg></span><b>The learning loop</b></div>
+    <div class="loop-grid">
+      <div class="lstep"><div class="top2"><span class="app blue"><svg><use href="#i-user-check"/></svg></span><span class="num">1</span></div>
+        <b>A person corrects the AI</b><span class="s2">The edit is captured, with the prompt that produced it</span></div>
+      <div class="lstep"><div class="top2"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span><span class="num">2</span></div>
+        <b>AI drafts a better prompt</b><span class="s2">One real model call, built from those corrections</span></div>
+      <div class="lstep"><div class="top2"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span><span class="num">4</span></div>
+        <b>A new version ships</b><span class="s2">On the ledger · every run pins its version</span></div>
+      <div class="lstep"><div class="top2"><span class="app red"><svg><use href="#i-shield-check"/></svg></span><span class="num">3</span></div>
+        <b>An operator decides</b><span class="s2">Accept or reject — nothing applies itself</span></div>
+    </div>
+    <div class="loop-hub"><svg><use href="#i-refresh-cw"/></svg></div>
+  </section>
+
+  <!-- beat 1 · the version ledger — real history -->
+  <section class="glass abs ledger" data-at="1">
+    <div class="gp-hd"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span><b>The version ledger — real history</b></div>
+    <div class="lrow">
+      <div><code>git-workflow</code><span class="lay">standard for developers' AI</span></div>
+      <div class="vdots"><i class="v" style="--d:.1s"></i><i class="v" style="--d:.2s"></i><i class="v" style="--d:.3s"></i><i class="v" style="--d:.4s"></i><i class="v" style="--d:.5s"></i><i class="v" style="--d:.6s"></i><i class="v" style="--d:.7s"></i><b>v7</b></div>
+      <p class="note">Five days, seven versions: build discipline, reporting, trigger-scoped rules</p>
+    </div>
+    <div class="lrow">
+      <div><code>engineering-rules</code><span class="lay">standard for every change</span></div>
+      <div class="vdots"><i class="v" style="--d:.35s"></i><i class="v" style="--d:.45s"></i><i class="v" style="--d:.55s"></i><i class="v" style="--d:.65s"></i><i class="v" style="--d:.75s"></i><i class="v" style="--d:.85s"></i><i></i><b>v6</b></div>
+      <p class="note">The same lessons, written as rules the reviewer can check</p>
+    </div>
+    <div class="lrow">
+      <div><code>reviewer</code><span class="lay">skill · independent review</span></div>
+      <div class="vdots"><i class="v" style="--d:.6s"></i><i class="v" style="--d:.7s"></i><i class="v" style="--d:.8s"></i><i></i><i></i><i></i><i></i><b>v3</b></div>
+      <p class="note">Corrected twice after run S7-00009 misjudged colour contrast</p>
+    </div>
+    <div class="lrow">
+      <div><code>epic-decomposition</code><span class="lay">skill · planning</span></div>
+      <div class="vdots"><i class="v" style="--d:.85s"></i><i class="v" style="--d:.95s"></i><i></i><i></i><i></i><i></i><i></i><b>v2</b></div>
+      <p class="note">v2 accepted from correction learning</p>
+    </div>
+  </section>
+
+  <!-- beat 2 · the counts -->
+  <div class="abs kit-count" style="top:776px" data-at="2">
+    <span class="glass cnt"><b>82</b>recorded versions</span><span class="glass cnt"><b>63</b>versioned files</span>
+    <span class="glass cnt"><b>7</b>configuration layers</span><span class="glass cnt"><b>14</b>admin pages</span>
+    <span class="tag">From the product's own version ledger</span>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>6:45 – 7:30 · Getting better — the admin panel.</b> The operator's side; delivery users never see it.</p>
+    <p><b>Beat 0 — the loop.</b> When a person corrects AI output, the edit is captured together with the prompt version that produced it. From those corrections the admin panel asks for a proposal — one real model call — and an operator accepts or rejects it. Nothing applies on its own. An accepted change becomes a new version on the ledger, and every run pins the version it used.</p>
+    <p><b>Beat 1 — the ledger is real.</b> The git workflow the developers' AI follows went from v1 to v7 in five days as real deliveries taught us things. The reviewer skill was corrected twice after run S7-00009 misjudged colour contrast. Epic decomposition v2 was accepted from correction learning.</p>
+    <p><b>Beat 2.</b> 82 recorded versions across 63 files, seven configuration layers, fourteen admin pages. Nothing about the system's own instructions changes silently.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 08 · PROOF ══════════════════
+     beat 0: the journey · beat 1: the numbers · beat 2: the evidence line
+     Source: docs/run-evidence/overnight-e2e-2026-08-17.html (run S7-00035); the 65s → 14s evidence-sync
+     figure is the measured fix recorded in expo-case-study.md. -->
+<section class="slide" data-subs="2" data-title="Proof — one requirement to a released application">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Proof</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs center-head">
+    <p class="kick"><i></i>Proof · one real run<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>One requirement, overnight —</em></span>
+      <span class="l2 grad"><em>to a released application.</em></span>
+    </h2>
+  </div>
+
+  <!-- beat 0 · the journey -->
+  <section class="glass abs prail" data-at="0">
+    <svg class="prail-line" viewBox="0 0 1380 180" aria-hidden="true"><path d="M111 54 L1269 54"/></svg>
+    <div class="pnodes">
+      <div class="pnode"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><b>Requirement in</b><small>8 requirements, extracted by live AI</small></div>
+      <div class="pnode"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><b>New repo created</b><small>real GitHub, on approval</small></div>
+      <div class="pnode"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg></span><b>Plan signed</b><small>4 stories · gate G1</small></div>
+      <div class="pnode"><span class="app red"><svg><use href="#i-package"/></svg></span><b>Kits published</b><small>3 real team branches</small></div>
+      <div class="pnode"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="flag"><svg><use href="#i-circle-check"/></svg></span></span><b>Reviewer blocked US-1</b><small>contrast failed, fixed, then passed</small></div>
+      <div class="pnode"><span class="app green"><svg><use href="#i-git-merge"/></svg></span><b>PR #1 merged</b><small>CI green on main</small></div>
+      <div class="pnode"><span class="app ink"><svg><use href="#i-rocket"/></svg></span><b>Released</b><small>5 approvals · run complete</small></div>
+    </div>
+  </section>
+
+  <!-- beat 1 · the numbers -->
+  <div class="abs pstats">
+    <div class="glass pstat" data-at="1"><div class="big grad">98.5%</div><b>line coverage</b><span class="ps">CI on main · the quality gate needs 80%</span></div>
+    <div class="glass pstat" data-at="1" style="transition-delay:.08s"><div class="big">10 / 10</div><b>tests green</b><span class="ps">locally, then in CI on main</span></div>
+    <div class="glass pstat" data-at="1" style="transition-delay:.16s"><div class="big">4</div><b>stories delivered</b><span class="ps">3 teams · a brand-new application</span></div>
+    <div class="glass pstat" data-at="1" style="transition-delay:.24s"><div class="big grad">65s → 14s</div><b>evidence sync</b><span class="ps">measured fix, August 2026</span></div>
+  </div>
+
+  <!-- beat 2 · the evidence line -->
+  <div class="abs pev" data-at="2">
+    <span class="tag">Real evidence · run S7-00035 · 17–18 Aug 2026</span>
+    <span>A rehearsal: one operator played every role — and every gate still refused until that role signed.</span>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>7:30 – 8:45 · Proof.</b> Nothing on this slide is a mock-up — it is one run's own record.</p>
+    <p><b>Beat 0 — the journey.</b> A brand-new requirement, MapleSure Member Sign-In, went in overnight. Live AI extracted eight requirements. On approval a real GitHub repository was created. A four-story plan was signed, and the kits went out on three real team branches. The independent reviewer blocked US-1 on colour contrast — it was fixed and passed. Pull request one merged, CI green, five approvals, released.</p>
+    <p><b>Beat 1 — the numbers.</b> 98.5% line coverage against an 80% gate. Ten out of ten tests green. Four stories across three teams. And one measured engineering fix: evidence sync went from 65 seconds to 14.</p>
+    <p><b>Beat 2 — say it plainly.</b> This was a rehearsal: one operator played every role. The gates didn't care — each one refused until that role signed. The quality gate even refused once, until the coverage evidence actually arrived.</p>
+  </aside>
+</section>
+
+<!-- ══════════════════ 09 · CLOSE ══════════════════ -->
+<section class="slide" data-subs="0" data-title="Close — governance is the product">
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+  <div class="abs glass hdr">
+    <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+    <b>Control Center</b><i></i><span>Engineering Excellence Expo 2026</span>
+  </div>
+  <div class="abs glass pg"></div>
+
+  <div class="abs close-head">
+    <p class="kick"><i></i>Control Center<i></i></p>
+    <h2 class="t-h1">
+      <span class="l1"><em>Governance</em></span>
+      <span class="l2 grad"><em>is the product.</em></span>
+    </h2>
+    <p class="close-sub">Not feature breadth — <b>how fabrication is stopped</b>, and how many places a named person signs.</p>
+  </div>
+
+  <div class="abs takeaways">
+    <div class="glass take" data-at="0" style="transition-delay:.7s"><span class="app red"><svg><use href="#i-package"/></svg></span>
+      <div><b>One kit</b><span class="ts">the same context for every developer's AI</span></div></div>
+    <div class="glass take" data-at="0" style="transition-delay:.82s"><span class="app gold"><svg><use href="#i-lock"/></svg></span>
+      <div><b>Five gates</b><span class="ts">each one signed by a named person</span></div></div>
+    <div class="glass take" data-at="0" style="transition-delay:.94s"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span>
+      <div><b>Every change on the record</b><span class="ts">nothing is silently updated</span></div></div>
+  </div>
+
+  <div class="abs thanks" data-at="0" style="transition-delay:1.1s">
+    <span class="glass pill2"><span class="app red"><svg><use href="#i-circle-check"/></svg></span>Thank you · Questions</span>
+  </div>
+
+  <div class="abs ftr"><p>Alan Lands · BFSI Canada — Group 1.1<i class="sep">|</i><b class="conf">TCS Confidential</b></p><p>MapleSure Insurance is fictional · all data synthetic</p></div>
+
+  <aside class="notes" hidden>
+    <p><b>8:45 – 10:00 · Close.</b> Land the line and stop. Do not summarise.</p>
+    <p>"Governance is the product. The confidence story isn't feature breadth — it's how fabrication is stopped, and how many places a named person signs."</p>
+    <p><b>Likely questions.</b> Is it agentic? No, deliberately — fixed roles, simple enough to control. Are the estimates real? No, placeholders; historical delivery data is the named forward source. Does it need a particular vendor's AI tool? No — one provider-agnostic module, with an escape hatch for a self-hosted model. Does the gate really block? Server-side: an out-of-order action is refused.</p>
+  </aside>
+</section>
+
+<!-- lightbox — shared by every slide with data-shot cards -->
+<div id="lightbox" class="lb" hidden>
+  <figure class="glass lb-frame">
+    <img id="lb-img" alt="">
+    <figcaption><span class="app red" style="width:44px;height:44px;flex:0 0 auto"><svg><use href="#i-scan"/></svg></span>
+      <div><b id="lb-title"></b><span id="lb-cap" class="cap"></span></div>
+      <span class="tag">Real screen · synthetic data</span></figcaption>
+  </figure>
+  <p class="lb-hint">Click or press space to close</p>
+</div>
+
+<!-- DETAIL VIEWS — generated, animated pages. Opened from [data-detail] items; tabs are built from the pages. -->
+<div id="detail" class="detail" hidden>
+  <div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b></div>
+  <div class="dbar">
+    <button class="glass dback"><svg><use href="#i-arrow-left"/></svg>Back to the slide</button>
+    <div class="dtabs"></div>
+  </div>
+
+  <!-- ─── the kit, unpacked (upstream output) — file list as published by run S7-00002, PUB-001 ─── -->
+  <section class="dp" data-page="kit" data-tab="The kit" data-icon="i-package" hidden>
+    <div class="dp-head"><p class="kick"><i></i>Upstream output<i></i></p><h2>The context kit, unpacked</h2>
+      <p class="sub2">Everything a developer's AI needs — generated once, shared by the whole team.</p></div>
+    <div class="kit-pack pop" style="--d:.1s"><span class="ring"></span><span class="app red"><svg><use href="#i-package"/></svg></span></div>
+    <svg class="kit-wires" viewBox="0 0 1600 900" aria-hidden="true">
+      <path class="draw" pathLength="1" style="--d:.5s" d="M800 346 C800 372 330 366 330 390"/>
+      <path class="draw" pathLength="1" style="--d:.5s" d="M800 346 L800 390"/>
+      <path class="draw" pathLength="1" style="--d:.5s" d="M800 346 C800 372 1270 366 1270 390"/>
+    </svg>
+    <div class="kit-cols">
+      <section class="glass kcol pop" style="--d:.8s">
+        <div class="kcol-hd"><span class="app ink"><svg><use href="#i-folder-tree"/></svg></span><div><b>Shared by the team</b><code>AGENTS.md · .s7/shared/</code></div></div>
+        <div class="krow pop" style="--d:1.0s"><i><svg><use href="#i-file-text"/></svg></i><div><code>AGENTS.md</code><span class="w">How to work here: phrases, rules, where to look</span></div></div>
+        <div class="krow pop" style="--d:1.12s"><i><svg><use href="#i-file-text"/></svg></i><div><code>architecture.md</code><span class="w">The accepted design, pinned by version</span></div></div>
+        <div class="krow pop" style="--d:1.24s"><i><svg><use href="#i-file-json"/></svg></i><div><code>repository-map.json</code><span class="w">Which code lives where</span></div></div>
+        <div class="krow pop" style="--d:1.36s"><i><svg><use href="#i-file-text"/></svg></i><div><code>engineering-rules.md</code><span class="w">Rules every change must follow</span></div></div>
+        <div class="krow pop" style="--d:1.48s"><i><svg><use href="#i-file-text"/></svg></i><div><code>git-workflow.md</code><span class="w">Branching, commits and the push checklist</span></div></div>
+      </section>
+      <section class="glass kcol pop" style="--d:1.5s">
+        <div class="kcol-hd"><span class="app blue"><svg><use href="#i-list-checks"/></svg></span><div><b>One folder per story</b><code>.s7/stories/US-1/</code></div></div>
+        <div class="krow pop" style="--d:1.7s"><i><svg><use href="#i-file-text"/></svg></i><div><code>story.md</code><span class="w">The story, in its business context</span></div></div>
+        <div class="krow pop" style="--d:1.82s"><i><svg><use href="#i-list-checks"/></svg></i><div><code>acceptance-criteria.md</code><span class="w">Numbered criteria: what done means</span></div></div>
+        <div class="krow pop" style="--d:1.94s"><i><svg><use href="#i-file-json"/></svg></i><div><code>dependencies.json</code><span class="w">What has to land first</span></div></div>
+        <div class="krow pop" style="--d:2.06s"><i><svg><use href="#i-file-json"/></svg></i><div><code>test-manifest.json</code><span class="w">Which test proves which criterion</span></div></div>
+      </section>
+      <section class="glass kcol pop" style="--d:2.2s">
+        <div class="kcol-hd"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><div><b>Tasks and tests</b><code>.s7/tasks/ · src/test/java/s7/</code></div></div>
+        <div class="krow pop" style="--d:2.4s"><i><svg><use href="#i-file-text"/></svg></i><div><code>task.md</code><span class="w">The unit of work a developer picks up</span></div></div>
+        <div class="krow pop" style="--d:2.52s"><i><svg><use href="#i-file-json"/></svg></i><div><code>context.json</code><span class="w">Plan and architecture, by reference</span></div></div>
+        <div class="krow pop" style="--d:2.64s"><i><svg><use href="#i-file-text"/></svg></i><div><code>test-plan.md</code><span class="w">How the work will be tested</span></div></div>
+        <div class="krow pop" style="--d:2.76s"><i><svg><use href="#i-file-code"/></svg></i><div><code>US1AcceptanceTest.java</code><span class="w">One failing test per criterion</span></div></div>
+      </section>
+    </div>
+    <div class="kit-count pop" style="--d:3.1s">
+      <span class="glass cnt"><b>25</b>files</span><span class="glass cnt"><b>2</b>stories</span>
+      <span class="glass cnt"><b>2</b>tasks</span><span class="glass cnt"><b>1</b>team branch</span>
+      <span class="tag">Generated view · based on run S7-00002</span>
+    </div>
+  </section>
+
+  <!-- ─── how the kit reaches git — branch and commits from run S7-00002; rules from publication.py ─── -->
+  <section class="dp" data-page="git" data-tab="Git repo" data-icon="i-git-branch" hidden>
+    <div class="dp-head"><p class="kick"><i></i>Downstream<i></i></p><h2>How the kit reaches git</h2>
+      <p class="sub2">Control Center writes only what it owns, on its own branch. People merge.</p></div>
+
+    <section class="glass gpanel graph pop" style="--d:.1s">
+      <div class="gp-hd"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><b>The team's repository</b></div>
+      <svg class="gsvg" viewBox="0 0 780 206" aria-hidden="true">
+        <path class="ln main draw" pathLength="1" style="--d:.3s;--t:.8s" d="M40 170 L740 170"/>
+        <text x="40" y="197">main</text>
+        <path class="ln br draw" pathLength="1" style="--d:1s;--t:.7s" d="M90 170 C130 170 130 110 170 110 L400 110"/>
+        <text class="bl pop" style="--d:1.2s;fill:#ba0c2f" x="170" y="92">s7/s7-00002-platform-team</text>
+        <circle class="pop" style="--d:1.5s" cx="215" cy="110" r="9" fill="#fff" stroke="#a39d92" stroke-width="4"/>
+        <text class="pop" style="--d:1.5s" x="215" y="140" text-anchor="middle">bootstrap CI</text>
+        <circle class="pop" style="--d:1.8s" cx="360" cy="110" r="11" fill="#ba0c2f"/>
+        <text class="pop" style="--d:1.8s" x="360" y="140" text-anchor="middle">publish the kit</text>
+        <path class="ln devb draw" pathLength="1" style="--d:2.2s;--t:.7s" d="M360 110 C400 110 400 44 440 44 L630 44"/>
+        <text class="bl pop" style="--d:2.4s;fill:#2d5378" x="440" y="24">developer's story branch</text>
+        <circle class="pop" style="--d:2.7s" cx="490" cy="44" r="9" fill="#fff" stroke="#2d5378" stroke-width="4"/>
+        <text class="pop" style="--d:2.7s" x="490" y="73" text-anchor="middle">red baseline</text>
+        <circle class="pop" style="--d:3s" cx="600" cy="44" r="9" fill="#2d5378"/>
+        <text class="pop" style="--d:3s" x="600" y="73" text-anchor="middle">AC1 green</text>
+        <path class="ln pr draw" pathLength="1" style="--d:3.3s;--t:.7s" d="M630 44 C690 44 680 170 720 170"/>
+        <circle class="pop" style="--d:4s" cx="720" cy="170" r="12" fill="#fff" stroke="#1a7a4f" stroke-width="5"/>
+        <text class="bl pop" style="--d:4s;fill:#1a7a4f" x="740" y="197" text-anchor="end">a person merges</text>
+      </svg>
+      <div class="gsteps">
+        <p class="gstep pop" style="--d:1.2s"><b>1</b>A fresh s7/ branch — never main</p>
+        <p class="gstep pop" style="--d:1.9s"><b>2</b>Only AGENTS.md, .s7/ and tests</p>
+        <p class="gstep pop" style="--d:2.6s"><b>3</b>Developers branch from it</p>
+        <p class="gstep pop" style="--d:4.1s"><b>4</b>A person reviews and merges</p>
+      </div>
+    </section>
+
+    <section class="glass gpanel tree pop" style="--d:.35s">
+      <div class="gp-hd"><span class="app red"><svg><use href="#i-folder-tree"/></svg></span><b>What lands on the s7/ branch</b></div>
+      <div class="tree-lines">
+        <div class="pop" style="--d:1.9s"><em>+</em>AGENTS.md</div>
+        <div class="pop" style="--d:2.0s"><em>+</em>.s7/shared/architecture.md</div>
+        <div class="pop" style="--d:2.1s"><em>+</em>.s7/shared/repository-map.json</div>
+        <div class="pop" style="--d:2.2s"><em>+</em>.s7/shared/engineering-rules.md</div>
+        <div class="pop" style="--d:2.3s"><em>+</em>.s7/shared/git-workflow.md</div>
+        <div class="pop" style="--d:2.4s"><em>+</em>.s7/stories/US-1/story.md</div>
+        <div class="pop" style="--d:2.5s"><em>+</em>.s7/stories/US-1/acceptance-criteria.md</div>
+        <div class="pop" style="--d:2.6s"><em>+</em>.s7/stories/US-1/test-manifest.json</div>
+        <div class="pop" style="--d:2.7s"><em>+</em>.s7/tasks/TASK-001/task.md</div>
+        <div class="pop" style="--d:2.8s"><em>+</em>.s7/tasks/TASK-001/test-plan.md</div>
+        <div class="pop" style="--d:2.9s"><em>+</em>src/test/java/s7/US1AcceptanceTest.java</div>
+        <div class="more pop" style="--d:3.1s">…25 files in one commit · nothing else touched</div>
+      </div>
+    </section>
+
+    <div class="grules">
+      <span class="glass grule pop" style="--d:4.3s"><svg><use href="#i-lock"/></svg>Never the default branch</span>
+      <span class="glass grule pop" style="--d:4.4s"><svg><use href="#i-folder-tree"/></svg>Managed paths only</span>
+      <span class="glass grule pop" style="--d:4.5s"><svg><use href="#i-triangle-alert"/></svg>Won't overwrite files it didn't write</span>
+      <span class="glass grule pop" style="--d:4.6s"><svg><use href="#i-refresh-cw"/></svg>Reversible: delete the branch</span>
+      <span class="glass grule pop" style="--d:4.7s"><svg><use href="#i-user-check"/></svg>Merging is always a person</span>
+    </div>
+    <p class="gen pop" style="--d:4.9s"><span class="tag">Generated view · based on run S7-00002</span></p>
+  </section>
+
+  <!-- ─── IDE at work — a generated timeline (see ideRun). Criteria, test names, stack and the five
+       developer phrases are the real ones from run S7-00002's kit; the typed code is illustrative. ─── -->
+  <section class="dp" data-page="ide" data-tab="IDE at work" data-icon="i-code-xml" hidden>
+    <div class="dp-head"><p class="kick"><i></i>In the developer's IDE<i></i></p><h2>“Start working on US-1”</h2>
+      <p class="sub2">The AI reads the kit, then builds one criterion at a time. The developer stays in control.</p></div>
+    <div class="ide pop" style="--d:.1s">
+      <div class="ide-bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>advisor-signin-enhancements</span></div>
+      <div class="ide-body">
+        <div class="ide-ex">
+          <div data-f="agents">AGENTS.md</div>
+          <div>.s7/</div>
+          <div style="--lv:1">shared/</div>
+          <div style="--lv:2" data-f="gitwf">git-workflow.md</div>
+          <div style="--lv:1">stories/US-1/</div>
+          <div style="--lv:2" data-f="ac">acceptance-criteria.md</div>
+          <div style="--lv:2" data-f="manifest">test-manifest.json</div>
+          <div>src/main/java/…/signin/</div>
+          <div style="--lv:1" data-f="svc">DeviceRecognitionService.java</div>
+          <div>src/test/java/s7/</div>
+          <div style="--lv:1" data-f="test">US1AcceptanceTest.java</div>
+          <div>docs/delivery/</div>
+          <div style="--lv:1" data-f="plan">US-1.md</div>
+        </div>
+        <div class="ide-mid"><div class="ide-tab">Welcome</div><div class="ide-code"></div><div class="ide-term"></div></div>
+        <div class="ide-ai"><div class="ide-ai-hd"><svg><use href="#i-sparkles"/></svg>AI assistant</div><div class="ide-chat"></div></div>
+      </div>
+    </div>
+    <div class="ide-note pop" style="--d:.4s">
+      <span class="mono-lbl">Kit phrases</span>
+      <span class="glass phr">start working on US-1</span><span class="glass phr">plan the next criterion</span>
+      <span class="glass phr">build the plan</span><span class="glass phr">commit the changes</span>
+      <span class="glass phr">development completed: please push the code</span>
+    </div>
+    <p class="gen pop" style="--d:.6s"><span class="tag">Generated view · criteria and test names from run S7-00002</span></p>
+  </section>
+
+  <!-- ─── Gates & rules — gates/roles from gates.py and roles.py; checks QC-01…12 from the engine;
+       G3 blocks on QC-01…08 plus "no required artifact is stale". ─── -->
+  <section class="dp" data-page="gates" data-tab="Gates &amp; rules" data-icon="i-lock" hidden>
+    <div class="dp-head"><p class="kick"><i></i>The rules<i></i></p><h2>Five gates. Nothing approves itself.</h2>
+      <p class="sub2">Every gate is a named person. Every check is computed from the run's own evidence.</p></div>
+
+    <section class="glass grail pop" style="--d:.1s">
+      <svg class="grail-line" viewBox="0 0 1380 176" aria-hidden="true"><path class="draw" pathLength="1" style="--d:.3s;--t:1.6s" d="M138 52 L1242 52"/></svg>
+      <div class="gnodes">
+        <div class="gnode pop" style="--d:.5s"><span class="app blue"><svg><use href="#i-file-text"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G0 · Intake</b><em>Business owner</em><small>The requirement is the business's</small></div>
+        <div class="gnode pop" style="--d:.75s"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G1 · Plan</b><em>Business owner</em><small>Stories, criteria, teams, estimates</small></div>
+        <div class="gnode pop" style="--d:1s"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G2 · Review</b><em>Independent reviewer</em><small>Every task passes isolated review</small></div>
+        <div class="gnode pop" style="--d:1.25s"><span class="app green"><svg><use href="#i-flask-conical"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G3 · Quality</b><em>QA lead</em><small>9 blocking conditions green</small></div>
+        <div class="gnode pop" style="--d:1.5s"><span class="app ink"><svg><use href="#i-rocket"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G4 · Release</b><em>5 named approvals</em><small>All gates green · nothing stale</small></div>
+      </div>
+    </section>
+
+    <section class="glass gp2 dec pop" style="--d:1.5s">
+      <div class="gp-hd"><span class="app gold"><svg><use href="#i-user-check"/></svg></span><b>Human decisions between the gates</b></div>
+      <div class="decs">
+        <div class="dec-row pop" style="--d:1.7s"><span class="app red"><svg><use href="#i-layers"/></svg></span><b>Architecture accepted</b><em>Engineering lead</em></div>
+        <div class="dec-row pop" style="--d:1.82s"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><b>Test plan approved</b><em>QA lead</em></div>
+        <div class="dec-row pop" style="--d:1.94s"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><b>Kit published</b><em>Delivery lead</em></div>
+        <div class="dec-row pop" style="--d:2.06s"><span class="app blue"><svg><use href="#i-user-round"/></svg></span><b>Developer assigned</b><em>Delivery lead</em></div>
+        <div class="dec-row pop" style="--d:2.18s"><span class="app gold"><svg><use href="#i-triangle-alert"/></svg></span><b>Dependency override</b><em>Lead · reason recorded</em></div>
+      </div>
+    </section>
+
+    <section class="glass gp2 qcp pop" style="--d:1.9s">
+      <div class="gp-hd"><span class="app green"><svg><use href="#i-list-checks"/></svg></span><b>12 quality checks — computed, never asked of a model</b></div>
+      <div class="qcs">
+        <div class="qc blk pop" style="--d:2.2s"><i>QC-01</i><b>Requirement → story</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.28s"><i>QC-02</i><b>Criterion → code</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.36s"><i>QC-03</i><b>Criterion → test</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.44s"><i>QC-04</i><b>Tests pass</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.52s"><i>QC-05</i><b>Code coverage</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.6s"><i>QC-06</i><b>Security scan</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.68s"><i>QC-07</i><b>Review gaps</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc blk pop" style="--d:2.76s"><i>QC-08</i><b>Operational readiness</b><svg><use href="#i-lock"/></svg></div>
+        <div class="qc pop" style="--d:2.84s"><i>QC-09</i><b>Dependency scan</b><span class="rep">reported</span></div>
+        <div class="qc pop" style="--d:2.92s"><i>QC-10</i><b>Standards check</b><span class="rep">reported</span></div>
+        <div class="qc pop" style="--d:3s"><i>QC-11</i><b>Regression hand-off</b><span class="rep">reported</span></div>
+        <div class="qc pop" style="--d:3.08s"><i>QC-12</i><b>Performance hand-off</b><span class="rep">reported</span></div>
+      </div>
+      <p class="qcnote pop" style="--d:3.2s"><svg><use href="#i-lock"/></svg>QC-01 to QC-08, plus “no required artifact is stale”: 9 conditions block the quality gate.</p>
+    </section>
+
+    <div class="kit-count pop" style="--d:3.4s">
+      <span class="glass cnt"><b>5</b>gates</span><span class="glass cnt"><b>10</b>human decisions</span>
+      <span class="glass cnt"><b>12</b>quality checks</span><span class="glass cnt"><b>9</b>block quality</span>
+      <span class="glass cnt"><b>5</b>release approvals</span>
+      <span class="tag">Generated view · rules as coded in the product</span>
+    </div>
+  </section>
+
+  <!-- ─── Self-healing — the "architecture-revised" playbook (s7_delivery/layers/playbooks), step for step ─── -->
+  <section class="dp" data-page="heal" data-tab="Self-healing" data-icon="i-refresh-cw" hidden>
+    <div class="dp-head"><p class="kick"><i></i>Self-healing<i></i></p><h2>A late change can't slip through.</h2>
+      <p class="sub2">Everything built on the change goes stale, and a versioned playbook re-opens exactly the gates it touches.</p></div>
+
+    <div class="trig">
+      <p class="mono-lbl">Three versioned playbooks</p>
+      <div class="glass tcard on pop" style="--d:.2s"><span class="app red"><svg><use href="#i-layers"/></svg></span><div><b>Architecture revised</b><span class="m2">6 steps · 3 gates</span></div><span class="play">playing</span></div>
+      <div class="glass tcard pop" style="--d:.35s"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><div><b>Test plan amended</b><span class="m2">4 steps · 2 gates</span></div></div>
+      <div class="glass tcard pop" style="--d:.5s"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><div><b>Requirement changed</b><span class="m2">4 steps · 3 gates</span></div></div>
+      <p class="glass hnote pop" style="--d:.7s">The engine <b>observes</b> each gate from the run's own records. <b>It never signs one.</b></p>
+    </div>
+
+    <section class="glass hflow pop" style="--d:.3s">
+      <div class="hrow">
+        <div class="hcard pop" style="--d:.6s"><span class="app red"><svg><use href="#i-refresh-cw"/></svg></span>Architecture revised to v2, after sign-off</div>
+        <svg class="harrow" viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h24M20 3l6 6-6 6"/></svg>
+        <div class="hcard warn pop" style="--d:1s"><span class="app gold"><svg><use href="#i-triangle-alert"/></svg></span>Packs, workspaces and evidence built on v1 go stale</div>
+      </div>
+      <div class="hsteps">
+        <svg class="rail2" viewBox="0 0 4 100" preserveAspectRatio="none" aria-hidden="true"><path class="draw" pathLength="1" style="--d:1.3s;--t:4.4s" d="M2 0 L2 100"/></svg>
+        <div class="hstep pop" style="--d:1.4s;--c:1.9s"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Assess impact: find everything derived from v1</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        <div class="hstep pop" style="--d:2.1s;--c:2.7s"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Accept the new architecture version</p><span class="who2 gate">Engineering lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        <div class="hstep pop" style="--d:2.9s;--c:3.4s"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Regenerate delivery packs against v2</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        <div class="hstep pop" style="--d:3.6s;--c:4.2s"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Re-approve every regenerated test plan</p><span class="who2 gate">QA lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        <div class="hstep pop" style="--d:4.4s;--c:5s"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Republish the packs</p><span class="who2 gate">Delivery lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        <div class="hstep pop" style="--d:5.2s;--c:5.7s"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Re-validate anything still stale, as a new version</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+      </div>
+      <div class="hend pop" style="--d:6.2s"><svg><use href="#i-circle-check"/></svg>Release unblocked: every step cleared, nothing silently updated</div>
+    </section>
+    <p class="gen pop" style="--d:.8s"><span class="tag">Generated view · playbook “architecture-revised”, as versioned in the product</span></p>
+  </section>
+</div>
+
 </div><!-- /stage -->
 
 <div id="rail"></div>
@@ -623,6 +1714,7 @@ function paint(){
   post();
 }
 function go(s, b){
+  if (typeof closeDetail === "function") { closeDetail(); closeShot(); }
   slide = Math.max(0, Math.min(SLIDES.length - 1, s));
   sub   = Math.max(0, Math.min(SUBS[slide], b ?? 0));
   paint();
@@ -684,9 +1776,176 @@ addEventListener("pointerdown", e => {
 }, true);
 SLIDES.forEach(s => s.addEventListener("click", () => { if (swallowClick) { swallowClick = false; return; } next(); }));
 
+/* lightbox: a card with data-shot opens its real screen; any click, space or arrow closes it */
+const lb = document.getElementById("lightbox");
+function openShot(card){
+  const img = document.getElementById("lb-img");
+  img.src = card.dataset.shot;
+  img.alt = card.dataset.shotTitle;
+  document.getElementById("lb-title").textContent = card.dataset.shotTitle;
+  document.getElementById("lb-cap").textContent = card.dataset.shotCap;
+  lb.hidden = false;
+  void lb.offsetWidth;          // flush styles so the fade starts now, not on the next animation frame
+  lb.classList.add("open");
+}
+function closeShot(){
+  if (lb.hidden) return;
+  lb.classList.remove("open");
+  setTimeout(() => { lb.hidden = true; }, 260);
+}
+document.querySelectorAll("[data-shot]").forEach(card => card.addEventListener("click", e => {
+  e.stopPropagation();
+  if (swallowClick) { swallowClick = false; return; }
+  openShot(card);
+}));
+lb.addEventListener("click", e => { e.stopPropagation(); closeShot(); });
+
+/* detail views: [data-detail] opens a generated page; tabs are built from the pages that exist */
+const dt = document.getElementById("detail");
+const dtabs = dt.querySelector(".dtabs");
+const dpages = [...dt.querySelectorAll(".dp")];
+let dpage = null, dtTimer = null;
+dpages.forEach(p => {
+  const t = document.createElement("button");
+  t.className = "glass dtab";
+  t.dataset.go = p.dataset.page;
+  t.innerHTML = '<svg><use href="#' + p.dataset.icon + '"/></svg>' + p.dataset.tab;
+  t.addEventListener("click", e => { e.stopPropagation(); showPage(p.dataset.page); });
+  dtabs.appendChild(t);
+});
+function showPage(name){
+  dpage = name;
+  dpages.forEach(p => { p.hidden = p.dataset.page !== name; p.classList.remove("run"); });
+  dtabs.querySelectorAll(".dtab").forEach(t => t.classList.toggle("now", t.dataset.go === name));
+  const page = dpages.find(p => p.dataset.page === name);
+  void page.offsetWidth;          // restart every animation on the page
+  page.classList.add("run");
+  if (name === "ide") ideRun(page); else ideStop();
+}
+function openDetail(name){
+  clearTimeout(dtTimer);
+  closeShot();
+  dt.hidden = false;
+  void dt.offsetWidth;
+  dt.classList.add("open");
+  showPage(name);
+}
+function closeDetail(){
+  if (dt.hidden) return;
+  ideStop();
+  dt.classList.remove("open");
+  dtTimer = setTimeout(() => { dt.hidden = true; dpages.forEach(p => p.classList.remove("run")); }, 300);
+}
+function stepPage(dir){
+  const i = dpages.findIndex(p => p.dataset.page === dpage);
+  showPage(dpages[(i + dir + dpages.length) % dpages.length].dataset.page);
+}
+document.querySelectorAll("[data-detail]").forEach(el => el.addEventListener("click", e => {
+  e.stopPropagation();
+  if (swallowClick) { swallowClick = false; return; }
+  openDetail(el.dataset.detail);
+}));
+dt.addEventListener("click", e => e.stopPropagation());   // nothing inside a detail view advances the deck
+dt.querySelector(".dback").addEventListener("click", e => { e.stopPropagation(); closeDetail(); });
+
+/* the IDE page is a generated timeline — chat, typed code, terminal.
+   ?speed=0.1 plays it ten times faster (for checking, not presenting). */
+const SPEED = Math.max(0.02, +(new URLSearchParams(location.search).get("speed") || 1));
+const ideTimers = [];
+function at(sec, fn){ ideTimers.push(setTimeout(fn, sec * 1000 * SPEED)); }
+function ideStop(){ ideTimers.forEach(clearTimeout); ideTimers.length = 0; }
+function typeCode(box, lines, start, cps){
+  let t = start;
+  lines.forEach(segs => {
+    const row = document.createElement("div");
+    row.className = "cl";
+    const spans = segs.map(([cls, text]) => {
+      const s = document.createElement("span");
+      if (cls) s.className = cls;
+      row.appendChild(s);
+      return [s, text];
+    });
+    at(t, () => box.appendChild(row));
+    spans.forEach(([s, text]) => {
+      for (let j = 1; j <= text.length; j++) at(t + j / cps, () => { s.textContent = text.slice(0, j); });
+      t += text.length / cps;
+    });
+    t += 0.1;
+  });
+  return t;
+}
+const TEST_LINES = [
+  [["n", "@Test"]],
+  [["k", "void "], ["f", "test_given_an_advisor_signs_in_when_they_choose_rem"], ["", "() {"]],
+  [["c", "    // US-1-AC1: remembered for 30 days"]],
+  [["", "    "], ["f", "fail"], ["", "("], ["s", "\"not implemented yet\""], ["", ");"]],
+  [["", "}"]],
+];
+const SVC_LINES = [
+  [["k", "public "], ["t", "Instant "], ["f", "rememberDevice"], ["", "("], ["t", "String "], ["", "advisor, "], ["t", "String "], ["", "device) {"]],
+  [["", "    "], ["t", "Instant "], ["", "until = clock.get().plus("], ["t", "Duration"], ["", ".ofDays("], ["n", "30"], ["", "));"]],
+  [["", "    remembered.put(key(advisor, device), until);"]],
+  [["k", "    return "], ["", "until;"]],
+  [["", "}"]],
+];
+function ideRun(page){
+  ideStop();
+  const chat = page.querySelector(".ide-chat"), code = page.querySelector(".ide-code");
+  const term = page.querySelector(".ide-term"), tab = page.querySelector(".ide-tab");
+  chat.innerHTML = ""; code.innerHTML = ""; term.innerHTML = ""; tab.textContent = "Welcome";
+  page.querySelectorAll(".ide-ex div").forEach(d => d.classList.remove("hot", "read"));
+  const file = f => page.querySelector('.ide-ex [data-f="' + f + '"]');
+  const unhot = () => page.querySelectorAll(".ide-ex div.hot").forEach(d => d.classList.remove("hot"));
+  const say = (who, html) => { const m = document.createElement("div"); m.className = "msg " + who; m.innerHTML = html; chat.appendChild(m); return m; };
+  const read = (m, f, name) => {
+    unhot(); file(f).classList.add("hot", "read");
+    let chips = m.querySelector(".chips");
+    if (!chips) { chips = document.createElement("div"); chips.className = "chips"; m.appendChild(chips); }
+    const c = document.createElement("span"); c.textContent = "✓ " + name; chips.appendChild(c);
+  };
+  const open = (f, name) => { unhot(); file(f).classList.add("hot"); tab.textContent = name; code.innerHTML = ""; };
+  const shell = (cls, text) => {
+    const d = document.createElement("div"); if (cls) d.className = cls; d.textContent = text; term.appendChild(d);
+    while (term.children.length > 4) term.firstChild.remove();
+  };
+  let m;
+  at(0.4, () => say("me","start working on US-1"));
+  at(1.2, () => { m = say("bot","Reading the kit…"); });
+  at(1.7, () => read(m, "agents", "AGENTS.md"));
+  at(2.2, () => read(m, "gitwf", "git-workflow.md"));
+  at(2.7, () => read(m, "ac", "acceptance-criteria.md"));
+  at(3.2, () => read(m, "manifest", "test-manifest.json"));
+  at(3.9, () => say("bot","US-1 has <b>3 criteria</b>. Build order AC1 → AC2 → AC3 — each already has a failing test."));
+  at(4.5, () => open("test", "US1AcceptanceTest.java"));
+  let t = typeCode(code, TEST_LINES, 4.6, 70);
+  at(t + 0.2, () => shell("", "$ mvn test -Dtest=US1AcceptanceTest"));
+  at(t + 1.0, () => shell("bad", "✗ 3 failing — the red baseline, as expected"));
+  at(t + 1.8, () => say("me","plan the next criterion"));
+  at(t + 2.6, () => { say("bot","Plan for <b>AC1</b> written to <code>docs/delivery/US-1.md</code>. Edit it if you like, then say “build the plan”."); file("plan").classList.add("read"); });
+  at(t + 4.0, () => say("me","build the plan"));
+  at(t + 4.6, () => open("svc", "DeviceRecognitionService.java"));
+  t = typeCode(code, SVC_LINES, t + 4.7, 60);
+  at(t + 0.2, () => shell("", "$ mvn test -Dtest=US1AcceptanceTest"));
+  at(t + 1.0, () => shell("ok", "✓ AC1 passes · AC2 and AC3 still red"));
+  at(t + 1.8, () => say("bot","<b>AC1 is green.</b> Open sign-in, tick “Remember this device”, and tell me what you see."));
+}
+
 addEventListener("keydown", e => {
   const k = e.key;
   returning = false;
+  if (!lb.hidden) {   // while a screen is open, navigation keys close it instead of moving on
+    if (["Escape", " ", "Enter", "ArrowRight", "ArrowLeft", "ArrowDown", "ArrowUp", "PageDown", "PageUp", "Backspace"].includes(k)) {
+      e.preventDefault(); closeShot();
+    }
+    return;
+  }
+  if (!dt.hidden) {   // inside a detail view: → next page, ← previous, Esc/B back to the slide, R replay
+    if (["Escape", "Backspace", "b", "B"].includes(k)) { e.preventDefault(); closeDetail(); }
+    else if (["ArrowRight", "PageDown", " ", "Enter", "ArrowDown"].includes(k)) { e.preventDefault(); stepPage(1); }
+    else if (["ArrowLeft", "PageUp", "ArrowUp"].includes(k)) { e.preventDefault(); stepPage(-1); }
+    else if (k === "r" || k === "R") showPage(dpage);
+    return;
+  }
   if (!"fFpPlL".includes(k)) presentOnFirstGesture();
   if (["ArrowRight", " ", "Enter", "PageDown", "ArrowDown"].includes(k)) { e.preventDefault(); next(); }
   else if (["ArrowLeft", "Backspace", "PageUp", "ArrowUp"].includes(k)) { e.preventDefault(); prev(); }

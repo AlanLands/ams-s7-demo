@@ -13,7 +13,8 @@ run sheet, fallbacks and the Q&A crib.
 
 | File | What it is |
 |---|---|
-| `presentation/expo-10min.pptx` | 13 slides for the 10-minute slot, short film on slide 6 |
+| `presentation/expo-deck.html` | **The deck to present.** 9 slides in the browser, with speaker notes and a presenter window (P) and five generated detail views. It needs `expo-deck-assets/` beside it; `make_portable.py` writes a single-file copy. |
+| `presentation/expo-10min.pptx` | 13 slides for the 10-minute slot, short film on slide 6 — the earlier PowerPoint version |
 | `presentation/expo-detailed.pptx` | 35 slides, long film on slide 13 — walkthrough or leave-behind |
 | `video-short/renders/video-short.mp4` | 2:49 · 1920×1080 · 30 fps |
 | `video-detailed/renders/video-detailed.mp4` | 5:12 · 1920×1080 · 30 fps |
