@@ -11,6 +11,9 @@
  * the network — gsap and the font are vendored in vendor/.
  *
  *   NODE_PATH=<modules> node render.js [--fps 30] [--start 0] [--end N]
+ *
+ * CHROME_PATH and FFMPEG override the two binaries when they are not where
+ * this script would otherwise look for them.
  */
 "use strict";
 
@@ -54,15 +57,37 @@ const TYPES = {
   ".svg": "image/svg+xml",
 };
 
+/* Which Chromium does the drawing is a property of the machine, not of the
+   composition, so it is looked up rather than pinned: CHROME_PATH first, then a
+   puppeteer-cached chrome-headless-shell for this platform, then an ordinary
+   Chrome install. The page draws the frames, so every candidate renders the
+   same ones. */
 function findShell() {
+  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
+
   const base = path.join(os.homedir(), ".cache", "puppeteer", "chrome-headless-shell");
-  for (const v of fs.readdirSync(base)) {
-    for (const plat of ["mac-arm64", "mac-x64", "linux-x64"]) {
-      const p = path.join(base, v, "chrome-headless-shell-" + plat, "chrome-headless-shell");
-      if (fs.existsSync(p)) return p;
+  const exe = process.platform === "win32" ? "chrome-headless-shell.exe" : "chrome-headless-shell";
+  if (fs.existsSync(base)) {
+    for (const v of fs.readdirSync(base)) {
+      for (const plat of ["mac-arm64", "mac-x64", "linux-x64", "win64", "win32"]) {
+        const p = path.join(base, v, "chrome-headless-shell-" + plat, exe);
+        if (fs.existsSync(p)) return p;
+      }
     }
   }
-  throw new Error("no cached chrome-headless-shell under " + base);
+
+  for (const p of [
+    "C:/Program Files/Google/Chrome/Application/chrome.exe",
+    "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+    path.join(os.homedir(), "AppData", "Local", "Google", "Chrome", "Application", "chrome.exe"),
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium",
+  ]) {
+    if (fs.existsSync(p)) return p;
+  }
+
+  throw new Error("no Chromium found: set CHROME_PATH, or cache chrome-headless-shell under " + base);
 }
 
 function serve() {
@@ -86,9 +111,12 @@ function serve() {
   const port = server.address().port;
   const frames = fs.mkdtempSync(path.join(os.tmpdir(), "s7-expo-frames-"));
 
+  /* headless:"shell" is only valid for the shell binary itself; a full Chrome
+     takes ordinary headless and renders the same frames. */
+  const chrome = findShell();
   const browser = await puppeteer.launch({
-    executablePath: findShell(),
-    headless: "shell",
+    executablePath: chrome,
+    headless: /chrome-headless-shell/.test(chrome) ? "shell" : true,
     args: ["--no-sandbox", "--force-device-scale-factor=1", "--hide-scrollbars"],
   });
   const page = await browser.newPage();
@@ -124,7 +152,7 @@ function serve() {
   server.close();
 
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  const ff = spawnSync("ffmpeg", [
+  const ff = spawnSync(process.env.FFMPEG || "ffmpeg", [
     "-y", "-framerate", String(FPS),
     "-i", path.join(frames, "f%05d.jpg"),
     "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "19", "-preset", "medium",
