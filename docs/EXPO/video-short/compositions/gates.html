@@ -1,0 +1,84 @@
+<template id="gates-template">
+  <div id="gates-root" data-composition-id="gates" data-width="1920" data-height="1080">
+    <!-- The deck's "Gates & rules" detail view. Gates and roles from gates.py / roles.py; QC-01…12 from
+         the engine; G3 blocks on QC-01…08 plus "no required artifact is stale". Generated view. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>The rules</span>
+      </div>
+      <div class="abs glass pg stagechip">07 / 11</div>
+
+      <div class="dp-head"><p class="kick"><i></i>The rules<i></i></p><h2>Five gates. Nothing approves itself.</h2></div>
+
+      <section class="glass abs grail">
+        <svg class="grail-line" viewBox="0 0 1380 176" aria-hidden="true"><path pathLength="1" stroke-dasharray="1" d="M138 52 L1242 52"/></svg>
+        <div class="gnodes">
+          <div class="gnode"><span class="app blue"><svg><use href="#i-file-text"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G0 · Intake</b><em>Business owner</em><small>The requirement is the business's</small></div>
+          <div class="gnode"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G1 · Plan</b><em>Business owner</em><small>Stories, criteria, teams, estimates</small></div>
+          <div class="gnode"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G2 · Review</b><em>Independent reviewer</em><small>Every task passes isolated review</small></div>
+          <div class="gnode"><span class="app green"><svg><use href="#i-flask-conical"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G3 · Quality</b><em>QA lead</em><small>9 blocking conditions green</small></div>
+          <div class="gnode"><span class="app ink"><svg><use href="#i-rocket"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><b>G4 · Release</b><em>5 named approvals</em><small>All gates green · nothing stale</small></div>
+        </div>
+      </section>
+
+      <section class="glass gp2 dec">
+        <div class="gp-hd"><span class="app gold"><svg><use href="#i-user-check"/></svg></span><b>Human decisions between the gates</b></div>
+        <div class="decs">
+          <div class="dec-row"><span class="app red"><svg><use href="#i-layers"/></svg></span><b>Architecture accepted</b><em>Engineering lead</em></div>
+          <div class="dec-row"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><b>Test plan approved</b><em>QA lead</em></div>
+          <div class="dec-row"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><b>Kit published</b><em>Delivery lead</em></div>
+          <div class="dec-row"><span class="app blue"><svg><use href="#i-user-round"/></svg></span><b>Developer assigned</b><em>Delivery lead</em></div>
+          <div class="dec-row"><span class="app gold"><svg><use href="#i-triangle-alert"/></svg></span><b>Dependency override</b><em>Lead · reason recorded</em></div>
+        </div>
+      </section>
+
+      <section class="glass gp2 qcp">
+        <div class="gp-hd"><span class="app green"><svg><use href="#i-list-checks"/></svg></span><b>12 quality checks — computed, never asked of a model</b></div>
+        <div class="qcs">
+          <div class="qc blk"><i>QC-01</i><b>Requirement → story</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-02</i><b>Criterion → code</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-03</i><b>Criterion → test</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-04</i><b>Tests pass</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-05</i><b>Code coverage</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-06</i><b>Security scan</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-07</i><b>Review gaps</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc blk"><i>QC-08</i><b>Operational readiness</b><svg><use href="#i-lock"/></svg></div>
+          <div class="qc"><i>QC-09</i><b>Dependency scan</b><span class="rep">reported</span></div>
+          <div class="qc"><i>QC-10</i><b>Standards check</b><span class="rep">reported</span></div>
+          <div class="qc"><i>QC-11</i><b>Regression hand-off</b><span class="rep">reported</span></div>
+          <div class="qc"><i>QC-12</i><b>Performance hand-off</b><span class="rep">reported</span></div>
+        </div>
+        <p class="qcnote"><svg><use href="#i-lock"/></svg>QC-01 to QC-08, plus “no required artifact is stale”: 9 conditions block the quality gate.</p>
+      </section>
+    </div>
+
+    <style>
+      #gates-root .dp-head { top: 60px; }
+      #gates-root .grail { top: 152px; }
+      #gates-root .gp2 { top: 346px; }
+      #gates-root .grail-line path { stroke-dashoffset: 1; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#gates-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* "Five gates" · "named person" · "Twelve quality checks" · "Nine conditions" · "Nothing approves" */
+        var T = { rail: 2.2, gates: 2.7, dec: 4.9, qc: 5.8, tiles: 6.1, block: 11.0, note: 11.7, self: 14.2 };
+        tl.fromTo(R + ".dp-head", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.1);
+        tl.fromTo(R + ".grail", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.rail);
+        tl.fromTo(R + ".grail-line path", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 1.8, ease: "power1.inOut" }, T.gates);
+        tl.fromTo(R + ".gnode", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.4, ease: "power3.out" }, T.gates);
+        tl.fromTo(R + ".dec", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.dec);
+        tl.fromTo(R + ".dec-row", { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.35, stagger: 0.16, ease: "power2.out" }, T.dec + 0.3);
+        tl.fromTo(R + ".qcp", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.qc);
+        tl.fromTo(R + ".qc", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.1, ease: "power2.out" }, T.tiles);
+        tl.fromTo(R + ".qc.blk", { scale: 1 }, { scale: 1.05, duration: 0.25, yoyo: true, repeat: 1, stagger: 0.07, ease: "power2.inOut" }, T.block);
+        tl.fromTo(R + ".qcnote", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, T.note);
+        tl.fromTo(R + ".gnode .lk", { scale: 1 }, { scale: 1.45, duration: 0.3, yoyo: true, repeat: 1, stagger: 0.1, ease: "power2.inOut" }, T.self);
+        window.__timelines["gates"] = tl;
+      })();
+    </script>
+  </div>
+</template>

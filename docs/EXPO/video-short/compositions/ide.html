@@ -1,120 +1,176 @@
 <template id="ide-template">
   <div id="ide-root" data-composition-id="ide" data-width="1920" data-height="1080">
-    <div class="pad">
-      <span class="kicker d-k">The developer loop · human controlled, AI assisted</span>
-      <h2 class="head d-h">One acceptance criterion at a time —<br />and the developer edits the plan.</h2>
-
-      <div class="d-cols">
-        <div class="win d-term">
-          <div class="bar"><i></i><i></i><i></i><span class="name">zsh — advisor-signin-enhancements</span></div>
-          <div class="body">
-            <div class="ln g1"><span class="pr">$</span> start working on US-003</div>
-            <div class="ln g1 cm">  branch  s7/S7-00002-platform-team</div>
-            <div class="ln g1 cm">  4 acceptance criteria, in build order</div>
-            <div class="ln g1 cm">  red baseline copied in, unchanged</div>
-            <div class="ln g1"><span class="kw">  nothing planned. nothing written.</span></div>
-            <div class="ln g2">&nbsp;</div>
-            <div class="ln g2"><span class="pr">$</span> plan the next criterion</div>
-            <div class="ln g2 cm">  AC-1 plan written to docs/delivery/US-003.md</div>
-            <div class="ln g2"><span class="kw">  that section is yours. edit it.</span></div>
-            <div class="ln g3">&nbsp;</div>
-            <div class="ln g3"><span class="pr">$</span> build the plan</div>
-            <div class="ln g3 cm">  re-reading the section as you left it</div>
-            <div class="ln g3"><span class="ok">  AC-1 test green · suite green</span></div>
-          </div>
-        </div>
-
-        <div class="win d-edit">
-          <div class="bar"><i></i><i></i><i></i><span class="name">docs/delivery/US-003.md</span></div>
-          <div class="body">
-            <div class="ln e1 hi">## AC-1 · Remembered device skips the question</div>
-            <div class="ln e1">&nbsp;</div>
-            <div class="ln e1 cm">Test  test_remembered_device_skips_question</div>
-            <div class="ln e1">&nbsp;</div>
-            <div class="ln e1 hi">Code plan</div>
-            <div class="ln e1">  device_token.py — issue() / verify()</div>
-            <div class="ln e1">  signin_view.py — verify before the question</div>
-            <div class="ln e2 edit">  REMEMBER_DEVICE_DAYS = 30, not 14</div>
-            <div class="ln e1">&nbsp;</div>
-            <div class="ln e1 hi">How you will see it</div>
-            <div class="ln e1">  Sign in, tick remember, sign out, sign in again.</div>
-            <div class="ln e3">&nbsp;</div>
-            <div class="ln e3 ok">Observed  confirmed by the developer, in words</div>
-          </div>
-          <div class="d-flag">developer's own edit — the contract</div>
-        </div>
+    <!-- The deck's "IDE at work" detail view, re-timed for film. Generated view: the criteria, test
+         names, stack and developer phrases are run S7-00002's own; the typed code is illustrative.
+         Typing is GSAP width in ch with a steps() ease, so every frame is exact under SEEK(t). -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>In the IDE</span>
       </div>
+      <div class="abs glass pg stagechip">06 / 11</div>
 
-      <div class="d-phrases">
-        <span class="d-p glass">start working on</span>
-        <span class="d-p glass">plan the next criterion</span>
-        <span class="d-p glass">build the plan</span>
-        <span class="d-p glass">commit the changes</span>
-        <span class="d-p glass">please push the code</span>
+      <div class="dp-head"><p class="kick"><i></i>Downstream · in the developer's IDE<i></i></p><h2>“Start working on US-1”</h2></div>
+
+      <div class="ide">
+        <div class="ide-bar"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i><span>advisor-signin-enhancements</span></div>
+        <div class="ide-body">
+          <div class="ide-ex">
+            <div data-f="agents">AGENTS.md<b class="rd">✓</b></div>
+            <div>.s7/</div>
+            <div style="--lv:1">shared/</div>
+            <div style="--lv:2" data-f="gitwf">git-workflow.md<b class="rd">✓</b></div>
+            <div style="--lv:1">stories/US-1/</div>
+            <div style="--lv:2" data-f="ac">acceptance-criteria.md<b class="rd">✓</b></div>
+            <div style="--lv:2" data-f="manifest">test-manifest.json<b class="rd">✓</b></div>
+            <div>src/main/java/…/signin/</div>
+            <div style="--lv:1" data-f="svc">DeviceRecognitionService.java</div>
+            <div>src/test/java/s7/</div>
+            <div style="--lv:1" data-f="test">US1AcceptanceTest.java</div>
+            <div>docs/delivery/</div>
+            <div style="--lv:1" data-f="plan">US-1.md<b class="rd">✓</b></div>
+          </div>
+          <div class="ide-mid">
+            <div class="ide-tab"><span class="tab t0">Welcome</span><span class="tab t1">US1AcceptanceTest.java</span><span class="tab t2">DeviceRecognitionService.java</span></div>
+            <div class="ide-code">
+              <div class="code-a">
+                <div class="cl"><span class="ty"><span class="n">@Test</span></span></div>
+                <div class="cl"><span class="ty"><span class="k">void </span><span class="f">test_given_an_advisor_signs_in_when_they_choose_rem</span>() {</span></div>
+                <div class="cl"><span class="ty"><span class="c">    // US-1-AC1: remembered for 30 days</span></span></div>
+                <div class="cl"><span class="ty">    <span class="f">fail</span>(<span class="s">"not implemented yet"</span>);</span></div>
+                <div class="cl"><span class="ty">}</span></div>
+              </div>
+              <div class="code-b">
+                <div class="cl"><span class="ty"><span class="k">public </span><span class="t">Instant </span><span class="f">rememberDevice</span>(<span class="t">String </span>advisor, <span class="t">String </span>device) {</span></div>
+                <div class="cl"><span class="ty">    <span class="t">Instant </span>until = clock.get().plus(<span class="t">Duration</span>.ofDays(<span class="n">30</span>));</span></div>
+                <div class="cl"><span class="ty">    remembered.put(key(advisor, device), until);</span></div>
+                <div class="cl"><span class="ty"><span class="k">    return </span>until;</span></div>
+                <div class="cl"><span class="ty">}</span></div>
+              </div>
+            </div>
+            <div class="ide-term">
+              <div class="tl1">$ mvn test -Dtest=US1AcceptanceTest</div>
+              <div class="tl2 bad">✗ 3 failing — the red baseline, as expected</div>
+              <div class="tl3">$ mvn test -Dtest=US1AcceptanceTest</div>
+              <div class="tl4 ok">✓ AC1 passes · AC2 and AC3 still red</div>
+            </div>
+          </div>
+          <div class="ide-ai">
+            <div class="ide-ai-hd"><svg><use href="#i-sparkles"/></svg>AI assistant</div>
+            <div class="ide-chat2">
+              <div class="turn tA">
+                <div class="msg me m1">start working on US-1</div>
+                <div class="msg bot m2">Reading the kit…
+                  <div class="chips"><span>✓ AGENTS.md</span><span>✓ git-workflow.md</span><span>✓ acceptance-criteria.md</span><span>✓ test-manifest.json</span></div></div>
+                <div class="msg bot m3">US-1 has <b>3 criteria</b>. Build order AC1 → AC2 → AC3 — each already has a failing test.</div>
+              </div>
+              <div class="turn tB">
+                <div class="msg me m1">plan the next criterion</div>
+                <div class="msg bot m2">Plan for <b>AC1</b> written to <code>docs/delivery/US-1.md</code>. Edit it if you like, then say “build the plan”.</div>
+              </div>
+              <div class="turn tC">
+                <div class="msg me m1">build the plan</div>
+                <div class="msg bot m2"><b>AC1 is green.</b> Open sign-in, tick “Remember this device”, and tell me what you see.</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="stagechip"><b>06</b> / 10 · THE DEVELOPER</div>
 
     <style>
-      [data-composition-id="ide"] { position: absolute; inset: 0; }
-      #ide-root .d-h { margin-bottom: 40px; }
-      #ide-root .d-cols { display: flex; gap: 60px; }
-      #ide-root .win { width: 810px; height: 505px; position: relative; }
-      #ide-root .win .body { font-size: 19px; line-height: 1.58; padding: 22px 26px; }
-      #ide-root .ln { opacity: 0; }
-      #ide-root .ln.edit { color: #ffd479; }
-      #ide-root .d-flag {
-        position: absolute; right: 22px; bottom: 18px; opacity: 0;
-        background: var(--red); color: #fff; font-size: 16px; font-weight: 700;
-        padding: 8px 18px; border-radius: 999px; letter-spacing: 0.4px;
-      }
-      #ide-root .d-phrases { display: flex; gap: 14px; margin-top: 36px; }
-      #ide-root .d-p {
-        border: 1.5px solid var(--line); background: var(--white); color: var(--muted);
-        border-radius: 999px; padding: 11px 22px; font-size: 19px;
-        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-      }
+      #ide-root .dp-head { top: 60px; }
+      #ide-root .ide { top: 186px; height: 474px; }
+      #ide-root .ide-ex div { position: relative; }
+      #ide-root .rd { margin-left: 6px; font-weight: 400; color: #7fd0a7; opacity: 0; }
+      #ide-root .ide-tab { position: relative; }
+      #ide-root .tab { position: absolute; left: 14px; top: 0; line-height: 36px; }
+      /* the deck's editor is white-space:pre, which in this markup turns the
+         indentation between line elements into blank lines of its own */
+      #ide-root .ide-code, #ide-root .ide-term { position: relative; white-space: normal; }
+      #ide-root .ide-term div { white-space: pre; }
+      #ide-root .code-a, #ide-root .code-b { position: absolute; left: 18px; top: 14px; right: 18px; }
+      #ide-root .cl { white-space: nowrap; }
+      #ide-root .ty { display: inline-block; overflow: hidden; white-space: pre; vertical-align: top; width: 0; }
+      #ide-root .ide-chat2 { position: relative; flex: 1; min-height: 0; }
+      #ide-root .turn { position: absolute; left: 14px; right: 14px; top: 14px; display: flex; flex-direction: column; gap: 10px; }
     </style>
 
     <script>
       (function () {
         var R = "#ide-root ";
         var tl = gsap.timeline({ paused: true });
-        var HID = { opacity: 0, y: 8 };
-        function reveal(sel, at, stagger, dur) {
-          tl.fromTo(R + sel, HID,
-            { opacity: 1, y: 0, duration: dur || 0.28, stagger: stagger, ease: "power1.out" }, at);
+        var q = function (s) { return document.querySelector(R + s); };
+        /* cue times follow the narration's word timings (narration/timing-short.json) */
+        var T = {
+          m1: 3.2, m2: 5.2, read: 5.6, m3: 7.0,
+          openTest: 8.0, typeTest: 8.2, red: 10.5,
+          planAsk: 10.9, plan: 11.9,
+          buildAsk: 13.8, openSvc: 14.3, typeSvc: 14.5, green: 16.8, done: 17.3
+        };
+
+        /* resting state, set once (not on the timeline) */
+        gsap.set(R + ".tab.t1, " + R + ".tab.t2, " + R + ".code-b, " + R + ".turn.tB, " + R + ".turn.tC", { opacity: 0 });
+        gsap.set(R + ".ide-term div", { opacity: 0 });
+
+        tl.fromTo(R + ".dp-head", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.1);
+        tl.fromTo(R + ".ide", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.4);
+
+        function msg(sel, at) {
+          tl.fromTo(R + sel, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, at);
         }
-        function lit(sel, at) {
-          tl.to(R + sel, { borderColor: "#d8232a", color: "#2b2b2b", duration: 0.35 }, at);
+        function glow(f, at, stay) {
+          var el = q('.ide-ex [data-f="' + f + '"]');
+          tl.to(el, { backgroundColor: "rgba(227,201,143,0.22)", color: "#ffffff", duration: 0.22 }, at);
+          if (!stay) tl.to(el, { backgroundColor: "rgba(227,201,143,0)", color: "#a9a296", duration: 0.3 }, at + 0.55);
+        }
+        function tick(f, at) { tl.to(q('.ide-ex [data-f="' + f + '"] .rd'), { opacity: 1, duration: 0.2 }, at); }
+        function typeIn(sel, at, cps) {
+          var t = at;
+          document.querySelectorAll(R + sel + " .ty").forEach(function (el) {
+            var n = el.textContent.length;
+            tl.to(el, { width: n + "ch", duration: n / cps, ease: "steps(" + n + ")" }, t);
+            t += n / cps + 0.1;
+          });
+          return t;
         }
 
-        tl.fromTo(R + ".d-k", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 0.2);
-        tl.fromTo(R + ".d-h", { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.45);
-        tl.fromTo(R + ".win", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.8, stagger: 0.18, ease: "power3.out" }, 1.1);
-        tl.fromTo(R + ".d-p", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.09, ease: "power2.out" }, 1.7);
+        /* turn A — start working, read the kit, find the criteria and the red tests */
+        msg(".tA .m1", T.m1);
+        msg(".tA .m2", T.m2);
+        tl.fromTo(R + ".tA .chips span", { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.25, stagger: 0.45, ease: "power2.out" }, T.read);
+        ["agents", "gitwf", "ac", "manifest"].forEach(function (f, i) { glow(f, T.read + i * 0.45); tick(f, T.read + i * 0.45 + 0.1); });
+        msg(".tA .m3", T.m3);
+        glow("test", T.openTest, true);
+        tl.to(R + ".tab.t0", { opacity: 0, duration: 0.2 }, T.openTest);
+        tl.to(R + ".tab.t1", { opacity: 1, duration: 0.2 }, T.openTest);
+        typeIn(".code-a", T.typeTest, 95);
+        tl.to(R + ".ide-term .tl1", { opacity: 1, duration: 0.2 }, T.red - 0.5);
+        tl.to(R + ".ide-term .tl2", { opacity: 1, duration: 0.2 }, T.red);
 
-        /* Three phrases, three beats. The middle one is the point: the plan is
-           written, and then it is handed to the developer to change. */
-        reveal(".d-term .g1", 2.4, 0.22);
-        lit(".d-p:nth-child(1)", 2.4);
+        /* turn B — the plan for one criterion, which the developer may edit */
+        tl.to(R + ".turn.tA", { opacity: 0, duration: 0.3 }, T.planAsk - 0.35);
+        tl.to(R + ".turn.tB", { opacity: 1, duration: 0.01 }, T.planAsk - 0.05);
+        msg(".tB .m1", T.planAsk);
+        msg(".tB .m2", T.plan);
+        glow("plan", T.plan);
+        tick("plan", T.plan + 0.1);
 
-        reveal(".d-term .g2", 6.6, 0.24);
-        lit(".d-p:nth-child(2)", 6.6);
-        reveal(".d-edit .e1", 8.2, 0.14);
+        /* turn C — build the plan: the code is written and the first test turns green */
+        tl.to(R + ".turn.tB", { opacity: 0, duration: 0.3 }, T.buildAsk - 0.35);
+        tl.to(R + ".turn.tC", { opacity: 1, duration: 0.01 }, T.buildAsk - 0.05);
+        msg(".tC .m1", T.buildAsk);
+        tl.to(q('.ide-ex [data-f="test"]'), { backgroundColor: "rgba(227,201,143,0)", color: "#a9a296", duration: 0.25 }, T.openSvc);
+        glow("svc", T.openSvc, true);
+        tl.to(R + ".tab.t1", { opacity: 0, duration: 0.2 }, T.openSvc);
+        tl.to(R + ".tab.t2", { opacity: 1, duration: 0.2 }, T.openSvc);
+        tl.to(R + ".code-a", { opacity: 0, duration: 0.2 }, T.openSvc);
+        tl.to(R + ".code-b", { opacity: 1, duration: 0.01 }, T.openSvc + 0.2);
+        typeIn(".code-b", T.typeSvc, 150);
+        tl.to(R + ".ide-term .tl3", { opacity: 1, duration: 0.2 }, T.green - 0.5);
+        tl.to(R + ".ide-term .tl4", { opacity: 1, duration: 0.2 }, T.green);
+        msg(".tC .m2", T.done);
 
-        /* the developer rewrites the plan — that edit is the real gate */
-        reveal(".d-edit .e2", 11.6, 0, 0.45);
-        tl.fromTo(R + ".d-flag", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, 11.9);
-        tl.to(R + ".d-edit .e2", { scale: 1.03, duration: 0.4, yoyo: true, repeat: 1, ease: "power2.inOut" }, 12.6);
-
-        reveal(".d-term .g3", 14.4, 0.26);
-        lit(".d-p:nth-child(3)", 14.4);
-        reveal(".d-edit .e3", 17.8, 0.22);
-        lit(".d-p:nth-child(4)", 19.0);
-        lit(".d-p:nth-child(5)", 19.9);
-
-        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 21.3);
         window.__timelines["ide"] = tl;
       })();
     </script>

@@ -1,0 +1,74 @@
+<template id="proof-template">
+  <div id="proof-root" data-composition-id="proof" data-width="1920" data-height="1080">
+    <!-- Deck slide 8: run S7-00035 (docs/run-evidence/overnight-e2e-2026-08-17.html), stated as a rehearsal. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>Proof</span>
+      </div>
+      <div class="abs glass pg stagechip">10 / 11</div>
+
+      <div class="abs center-head">
+        <p class="kick"><i></i>Proof · one real run<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>One requirement, overnight —</em></span>
+          <span class="l2 grad"><em>to a released application.</em></span>
+        </h2>
+      </div>
+
+      <section class="glass abs prail">
+        <svg class="prail-line" viewBox="0 0 1380 180" aria-hidden="true"><path pathLength="1" stroke-dasharray="1" d="M111 54 L1269 54"/></svg>
+        <div class="pnodes">
+          <div class="pnode"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><b>Requirement in</b><small>8 requirements, extracted by live AI</small></div>
+          <div class="pnode"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><b>New repo created</b><small>real GitHub, on approval</small></div>
+          <div class="pnode"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg></span><b>Plan signed</b><small>4 stories · gate G1</small></div>
+          <div class="pnode"><span class="app red"><svg><use href="#i-package"/></svg></span><b>Kits published</b><small>3 real team branches</small></div>
+          <div class="pnode p5"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="flag"><svg><use href="#i-circle-check"/></svg></span></span><b>Reviewer blocked US-1</b><small>contrast failed, fixed, then passed</small></div>
+          <div class="pnode"><span class="app green"><svg><use href="#i-git-merge"/></svg></span><b>PR #1 merged</b><small>CI green on main</small></div>
+          <div class="pnode"><span class="app ink"><svg><use href="#i-rocket"/></svg></span><b>Released</b><small>5 approvals · run complete</small></div>
+        </div>
+      </section>
+
+      <div class="abs pstats">
+        <div class="glass pstat"><div class="big grad">98.5%</div><b>line coverage</b><span class="ps">CI on main · the quality gate needs 80%</span></div>
+        <div class="glass pstat"><div class="big">10 / 10</div><b>tests green</b><span class="ps">locally, then in CI on main</span></div>
+        <div class="glass pstat"><div class="big">4</div><b>stories delivered</b><span class="ps">3 teams · a brand-new application</span></div>
+        <div class="glass pstat"><div class="big grad">65s → 14s</div><b>evidence sync</b><span class="ps">measured fix, August 2026</span></div>
+      </div>
+
+      <div class="abs pev">
+        <span class="tag">Real evidence · run S7-00035 · 17–18 Aug 2026</span>
+        <span>A rehearsal: one operator played every role — and every gate still refused until that role signed.</span>
+      </div>
+    </div>
+
+    <style>
+      #proof-root .center-head { top: 64px; }
+      #proof-root .prail { top: 250px; }
+      #proof-root .pstats { top: 452px; }
+      #proof-root .pstat { height: 150px; }
+      #proof-root .pev { top: 626px; }
+      #proof-root .prail-line path { stroke-dashoffset: 1; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#proof-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* "overnight rehearsal" · "real repository" · "blocked a story" · "merged pull request" · "ninety eight" · "One operator" */
+        var T = { rail: 2.2, nodes: 2.6, nodeGap: 0.6, repo: 9.1, flag: 11.2, merge: 13.9, stats: 15.2, caveat: 18.3 };
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.14, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".prail", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.rail);
+        tl.fromTo(R + ".prail-line path", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: T.nodeGap * 6.4, ease: "none" }, T.nodes);
+        tl.fromTo(R + ".pnode", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, stagger: T.nodeGap, ease: "power3.out" }, T.nodes);
+        tl.fromTo(R + ".pnode:nth-child(2) .app", { scale: 1 }, { scale: 1.12, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.repo);
+        tl.fromTo(R + ".p5 .flag", { scale: 1 }, { scale: 1.6, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.flag);
+        tl.fromTo(R + ".pnode:nth-child(6) .app", { scale: 1 }, { scale: 1.12, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.merge);
+        tl.fromTo(R + ".pstat", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.28, ease: "power3.out" }, T.stats);
+        tl.fromTo(R + ".pev", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.caveat);
+        window.__timelines["proof"] = tl;
+      })();
+    </script>
+  </div>
+</template>

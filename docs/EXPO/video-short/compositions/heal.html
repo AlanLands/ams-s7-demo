@@ -1,0 +1,77 @@
+<template id="heal-template">
+  <div id="heal-root" data-composition-id="heal" data-width="1920" data-height="1080">
+    <!-- The deck's "Self-healing" detail view: the architecture-revised playbook, step for step. Generated view. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>Self-healing</span>
+      </div>
+      <div class="abs glass pg stagechip">08 / 11</div>
+
+      <div class="dp-head"><p class="kick"><i></i>Self-healing<i></i></p><h2>A late change can't slip through.</h2></div>
+
+      <div class="trig">
+        <p class="mono-lbl">Three versioned playbooks</p>
+        <div class="glass tcard on"><span class="app red"><svg><use href="#i-layers"/></svg></span><div><b>Architecture revised</b><span class="m2">6 steps · 3 gates</span></div><span class="play">playing</span></div>
+        <div class="glass tcard"><span class="app green"><svg><use href="#i-flask-conical"/></svg></span><div><b>Test plan amended</b><span class="m2">4 steps · 2 gates</span></div></div>
+        <div class="glass tcard"><span class="app blue"><svg><use href="#i-file-text"/></svg></span><div><b>Requirement changed</b><span class="m2">4 steps · 3 gates</span></div></div>
+        <p class="glass hnote">The engine <b>observes</b> each gate from the run's own records. <b>It never signs one.</b></p>
+      </div>
+
+      <section class="glass hflow">
+        <div class="hrow">
+          <div class="hcard h1c"><span class="app red"><svg><use href="#i-refresh-cw"/></svg></span>Architecture revised to v2, after sign-off</div>
+          <svg class="harrow" viewBox="0 0 30 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 9h24M20 3l6 6-6 6"/></svg>
+          <div class="hcard warn h2c"><span class="app gold"><svg><use href="#i-triangle-alert"/></svg></span>Packs, workspaces and evidence built on v1 go stale</div>
+        </div>
+        <div class="hsteps">
+          <svg class="rail2" viewBox="0 0 4 100" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" stroke-dasharray="1" d="M2 0 L2 100"/></svg>
+          <div class="hstep"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Assess impact: find everything derived from v1</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+          <div class="hstep"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Accept the new architecture version</p><span class="who2 gate">Engineering lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+          <div class="hstep"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Regenerate delivery packs against v2</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+          <div class="hstep"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Re-approve every regenerated test plan</p><span class="who2 gate">QA lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+          <div class="hstep"><span class="app red"><svg><use href="#i-lock"/></svg></span><p>Republish the packs</p><span class="who2 gate">Delivery lead</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+          <div class="hstep"><span class="app grey"><svg><use href="#i-settings"/></svg></span><p>Re-validate anything still stale, as a new version</p><span class="who2 auto">automatic</span><svg class="ok"><use href="#i-circle-check"/></svg></div>
+        </div>
+        <div class="hend"><svg><use href="#i-circle-check"/></svg>Release unblocked: every step cleared, nothing silently updated</div>
+      </section>
+    </div>
+
+    <style>
+      #heal-root .dp-head { top: 60px; }
+      #heal-root .trig { top: 150px; }
+      #heal-root .hflow { top: 150px; height: 494px; }
+      #heal-root .hstep { height: 44px; }
+      #heal-root .hstep .app { width: 40px; height: 40px; }
+      #heal-root .hsteps { gap: 6px; }
+      #heal-root .rail2 { left: 18px; top: 22px; height: 250px; }
+      #heal-root .rail2 path { stroke-dashoffset: 1; }
+      #heal-root .hend { height: 52px; }
+      #heal-root .hstep .ok { opacity: 1; transform: none; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#heal-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* "changes late" · "goes stale" · "versioned playbook" · "re-opens exactly the gates" · "until every step" */
+        var T = { trig: 0.8, change: 1.6, stale: 4.5, play: 6.9, steps: 8.0, gap: 0.42, end: 11.4 };
+        tl.fromTo(R + ".dp-head", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.1);
+        tl.fromTo(R + ".tcard", { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.18, ease: "power3.out" }, T.trig);
+        tl.fromTo(R + ".hnote", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, T.trig + 0.8);
+        tl.fromTo(R + ".hflow", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.change - 0.4);
+        tl.fromTo(R + ".h1c", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, T.change);
+        tl.fromTo(R + ".h2c", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.45, ease: "power3.out" }, T.stale);
+        tl.fromTo(R + ".tcard.on .play", { scale: 1 }, { scale: 1.25, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.play);
+        tl.fromTo(R + ".rail2 path", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: T.gap * 6, ease: "none" }, T.steps);
+        document.querySelectorAll(R + ".hstep").forEach(function (row, i) {
+          var at = T.steps + i * T.gap;
+          tl.fromTo(row, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.35, ease: "power2.out" }, at);
+          tl.fromTo(row.querySelector(".ok"), { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, at + 0.42);
+        });
+        tl.fromTo(R + ".hend", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, T.end);
+        window.__timelines["heal"] = tl;
+      })();
+    </script>
+  </div>
+</template>

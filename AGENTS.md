@@ -1123,6 +1123,15 @@ invocations with only a small task delta changing per call.
    repo holding confidential material), and an external dependency that will not
    exist in the locked-down sandbox (hard rule 4). Read them, reimplement what is
    useful in this repo's own plain-Python terms. Do not install them.
+   **Exception, 2026-09-15:** `frontend-slides` (public, MIT,
+   `github.com/zarazhangrui/frontend-slides` @ `9906a34`) is allowed at user
+   scope (`~/.claude/skills/`) as a deck-authoring aid, never in this repo.
+   Every file was read first (no hooks/commands/settings, no injection text, no
+   network calls in its slide runtime), and nothing in the demo depends on it.
+   Decline its `scripts/deploy.sh` (public Vercel URL) for S7 material; its
+   decks fetch fonts at runtime, so self-host them for an offline deck. The
+   exception is this skill at this commit: an upgrade is a fresh read, and any
+   other skill is still declined.
 
 **Not decided:** role topology (collides with the downstream reuse question,
 blocked on the `UserStory` shape landing in Sprint 1 — deciding now would be

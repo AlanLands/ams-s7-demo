@@ -1,0 +1,87 @@
+<template id="problem-template">
+  <div id="problem-root" data-composition-id="problem" data-width="1920" data-height="1080">
+    <!-- Deck slide 2: one ticket, copied by hand into three AI chats, three results. Illustrative, and labelled so. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>The problem</span>
+      </div>
+      <div class="abs glass pg stagechip">02 / 11</div>
+
+      <div class="abs center-head">
+        <p class="kick"><i></i>The problem<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>Same requirement.</em></span>
+          <span class="l2 grad"><em>Three different results.</em></span>
+        </h2>
+      </div>
+
+      <div class="abs glass ticket">
+        <span class="app blue"><svg><use href="#i-ticket"/></svg></span>
+        <div>
+          <p class="mono-lbl">Ticket on the board</p>
+          <h3>Remember the device · lock after failed sign-ins</h3>
+          <div class="vals"><span><b>30</b>days</span><span><b>5</b>tries</span><span><b>15</b>min lock</span></div>
+        </div>
+        <span class="tag">Illustrative example</span>
+      </div>
+
+      <svg class="wires" viewBox="0 0 1600 900" aria-hidden="true">
+        <path pathLength="1" d="M800 374 C800 414 380 410 380 450"/>
+        <path pathLength="1" d="M800 374 L800 450"/>
+        <path pathLength="1" d="M800 374 C800 414 1220 410 1220 450"/>
+      </svg>
+      <div class="abs glass paste" style="left:538px;top:396px"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+      <div class="abs glass paste" style="left:748px;top:396px"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+      <div class="abs glass paste" style="left:958px;top:396px"><svg><use href="#i-clipboard-paste"/></svg>copy · paste</div>
+
+      <div class="glass dev d1" style="left:210px">
+        <span class="app blue"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+        <p class="who">Developer A</p><p class="ctx">pasted the description</p>
+        <p class="what">Remembers the device for</p><p class="res">14 days</p><p class="want">Should be 30 days</p>
+      </div>
+      <div class="glass dev d2" style="left:630px">
+        <span class="app gold"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+        <p class="who">Developer B</p><p class="ctx">pasted half, wrote their own prompt</p>
+        <p class="what">Locks the account after</p><p class="res">3 tries</p><p class="want">Should be 5 tries</p>
+      </div>
+      <div class="glass dev d3" style="left:1050px">
+        <span class="app violet"><svg><use href="#i-user-round"/></svg><span class="bad"><svg><use href="#i-circle-x"/></svg></span></span>
+        <p class="who">Developer C</p><p class="ctx">pasted just the title</p>
+        <p class="what">Lockout test</p><p class="res">Missing</p><p class="want">Never written</p>
+      </div>
+    </div>
+
+    <style>
+      #problem-root .center-head { top: 64px; }
+      #problem-root .ticket { top: 262px; }
+      #problem-root .ticket .tag { position: absolute; right: 24px; top: -15px; }
+      #problem-root .dev { top: 452px; padding: 16px 18px 14px; }
+      #problem-root .dev .app { width: 54px; height: 54px; }
+      #problem-root .dev .who { margin-top: 8px; font-size: 18px; }
+      #problem-root .dev .what { margin-top: 8px; }
+      #problem-root .dev .res { font-size: 44px; }
+      #problem-root .dev .want { margin-top: 6px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#problem-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* cue times, in scene seconds, set from the narration's own word
+           timings (narration/timing-short.json, plus the 1.0s lead-in) */
+        var T = { ticket: 3.4, wires: 4.4, paste: 4.8, a: 10.7, b: 12.2, c: 14.7, pulse: 17.4 };
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.14, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".ticket", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, T.ticket);
+        tl.fromTo(R + ".wires path", { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 1.0, stagger: 0.12, ease: "power2.out" }, T.wires);
+        tl.fromTo(R + ".paste", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, stagger: 0.14, ease: "back.out(2)" }, T.paste);
+        [["d1", T.a], ["d2", T.b], ["d3", T.c]].forEach(function (p) {
+          tl.fromTo(R + "." + p[0], { opacity: 0, y: 26, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.7, ease: "power3.out" }, p[1]);
+        });
+        tl.fromTo(R + ".dev .res", { scale: 1 }, { scale: 1.08, duration: 0.3, yoyo: true, repeat: 1, stagger: 0.14, ease: "power2.inOut" }, T.pulse);
+        window.__timelines["problem"] = tl;
+      })();
+    </script>
+  </div>
+</template>

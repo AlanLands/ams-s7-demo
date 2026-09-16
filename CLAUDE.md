@@ -1360,6 +1360,23 @@ The reference architecture gets there via five properties. Our verdict on each:
    Read them, learn from them, reimplement what is useful in this repo's own
    plain-Python terms. Do not install them.
 
+   **Exception — `frontend-slides`, 2026-09-15.** One skill is allowed, by
+   name: `frontend-slides` (public, MIT,
+   `github.com/zarazhangrui/frontend-slides` at commit `9906a34`), installed
+   at **user scope** (`~/.claude/skills/`) as a deck-authoring aid and never
+   inside this repo. Both reasons above were weighed rather than waived. Every
+   file was read before install: no hooks, commands or settings, no
+   injection text, and a slide runtime that makes no network calls. Nothing
+   in the demo, the Control Centre or the locked-down port depends on it; it
+   writes HTML decks, and nothing relies on it existing. Three limits travel
+   with it. Its offered `scripts/deploy.sh` publishes a deck to a **public
+   Vercel URL**; decline it for anything built from S7 material (hard rule 2,
+   § Confidentiality). Its decks fetch fonts from Google Fonts/Fontshare at
+   runtime, so a deck that must run offline needs its fonts self-hosted, as
+   `apps/control/web/public/fonts` does. And the exception covers this skill
+   at this commit: an upgrade is a fresh read, and any other skill is still
+   the rule above.
+
 ### Not decided
 
 - **Role topology.** How S7's stages map onto a fixed role set collides with the

@@ -1,0 +1,83 @@
+<template id="admin-template">
+  <div id="admin-root" data-composition-id="admin" data-width="1920" data-height="1080">
+    <!-- Deck slide 7: the correction-learning loop beside the real version ledger
+         (s7_delivery/layers/history.jsonl). -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>Admin panel</span>
+      </div>
+      <div class="abs glass pg stagechip">09 / 11</div>
+
+      <div class="abs center-head">
+        <p class="kick"><i></i>The admin panel<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>It learns from every correction —</em></span>
+          <span class="l2 grad"><em>and every change is on the record.</em></span>
+        </h2>
+      </div>
+
+      <section class="glass abs loop">
+        <div class="gp-hd"><span class="app red"><svg><use href="#i-refresh-cw"/></svg></span><b>The learning loop</b></div>
+        <div class="loop-grid">
+          <div class="lstep s1"><div class="top2"><span class="app blue"><svg><use href="#i-user-check"/></svg></span><span class="num">1</span></div>
+            <b>A person corrects the AI</b><span class="s2">The edit is captured, with the prompt that produced it</span></div>
+          <div class="lstep s2x"><div class="top2"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span><span class="num">2</span></div>
+            <b>AI drafts a better prompt</b><span class="s2">One real model call, built from those corrections</span></div>
+          <div class="lstep s4"><div class="top2"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span><span class="num">4</span></div>
+            <b>A new version ships</b><span class="s2">On the ledger · every run pins its version</span></div>
+          <div class="lstep s3"><div class="top2"><span class="app red"><svg><use href="#i-shield-check"/></svg></span><span class="num">3</span></div>
+            <b>An operator decides</b><span class="s2">Accept or reject — nothing applies itself</span></div>
+        </div>
+        <div class="loop-hub"><svg><use href="#i-refresh-cw"/></svg></div>
+      </section>
+
+      <section class="glass abs ledger">
+        <div class="gp-hd"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span><b>The version ledger — real history</b></div>
+        <div class="lrow"><div><code>git-workflow</code><span class="lay">standard for developers' AI</span></div>
+          <div class="vdots"><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><b>v7</b></div>
+          <p class="note">Five days, seven versions: build discipline, reporting, trigger-scoped rules</p></div>
+        <div class="lrow"><div><code>engineering-rules</code><span class="lay">standard for every change</span></div>
+          <div class="vdots"><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i class="v"></i><i></i><b>v6</b></div>
+          <p class="note">The same lessons, written as rules the reviewer can check</p></div>
+        <div class="lrow"><div><code>reviewer</code><span class="lay">skill · independent review</span></div>
+          <div class="vdots"><i class="v"></i><i class="v"></i><i class="v"></i><i></i><i></i><i></i><i></i><b>v3</b></div>
+          <p class="note">Corrected twice after run S7-00009 misjudged colour contrast</p></div>
+        <div class="lrow"><div><code>epic-decomposition</code><span class="lay">skill · planning</span></div>
+          <div class="vdots"><i class="v"></i><i class="v"></i><i></i><i></i><i></i><i></i><i></i><b>v2</b></div>
+          <p class="note">v2 accepted from correction learning</p></div>
+      </section>
+    </div>
+
+    <style>
+      #admin-root .center-head { top: 64px; }
+      #admin-root .loop, #admin-root .ledger { top: 250px; height: 412px; }
+      #admin-root .loop-hub { top: 199px; }
+      #admin-root .lrow { padding: 11px 0; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#admin-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* "corrects the A.I." · "drafts a better prompt" · "an operator" · "a new version" */
+        var T = { loop: 1.0, s1: 3.4, s2: 7.6, s3: 9.8, s4: 12.4, ledger: 13.0 };
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.14, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".loop", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, T.loop);
+        tl.fromTo(R + ".loop-hub", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, T.loop + 0.4);
+        tl.fromTo(R + ".loop-hub svg", { rotation: 0 }, { rotation: 720, duration: 16, ease: "none" }, T.loop);
+        [["s1", T.s1], ["s2x", T.s2], ["s3", T.s3], ["s4", T.s4]].forEach(function (p) {
+          tl.fromTo(R + "." + p[0], { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(1.6)" }, p[1]);
+        });
+        tl.fromTo(R + ".ledger", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, T.ledger);
+        document.querySelectorAll(R + ".lrow").forEach(function (row, i) {
+          var at = T.ledger + 0.4 + i * 0.35;
+          tl.fromTo(row, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, at);
+          tl.fromTo(row.querySelectorAll(".vdots i.v"), { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.07, ease: "back.out(2)" }, at + 0.15);
+        });
+        window.__timelines["admin"] = tl;
+      })();
+    </script>
+  </div>
+</template>

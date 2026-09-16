@@ -1,0 +1,87 @@
+<template id="solution-template">
+  <div id="solution-root" data-composition-id="solution" data-width="1920" data-height="1080">
+    <!-- Deck slide 4: one pipeline — two lanes, the kit between them, five gate locks. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>The solution</span>
+      </div>
+      <div class="abs glass pg stagechip">04 / 11</div>
+
+      <div class="abs center-head">
+        <p class="kick"><i></i>The solution<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>Agree what done means.</em></span>
+          <span class="l2 grad"><em>Then build until it's proven.</em></span>
+        </h2>
+      </div>
+
+      <section class="glass lane up">
+        <div class="lane-lbl"><span class="pill">Upstream</span><b>Agree what done means</b><span class="s">Business + AI · in Control Center</span></div>
+        <div class="stages">
+          <div class="stg"><span class="app blue"><svg><use href="#i-file-text"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><div><b>Requirement in</b><span class="d">from the business</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span><div><b>AI plans it</b><span class="d">stories and criteria</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app gold"><svg><use href="#i-clipboard-list"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><div><b>Human signs</b><span class="d">the plan locks</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span><div><b>Kit published</b><span class="d">to git, for every team</span></div></div>
+        </div>
+      </section>
+
+      <div class="abs glass kitcard">
+        <span class="app red"><svg><use href="#i-layers"/></svg></span>
+        <div><b>Context kit</b><p class="m">the same files for everyone</p></div>
+        <div class="kit">
+          <span><svg><use href="#i-file-text"/></svg>AGENTS.md</span>
+          <span><svg><use href="#i-list-checks"/></svg>Stories + criteria</span>
+          <span><svg><use href="#i-layers"/></svg>Architecture</span>
+          <span><svg><use href="#i-flask-conical"/></svg>Failing tests</span>
+        </div>
+      </div>
+
+      <section class="glass lane down">
+        <div class="lane-lbl"><span class="pill">Downstream</span><b>Build until it's proven</b><span class="s">Developers + AI · in their own IDE</span></div>
+        <div class="stages">
+          <div class="stg"><span class="app blue"><svg><use href="#i-code-xml"/></svg></span><div><b>AI-assisted build</b><span class="d">developer in control</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app red"><svg><use href="#i-shield-check"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><div><b>Reviewer checks</b><span class="d">an independent review</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app green"><svg><use href="#i-flask-conical"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><div><b>Tests prove it</b><span class="d">evidence for every rule</span></div></div>
+          <svg class="ar" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M1 7h18M14 2l5 5-5 5"/></svg>
+          <div class="stg"><span class="app ink"><svg><use href="#i-rocket"/></svg><span class="lk"><svg><use href="#i-lock"/></svg></span></span><div><b>Human releases</b><span class="d">named approvals</span></div></div>
+        </div>
+      </section>
+
+      <div class="abs punch locks"><p><svg class="pk"><use href="#i-lock"/></svg>a named person signs · five gates — <b>and nothing approves its own work.</b></p></div>
+    </div>
+
+    <style>
+      #solution-root .center-head { top: 64px; }
+      #solution-root .lane.up { top: 250px; }
+      #solution-root .kitcard { top: 404px; }
+      #solution-root .lane.down { top: 486px; }
+      #solution-root .locks { top: 642px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#solution-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* "Upstream" · "Downstream" · "The kit joins" · "five gates" */
+        var T = { up: 2.6, down: 6.7, kit: 10.9, locks: 12.9 };
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.14, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".lane.up", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.up);
+        tl.fromTo(R + ".lane.up .stg", { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.3, ease: "power2.out" }, T.up + 0.35);
+        tl.fromTo(R + ".lane.down", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.down);
+        tl.fromTo(R + ".lane.down .stg", { opacity: 0, x: -12 }, { opacity: 1, x: 0, duration: 0.45, stagger: 0.3, ease: "power2.out" }, T.down + 0.35);
+        tl.fromTo(R + ".kitcard", { opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1, duration: 0.6, ease: "back.out(1.6)" }, T.kit);
+        tl.fromTo(R + ".kitcard .kit span", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.35, stagger: 0.12, ease: "power2.out" }, T.kit + 0.4);
+        tl.fromTo(R + ".lk", { scale: 1 }, { scale: 1.45, duration: 0.3, yoyo: true, repeat: 1, stagger: 0.12, ease: "power2.inOut" }, T.locks);
+        tl.fromTo(R + ".locks", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, T.locks + 0.3);
+        window.__timelines["solution"] = tl;
+      })();
+    </script>
+  </div>
+</template>

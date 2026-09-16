@@ -1,34 +1,43 @@
 <template id="outro-template">
-  <div data-composition-id="outro" data-width="1920" data-height="1080">
-    <div class="pad center">
-      <h1 class="big o-h">Governance is the product.</h1>
-      <div class="rule o-r"></div>
-      <p class="lede o-s">The confidence story is not feature breadth. It is how fabrication is stopped,<br />and how many places a human has to sign.</p>
-      <div class="o-b">
-        <span class="pill glass">Control Center</span>
-        <span class="pill glass">Governed AI-assisted SDLC</span>
+  <div id="outro-root" data-composition-id="outro" data-width="1920" data-height="1080">
+    <!-- Deck slide 9: the close. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>Engineering Excellence Expo 2026</span>
       </div>
-      <p class="o-n">MapleSure Insurance is fictional. Every figure shown comes from this system's own run ledgers.</p>
+      <div class="abs glass pg stagechip">11 / 11</div>
+
+      <div class="abs close-head">
+        <p class="kick"><i></i>Control Center<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>Governance</em></span>
+          <span class="l2 grad"><em>is the product.</em></span>
+        </h2>
+        <p class="close-sub">Not how much the AI writes — <b>how many places a named person signs.</b></p>
+      </div>
+
+      <div class="abs takeaways">
+        <div class="glass take"><span class="app red"><svg><use href="#i-package"/></svg></span><div><b>One kit</b><span class="ts">the same context for every developer's AI</span></div></div>
+        <div class="glass take"><span class="app gold"><svg><use href="#i-lock"/></svg></span><div><b>Five gates</b><span class="ts">each one signed by a named person</span></div></div>
+        <div class="glass take"><span class="app ink"><svg><use href="#i-git-commit"/></svg></span><div><b>Every change on the record</b><span class="ts">nothing is silently updated</span></div></div>
+      </div>
     </div>
 
     <style>
-      [data-composition-id="outro"] { position: absolute; inset: 0; }
-      [data-composition-id="outro"] .o-h { margin-bottom: 34px; }
-      [data-composition-id="outro"] .o-r { margin-bottom: 38px; }
-      [data-composition-id="outro"] .o-s { font-size: 32px; text-align: center; margin-bottom: 46px; }
-      [data-composition-id="outro"] .o-b { display: flex; gap: 18px; margin-bottom: 40px; }
-      [data-composition-id="outro"] .o-n { font-size: 20px; color: var(--muted); margin: 0; }
+      #outro-root .close-head { top: 140px; }
+      #outro-root .takeaways { top: 520px; }
     </style>
 
     <script>
       (function () {
-        var R = '[data-composition-id="outro"] ';
+        var R = "#outro-root ";
         var tl = gsap.timeline({ paused: true });
-        tl.fromTo(R + ".o-h", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.3);
-        tl.fromTo(R + ".o-r", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power2.inOut" }, 0.9);
-        tl.fromTo(R + ".o-s", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 1.2);
-        tl.fromTo(R + ".o-b .pill", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.14, ease: "power2.out" }, 1.8);
-        tl.fromTo(R + ".o-n", { opacity: 0 }, { opacity: 1, duration: 0.7, ease: "power1.out" }, 2.5);
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 1.0, stagger: 0.16, ease: "expo.out" }, 0.3);
+        /* the line under the headline is what the voice says, word for word */
+        tl.fromTo(R + ".close-sub", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 2.7);
+        tl.fromTo(R + ".take", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, stagger: 0.25, ease: "power3.out" }, 5.2);
         window.__timelines["outro"] = tl;
       })();
     </script>

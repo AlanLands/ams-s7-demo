@@ -1,37 +1,50 @@
 <template id="intro-template">
-  <div data-composition-id="intro" data-width="1920" data-height="1080">
-    <div class="pad center">
-      <span class="kicker i-k">Engineering Excellence Expo 2026 · BFSI Canada</span>
-      <h1 class="big i-t">Control Center</h1>
-      <div class="rule i-r"></div>
-      <p class="lede i-s">A governed AI-assisted SDLC —<br />business requirement to production release.</p>
-      <div class="i-b">
-        <span class="pill glass">Human governed</span>
-        <span class="pill glass">AI assisted</span>
-        <span class="pill glass">Evidence recorded</span>
+  <div id="intro-root" data-composition-id="intro" data-width="1920" data-height="1080">
+    <!-- Deck slide 1, on the deck's 1600×900 grid (.st16 scales it to 1080p). -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>Engineering Excellence Expo 2026</span>
+      </div>
+      <div class="abs glass pg stagechip">01 / 11</div>
+
+      <div class="abs hero">
+        <h1 class="t-h1">
+          <span class="l1"><em>From requirement</em></span>
+          <span class="l2"><em>to governed</em></span>
+          <span class="l3"><em>release.</em></span>
+        </h1>
+        <p class="sub">AI prepares the work. A named human signs every gate.<br><em>Evidence proves it.</em></p>
+      </div>
+
+      <div class="abs shot"><div class="device glass"><img src="assets/plan-signoff-crop.jpg" alt=""></div></div>
+      <div class="abs glass chip c1"><span class="app violet"><svg><use href="#i-sparkles"/></svg></span>AI assisted</div>
+      <div class="abs glass chip c2"><span class="app red"><svg><use href="#i-shield-check"/></svg></span>Human governed</div>
+      <div class="abs glass toast">
+        <span class="app green"><svg><use href="#i-circle-check"/></svg></span>
+        <div><b>Plan signed &amp; locked</b><span>Signed by the business owner</span></div>
       </div>
     </div>
-    <div class="stagechip i-c"><b>01</b> / 10 · OVERVIEW</div>
 
     <style>
-      [data-composition-id="intro"] { position: absolute; inset: 0; }
-      [data-composition-id="intro"] .i-t { margin-bottom: 30px; }
-      [data-composition-id="intro"] .i-r { margin-bottom: 34px; }
-      [data-composition-id="intro"] .i-s { font-size: 34px; text-align: center; margin-bottom: 44px; }
-      [data-composition-id="intro"] .i-b { display: flex; gap: 18px; }
+      #intro-root .hero { top: 250px; }
+      #intro-root .shot { top: 230px; }
+      #intro-root .c1 { left: 1350px; top: 182px; }
+      #intro-root .c2 { left: 1306px; top: 576px; }
+      #intro-root .toast { left: 800px; top: 522px; }
     </style>
 
     <script>
       (function () {
-        var R = '[data-composition-id="intro"] ';
+        var R = "#intro-root ";
         var tl = gsap.timeline({ paused: true });
-        tl.fromTo(R + ".i-k", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, ease: "power2.out" }, 0.25);
-        tl.fromTo(R + ".i-t", { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.55);
-        tl.fromTo(R + ".i-r", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "power2.inOut" }, 1.15);
-        tl.fromTo(R + ".i-s", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" }, 1.45);
-        tl.fromTo(R + ".i-b .pill", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.13, ease: "power2.out" }, 2.0);
-        tl.fromTo(R + ".i-c", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 0.3);
-        tl.to(R + ".pad", { opacity: 0, y: -22, duration: 0.6, ease: "power2.in" }, 6.3);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.12, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".shot", { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.9, ease: "power3.out" }, 0.6);
+        tl.fromTo(R + ".sub", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.95);
+        /* "business requirement" · "governed" · "release" */
+        tl.fromTo(R + ".c1", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, 3.2);
+        tl.fromTo(R + ".c2", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, 5.4);
+        tl.fromTo(R + ".toast", { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 6.0);
         window.__timelines["intro"] = tl;
       })();
     </script>

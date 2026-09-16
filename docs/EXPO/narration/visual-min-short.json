@@ -1,12 +1,13 @@
 {
   "intro": 7.0,
-  "problem-context": 21.0,
-  "one-pack": 24.0,
-  "upstream": 20.0,
-  "downstream": 20.0,
-  "ide": 22.0,
-  "screens": 21.0,
-  "provenance": 14.0,
-  "evidence": 14.0,
-  "outro": 9.0
+  "problem": 16.0,
+  "difference": 16.0,
+  "solution": 13.0,
+  "upstream": 14.0,
+  "ide": 20.5,
+  "gates": 13.5,
+  "heal": 12.0,
+  "admin": 19.0,
+  "proof": 18.5,
+  "outro": 11.0
 }

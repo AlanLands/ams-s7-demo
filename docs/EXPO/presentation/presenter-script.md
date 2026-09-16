@@ -8,8 +8,14 @@ editing the `.pptx` by hand, or the next rebuild will overwrite you.
 |---|---|---|
 | `expo-10min.pptx` | 13 slides, film embedded on slide 6 | 10 minutes |
 | `expo-detailed.pptx` | 35 slides, film embedded on slide 13 | ~35 minutes, or a leave-behind |
-| `../video-short/renders/video-short.mp4` | The short film | 2:49 |
+| `../video-short/renders/video-short.mp4` | The short film | 3:08 |
 | `../video-detailed/renders/video-detailed.mp4` | The long walkthrough | 5:12 |
+
+**The short film was rebuilt on 2026-09-16** to follow `expo-deck.html` and
+share its look, with a new narration. A `.pptx` embeds whatever render existed
+when it was built, so the current `expo-10min.pptx` still carries the earlier
+2:49 cut, and the run sheet below is timed to that. Rebuild the deck to pick up
+the new film, and every beat after the film then moves 19 seconds later.
 
 Both films are 1920×1080 at 30 fps and are embedded in the decks, so one file
 travels. Keep the standalone `.mp4` to hand anyway — see *Fallbacks*.

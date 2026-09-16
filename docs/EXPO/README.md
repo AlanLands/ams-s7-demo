@@ -16,7 +16,7 @@ run sheet, fallbacks and the Q&A crib.
 | `presentation/expo-deck.html` | **The deck to present.** 9 slides in the browser, with speaker notes and a presenter window (P) and five generated detail views. It needs `expo-deck-assets/` beside it; `make_portable.py` writes a single-file copy. |
 | `presentation/expo-10min.pptx` | 13 slides for the 10-minute slot, short film on slide 6 — the earlier PowerPoint version |
 | `presentation/expo-detailed.pptx` | 35 slides, long film on slide 13 — walkthrough or leave-behind |
-| `video-short/renders/video-short.mp4` | 2:49 · 1920×1080 · 30 fps |
+| `video-short/renders/video-short.mp4` | 3:08 · 1920×1080 · 30 fps · follows `expo-deck.html` scene for scene, in its look |
 | `video-detailed/renders/video-detailed.mp4` | 5:12 · 1920×1080 · 30 fps |
 | `expo-case-study.md` / `.docx` | The two-page submission form |
 
@@ -30,7 +30,7 @@ when you are not in the room to talk over them.
 
 | File | What it is |
 |---|---|
-| `video-short/renders/video-short-narrated.mp4` | 2:49, your voice, word-synced captions |
+| `video-short/renders/video-short-narrated.mp4` | 3:08, your voice, word-synced captions |
 | `video-detailed/renders/video-detailed-narrated.mp4` | 5:12, your voice, word-synced captions |
 | `presentation/expo-10min-narrated.pptx` | Narration on every slide, advances itself |
 | `presentation/expo-detailed-narrated.pptx` | Same, 35 slides |
@@ -86,22 +86,30 @@ script and rebuild, or the next build overwrites your changes.
 - `video-*/render.js` — serves the project on loopback and steps `SEEK` frame by
   frame through `chrome-headless-shell`, then encodes with ffmpeg. Same standing
   as `demo/render_pdf.py`: authoring tooling, not demo runtime.
-- `video-*/icons.js` — 24 flat stroke icons as inline SVG, `currentColor`, so an
-  icon takes the accent of the tile it sits in. No sprite file, no network.
-- `video-*/theme.css` — the Control Centre's own palette and Source Sans 3 plus
-  the accent family, Liquid Glass surfaces (`backdrop-filter`, specular sheen)
-  and the drifting aurora that gives the glass something to refract. Surfaces
-  stay at or above 78% opacity so text contrast survives at 1080p.
+- **`video-short` shares the HTML deck's visual system** (rebuilt 2026-09-16).
+  Its eleven scenes are the deck's nine slides plus the IDE, gates and
+  self-healing detail views, laid out on the deck's own 1600×900 grid inside
+  `.st16` and scaled ×1.2 to 1080p. `theme.css` is the deck's stylesheet with a
+  film-only block at the end that switches CSS animations and transitions off,
+  because every movement has to be a GSAP tween for `SEEK(t)` to reproduce it.
+  The Lucide icons are the deck's inline sprite in `index.html`; the font is
+  Apple's system face with the deck's bundled Inter (`vendor/`). Cue times in
+  each composition are set from the narration's word timings
+  (`narration/timing-short.json`), so a re-voice means re-checking them.
+- `video-detailed/icons.js` and `video-detailed/theme.css` — the earlier system
+  the detailed film still uses: 24 flat stroke icons, the Control Centre's
+  palette with Source Sans 3, Liquid Glass surfaces at or above 78% opacity.
 - `video-*/vendor/` — gsap and the font, vendored. No CDN, nothing fetched at
   render time.
 - `video-*/assets/` — the real application screenshots from run S7-00002, copied
-  from `docs/presenter-guides/screenshots/`.
+  from `docs/presenter-guides/screenshots/` (the short film uses the deck's
+  cropped copies).
 
 Rendering is deterministic: no `Math.random()`, no clock reads on the render
 path, so the same composition produces the same frames every time.
 
 ```sh
-node video-short/render.js --fps 30        # 5,160 frames
+node video-short/render.js --fps 30        # 5,642 frames
 node video-detailed/render.js --fps 30     # 9,540 frames
 ```
 

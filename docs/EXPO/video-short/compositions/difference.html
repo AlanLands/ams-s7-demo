@@ -1,0 +1,81 @@
+<template id="difference-template">
+  <div id="difference-root" data-composition-id="difference" data-width="1920" data-height="1080">
+    <!-- Deck slide 3: paste by hand vs. publish once. -->
+    <div class="st16">
+      <div class="abs glass hdr stagechip">
+        <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+        <b>Control Center</b><i></i><span>The difference</span>
+      </div>
+      <div class="abs glass pg stagechip">03 / 11</div>
+
+      <div class="abs center-head">
+        <p class="kick"><i></i>The difference<i></i></p>
+        <h2 class="t-h1">
+          <span class="l1"><em>Don't paste the context.</em></span>
+          <span class="l2 grad"><em>Publish it.</em></span>
+        </h2>
+      </div>
+
+      <section class="glass side before">
+        <div class="side-hd"><span class="app grey"><svg><use href="#i-clipboard-paste"/></svg></span><div><b>Today</b><span>Copied by hand</span></div></div>
+        <ul class="steps">
+          <li><span class="app blue"><svg><use href="#i-ticket"/></svg></span><p>Each developer opens the ticket</p></li>
+          <li><span class="app gold"><svg><use href="#i-clipboard-paste"/></svg></span><p>Copies what they notice into the AI chat</p></li>
+          <li><span class="app violet"><svg><use href="#i-bot"/></svg></span><p>Every AI gets a different prompt</p></li>
+        </ul>
+        <p class="outcome bad"><svg><use href="#i-circle-x"/></svg>Something gets missed · results differ</p>
+      </section>
+
+      <div class="abs glass vs">vs</div>
+
+      <section class="glass side after">
+        <div class="side-hd"><span class="app red"><svg><use href="#i-shield-check"/></svg></span><div><b>With Control Center</b><span>Published once, shared by all</span></div></div>
+        <ul class="steps">
+          <li class="r1"><span class="app red"><svg><use href="#i-layers"/></svg></span><p>Builds one context kit from the approved plan</p></li>
+          <li class="r2"><span class="app ink"><svg><use href="#i-git-branch"/></svg></span>
+            <div><p>Publishes it to git, next to the code</p>
+              <div class="kit">
+                <span><svg><use href="#i-file-text"/></svg>AGENTS.md</span>
+                <span><svg><use href="#i-list-checks"/></svg>Stories + criteria</span>
+                <span><svg><use href="#i-layers"/></svg>Architecture</span>
+                <span><svg><use href="#i-flask-conical"/></svg>Failing tests</span>
+              </div></div></li>
+          <li class="r3"><span class="app violet"><svg><use href="#i-bot"/></svg></span><p>Every developer's AI reads the same kit</p></li>
+        </ul>
+        <p class="outcome good"><svg><use href="#i-circle-check"/></svg>Nothing missed · one requirement, a test for each rule</p>
+      </section>
+    </div>
+
+    <style>
+      #difference-root .center-head { top: 64px; }
+      #difference-root .side { top: 248px; height: 420px; }
+      #difference-root .steps { margin-top: 18px; gap: 16px; }
+      #difference-root .vs { top: 430px; }
+    </style>
+
+    <script>
+      (function () {
+        var R = "#difference-root ";
+        var tl = gsap.timeline({ paused: true });
+        /* cue times follow the narration's word timings (narration/timing-short.json) */
+        var T = { before: 1.2, bad: 2.6, after: 3.8, r1: 6.5, r2: 9.0, kit: [9.3, 11.0, 13.7, 14.9], git: 17.8, r3: 19.4, good: 21.4 };
+        tl.fromTo(R + ".kick", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 0.1);
+        tl.fromTo(R + ".t-h1 em", { yPercent: 112 }, { yPercent: 0, duration: 0.9, stagger: 0.14, ease: "expo.out" }, 0.25);
+        tl.fromTo(R + ".before", { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.7, ease: "power3.out" }, T.before);
+        tl.fromTo(R + ".before .outcome", { scale: 1 }, { scale: 1.03, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.bad);
+        tl.fromTo(R + ".vs", { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, T.after - 0.2);
+        tl.fromTo(R + ".after", { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.7, ease: "power3.out" }, T.after);
+        ["r1", "r2", "r3"].forEach(function (k) {
+          tl.fromTo(R + ".after ." + k, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, T[k]);
+        });
+        /* each file arrives as the voice names it, then git lights up */
+        document.querySelectorAll(R + ".after .kit span").forEach(function (chip, i) {
+          tl.fromTo(chip, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4, ease: "power2.out" }, T.kit[i]);
+        });
+        tl.fromTo(R + ".after .r2 > .app", { scale: 1 }, { scale: 1.14, duration: 0.3, yoyo: true, repeat: 1, ease: "power2.inOut" }, T.git);
+        tl.fromTo(R + ".after .outcome", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, T.good);
+        window.__timelines["difference"] = tl;
+      })();
+    </script>
+  </div>
+</template>
