@@ -13,6 +13,7 @@ run sheet, fallbacks and the Q&A crib.
 
 | File | What it is |
 |---|---|
+| `presentation/booth.html` | **The booth screen.** The five demonstrations at BFSI Canada — AI-Powered Transformation Center, in number order; ours (21.2) opens `expo-deck.html`. The other four cards are inert until someone adds an href — the file's own comment says where. It needs `expo-deck-assets/fonts/` beside it; `make_portable.py` writes a single-file copy. |
 | `presentation/expo-deck.html` | **The deck to present.** 9 slides in the browser, with speaker notes and a presenter window (P) and five generated detail views. It needs `expo-deck-assets/` beside it; `make_portable.py` writes a single-file copy. |
 | `presentation/expo-10min.pptx` | 13 slides for the 10-minute slot, short film on slide 6 — the earlier PowerPoint version |
 | `presentation/expo-detailed.pptx` | 35 slides, long film on slide 13 — walkthrough or leave-behind |

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BFSI Canada — AI-Powered Transformation Center</title>
+<!--
+  Booth landing screen. Five demonstrations, in number order, all the same
+  weight. Clicking a card opens that demonstration.
+
+  ─────────────────────────────────────────────────────────────────────
+  WIRING THE OTHER FOUR CARDS
+  A card with no link is inert and renders as "link to be added". To wire
+  one up, turn its <span class="card glass"> into an <a> with an href —
+  and change its closing </span> to </a>:
+
+      <span class="card glass" data-key="1">           ->  pending
+      <a class="card glass" href="21.1-soc.pptx" ...>  ->  opens that file
+
+  A .pptx / .pdf / .html sitting next to this file all work the same way.
+  Search for  HREF:21.1 … HREF:21.5  below to find each card.
+  Ours (21.2) points at expo-deck.html.
+
+  A card's footer text is the other half: swap "Link to be added" for
+  "Open the deck" (or "Open the slides") when you wire one up.
+  ─────────────────────────────────────────────────────────────────────
+
+  Look: the expo deck's own material — paper, crimson and gold, Liquid Glass
+  over a soft aurora, Apple system type with bundled Inter as the fallback.
+  It needs expo-deck-assets/fonts/ beside it. Nothing is fetched.
+
+  Keys: 1–5 open a demonstration · F fullscreen
+
+  No client name anywhere (hard rule 2).
+-->
+<style>
+@font-face{font-family:"InterDeck";font-style:normal;font-weight:100 900;font-display:swap;
+  src:url("expo-deck-assets/fonts/inter-latin-wght-normal.woff2") format("woff2")}
+
+:root{
+  --paper:#f7f3ee; --paper-3:#e9e4dc;
+  --ink:#16130e; --ink-soft:#3b3830; --stone:#5c594f;
+  --crimson:#ba0c2f; --crimson-bright:#d31145; --gold:#c7a566; --gold-ink:#94620a;
+  --font-sans:-apple-system,BlinkMacSystemFont,"InterDeck","Helvetica Neue",Arial,sans-serif;
+  --font-mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{background:var(--paper-3)}
+body{min-height:100vh;background:var(--paper);font-family:var(--font-sans);color:var(--ink);
+  -webkit-font-smoothing:antialiased;font-feature-settings:"ss01","cv11";overflow-x:hidden}
+img{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+
+/* ── aurora ─────────────────────────────────────────────────────── */
+.aurora{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.aurora b{position:absolute;display:block;border-radius:50%;filter:blur(80px);opacity:.46}
+.b1{width:720px;height:720px;left:-240px;top:-300px;background:#f2b6c0;animation:drift1 26s ease-in-out infinite}
+.b2{width:620px;height:620px;right:-180px;top:-220px;background:#bcd6ec;animation:drift2 30s ease-in-out infinite}
+.b3{width:700px;height:700px;right:60px;bottom:-420px;background:#edd39a;animation:drift2 28s ease-in-out infinite}
+.b4{width:560px;height:560px;left:160px;bottom:-360px;background:#c4e6d5;animation:drift1 24s ease-in-out infinite}
+.b5{width:460px;height:460px;left:52%;top:100px;background:#f6c2b0;opacity:.38;animation:drift1 22s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}50%{transform:translate(40px,28px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}50%{transform:translate(-36px,-24px)}}
+
+/* ── liquid glass ───────────────────────────────────────────────── */
+.glass{position:relative;
+  background:rgba(255,255,255,.52);
+  -webkit-backdrop-filter:blur(22px) saturate(185%);
+  backdrop-filter:blur(22px) saturate(185%);
+  box-shadow:
+    inset 0 1px 1px rgba(255,255,255,.95),
+    inset 0 -1px 1px rgba(255,255,255,.3),
+    inset 0 0 24px rgba(255,255,255,.3),
+    0 1px 2px rgba(60,30,20,.06),
+    0 26px 60px -22px rgba(90,40,30,.28);
+}
+.glass::before{content:"";position:absolute;inset:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+  background:linear-gradient(135deg,rgba(255,255,255,.98) 0%,rgba(255,255,255,.3) 30%,
+             rgba(255,255,255,.06) 55%,rgba(255,255,255,.65) 100%);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+  -webkit-mask-composite:xor;mask-composite:exclude}
+.glass>*{position:relative;z-index:1}
+
+/* ── app icon tiles ─────────────────────────────────────────────── */
+.app{position:relative;display:grid;place-items:center;border-radius:28%;flex:0 0 auto;
+  background:linear-gradient(155deg,var(--c1) 0%,var(--c2) 100%);
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.55),inset 0 -3px 8px rgba(0,0,0,.16),
+    0 2px 4px rgba(0,0,0,.08),0 14px 26px -10px var(--sh)}
+.app::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(180deg,rgba(255,255,255,.36) 0%,rgba(255,255,255,.1) 48%,rgba(255,255,255,0) 52%)}
+.app>svg{position:relative;z-index:1;width:50%;height:50%;color:#fff;filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.22))}
+.app.blue  {--c1:#6590b5;--c2:#2d5378;--sh:rgba(45,83,120,.55)}
+.app.red   {--c1:#d9354f;--c2:#8e0a23;--sh:rgba(142,10,35,.5)}
+.app.gold  {--c1:#d6a650;--c2:#98690f;--sh:rgba(152,105,15,.5)}
+.app.green {--c1:#43a07b;--c2:#1a5f45;--sh:rgba(26,95,69,.5)}
+.app.violet{--c1:#8574cc;--c2:#473690;--sh:rgba(71,54,144,.5)}
+
+/* ── page frame ─────────────────────────────────────────────────── */
+.wrap{position:relative;z-index:1;max-width:1640px;margin:0 auto;
+  padding:clamp(20px,2.4vh,38px) clamp(20px,2.6vw,52px) clamp(18px,2vh,26px);
+  min-height:100vh;display:flex;flex-direction:column}
+
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;height:54px;padding:0 22px 0 9px;border-radius:99px}
+.brand .mk{width:36px;height:36px;border-radius:50%;background:var(--crimson);display:grid;place-items:center;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.45)}
+.brand .mk svg{width:20px;height:20px}
+.brand b{font-size:18px;font-weight:700;letter-spacing:-.02em}
+.brand i{width:1px;height:20px;background:rgba(22,19,14,.18)}
+.brand span{font-family:var(--font-mono);font-size:12px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--stone)}
+.booth{height:54px;padding:0 20px;border-radius:99px;display:grid;place-items:center;
+  font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--crimson)}
+
+.head{margin-top:clamp(18px,3vh,38px)}
+.kick{display:flex;align-items:center;gap:14px;font-family:var(--font-mono);font-size:13px;font-weight:700;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--crimson)}
+.kick i{display:block;width:40px;height:2px;background:var(--crimson)}
+h1{margin-top:13px;font-weight:700;letter-spacing:-.035em;line-height:1.03;
+  font-size:clamp(32px,min(3.8vw,6vh),58px)}
+h1 em{font-style:normal;background:linear-gradient(90deg,var(--crimson),var(--crimson-bright) 55%,var(--gold));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{margin-top:13px;font-size:clamp(15px,1.25vw,20px);font-weight:500;line-height:1.45;
+  letter-spacing:-.01em;color:var(--ink-soft);max-width:70ch}
+
+/* ── five equal cards, in number order ──────────────────────────── */
+.grid{margin-top:clamp(20px,3.4vh,40px);display:grid;grid-template-columns:repeat(5,1fr);
+  gap:clamp(14px,1.2vw,20px);align-items:stretch}
+
+.card{display:flex;flex-direction:column;border-radius:28px;
+  padding:clamp(18px,1.5vw,26px);min-height:clamp(240px,36vh,340px);
+  transition:transform .5s var(--ease),box-shadow .5s var(--ease)}
+.card .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.card .no{font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:.14em;
+  color:var(--stone);padding-top:6px}
+.card .app{width:clamp(46px,3.2vw,56px);height:clamp(46px,3.2vw,56px)}
+.card h2{margin-top:clamp(14px,1.6vh,20px);font-size:clamp(18px,1.35vw,22px);font-weight:700;
+  letter-spacing:-.022em;line-height:1.2}
+.card .tag{margin-top:10px;font-size:clamp(14px,1.02vw,16px);font-weight:500;line-height:1.42;color:var(--stone)}
+.card .foot{margin-top:auto;padding-top:20px;display:flex;align-items:center;gap:9px;
+  font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}
+.card .foot svg{width:16px;height:16px;flex:0 0 auto;transition:transform .4s var(--ease)}
+
+/* a card wired to a file is live … */
+a.card{cursor:pointer}
+a.card .foot{color:var(--crimson)}
+a.card:hover,a.card:focus-visible{transform:translateY(-6px);outline:none;
+  box-shadow:inset 0 1px 1px rgba(255,255,255,.95),inset 0 -1px 1px rgba(255,255,255,.3),
+    inset 0 0 24px rgba(255,255,255,.35),0 1px 2px rgba(60,30,20,.06),
+    0 40px 70px -24px rgba(90,40,30,.38)}
+a.card:hover .foot svg{transform:translateX(4px)}
+/* … one that is not says so */
+span.card{cursor:default}
+span.card .foot{color:rgba(92,89,79,.7)}
+
+.ftr{margin-top:auto;padding-top:clamp(18px,2.4vh,30px);display:flex;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--stone)}
+.ftr .sep{font-style:normal;margin:0 12px;color:rgba(22,19,14,.28)}
+.ftr .conf{font-weight:700;color:var(--ink-soft)}
+.ftr kbd{font-family:var(--font-mono);font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;
+  background:rgba(255,255,255,.8);box-shadow:inset 0 0 0 1px rgba(22,19,14,.14);letter-spacing:.06em}
+
+@media (max-width:1280px){ .grid{grid-template-columns:repeat(3,1fr)} }
+@media (max-width:860px){ .grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:560px){ .grid{grid-template-columns:1fr} .wrap{padding-left:18px;padding-right:18px} }
+@media (prefers-reduced-motion:reduce){
+  .aurora b{animation:none}
+  a.card:hover,a.card:focus-visible{transform:none}
+}
+</style>
+</head>
+<body>
+
+<!-- glyphs — Lucide v0.460.0 (ISC), one symbol each, used via <use> -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-shield-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  <symbol id="i-shield-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/></symbol>
+  <symbol id="i-flask-conical" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.527a2 2 0 0 1-.211.896L4.72 20.55a1 1 0 0 0 .9 1.45h12.76a1 1 0 0 0 .9-1.45l-5.069-10.127A2 2 0 0 1 14 9.527V2"/><path d="M8.5 2h7"/><path d="M7 16h10"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+</defs></svg>
+
+<div class="aurora"><b class="b1"></b><b class="b2"></b><b class="b3"></b><b class="b4"></b><b class="b5"></b></div>
+
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand glass">
+      <span class="mk"><svg viewBox="0 0 24 24" fill="none" stroke="#faf8f4" stroke-width="2.2" stroke-linecap="round"><path d="M4 16c3-1 5-7 8-7s5 6 8 7"/><circle cx="12" cy="8" r="1.6" fill="#faf8f4" stroke="none"/></svg></span>
+      <b>BFSI Canada</b><i></i><span>Engineering Excellence Expo 2026</span>
+    </div>
+    <div class="booth glass">Booth 21</div>
+  </div>
+
+  <header class="head">
+    <p class="kick"><i></i>AI-Powered Transformation Center</p>
+    <h1>Five demonstrations.<br><em>One transformation story.</em></h1>
+    <p class="lede">From threat investigation to production release. Pick one to open it.</p>
+  </header>
+
+  <main class="grid">
+
+    <!-- ══════════ 21.1 ══════════ HREF:21.1 — add href to make it live ══════════ -->
+    <span class="card glass" data-key="1">
+      <div class="top">
+        <p class="no">21.1</p>
+        <span class="app blue"><svg><use href="#i-shield-alert"/></svg></span>
+      </div>
+      <h2>SOC Efficiency Engine</h2>
+      <p class="tag">Automating threat investigation.</p>
+      <p class="foot"><svg><use href="#i-clock"/></svg>Link to be added</p>
+    </span>
+
+    <!-- ══════════ 21.2 · OURS ══════════ HREF:21.2 ══════════ -->
+    <a class="card glass" href="expo-deck.html" data-key="2"
+       aria-label="21.2 Control Center, Governed AI-Assisted SDLC — open the deck">
+      <div class="top">
+        <p class="no">21.2</p>
+        <span class="app red"><svg><use href="#i-shield-check"/></svg></span>
+      </div>
+      <h2>Control Center — Governed AI-Assisted SDLC</h2>
+      <p class="tag">From business requirement to production release — governed by AI, trusted by humans.</p>
+      <p class="foot">Open the deck <svg><use href="#i-arrow-right"/></svg></p>
+    </a>
+
+    <!-- ══════════ 21.3 ══════════ HREF:21.3 — add href to make it live ══════════ -->
+    <span class="card glass" data-key="3">
+      <div class="top">
+        <p class="no">21.3</p>
+        <span class="app gold"><svg><use href="#i-activity"/></svg></span>
+      </div>
+      <h2>Batch Monitoring System</h2>
+      <p class="tag">Tagline to be added.</p>
+      <p class="foot"><svg><use href="#i-clock"/></svg>Link to be added</p>
+    </span>
+
+    <!-- ══════════ 21.4 ══════════ HREF:21.4 — add href to make it live ══════════ -->
+    <span class="card glass" data-key="4">
+      <div class="top">
+        <p class="no">21.4</p>
+        <span class="app green"><svg><use href="#i-flask-conical"/></svg></span>
+      </div>
+      <h2>Transforming Test Automation with Playwright and AI Agents</h2>
+      <p class="tag">Ready for QA to quality assured — autonomous and self-healing.</p>
+      <p class="foot"><svg><use href="#i-clock"/></svg>Link to be added</p>
+    </span>
+
+    <!-- ══════════ 21.5 ══════════ HREF:21.5 — add href to make it live ══════════ -->
+    <span class="card glass" data-key="5">
+      <div class="top">
+        <p class="no">21.5</p>
+        <span class="app violet"><svg><use href="#i-cloud"/></svg></span>
+      </div>
+      <h2>AI-Driven Enterprise Cloud Transformation with Agentic AI</h2>
+      <p class="tag">Reimagining enterprise transformation with agentic AI.</p>
+      <p class="foot"><svg><use href="#i-clock"/></svg>Link to be added</p>
+    </span>
+
+  </main>
+
+  <div class="ftr">
+    <p>BFSI Canada — AI-Powered Transformation Center<i class="sep">|</i><b class="conf">TCS Confidential</b></p>
+    <p><kbd>1</kbd>–<kbd>5</kbd> open &nbsp;·&nbsp; <kbd>F</kbd> fullscreen</p>
+  </div>
+
+</div>
+
+<script>
+// 1-5 open the matching demonstration (only the ones wired to a file);
+// F toggles fullscreen, for the booth screen.
+addEventListener("keydown", function (e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var k = e.key.toLowerCase();
+  if (k === "f") {
+    e.preventDefault();
+    if (document.fullscreenElement) document.exitFullscreen();
+    else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen();
+    return;
+  }
+  if (!/^[1-5]$/.test(k)) return;
+  var card = document.querySelector('[data-key="' + k + '"]');
+  if (card && card.tagName === "A") { e.preventDefault(); card.click(); }
+});
+</script>
+
+</body>
+</html>
